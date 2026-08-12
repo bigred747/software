@@ -60,7 +60,7 @@
 	margin: 0 0 6px;
 }
 .lsr-note {
-	margin: 0;
+	margin: 0 0 20px;
 	color: #475569;
 	font-size: 13px;
 	line-height: 1.5;
@@ -83,7 +83,7 @@
 }
 .lsr-scorebar {
 	display: grid;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
+	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 12px;
 	margin: 20px 0;
 	padding: 18px 20px;

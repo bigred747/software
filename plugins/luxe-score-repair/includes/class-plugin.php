@@ -45,6 +45,7 @@ class Luxe_Score_Repair_Plugin {
 			'affiliate_disclosure'  => 1,
 			'process_learning'      => 1,
 			'auto_purge'            => 1,
+			'fix_sitemaps'          => 1,
 		);
 	}
 
@@ -85,6 +86,7 @@ class Luxe_Score_Repair_Plugin {
 		Luxe_Score_Repair_Headers::instance()->boot();
 		Luxe_Score_Repair_Redirects::instance()->boot();
 		Luxe_Score_Repair_Buffer::instance()->boot();
+		Luxe_Score_Repair_Sitemaps::instance()->boot();
 		Luxe_Score_Repair_Learning::instance()->boot();
 
 		if ( is_admin() ) {

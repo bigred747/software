@@ -104,14 +104,17 @@ class Luxe_Score_Repair_Admin {
 			'noindex_test'      => 'Test blog noindex',
 			'noindex_portal'    => 'Client portal noindex',
 			'noindex_cart'      => 'Cart noindex',
+			'noindex_wishlist'  => 'Wishlist noindex',
 			'filler'            => 'AI filler hidden',
 			'alts'              => 'Image alt text',
 			'generator'         => 'Generator tag hidden',
 			'disclosure'        => 'Amazon disclosure',
 			'headers'           => 'Public cache + HSTS',
 			'blog_301'          => '/blog/ → /blogs/',
-			'learning'          => 'Process learning heartbeat',
+			'sitemap_clean'     => 'Sitemaps exclude junk',
+			'learning'          => '24/7 process learning',
 			'purge'             => 'Cache purge',
+			'always_on'         => 'Always-on heartbeat',
 		);
 		$signals = array();
 		foreach ( $items as $id => $label ) {
@@ -119,7 +122,7 @@ class Luxe_Score_Repair_Admin {
 				'id'     => $id,
 				'label'  => $label,
 				'level'  => 'green',
-				'detail' => 'Process armed. Click Run process learning to verify live HTML.',
+				'detail' => 'Process armed. 24/7 learning starts on the next public homepage hit.',
 			);
 		}
 		return array(
@@ -127,7 +130,8 @@ class Luxe_Score_Repair_Admin {
 			'green'    => count( $signals ),
 			'total'    => count( $signals ),
 			'signals'  => $signals,
-			'score_10' => 10,
+			'score_10' => 0,
+			'seo_100'  => 0,
 			'seo_band' => 'armed',
 		);
 	}
@@ -156,6 +160,12 @@ class Luxe_Score_Repair_Admin {
 		$url   = admin_url( 'tools.php?page=luxe-score-repair' );
 		echo '<div class="notice ' . esc_attr( $class ) . ' is-dismissible"><p><strong>Luxe Score Repair:</strong> ';
 		echo esc_html( $green . ' / ' . $total . ' processes green.' );
+		if ( ! empty( $last['seo_100'] ) ) {
+			echo ' Technical SEO ' . esc_html( (string) (int) $last['seo_100'] ) . '/100.';
+		}
+		if ( ! empty( $last['score_10'] ) ) {
+			echo ' Public output ' . esc_html( (string) $last['score_10'] ) . '/10.';
+		}
 		echo ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open signal board', 'luxe-score-repair' ) . '</a></p></div>';
 	}
 }

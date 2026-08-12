@@ -37,7 +37,14 @@ class Luxe_Score_Repair_Headers {
 	 * @return array
 	 */
 	public function wp_headers( $headers ) {
-		if ( ! is_array( $headers ) || ! Luxe_Score_Repair_Plugin::instance()->enabled( 'fix_headers' ) ) {
+		if ( ! is_array( $headers ) ) {
+			return $headers;
+		}
+		$plugin = Luxe_Score_Repair_Plugin::instance();
+		if ( $plugin->enabled( 'noindex_utility' ) && Luxe_Score_Repair_SEO::instance()->should_noindex() ) {
+			$headers['X-Robots-Tag'] = 'noindex, follow';
+		}
+		if ( ! $plugin->enabled( 'fix_headers' ) ) {
 			return $headers;
 		}
 		if ( ! $this->is_cacheable_public() ) {
@@ -45,6 +52,9 @@ class Luxe_Score_Repair_Headers {
 		}
 		$headers['Cache-Control'] = 'public, max-age=600, s-maxage=600';
 		unset( $headers['Expires'], $headers['Pragma'] );
+		if ( is_ssl() ) {
+			$headers['Strict-Transport-Security'] = 'max-age=15552000; includeSubDomains';
+		}
 		if ( empty( $headers['X-Content-Type-Options'] ) ) {
 			$headers['X-Content-Type-Options'] = 'nosniff';
 		}
@@ -58,19 +68,29 @@ class Luxe_Score_Repair_Headers {
 	}
 
 	/**
-	 * HSTS only on HTTPS. Short enough to reverse if hosting changes.
+	 * Replace leftover session no-cache headers and stamp HSTS / X-Robots-Tag.
 	 */
 	public function send_headers() {
-		if ( is_admin() || ! Luxe_Score_Repair_Plugin::instance()->enabled( 'fix_headers' ) ) {
+		if ( is_admin() || headers_sent() ) {
 			return;
 		}
-		if ( ! is_ssl() ) {
+		$plugin = Luxe_Score_Repair_Plugin::instance();
+		if ( $plugin->enabled( 'noindex_utility' ) && Luxe_Score_Repair_SEO::instance()->should_noindex() ) {
+			header( 'X-Robots-Tag: noindex, follow', true );
+		}
+		if ( ! $plugin->enabled( 'fix_headers' ) ) {
 			return;
 		}
-		if ( headers_sent() ) {
-			return;
+		if ( $this->is_cacheable_public() ) {
+			if ( function_exists( 'header_remove' ) ) {
+				header_remove( 'Expires' );
+				header_remove( 'Pragma' );
+			}
+			header( 'Cache-Control: public, max-age=600, s-maxage=600', true );
 		}
-		header( 'Strict-Transport-Security: max-age=15552000; includeSubDomains', false );
+		if ( is_ssl() ) {
+			header( 'Strict-Transport-Security: max-age=15552000; includeSubDomains', true );
+		}
 	}
 
 	/**

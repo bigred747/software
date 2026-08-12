@@ -135,6 +135,10 @@ class Luxe_Score_Repair_Buffer {
 			$html = preg_replace( '/\[(\/?ez-?toc|toc)[^\]]*\]/i', '', $html );
 		}
 
+		if ( $plugin->enabled( 'process_learning' ) && $seo->is_front() && ! is_user_logged_in() ) {
+			Luxe_Score_Repair_Learning::capture_from_html( $html );
+		}
+
 		return $html;
 	}
 

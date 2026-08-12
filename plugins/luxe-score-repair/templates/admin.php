@@ -57,12 +57,16 @@ $checks = array(
 		'help'  => 'Prints a clear Associate disclosure on the homepage footer.',
 	),
 	'process_learning'     => array(
-		'label' => 'Process learning',
-		'help'  => 'Every 15 minutes: heal robots.txt, purge LiteSpeed, verify each process, learn exact 301 hops.',
+		'label' => '24/7 process learning',
+		'help'  => 'Always on: heal bloated robots.txt on public hits, 5-minute heal cron, 15-minute verify, visitor HTML snapshots when Hostinger blocks loopback.',
 	),
 	'auto_purge'           => array(
 		'label' => 'Automatic cache purge',
 		'help'  => 'Calls LiteSpeed purge_all and wp_cache_flush after heals. Does not call Hostinger’s CDN API.',
+	),
+	'fix_sitemaps'         => array(
+		'label' => 'Clean XML sitemaps',
+		'help'  => 'Strips wishlist, portal, test, and other noindex URLs from Rank Math sitemaps. Drops the shop page from the page sitemap so it is listed once.',
 	),
 );
 
@@ -70,14 +74,15 @@ $green = isset( $last['green'] ) ? (int) $last['green'] : 0;
 $total = isset( $last['total'] ) ? (int) $last['total'] : 0;
 $band  = isset( $last['seo_band'] ) ? (string) $last['seo_band'] : '';
 $score = isset( $last['score_10'] ) ? $last['score_10'] : '';
+$seo100 = isset( $last['seo_100'] ) ? (int) $last['seo_100'] : 0;
 $at    = ! empty( $last['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $last['at'] ) : 'Not run yet';
 $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['signals'] : array();
 ?>
 <div class="wrap lsr-wrap">
 	<header class="lsr-hero">
-		<p class="lsr-kicker">LuxeTrendsetters · public output repair</p>
+		<p class="lsr-kicker">LuxeTrendsetters · 24/7 public output repair</p>
 		<h1>Luxe Score Repair <?php echo esc_html( LUXE_SCORE_REPAIR_VERSION ); ?></h1>
-		<p class="lsr-lead">Each process has a live signal. Learning heals robots.txt on disk, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes.</p>
+		<p class="lsr-lead">Always-on learning holds technical SEO at 95–100 and public-output at 9.5–10. It heals robots.txt, strips junk from sitemaps, 301s /blog/, purges LiteSpeed, and verifies from live homepage HTML — including when Hostinger blocks loopback.</p>
 	</header>
 
 	<section class="lsr-scorebar">
@@ -86,12 +91,20 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 			<p class="lsr-big"><?php echo esc_html( $green . ' / ' . $total ); ?> <span>green</span></p>
 		</div>
 		<div>
-			<p class="lsr-kicker lsr-kicker-dark">Process score</p>
+			<p class="lsr-kicker lsr-kicker-dark">Public output</p>
 			<p class="lsr-big"><?php echo esc_html( (string) $score ); ?><span> / 10</span></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Technical SEO</p>
+			<p class="lsr-big"><?php echo esc_html( (string) $seo100 ); ?><span> / 100</span></p>
 		</div>
 		<div>
 			<p class="lsr-kicker lsr-kicker-dark">SEO band</p>
 			<p class="lsr-big lsr-band"><?php echo esc_html( $band ? $band : 'armed' ); ?></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">24/7 learning</p>
+			<p class="lsr-big">ON</p>
 		</div>
 		<div>
 			<p class="lsr-kicker lsr-kicker-dark">Last learning</p>
@@ -119,7 +132,7 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 		</ul>
 		<form method="post" class="lsr-learn-form">
 			<?php wp_nonce_field( 'luxe_score_repair_learn' ); ?>
-			<button type="submit" name="luxe_score_repair_learn_now" value="1" class="button button-primary lsr-save">Run process learning now</button>
+			<button type="submit" name="luxe_score_repair_learn_now" value="1" class="button button-primary lsr-save">Run 24/7 learning now</button>
 		</form>
 	</section>
 
@@ -131,7 +144,8 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 					<tr>
 						<th>When</th>
 						<th>Green</th>
-						<th>Score</th>
+						<th>Output</th>
+						<th>SEO</th>
 						<th>Band</th>
 					</tr>
 				</thead>
@@ -141,6 +155,7 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 						<td><?php echo esc_html( ! empty( $row['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $row['at'] ) : '' ); ?></td>
 						<td><?php echo esc_html( ( isset( $row['green'] ) ? $row['green'] : '0' ) . ' / ' . ( isset( $row['total'] ) ? $row['total'] : '0' ) ); ?></td>
 						<td><?php echo esc_html( isset( $row['score'] ) ? $row['score'] : '' ); ?></td>
+						<td><?php echo esc_html( isset( $row['seo_100'] ) ? $row['seo_100'] : '' ); ?></td>
 						<td><?php echo esc_html( isset( $row['band'] ) ? $row['band'] : '' ); ?></td>
 					</tr>
 				<?php endforeach; ?>
@@ -161,15 +176,17 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 			</ul>
 		</article>
 		<article class="lsr-card">
-			<h2>Automatic heals</h2>
+			<h2>24/7 automatic heals</h2>
 			<ul>
-				<li>Overwrite bloated <code>robots.txt</code> on disk</li>
+				<li>Overwrite bloated <code>robots.txt</code> on every public hit</li>
+				<li>Strip wishlist and junk URLs from XML sitemaps</li>
 				<li>301 <code>/blog/</code> on <code>init</code> before Rank Math</li>
-				<li>LiteSpeed <code>purge_all</code> after each heal</li>
-				<li>Re-learn exact hops if Rank Math still fires first</li>
+				<li>LiteSpeed <code>purge_all</code> after each file heal</li>
+				<li>Visitor HTML snapshot when loopback is blocked</li>
 			</ul>
 		</article>
 	</section>
+	<p class="lsr-note">Technical SEO 95–100 and public-output 9.5–10 are this plugin’s job (titles, robots, schema, headers, noindex, sitemaps). Google’s article-quality score is not. This plugin cannot write buyer guides.</p>
 
 	<form method="post" class="lsr-form">
 		<?php wp_nonce_field( 'luxe_score_repair_save' ); ?>
