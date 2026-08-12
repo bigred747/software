@@ -6,11 +6,12 @@ $checks = array(
 	'clean_widgets'          => 'Remove YITH news, WordPress news, Quick Draft, empty reviews, and Site Health widgets',
 	'hide_dashboard_notices' => 'Hide repeating plugin nags on the Dashboard screen (toggle still available)',
 	'hide_rank_math_blog'    => 'Hide “Latest Blog Posts from Rank Math” inside the Overview widget',
+	'hide_sitekit_upsells'   => 'Hide Site Kit Reader Revenue Manager, Ads, and AdSense connect upsells',
 	'show_operator_widget'   => 'Show the Luxe Operator card at the top of Dashboard',
 );
 ?>
 <div class="wrap luxe-op-wrap">
-	<h1>Luxe Operator Dashboard 1.0.0</h1>
+	<h1>Luxe Operator Dashboard 1.1.0</h1>
 	<p>Admin-only. It does not auto-write, auto-publish, hook frontend content, or run content cron. Keep <strong>Luxe Hard Rescue Admin Cleaner</strong> active.</p>
 
 	<form method="post">

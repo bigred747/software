@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Luxe Operator Dashboard
  * Plugin URI: https://luxetrendsetters.com/
- * Description: Admin-only WordPress dashboard cleaner for LuxeTrendsetters. Hides vendor blogs, empty widgets, and repeating plugin nags on the Dashboard screen. Explains Rank Math zeros, Site Kit 1s lag, WooCommerce $0, and the Mission Control red. Does not auto-write, auto-publish, hook frontend content, or run content cron.
- * Version: 1.0.0
+ * Description: Admin-only WordPress dashboard cleaner for LuxeTrendsetters. Hides vendor blogs, Site Kit upsells, empty widgets, and repeating plugin nags. Explains Rank Math zeros, 99.8% Direct / 1s Site Kit lag, WooCommerce $0, and the Mission Control red. Does not auto-write, auto-publish, hook frontend content, or run content cron.
+ * Version: 1.1.0
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Richard Brummer
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LUXE_OP_VERSION', '1.0.0' );
+define( 'LUXE_OP_VERSION', '1.1.0' );
 define( 'LUXE_OP_FILE', __FILE__ );
 define( 'LUXE_OP_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LUXE_OP_URL', plugin_dir_url( __FILE__ ) );

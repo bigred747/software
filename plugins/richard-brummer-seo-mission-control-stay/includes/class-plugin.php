@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Shared options, cron, and AJAX for Stay Repair 1.9.3.
+ * Shared options, cron, and AJAX for Stay Repair 1.9.4.
  */
 class RBSMC_Stay_Plugin {
 
@@ -148,6 +148,8 @@ class RBSMC_Stay_Plugin {
 				'clicks'       => absint( wp_unslash( $_POST['snapshot_clicks'] ) ),
 				'not_found'    => absint( wp_unslash( $_POST['snapshot_404'] ) ),
 				'wc_sales'     => sanitize_text_field( wp_unslash( $_POST['snapshot_wc_sales'] ) ),
+				'direct_pct'   => isset( $_POST['snapshot_direct_pct'] ) ? min( 100, absint( wp_unslash( $_POST['snapshot_direct_pct'] ) ) ) : 0,
+				'engagement'   => isset( $_POST['snapshot_engagement'] ) ? min( 100, absint( wp_unslash( $_POST['snapshot_engagement'] ) ) ) : 0,
 				'saved_at'     => time(),
 				'source'       => 'administrator-entered Site Kit / Rank Math snapshot',
 			);

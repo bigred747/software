@@ -1,18 +1,18 @@
-# Luxe Operator Dashboard 1.0.0
+# Luxe Operator Dashboard 1.1.0
 
-Admin-only. Upload `Luxe-Operator-Dashboard-v1.0.0.zip` through **Plugins → Add Plugin → Upload Plugin**.
+Admin-only. Upload `Luxe-Operator-Dashboard-v1.1.0.zip` through **Plugins → Add Plugin → Upload Plugin**.
 
 Keep **Luxe Hard Rescue Admin Cleaner** active. This plugin does not replace it.
 
-After activate, open **Dashboard**. Vendor blogs and repeating nags are hidden. The operator card explains:
+After activate, open **Dashboard**. Vendor blogs, repeating nags, and Site Kit upsells are hidden. The operator card explains:
 
 | What you pasted | Meaning |
 | --- | --- |
-| Richard Brummer SEO 1 red | Truncated homepage FAQ JSON-LD. Stay Repair 1.9.3 quarantines it. |
-| Rank Math 0 / 0 / 0 / 0 | Rank Math Search Console widget is disconnected. Site Kit has the real 36 impressions. |
-| Site Kit 1s | 28-day lag from LiteSpeed Guest Mode reloads. Trust Stay Repair dwell samples. |
-| WooCommerce $0 | Amazon affiliate catalog. Expected. |
-| YITH / Rank Math blogs | Vendor marketing. Removed from Dashboard. |
-| Site Health “No information yet” | WordPress has not run the check. Open Site Health once. |
+| 19K users, 99.8% Direct, 1s | Crawler / Guest Mode reloads, not Google growth. |
+| 36 impressions, 0 clicks | Real search picture. |
+| Add to cart 0% / AdSense disconnected | Amazon affiliate. Do not connect AdSense. |
+| Reader Revenue Manager / Ads | Site Kit upsells. Hidden. |
+| Richard Brummer SEO 1 red | Truncated homepage FAQ JSON-LD. Stay Repair 1.9.4 quarantines it. |
+| TBT 260ms | Lab JS. LCP 1.7s and CLS 0 are already Good. |
 
 This plugin never hooks the public site and never publishes.

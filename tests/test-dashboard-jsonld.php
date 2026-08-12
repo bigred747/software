@@ -55,6 +55,11 @@ assert_true( ! in_array( 'rank_math_dashboard_widget', $ids, true ), 'Rank Math 
 assert_true( ! in_array( 'wordfence_activity_report_widget', $ids, true ), 'Wordfence activity is kept' );
 assert_true( ! in_array( 'dashboard_right_now', $ids, true ), 'At a Glance is kept' );
 
+require dirname( __DIR__ ) . '/plugins/richard-brummer-seo-mission-control-stay/includes/class-traffic.php';
+assert_true( 'crawler-or-guest-reload' === RBSMC_Stay_Traffic::classify( 19000, 100, 1, 0 ), '19K Direct 1s 0 clicks is crawler pattern' );
+assert_true( 'not-google-search' === RBSMC_Stay_Traffic::classify( 19000, 80, 20, 0 ), 'high Direct with longer sessions is not-google-search' );
+assert_true( 'mixed' === RBSMC_Stay_Traffic::classify( 500, 40, 90, 20 ), 'small mixed traffic stays mixed' );
+
 if ( $fail ) {
 	echo "\n$fail failed\n";
 	exit( 1 );

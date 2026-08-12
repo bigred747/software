@@ -33,6 +33,7 @@ class Luxe_Operator_Dashboard {
 			'clean_widgets'          => 1,
 			'hide_dashboard_notices' => 1,
 			'hide_rank_math_blog'    => 1,
+			'hide_sitekit_upsells'   => 1,
 			'show_operator_widget'   => 1,
 		);
 	}
@@ -97,9 +98,10 @@ class Luxe_Operator_Dashboard {
 	 * @param string $hook Hook.
 	 */
 	public function assets( $hook ) {
-		$on_dash = ( 'index.php' === $hook );
-		$on_page = ( false !== strpos( (string) $hook, 'luxe-operator-dashboard' ) );
-		if ( ! $on_dash && ! $on_page ) {
+		$on_dash    = ( 'index.php' === $hook );
+		$on_page    = ( false !== strpos( (string) $hook, 'luxe-operator-dashboard' ) );
+		$on_sitekit = ( false !== strpos( (string) $hook, 'googlesitekit' ) );
+		if ( ! $on_dash && ! $on_page && ! $on_sitekit ) {
 			return;
 		}
 		wp_enqueue_style( 'luxe-op-admin', LUXE_OP_URL . 'assets/admin.css', array(), LUXE_OP_VERSION );
@@ -110,6 +112,7 @@ class Luxe_Operator_Dashboard {
 			array(
 				'hideNotices' => $this->enabled( 'hide_dashboard_notices' ) && $on_dash ? 1 : 0,
 				'hideBlog'    => $this->enabled( 'hide_rank_math_blog' ) ? 1 : 0,
+				'hideSiteKit' => $this->enabled( 'hide_sitekit_upsells' ) && $on_sitekit ? 1 : 0,
 			)
 		);
 	}

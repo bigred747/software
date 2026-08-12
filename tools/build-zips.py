@@ -12,10 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 
 PLUGINS = (
-    ("plugins/luxe-operator-dashboard", "Luxe-Operator-Dashboard-v1.0.0.zip", "luxe-operator-dashboard"),
+    ("plugins/luxe-operator-dashboard", "Luxe-Operator-Dashboard-v1.1.0.zip", "luxe-operator-dashboard"),
     (
         "plugins/richard-brummer-seo-mission-control-stay",
-        "Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.3.zip",
+        "Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.4.zip",
         "richard-brummer-seo-mission-control-stay",
     ),
 )
@@ -48,22 +48,26 @@ def build(src_rel: str, zip_name: str, folder: str) -> None:
     print(f"{dest.name} {dest.stat().st_size} {digest}")
 
 
-PACK_NAME = "Luxe-Dashboard-Fix-v1.0.0.zip"
+PACK_NAME = "Luxe-Dashboard-Fix-v1.1.0.zip"
 
-INSTALL_TXT = """Luxe Dashboard Fix v1.0.0
+INSTALL_TXT = """Luxe Dashboard Fix v1.1.0
 
 Do not upload THIS pack zip into WordPress. Unzip it first, then upload the two plugin zips.
 
 WordPress → Plugins → Add Plugin → Upload Plugin
 
-1. Luxe-Operator-Dashboard-v1.0.0.zip
-   New plugin. Keep Luxe Hard Rescue Admin Cleaner active.
+1. Luxe-Operator-Dashboard-v1.1.0.zip
+   New plugin or replace 1.0.0. Keep Luxe Hard Rescue Admin Cleaner active.
+   Hides Site Kit Reader Revenue Manager / Ads / AdSense upsells.
 
-2. Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.3.zip
-   Upload over Stay Repair 1.9.2. Do not replace Mission Control 1.8.1.
+2. Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.4.zip
+   Upload over Stay Repair 1.9.2 or 1.9.3. Do not replace Mission Control 1.8.1.
+
+Site Kit 19K users / 99.8% Direct / 1s / 0 search clicks is crawler traffic, not Google growth.
+Do not connect AdSense or Reader Revenue Manager.
 
 Then: LiteSpeed Guest Mode OFF, Crawler OFF, Purge All.
-Stay Repair → Save → Run audit now.
+Stay Repair → paste Site Kit numbers → Save → Run audit now.
 Mission Control → run the bounded full audit.
 """
 
@@ -73,8 +77,8 @@ def build_pack() -> None:
     if dest.exists():
         dest.unlink()
     members = [
-        DIST / "Luxe-Operator-Dashboard-v1.0.0.zip",
-        DIST / "Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.3.zip",
+        DIST / "Luxe-Operator-Dashboard-v1.1.0.zip",
+        DIST / "Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.4.zip",
     ]
     with zipfile.ZipFile(dest, "w") as zf:
         info = zipfile.ZipInfo("INSTALL.txt")
@@ -97,4 +101,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

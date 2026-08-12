@@ -20,19 +20,18 @@ $checks = array(
 );
 ?>
 <div class="wrap rbsmc-stay-wrap">
-	<h1>Richard Brummer SEO · Stay Repair 1.9.3</h1>
+	<h1>Richard Brummer SEO · Stay Repair 1.9.4</h1>
 	<p class="rbsmc-stay-lead">This module sits beside Mission Control 1.8.1. It does not auto-publish, rewrite stored posts, or restore fake 5–15 minute time with back-button hijacking. It stops the 1-second Guest Mode reload, quarantines broken JSON-LD, and keeps people on real guides.</p>
 
 	<section class="rbsmc-stay-card">
-		<h2>Why this WordPress dashboard still looks worse</h2>
+		<h2>Why Site Kit still looks like a crisis</h2>
 		<ol>
-			<li><strong>Mission Control “1 verified red”</strong> is truncated homepage FAQ JSON-LD (unterminated string at the “Are prices and availability final?” answer). Rank Math’s schema is valid. 1.9.3 removes only the broken script on output. Purge LiteSpeed, then open Mission Control and run the audit.</li>
-			<li><strong>Site Kit 1s / 19K users is a rolling 28-day average.</strong> Stay Repair dwell samples (minutes, not 1s) are the current truth. Site Kit will not jump the same day.</li>
-			<li><strong>LiteSpeed Guest Mode</strong> still injects <code>guest.vary.php</code> on cache MISS. Stay Repair sets <code>litespeed_reloaded</code> first so the reload is skipped. Keep Guest Mode, Guest Optimization, and Crawler OFF.</li>
-			<li>Rank Math Overview at 0 impressions/clicks is a disconnected widget. Trust Site Kit (36 impressions, 0 clicks) — search is not the traffic source.</li>
-			<li>Rank Math 404s can rise (75 URLs / 184 hits) while missing plugin files and bot probes are still 404ing. Stay Repair stops those. It does not invent Rank Math redirect rules.</li>
-			<li>WooCommerce $0 is expected on an Amazon affiliate catalog. Watch Amazon reports, not WooCommerce orders.</li>
-			<li>Vendor blogs (Rank Math, YITH) and plugin nags are noise. Upload <strong>Luxe Operator Dashboard 1.0.0</strong> to hide them on the Dashboard screen only.</li>
+			<li><strong>19K users / 99.8% Direct / 1s / 0 search clicks</strong> is crawler and Guest Mode reload traffic counted as Direct. It is not Google growth. Keep Guest Mode and Crawler OFF.</li>
+			<li><strong>36 impressions, 0 clicks, 0% CTR keywords</strong> is the real search picture. Do not connect AdSense or Reader Revenue Manager to “fix” it.</li>
+			<li><strong>Add to cart 0% / WooCommerce $0</strong> is expected. Shoppers leave to Amazon. Watch Amazon Associate reports.</li>
+			<li><strong>Tag pages at 1s</strong> (/product-tag/apple/, /brand/dji/) are archive lists, not guides. Stay Repair related rail is on product/post pages.</li>
+			<li><strong>TBT 260ms</strong> is lab JavaScript. LCP 1.7s and CLS 0 are already Good. Do not install more optimization plugins.</li>
+			<li><strong>Mission Control 1 red</strong> is truncated homepage FAQ JSON-LD. 1.9.3+ quarantines it. Purge LiteSpeed, then re-audit Mission Control.</li>
 		</ol>
 	</section>
 
@@ -42,10 +41,12 @@ $checks = array(
 			<?php wp_nonce_field( 'rbsmc_stay_save' ); ?>
 			<input type="hidden" name="rbsmc_stay_save" value="1" />
 			<div class="rbsmc-stay-grid">
-				<label>Unique visitors <input type="number" name="snapshot_users" value="<?php echo isset( $snap['users'] ) ? esc_attr( $snap['users'] ) : '18000'; ?>" /></label>
+				<label>Unique visitors <input type="number" name="snapshot_users" value="<?php echo isset( $snap['users'] ) ? esc_attr( $snap['users'] ) : '19000'; ?>" /></label>
 				<label>Avg time on page (seconds) <input type="number" name="snapshot_avg_seconds" value="<?php echo isset( $snap['avg_seconds'] ) ? esc_attr( $snap['avg_seconds'] ) : '1'; ?>" /></label>
 				<label>Search impressions <input type="number" name="snapshot_impressions" value="<?php echo isset( $snap['impressions'] ) ? esc_attr( $snap['impressions'] ) : '36'; ?>" /></label>
 				<label>Search clicks <input type="number" name="snapshot_clicks" value="<?php echo isset( $snap['clicks'] ) ? esc_attr( $snap['clicks'] ) : '0'; ?>" /></label>
+				<label>Direct channel % <input type="number" name="snapshot_direct_pct" min="0" max="100" value="<?php echo isset( $snap['direct_pct'] ) ? esc_attr( $snap['direct_pct'] ) : '100'; ?>" /></label>
+				<label>Engagement rate % <input type="number" name="snapshot_engagement" min="0" max="100" value="<?php echo isset( $snap['engagement'] ) ? esc_attr( $snap['engagement'] ) : '18'; ?>" /></label>
 				<label>404 URL count <input type="number" name="snapshot_404" value="<?php echo isset( $snap['not_found'] ) ? esc_attr( $snap['not_found'] ) : '75'; ?>" /></label>
 				<label>WooCommerce sales <input type="text" name="snapshot_wc_sales" value="<?php echo isset( $snap['wc_sales'] ) ? esc_attr( $snap['wc_sales'] ) : '0'; ?>" /></label>
 			</div>

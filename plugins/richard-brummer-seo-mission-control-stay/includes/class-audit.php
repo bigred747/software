@@ -27,6 +27,7 @@ class RBSMC_Stay_Audit {
 		$signals[] = $this->signal_leaked_shortcodes( $home_html, $cart_html );
 		$signals[] = $this->signal_ai_filler( $cart_html );
 		$signals[] = $this->signal_gsc_zero();
+		$signals[] = $this->signal_direct_traffic();
 		$signals[] = $this->signal_woocommerce_affiliate();
 		$signals[] = $this->signal_robots( $robots );
 		$signals[] = $this->signal_404_volume();
@@ -63,7 +64,7 @@ class RBSMC_Stay_Audit {
 				'redirection' => 3,
 				'sslverify'   => true,
 				'headers'     => array(
-					'User-Agent' => 'RBSMC-StayRepair/1.9.3; ' . home_url( '/' ),
+					'User-Agent' => 'RBSMC-StayRepair/1.9.4; ' . home_url( '/' ),
 				),
 			)
 		);
@@ -196,6 +197,46 @@ class RBSMC_Stay_Audit {
 			'level'  => $level,
 			'title'  => $title,
 			'detail' => $detail,
+			'scored' => false,
+		);
+	}
+
+	/**
+	 * 99.8% Direct + 1s sessions is crawler/Guest Mode, not Google growth.
+	 *
+	 * @return array
+	 */
+	private function signal_direct_traffic() {
+		$snapshot    = get_option( RBSMC_Stay_Plugin::OPTION_SNAPSHOT, array() );
+		$users       = isset( $snapshot['users'] ) ? absint( $snapshot['users'] ) : 0;
+		$direct_pct  = isset( $snapshot['direct_pct'] ) ? absint( $snapshot['direct_pct'] ) : 0;
+		$avg_seconds = isset( $snapshot['avg_seconds'] ) ? absint( $snapshot['avg_seconds'] ) : 0;
+		$clicks      = isset( $snapshot['clicks'] ) ? absint( $snapshot['clicks'] ) : 0;
+		$class       = RBSMC_Stay_Traffic::classify( $users, $direct_pct, $avg_seconds, $clicks );
+
+		if ( 'crawler-or-guest-reload' === $class ) {
+			return array(
+				'id'     => 'direct-traffic',
+				'level'  => 'info',
+				'title'  => 'Site Kit Direct ' . $direct_pct . '% with ' . $avg_seconds . 's sessions is not Google growth',
+				'detail' => 'Snapshot: ' . $users . ' users, ' . $direct_pct . '% Direct, ' . $avg_seconds . 's, ' . $clicks . ' search clicks. That pattern is LiteSpeed crawler / Guest Mode reloads / bot hits counted as Direct. Keep Guest Mode and Crawler OFF. Do not connect AdSense or Reader Revenue Manager to “fix” it. Trust Stay Repair dwell samples, not the 28-day 1s average.',
+				'scored' => false,
+			);
+		}
+		if ( 'not-google-search' === $class ) {
+			return array(
+				'id'     => 'direct-traffic',
+				'level'  => 'info',
+				'title'  => 'Traffic is mostly not Google Search',
+				'detail' => 'Snapshot: ' . $users . ' users, ' . $direct_pct . '% Direct, ' . $clicks . ' search clicks. Search Console impressions can stay near zero while Analytics counts Direct hits.',
+				'scored' => false,
+			);
+		}
+		return array(
+			'id'     => 'direct-traffic',
+			'level'  => 'info',
+			'title'  => 'Enter Direct % from Site Kit Channels',
+			'detail' => 'Paste Direct percent and engagement from Site Kit → Channels. 99.8% Direct with 1s duration means crawler traffic, not a ranking win.',
 			'scored' => false,
 		);
 	}

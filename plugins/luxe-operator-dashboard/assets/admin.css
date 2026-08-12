@@ -30,3 +30,11 @@ body.index-php.luxe-op-hide-blog #rank_math_dashboard_widget h3 + ul a[href*="ra
 body.index-php.luxe-op-hide-blog #rank_math_dashboard_widget .rank-math-dashboard-widget-footer{
 	display:none !important;
 }
+body.luxe-op-hide-sitekit .googlesitekit-publisher-win,
+body.luxe-op-hide-sitekit .googlesitekit-overlay-notification,
+body.luxe-op-hide-sitekit .googlesitekit-subtle-notification,
+body.luxe-op-hide-sitekit .googlesitekit-banner--win,
+body.luxe-op-hide-sitekit [class*="googlesitekit-banner"] a[href*="ads.google.com"],
+body.luxe-op-hide-sitekit .luxe-op-sitekit-upsell{
+	display:none !important;
+}

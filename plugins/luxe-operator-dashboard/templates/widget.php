@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 ?>
 <div class="luxe-op-widget">
-	<p class="luxe-op-kicker">Admin-only rescue view. It does not auto-write, auto-publish, hook frontend content, or run content cron. Hard Rescue stays active.</p>
+	<p class="luxe-op-kicker">Admin-only rescue view. It does not auto-write, auto-publish, hook frontend content, or run content cron. Hard Rescue stays active. Do not connect AdSense or Reader Revenue Manager to “fix” these numbers.</p>
 
 	<ul class="luxe-op-chips">
 		<li class="is-ok">Hard Rescue <?php echo ! empty( $brief['hard_rescue'] ) ? 'active' : 'not detected'; ?></li>
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 				· <?php echo esc_html( (string) $brief['stay_red'] ); ?> red
 			<?php endif; ?>
 		</li>
-		<li class="is-warn">Mission Control <?php echo ! empty( $brief['mission_control'] ) ? 'active · 1 red is truncated FAQ JSON-LD' : 'not detected'; ?></li>
+		<li class="is-warn">Site Kit 19K · 99.8% Direct · 1s · 0 search clicks</li>
 	</ul>
 
 	<table class="widefat luxe-op-table">
@@ -26,43 +26,39 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</thead>
 		<tbody>
 			<tr>
-				<td>Richard Brummer SEO: 1 verified red</td>
-				<td>Homepage FAQ JSON-LD is cut off at “Are prices and availability final?”. Rank Math schema is valid. Upload Stay Repair 1.9.3, purge LiteSpeed, then <a href="<?php echo esc_url( $brief['mission_url'] ); ?>">open Mission Control</a> and run the audit.</td>
-			</tr>
-			<tr>
-				<td>Rank Math Overview 0 / 0 / 0 / 0</td>
-				<td>Rank Math is not connected to Search Console. Site Kit already shows 36 impressions and 0 clicks. This is not a ranking crash. Optional: <a href="<?php echo esc_url( $brief['rank_math_url'] ); ?>">Rank Math → General Settings → Analytics</a>.</td>
-			</tr>
-			<tr>
-				<td>Site Kit 19K users · 1s avg</td>
-				<td>Rolling 28-day Analytics lag. The 1s figure is the old LiteSpeed Guest Mode reload. Stay Repair first-party samples
+				<td>19K users · 99.8% Direct · 1s</td>
+				<td>Crawler / LiteSpeed Guest Mode reloads counted as Direct, not Google growth. Site Kit is a 28-day rolling average. Stay Repair dwell samples
 					<?php if ( $brief['dwell_samples'] ) : ?>
 						(<?php echo esc_html( (string) $brief['dwell_samples'] ); ?> samples, avg <?php echo esc_html( (string) $brief['dwell_avg'] ); ?>s)
 					<?php else : ?>
-						(none yet — browse the site as a guest after cache purge)
+						(none yet — browse as a guest after cache purge)
 					<?php endif; ?>
-					are the current truth.
+					are the current truth. Keep Guest Mode and Crawler OFF.
 				</td>
 			</tr>
 			<tr>
-				<td>WooCommerce $0 · 0 orders</td>
-				<td>Expected. This catalog sends shoppers to Amazon. Watch Amazon Associate reports, not WooCommerce net sales.</td>
+				<td>Search 36 impressions · 0 clicks · 0% CTR</td>
+				<td>This is the real search picture. Keywords like “macbook air m4…” have 1 impression each. Rank Math Overview at 0 is a disconnected widget, not a second data source.</td>
 			</tr>
 			<tr>
-				<td>404 Monitor 75 URLs / 184 hits</td>
-				<td>Stay Repair answers <code>/meta.json</code> and <code>/.well-known/agents.js</code> and drops missing Link Guardian assets. Remaining paths need Rank Math redirects, not auto-publish.</td>
+				<td>Add to cart 0% · AdSense disconnected · no sales</td>
+				<td>Expected. This is an Amazon affiliate catalog, not a checkout store. Do not connect AdSense, Google Ads, or Reader Revenue Manager. Watch Amazon Associate reports.</td>
 			</tr>
 			<tr>
-				<td>Wordfence US IPv6 260 blocks · login “richard”</td>
-				<td>Failed username <code>richard</code> is not an existing user. Do not whitelist the blocked IPv6 blindly. Passkeys are optional on <a href="<?php echo esc_url( $brief['wordfence_url'] ); ?>">Login Security</a>.</td>
+				<td>Top pages /product-tag/apple/ at 1s</td>
+				<td>Archive/tag lists, not buyer guides. 1s matches the Guest Mode reload. Related-guide rail is on product/post pages after Stay Repair.</td>
 			</tr>
 			<tr>
-				<td>YITH / Rank Math blog widgets</td>
-				<td>Vendor marketing. This plugin removes them from Dashboard. Plugin changelogs still exist on Plugins → each plugin.</td>
+				<td>Engagement 18% · AI Assistant 0%</td>
+				<td>18% engagement on 18,555 Direct sessions is bot-heavy. AI Assistant is not a traffic source to optimize. TBT 260ms “needs improvement”; LCP 1.7s and CLS 0 are already Good.</td>
 			</tr>
 			<tr>
-				<td>At a Glance <?php echo esc_html( (string) $brief['published_posts'] ); ?> posts / <?php echo esc_html( (string) $brief['published_pages'] ); ?> pages</td>
-				<td>WordPress <?php echo esc_html( (string) $brief['wp_version'] ); ?> · <?php echo esc_html( (string) $brief['theme'] ); ?>. Counts are fine.</td>
+				<td>Richard Brummer SEO: 1 verified red</td>
+				<td>Homepage FAQ JSON-LD is truncated. Upload Stay Repair 1.9.4, purge LiteSpeed, then <a href="<?php echo esc_url( $brief['mission_url'] ); ?>">open Mission Control</a> and run the audit.</td>
+			</tr>
+			<tr>
+				<td>Reader Revenue Manager / Ads nags</td>
+				<td>Site Kit upsells. Operator Dashboard 1.1.0 hides them on the Site Kit screen. They are not required for this site.</td>
 			</tr>
 		</tbody>
 	</table>
@@ -73,5 +69,5 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<a class="button" href="<?php echo esc_url( $brief['settings_url'] ); ?>">Operator settings</a>
 		<button type="button" class="button" id="luxe-op-toggle-notices">Show hidden notices</button>
 	</p>
-	<p class="luxe-op-note">Reader-Love and Keyword Autopilot nags are hidden on this screen only. Those plugins are still running until you deactivate them. Site Health “No information yet” is WordPress waiting on a check — open <a href="<?php echo esc_url( admin_url( 'site-health.php' ) ); ?>">Site Health</a> once if you want the report.</p>
+	<p class="luxe-op-note">WordPress <?php echo esc_html( (string) $brief['wp_version'] ); ?> · <?php echo esc_html( (string) $brief['theme'] ); ?> · <?php echo esc_html( (string) $brief['published_posts'] ); ?> posts / <?php echo esc_html( (string) $brief['published_pages'] ); ?> pages.</p>
 </div>
