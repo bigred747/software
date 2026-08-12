@@ -48,10 +48,53 @@ def build(src_rel: str, zip_name: str, folder: str) -> None:
     print(f"{dest.name} {dest.stat().st_size} {digest}")
 
 
+PACK_NAME = "Luxe-Dashboard-Fix-v1.0.0.zip"
+
+INSTALL_TXT = """Luxe Dashboard Fix v1.0.0
+
+Do not upload THIS pack zip into WordPress. Unzip it first, then upload the two plugin zips.
+
+WordPress → Plugins → Add Plugin → Upload Plugin
+
+1. Luxe-Operator-Dashboard-v1.0.0.zip
+   New plugin. Keep Luxe Hard Rescue Admin Cleaner active.
+
+2. Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.3.zip
+   Upload over Stay Repair 1.9.2. Do not replace Mission Control 1.8.1.
+
+Then: LiteSpeed Guest Mode OFF, Crawler OFF, Purge All.
+Stay Repair → Save → Run audit now.
+Mission Control → run the bounded full audit.
+"""
+
+
+def build_pack() -> None:
+    dest = DIST / PACK_NAME
+    if dest.exists():
+        dest.unlink()
+    members = [
+        DIST / "Luxe-Operator-Dashboard-v1.0.0.zip",
+        DIST / "Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.3.zip",
+    ]
+    with zipfile.ZipFile(dest, "w") as zf:
+        info = zipfile.ZipInfo("INSTALL.txt")
+        info.compress_type = zipfile.ZIP_DEFLATED
+        info.create_system = 0
+        info.external_attr = (stat.S_IFREG | 0o644) << 16
+        info.date_time = time.localtime()[:6]
+        zf.writestr(info, INSTALL_TXT)
+        for member in members:
+            add_file(zf, member, member.name)
+    digest = hashlib.sha256(dest.read_bytes()).hexdigest()
+    print(f"{dest.name} {dest.stat().st_size} {digest}")
+
+
 def main() -> None:
     for src_rel, zip_name, folder in PLUGINS:
         build(src_rel, zip_name, folder)
+    build_pack()
 
 
 if __name__ == "__main__":
     main()
+

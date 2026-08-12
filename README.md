@@ -4,7 +4,15 @@ Admin plugins for [luxetrendsetters.com](https://luxetrendsetters.com/). They do
 
 ## Fix the WordPress Dashboard
 
-The live Dashboard is noisy, not broken. Upload these two ZIPs in **Plugins → Add Plugin → Upload Plugin**.
+Download the pack, unzip it, then upload the two plugin zips in **Plugins → Add Plugin → Upload Plugin**. Do not upload the pack zip itself.
+
+### Pack (one download)
+
+File: `dist/Luxe-Dashboard-Fix-v1.0.0.zip`
+
+SHA-256: `52f4cb69307c148f8c80649cd2983ca63934b1f618e5d667fd81c657431adb98`
+
+Direct download: https://github.com/bigred747/software/raw/cursor/operator-dashboard-9b7a/dist/Luxe-Dashboard-Fix-v1.0.0.zip
 
 ### 1. Luxe Operator Dashboard 1.0.0
 
