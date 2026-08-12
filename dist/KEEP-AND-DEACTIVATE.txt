@@ -1,0 +1,38 @@
+KEEP (do not deactivate)
+- WooCommerce
+- Rank Math SEO
+- Site Kit by Google
+- Wordfence
+- LiteSpeed Cache
+- Richard Brummer SEO Mission Control 1.8.1 (keep if already live)
+- Contact Form 7
+- Classic Editor
+- Luxe Performance Link Guardian
+- Luxe Amazon Bridge
+- Luxe Unified Site Guardian
+- Luxe Hard Rescue Admin Cleaner
+- YITH Wishlist
+
+DEACTIVATE (unused on an Amazon affiliate catalog with $0 WooCommerce sales, or overlapping scanners)
+- YITH Points and Rewards
+- YITH Coupon Email System
+- YITH Product Add-ons
+- YITH Minimum Maximum Quantity
+- YITH Custom Order Status
+- YITH Product Countdown
+- YITH Color/Image Swatches
+- YITH Frequently Bought Together
+- YITH Product Gallery & Image Zoom
+- YITH Compare
+- Nextend Social Login
+- Jetpack
+- Yoast SEO (Rank Math already runs)
+- Redirection (Rank Math already has 73 redirects)
+- Luxe Keyword Intelligence Autopilot
+- Luxe AI Readiness Autopilot
+- Luxe Reader-Love Unified
+- WooCommerce PayPal Payments
+- Elementor / Autoptimize / WP-Optimize if present
+
+Also: LiteSpeed Cache → Guest Mode OFF, then purge all caches.
+This is the main 1-second time-on-page killer.

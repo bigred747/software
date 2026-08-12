@@ -1,7 +1,7 @@
 # software
 
-WordPress install ZIP (complete Mission Control 1.9.0):
+WordPress zips:
 
-`dist/Richard-Brummer-SEO-Mission-Control-v1.9.0.zip`
-
-Plugins → Add Plugin → Upload Plugin. This is the full plugin (Amazon, JSON-LD, 38-plugin catalog, Stay Repair), not the smaller companion zip.
+1. `dist/Luxe-Plugin-Consolidator-v1.0.0.zip` — activate this to deactivate unused plugins
+2. `dist/Richard-Brummer-SEO-Mission-Control-v1.9.0.zip` — full Mission Control 1.9.0
+3. `dist/Luxe-Efficiency-Pack.zip` — both zips plus the keep/deactivate list
