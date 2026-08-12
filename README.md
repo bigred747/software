@@ -1,7 +1,7 @@
 # software
 
-WordPress plugin ZIP for LuxeTrendsetters:
+WordPress install ZIP (complete Mission Control 1.9.0):
 
-`dist/Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.0.zip`
+`dist/Richard-Brummer-SEO-Mission-Control-v1.9.0.zip`
 
-Install in WordPress: **Plugins → Add Plugin → Upload Plugin**. Keep Mission Control 1.8.1 active. Do not replace that folder with this ZIP.
+Plugins → Add Plugin → Upload Plugin. This is the full plugin (Amazon, JSON-LD, 38-plugin catalog, Stay Repair), not the smaller companion zip.

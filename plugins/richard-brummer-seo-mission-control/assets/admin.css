@@ -1,0 +1,10 @@
+.rbsmc-wrap{max-width:980px}
+.rbsmc-card{background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:18px 20px;margin:16px 0}
+.rbsmc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:12px 0}
+.rbsmc-grid label,.rbsmc-check{display:block;margin:6px 0}
+.rbsmc-signals{list-style:none;margin:0;padding:0}
+.rbsmc-signals li{border-left:4px solid #ccc;padding:8px 12px;margin:8px 0;background:#f6f7f7}
+.rbsmc-signals .lvl-red{border-color:#d63638}
+.rbsmc-signals .lvl-yellow{border-color:#dba617}
+.rbsmc-signals .lvl-green{border-color:#00a32a}
+.rbsmc-signals .lvl-info,.rbsmc-signals .lvl-manual{border-color:#72aee6}

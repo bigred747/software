@@ -1,0 +1,210 @@
+=== Richard Brummer SEO Mission Control ===
+Contributors: Richard Brummer
+Tags: seo, search console, traffic quality, content strategy, social media, reels, amazon associates, structured data, wordpress
+Requires at least: 6.5
+Tested up to: 7.0
+Requires PHP: 7.4
+Stable tag: 1.8.1
+License: GPL-2.0-or-later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
+Original evidence-based SEO and social-growth mission control with a 24/7 heartbeat, bounded local learning, traffic-quality diagnostics, first-party content interviews, original social campaign planning, secure Search Console reporting, Amazon compliance, and plugin-stack coordination.
+
+== Description ==
+
+Richard Brummer SEO Mission Control is an original SEO evidence and orchestration plugin for a complex affiliate WordPress website. Richard Brummer is the sole named author and copyright holder in this package.
+
+Version 1.6.0 adds an original Social Growth Lab while preserving the 1.5.0 continuous evidence engine, Traffic Quality diagnostics, and Content Lab:
+
+* Creates review-only social campaign packages from the administrator's own topic, audience, firsthand evidence, and published site URLs.
+* Produces five original hook options, a timed script, shot list, caption, tracked same-site URL, restrained hashtag set, and a platform publishing checklist.
+* Creates up to 30 idea-only records from ten site-owned pages, using three original angles per page. Idea records cannot be treated as publish-ready until the administrator adds firsthand evidence and completes the rights attestation.
+* Requires a rights and originality confirmation covering words, video, images, voice, music, screenshots, logos, product footage, and factual claims.
+* Blocks a publish-ready package when its firsthand input is at least 75% similar to a prior local social campaign using four-word-shingle Jaccard comparison.
+* Records manually entered post-level views, average watch time, shares, saves, clicks, follows, and other evidence, then learns the best-performing angle, duration, and format during bounded cycles.
+* Includes manual checklists for Trial Reels, translations, cross-posting, links, product tags, disclosures, and AI labels while clearly preserving platform ownership of those actions.
+* Does not import or scrape another creator's social post, reel, script, prompt, caption, media, profile, audience, or proprietary workflow.
+* Does not auto-publish, buy engagement, manufacture views, or guarantee rankings, reach, followers, or revenue.
+
+Version 1.5.0 added the continuous evidence engine:
+
+* A lightweight heartbeat runs every 15 minutes by default and checks homepage and REST availability without crawling the entire site. Every fourth heartbeat also samples robots.txt and a standard XML sitemap endpoint.
+* A bounded full evidence and learning cycle runs hourly by default, audits only the configured content batch, records regressions and recoveries, learns recurring priorities, and updates the verified evidence history. Search Console background API evidence is cached for six hours by default to avoid wasteful hourly quota use; the manual Search Console button forces a fresh run.
+* A continuous update inventory refreshes WordPress plugin and theme update metadata at a bounded interval. It never installs updates blindly and does not override WordPress per-plugin auto-update choices.
+* A dedicated 24/7 Engine tab shows the next scheduled runs, last heartbeat evidence, learned priority history, update inventory, recent events, and a host-cron command for reliable execution.
+* The engine stores local evidence only. It does not train a remote AI model, scrape competing websites, rewrite its own PHP, alter publishing status, or auto-publish content.
+
+The existing original traffic and content processes remain:
+* Traffic Quality compares one matching-period Analytics/Site Kit snapshot with Search Console totals and flags extreme Direct-traffic concentration, search/traffic mismatch, very weak engagement, missing key events, and missing rendered analytics markers. Administrator-entered figures remain clearly labeled and do not alter the verified-check score.
+* Content Lab turns a real search question into ten one-at-a-time first-party interview questions. After all answers are complete, it can create a review-only WordPress draft. It never scrapes external pages, imports another creator's wording, or auto-publishes.
+
+Content Lab also includes:
+
+* Search Console opportunity seeds from low-CTR, striking-distance, high-impression, and question-intent queries.
+* A required rights/ownership attestation before draft creation.
+* A local five-word-shingle similarity check against up to 150 recent posts, pages, and products.
+* A hard block when the generated draft is at least 70% similar to the closest local item.
+* A source and originality record inside every draft.
+* First-party notes, limits, tradeoffs, verification steps, and a buyer checklist rather than unsupported hands-on claims.
+
+The plugin does not rewrite existing stored posts, products, titles, descriptions, Amazon URLs, redirects, theme files, WooCommerce templates, cache settings, or publishing status. The only existing optional public-output changes remain:
+
+* Add the exact Amazon Associate identification only on rendered HTML pages that contain an Amazon link and do not already contain the statement.
+* Remove only rendered application/ld+json blocks that fail strict JSON parsing; valid JSON-LD remains untouched.
+
+Additional capabilities:
+
+* Verified-check score where informational, manual-only, and administrator-entered diagnostic items do not reduce the score.
+* Rendered-page checks for status, title, description, canonical, robots directives, H1 inventory, image alt attributes, JSON-LD syntax, duplicate IDs, social links, Amazon link relationship attributes, tracking tags, and Associate identification.
+* Rendered output-budget inventories for HTML size, scripts, stylesheets, possible head script blocking, image lazy loading, and missing image dimensions. These do not pretend to be PageSpeed, CrUX, or Core Web Vitals results.
+* Local technical checks for HTTPS, search visibility, permalinks, robots.txt, XML sitemaps, REST availability, cron status, plugin/theme updates, and WooCommerce template-override version evidence.
+* Bounded content checks for titles, word depth, headings, internal links, images, exact duplicate titles, age, Amazon claims, link attributes, disclosures, and tracking-tag evidence.
+* Secure Google Search Console service-account connection using a JSON key file outside the public web directory or explicit wp-config.php constants.
+* Search Console property permission and sitemap tests, Search Analytics, date comparisons, query/page trends, positions 2–20, high-impression low-CTR opportunities, possible cannibalization, device, country, search appearance, search type, branded/non-branded grouping, and quota-safe URL Inspection.
+* Compatibility ownership boundaries for the supplied plugin stack and automatic inventory for future plugins.
+* A 15-minute lightweight heartbeat and hourly bounded full-learning cycle by default. Both schedules are configurable and remain protected by shared locks and bounded batches.
+* JSON evidence export and optional once-daily red-signal email.
+
+No WordPress plugin can guarantee first place in Google or guarantee that traffic is human, valuable, or conversion-ready. This plugin reports what it can prove and labels all manual or administrator-entered evidence honestly.
+
+== Originality and ownership ==
+
+The package contains original source code, original admin wording, original interview questions, and original documentation. It does not include copied third-party source code, marketing copy, social-media prompt wording, branding, layouts, visual assets, proprietary checklists, or scraped web content.
+
+Copyright (c) 2026 Richard Brummer. Product and service names appear only where necessary to describe official APIs, policies, or compatibility.
+
+== Installation ==
+
+1. Create a complete backup.
+2. Upload the ZIP through Plugins > Add Plugin > Upload Plugin.
+3. Replace the older version and activate the plugin.
+4. Purge the LiteSpeed/QUIC.cloud full-page cache once so verified final-output checks see new HTML.
+5. Load the homepage once, then open Richard Brummer SEO and run the bounded full audit.
+6. Open Traffic Quality and enter one matching 28-day Analytics/Search Console snapshot.
+7. Open Content Lab, enter a specific buyer question, answer all ten questions from first-party or authorized material, and create a draft only after reviewing the ownership confirmation.
+8. Review red/yellow evidence instead of forcing it green.
+
+See docs/INSTALLATION.md, docs/SEARCH-CONSOLE-WORKFLOW.md, docs/SOCIAL-GROWTH-WORKFLOW.md, and docs/RELEASE-1.6.0.md.
+
+== Frequently Asked Questions ==
+
+= Does this guarantee page-one or number-one rankings? =
+
+No. Rankings depend on Google systems, competitors, site quality, authority, user satisfaction, and time. The score measures only the checks named in the dashboard.
+
+= Does the Content Lab copy the Instagram reel or the websites shown in it? =
+
+No. It uses an independently written ten-question workflow, original admin wording, local Search Console data, and the administrator's own answers. No third-party prompt, page text, branding, or source code is included.
+
+= Can the copyright guard prove that every sentence is globally clear to use? =
+
+No. It prevents external scraping, requires an ownership/permission confirmation, and checks similarity against this WordPress site. The editor remains responsible for third-party quotations, product descriptions, images, trademarks, facts, and permissions.
+
+= Does it auto-publish content? =
+
+No. Content Lab creates only a WordPress draft after ten answers and a required confirmation. Existing content is not rewritten.
+
+= Does Social Growth copy the reel or creator shown in screenshots? =
+
+No. The package contains no imported creator script, caption, video, image, branding, profile data, prompt, or distinctive layout. The workflow is independently written and builds local packages from the administrator's own input and site-owned destination pages.
+
+= Can the plugin guarantee absolutely no copyright issue? =
+
+No software can prove worldwide rights clearance. The plugin prevents external importing, requires a broad rights attestation, stores an originality record, and checks new firsthand input against prior local campaigns. The administrator must still confirm permissions for every word, fact, image, clip, recording, music track, trademark use, and product asset.
+
+= Does Social Growth publish to Instagram or Facebook? =
+
+No. It creates planning packages, tracked links, platform checklists, and local performance learning. Trial Reels, translations, cross-posting, product tags, AI labels, account permissions, and final publishing remain actions inside the platform or a separately authorized official API integration.
+
+= Why are traffic-quality red flags excluded from the verified score? =
+
+The snapshot is entered by an administrator rather than fetched from an authenticated Analytics API. The plugin displays strong diagnostic warnings but does not treat self-entered values as independently verified evidence.
+
+= Is the Google private key stored in WordPress? =
+
+No. The recommended method defines RBSMC_GSC_KEY_FILE in wp-config.php and points it to the downloaded JSON key stored outside the public web directory.
+
+= What does 24/7 learning mean? =
+
+A lightweight heartbeat is scheduled every 15 minutes and a bounded full-learning cycle every hour by default. WordPress WP-Cron needs site requests to wake scheduled jobs, so a real host cron is recommended for reliable all-day execution. The engine stores evidence and adjusts issue priority; it does not crawl external platforms, rewrite plugin code, install updates blindly, or publish content.
+
+== Changelog ==
+
+= 1.6.0 =
+* Added an original Social Growth tab.
+* Added publish-ready campaign creation from administrator-owned input and same-site destinations.
+* Added five hook options, timed scripts, shot lists, captions, hashtags, tracked UTM URLs, and platform checklists.
+* Added a rights attestation covering text, media, music, voice, screenshots, logos, claims, and product footage.
+* Added a local 75% duplicate-input block against previous social campaigns.
+* Added a bounded queue builder that creates up to 30 idea-only angles from ten published site pages.
+* Added campaign TXT export and queue CSV export.
+* Added post-level performance evidence and local learning for angle, duration, format, and campaign score.
+* Added Social Growth signals to hourly evidence cycles and privacy-limited JSON exports.
+* Preserved no-auto-publish, no-external-scraping, no-bought-engagement, and no-ranking-guarantee boundaries.
+
+= 1.5.0 =
+* Added a dedicated 24/7 Engine tab.
+* Added a configurable 15-minute, 30-minute, or hourly lightweight heartbeat.
+* Changed the default bounded full evidence and learning cycle to hourly, with a six-hour option.
+* Added shared-lock protection so heartbeat and deep audits cannot overlap.
+* Added homepage and REST availability probes plus every-fourth-cycle robots.txt and sitemap sampling.
+* Added rendered homepage fingerprint change inventory without treating every change as an error.
+* Added regression, recovery, streak, occurrence, priority, score trend, and common content-gap learning memory.
+* Added bounded plugin/theme update inventory refresh without blind installation.
+* Added automatic priority deep-audit scheduling after a verified availability failure.
+* Added continuous state and event history to the JSON evidence export.
+* Added a configurable one-to-24-hour Search Console background evidence cache; manual Search Console runs bypass the cache.
+* Added reliable host-cron instructions to the 24/7 Engine dashboard.
+* Preserved all 1.4.0 copyright, originality, draft-only, Amazon, schema, Search Console, and compatibility safeguards.
+
+= 1.4.0 =
+* Added an original Traffic Quality tab with same-period Analytics/Search Console mismatch diagnostics.
+* Added extreme Direct-traffic, low-engagement, zero-key-event, Site Kit, and rendered analytics-marker evidence.
+* Kept administrator-entered traffic signals visible but excluded from the verified-check score.
+* Added an original Content Lab with exactly ten one-at-a-time first-party interview questions.
+* Added Search Console question/opportunity seeds without scraping external keyword websites.
+* Added required rights/ownership attestation before draft creation.
+* Added review-only draft creation with no auto-publishing.
+* Added a local five-word-shingle similarity scan and a 70% duplicate block.
+* Added first-party source/originality records to generated drafts.
+* Added rendered HTML/script/stylesheet/image performance inventories without claiming PageSpeed or Core Web Vitals results.
+* Preserved all 1.3.1 Amazon evidence classification, schema quarantine, secure Search Console, and ownership boundaries.
+
+= 1.3.1 =
+* Fixed false Amazon batch RED results caused by combining stored-source warnings with separately verified rendered-page failures.
+* Made final rendered HTML authoritative for published-page affiliate RED decisions while preserving stored-source differences as manual review evidence.
+* Added exact URL, detected-tag, expected-tag, relationship, item ID, and cache-header evidence to Amazon checks.
+* Added robust HTML-entity and percent-encoding normalization without accepting double-encoded tags.
+* Preserved duplicate and conflicting tag parameters instead of losing evidence through parse_str().
+* Classified shortened and duplicate-but-equal tag links as manual/indeterminate rather than verified failures.
+* Excluded a static homepage from duplicate batch scoring when the homepage signal already owns the same rendered failure.
+* Added bounded evidence viewers to the Dashboard and Content tabs.
+* Preserved visible word boundaries so an existing Amazon identification statement is not falsely missed or duplicated.
+* Added score-key support and explicit unscored evidence handling without changing existing independent green checks.
+
+= 1.3.0 =
+* Added a deduplicated, final-output Amazon Associate identification repair for pages containing Amazon links.
+* Added strict quarantine of only syntactically invalid JSON-LD while preserving valid structured data.
+* Added secure Search Console JSON key-file support outside the public web directory.
+
+= 1.2.0 =
+* Reserved red for directly verified failures and excluded optional/manual items from scoring.
+
+= 1.1.0 =
+* Added social profile settings, Search Console opportunity drilldowns, stronger plugin matching, and uninstall cleanup.
+
+= 1.0.0 =
+* Initial original release authored and copyrighted by Richard Brummer.
+
+
+== 1.8.1 ==
+* Coordinates frontend ownership with dedicated Luxe Amazon disclosure/link plugins and Luxe Rank Math Schema Guard.
+* Skips Mission Control full-page output buffering when those dedicated owners are active, reducing duplicate frontend processing.
+* Mission Control remains audit/evidence focused and does not change post status, affiliate URLs, or published content.
+
+== 1.8.0 ==
+* Full-preservation rebuild from the complete 1.6.0 source tree.
+* Keeps all nine original tabs, every form, report, export, Search Console function, traffic diagnostic, Content Lab interview, Social Growth workflow, audit, compatibility matrix, setting, and 24/7 process.
+* Adds evidence-based scheduled workers for every tab and one shared Run All button.
+* Content automation coordinates Blog Master and Reader-Love but stops at APPROVAL READY.
+* Never publishes.
