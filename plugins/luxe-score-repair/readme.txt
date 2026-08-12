@@ -4,46 +4,33 @@ Tags: seo, schema, robots, luxetrendsetters
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Safe public-output repair for luxetrendsetters.com. Fixes titles, schema, robots.txt, junk-page indexing, and cache headers without writing posts.
+Safe public-output repair with process learning and a green-signal board for luxetrendsetters.com.
 
 == Description ==
 
-Luxe Score Repair is a companion plugin for LuxeTrendsetters. It repairs the public HTML Google actually fetches.
+Luxe Score Repair 1.1.0 heals public HTML and shows a green/red signal for every process.
 
-It does **not**:
+Automatic heals:
 
-* write `post_content`
-* change post status
-* rewrite Amazon or product permalinks
-* create Rank Math redirect rows
-* run a content cron
+* overwrite bloated physical `robots.txt`
+* 301 `/blog/` on `init` before Rank Math
+* LiteSpeed purge after each heal
+* 15-minute process learning (verify + exact-path hop learning)
 
-It **does**:
-
-* replace the homepage title `HOME: Features, Use Cases and Buyer Fit`
-* replace the generic homepage meta description
-* quarantine truncated FAQ JSON-LD and emit a valid FAQ + Organization graph
-* replace the 110KB Autopilot `robots.txt` with a short valid file pointing at `sitemap_index.xml`
-* noindex cart, checkout, account, wishlist, client portal, and the test blog
-* 301 `/blog/` to `/blogs/`
-* hide leaked `[toc]` shortcodes and AI filler on output
-* fill missing image alts
-* send public cache headers on catalog pages
-
-After activate: LiteSpeed → Purge All. Keep Guest Mode OFF and Crawler OFF.
-
-== Installation ==
-
-1. Upload the `luxe-score-repair` folder via Plugins → Add Plugin → Upload Plugin.
-2. Activate.
-3. LiteSpeed Cache → Purge All.
-4. Open Tools → Luxe Score Repair.
+It does **not** write `post_content`, change post status, rewrite Amazon URLs, or create Rank Math redirect rows.
 
 == Changelog ==
 
+= 1.1.0 =
+* Green signal board for every process
+* Process learning every 15 minutes
+* Physical robots.txt heal
+* Early /blog/ 301 before Rank Math
+* Automatic LiteSpeed purge
+
 = 1.0.0 =
-* First public repair pass for the live luxetrendsetters.com scan.
+* First public repair pass

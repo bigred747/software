@@ -2,11 +2,9 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Score Repair 1.0.0
+## Luxe Score Repair 1.1.0
 
-Fixes the live public SEO errors (homepage title, truncated FAQ JSON-LD, bloated `robots.txt`, junk-page indexing, `/blog/` 404) without writing posts or Amazon URLs.
+Public SEO repair with process learning and a green-signal board.
 
-- Zip: `dist/Luxe-Score-Repair-v1.0.0.zip`  
-  SHA-256 `b7a11f154df417c0580f32bbbcc766f28b362b1f453bda1f0c788ec0b0791418`
-- Install: Plugins → Add Plugin → Upload Plugin → Activate → LiteSpeed **Purge All**
-- Screen: Tools → Luxe Score Repair
+- Zip: `dist/Luxe-Score-Repair-v1.1.0.zip`
+- Install over 1.0.0 → Tools → Luxe Score Repair → **Run process learning now**

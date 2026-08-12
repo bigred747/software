@@ -43,6 +43,8 @@ class Luxe_Score_Repair_Plugin {
 			'image_alts'            => 1,
 			'hide_generator'        => 1,
 			'affiliate_disclosure'  => 1,
+			'process_learning'      => 1,
+			'auto_purge'            => 1,
 		);
 	}
 
@@ -57,15 +59,14 @@ class Luxe_Score_Repair_Plugin {
 			update_option( self::OPTION, wp_parse_args( $settings, self::defaults() ), false );
 		}
 		add_option( 'luxe_score_repair_activated_at', time(), '', false );
-		if ( function_exists( 'wp_cache_flush' ) ) {
-			wp_cache_flush();
-		}
+		Luxe_Score_Repair_Learning::activate();
 	}
 
 	/**
 	 * Deactivation leaves options so a re-activate keeps choices.
 	 */
 	public static function deactivate() {
+		Luxe_Score_Repair_Learning::deactivate();
 		if ( function_exists( 'wp_cache_flush' ) ) {
 			wp_cache_flush();
 		}
@@ -84,6 +85,7 @@ class Luxe_Score_Repair_Plugin {
 		Luxe_Score_Repair_Headers::instance()->boot();
 		Luxe_Score_Repair_Redirects::instance()->boot();
 		Luxe_Score_Repair_Buffer::instance()->boot();
+		Luxe_Score_Repair_Learning::instance()->boot();
 
 		if ( is_admin() ) {
 			Luxe_Score_Repair_Admin::instance()->boot();
@@ -127,10 +129,12 @@ class Luxe_Score_Repair_Plugin {
 			$next[ $key ] = empty( $_POST[ $key ] ) ? 0 : 1;
 		}
 		update_option( self::OPTION, $next, false );
+		Luxe_Score_Repair_Robots::heal_file();
+		Luxe_Score_Repair_Learning::purge_caches();
 		add_settings_error(
 			'luxe_score_repair',
 			'saved',
-			__( 'Score Repair settings saved. Purge LiteSpeed (Purge All) so public HTML picks up titles, schema, and robots.txt.', 'luxe-score-repair' ),
+			__( 'Score Repair settings saved. robots.txt healed and caches purged. Open the green signal board below.', 'luxe-score-repair' ),
 			'updated'
 		);
 	}

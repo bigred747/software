@@ -18,7 +18,7 @@ $checks = array(
 	),
 	'fix_robots_txt'       => array(
 		'label' => 'Clean robots.txt',
-		'help'  => 'Replaces the 110KB Autopilot duplicate-comment file with a short valid robots.txt and sitemap_index.xml.',
+		'help'  => 'Writes a short valid robots.txt to disk so Hostinger cannot keep serving the 110KB Autopilot file.',
 	),
 	'noindex_utility'      => array(
 		'label' => 'Noindex junk and utility URLs',
@@ -38,7 +38,7 @@ $checks = array(
 	),
 	'repair_known_404s'    => array(
 		'label' => 'Exact 301s for known dead URLs',
-		'help'  => '/blog/ → /blogs/. No fuzzy matching. No Rank Math redirect rows.',
+		'help'  => '/blog/ → /blogs/ on init, before Rank Math. No Rank Math redirect rows.',
 	),
 	'buffer_html'          => array(
 		'label' => 'Final HTML pass',
@@ -56,24 +56,100 @@ $checks = array(
 		'label' => 'Homepage Amazon disclosure',
 		'help'  => 'Prints a clear Associate disclosure on the homepage footer.',
 	),
+	'process_learning'     => array(
+		'label' => 'Process learning',
+		'help'  => 'Every 15 minutes: heal robots.txt, purge LiteSpeed, verify each process, learn exact 301 hops.',
+	),
+	'auto_purge'           => array(
+		'label' => 'Automatic cache purge',
+		'help'  => 'Calls LiteSpeed purge_all and wp_cache_flush after heals. Does not call Hostinger’s CDN API.',
+	),
 );
+
+$green = isset( $last['green'] ) ? (int) $last['green'] : 0;
+$total = isset( $last['total'] ) ? (int) $last['total'] : 0;
+$band  = isset( $last['seo_band'] ) ? (string) $last['seo_band'] : '';
+$score = isset( $last['score_10'] ) ? $last['score_10'] : '';
+$at    = ! empty( $last['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $last['at'] ) : 'Not run yet';
+$signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['signals'] : array();
 ?>
 <div class="wrap lsr-wrap">
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · public output repair</p>
 		<h1>Luxe Score Repair <?php echo esc_html( LUXE_SCORE_REPAIR_VERSION ); ?></h1>
-		<p class="lsr-lead">Fixes the live SEO errors on luxetrendsetters.com without touching stored posts, Amazon URLs, or Rank Math redirects.</p>
+		<p class="lsr-lead">Each process has a live signal. Learning heals robots.txt on disk, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes.</p>
 	</header>
 
+	<section class="lsr-scorebar">
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Verified processes</p>
+			<p class="lsr-big"><?php echo esc_html( $green . ' / ' . $total ); ?> <span>green</span></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Process score</p>
+			<p class="lsr-big"><?php echo esc_html( (string) $score ); ?><span> / 10</span></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">SEO band</p>
+			<p class="lsr-big lsr-band"><?php echo esc_html( $band ? $band : 'armed' ); ?></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Last learning</p>
+			<p class="lsr-when"><?php echo esc_html( $at ); ?></p>
+		</div>
+	</section>
+
+	<section class="lsr-signals">
+		<h2>Green signals</h2>
+		<ul class="lsr-signal-list">
+			<?php foreach ( $signals as $signal ) : ?>
+				<?php
+				$level = isset( $signal['level'] ) ? $signal['level'] : 'red';
+				$label = isset( $signal['label'] ) ? $signal['label'] : '';
+				$detail = isset( $signal['detail'] ) ? $signal['detail'] : '';
+				?>
+				<li class="lsr-signal lsr-signal-<?php echo esc_attr( $level ); ?>">
+					<span class="lsr-dot" aria-hidden="true"></span>
+					<span>
+						<strong><?php echo esc_html( strtoupper( $level ) ); ?> · <?php echo esc_html( $label ); ?></strong>
+						<em><?php echo esc_html( $detail ); ?></em>
+					</span>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+		<form method="post" class="lsr-learn-form">
+			<?php wp_nonce_field( 'luxe_score_repair_learn' ); ?>
+			<button type="submit" name="luxe_score_repair_learn_now" value="1" class="button button-primary lsr-save">Run process learning now</button>
+		</form>
+	</section>
+
+	<?php if ( ! empty( $log ) ) : ?>
+		<section class="lsr-card">
+			<h2>Learning log</h2>
+			<table class="widefat striped">
+				<thead>
+					<tr>
+						<th>When</th>
+						<th>Green</th>
+						<th>Score</th>
+						<th>Band</th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php foreach ( $log as $row ) : ?>
+					<tr>
+						<td><?php echo esc_html( ! empty( $row['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $row['at'] ) : '' ); ?></td>
+						<td><?php echo esc_html( ( isset( $row['green'] ) ? $row['green'] : '0' ) . ' / ' . ( isset( $row['total'] ) ? $row['total'] : '0' ) ); ?></td>
+						<td><?php echo esc_html( isset( $row['score'] ) ? $row['score'] : '' ); ?></td>
+						<td><?php echo esc_html( isset( $row['band'] ) ? $row['band'] : '' ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+		</section>
+	<?php endif; ?>
+
 	<section class="lsr-grid">
-		<article class="lsr-card lsr-card-score">
-			<h2>What this can raise</h2>
-			<ul>
-				<li><strong>Lighthouse SEO</strong> toward 95–100 after a LiteSpeed Purge All (titles, description, robots.txt, crawlable links, valid schema, image alts).</li>
-				<li><strong>Public site quality</strong> by hiding junk URLs, truncated FAQ, and AI filler from visitors and Google.</li>
-			</ul>
-			<p class="lsr-note">A plugin cannot turn 200 thin Amazon listings into a 10/10 editorial magazine. It can make every technical error from the scan stop shipping to Google.</p>
-		</article>
 		<article class="lsr-card lsr-card-safe">
 			<h2>Safety lock</h2>
 			<ul>
@@ -81,9 +157,17 @@ $checks = array(
 				<li>Never changes post status</li>
 				<li>Never rewrites Amazon or product permalinks</li>
 				<li>Never creates Rank Math redirect rows</li>
-				<li>No content cron</li>
+				<li>Learning is heal + verify only</li>
 			</ul>
-			<p>After activate: <strong>LiteSpeed → Purge All</strong>. Guest Mode OFF, Crawler OFF.</p>
+		</article>
+		<article class="lsr-card">
+			<h2>Automatic heals</h2>
+			<ul>
+				<li>Overwrite bloated <code>robots.txt</code> on disk</li>
+				<li>301 <code>/blog/</code> on <code>init</code> before Rank Math</li>
+				<li>LiteSpeed <code>purge_all</code> after each heal</li>
+				<li>Re-learn exact hops if Rank Math still fires first</li>
+			</ul>
 		</article>
 	</section>
 
