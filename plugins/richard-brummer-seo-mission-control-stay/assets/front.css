@@ -1,0 +1,15 @@
+.rbsmc-stay-progress{position:fixed;top:0;left:0;right:0;height:3px;z-index:99999;background:transparent;pointer-events:none}
+.rbsmc-stay-progress span{display:block;height:100%;width:0;background:#111;transition:width .12s linear}
+.rbsmc-stay-rail{margin:2.5rem 0 1rem;padding:1.25rem 1.4rem;border:1px solid #e6e2da;background:#faf8f4}
+.rbsmc-stay-rail h2{margin:0 0 .4rem;font-size:1.35rem}
+.rbsmc-stay-rail ul{margin:.6rem 0 0;padding-left:1.1rem}
+.rbsmc-stay-rail a{text-decoration:underline}
+.rbsmc-stay-hub{margin:2.5rem 0 1.5rem;padding:1.4rem 1.5rem;border:1px solid #e6e2da;background:#faf8f4;max-width:52rem}
+.rbsmc-stay-hub h2{margin:0 0 .5rem;font-size:1.45rem;line-height:1.3}
+.rbsmc-stay-hub h3{margin:1.1rem 0 .35rem;font-size:1.1rem}
+.rbsmc-stay-checks{margin:.6rem 0 0;padding-left:1.2rem}
+.rbsmc-stay-hub ul{margin:.4rem 0 0;padding-left:1.1rem}
+.rbsmc-stay-hub a{text-decoration:underline}
+body.woocommerce-cart .rbsmc-stay-ai-filler,
+body.woocommerce-checkout .rbsmc-stay-ai-filler,
+body.woocommerce-account .rbsmc-stay-ai-filler{display:none !important}
