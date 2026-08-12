@@ -1,38 +1,52 @@
+Live inventory: 43 plugins, all active. Consolidator 1.1.0 uses this list.
+
 KEEP (do not deactivate)
 - WooCommerce
+- WZone - WooCommerce Amazon Affiliates
 - Rank Math SEO
 - Site Kit by Google
-- Wordfence
+- Wordfence Security
 - LiteSpeed Cache
-- Richard Brummer SEO Mission Control 1.8.1 (keep if already live)
+- Richard Brummer SEO Mission Control 1.8.2
+- Richard Brummer SEO Mission Control Stay Repair (upload 1.9.2 over 1.9.1)
 - Contact Form 7
 - Classic Editor
-- Luxe Performance Link Guardian
-- Luxe Amazon Bridge
-- Luxe Unified Site Guardian
+- Amazon Affiliate Autopilot for WooCommerce
+- Luxe Amazon View on Amazon Bridge
+- YITH WooCommerce Wishlist
+- Snapshot Pro
+- Link Whisper Premium
 - Luxe Hard Rescue Admin Cleaner
-- YITH Wishlist
+- Luxe Hard Rescue Safe Trash Extension
+- Luxe WZone Deletion Shield
+- Luxe Site Hardening Guard
+- Luxe Rank Math Schema Guard
+- Luxe Simple Homepage Mirror Master
+- Luxe WOW Homepage Rotator
+- Luxe Performance Link Guardian Suite
+- Luxe Unified Site Guardian
+- Luxe Category Authority Lock
+- 24/7 Smart 90-Day Commission Tracker ULTIMATE
 
-DEACTIVATE (unused on an Amazon affiliate catalog with $0 WooCommerce sales, or overlapping scanners)
-- YITH Points and Rewards
-- YITH Coupon Email System
-- YITH Product Add-ons
-- YITH Minimum Maximum Quantity
-- YITH Custom Order Status
-- YITH Product Countdown
-- YITH Color/Image Swatches
-- YITH Frequently Bought Together
-- YITH Product Gallery & Image Zoom
-- YITH Compare
-- Nextend Social Login
-- Jetpack
-- Yoast SEO (Rank Math already runs)
-- Redirection (Rank Math already has 73 redirects)
+DEACTIVATE (17 overlapping 24/7 scanners / one-time tools)
+- Action Scheduler Healer PRO
+- Hostinger AI
+- Luxe Affiliate Product Scout
+- Luxe AI Readiness Autopilot 100
+- Luxe Amazon + Mobile Recovery
+- Luxe Amazon Correct Tag + Green Signals
+- Luxe Bad Content Eraser
+- Luxe Blog Master Command Center
+- Luxe Comment Shield Learning Guard
+- Luxe CRON Mobilizer Pro
+- Luxe Duplicate Plugin Cleaner
+- Luxe Index Recovery Guard
 - Luxe Keyword Intelligence Autopilot
-- Luxe AI Readiness Autopilot
-- Luxe Reader-Love Unified
-- WooCommerce PayPal Payments
-- Elementor / Autoptimize / WP-Optimize if present
+- Luxe Master Plugin Orchestrator
+- Luxe Performance Core Fusion
+- Luxe Reader-Love Unified 95–100 Prep & Score
+- Transients Manager
 
-Also: LiteSpeed Cache → Guest Mode OFF, then purge all caches.
-This is the main 1-second time-on-page killer.
+Do not install Nextend Social Login. Dismiss that theme notice.
+Do not replace Mission Control 1.8.2 with the full 1.9.0 zip.
+LiteSpeed Cache → Guest Mode OFF, Crawler OFF, then purge all caches.

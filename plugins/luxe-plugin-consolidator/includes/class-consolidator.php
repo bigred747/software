@@ -4,7 +4,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Deactivates redundant plugins. Never deletes files. Never touches the keep list.
+ * Deactivates redundant plugins from the live LuxeTrendsetters inventory.
+ * Never deletes files. Never touches the keep list.
  */
 class Luxe_Plugin_Consolidator {
 
@@ -26,7 +27,71 @@ class Luxe_Plugin_Consolidator {
 	}
 
 	/**
-	 * Folders that must stay active.
+	 * Plugin titles that must stay active. Matched after punctuation is stripped.
+	 *
+	 * @return array
+	 */
+	public static function keep_titles() {
+		return array(
+			'WooCommerce',
+			'Rank Math SEO',
+			'Site Kit by Google',
+			'Wordfence Security',
+			'LiteSpeed Cache',
+			'Richard Brummer SEO Mission Control',
+			'Richard Brummer SEO Mission Control Stay Repair',
+			'Contact Form 7',
+			'Classic Editor',
+			'WZone - WooCommerce Amazon Affiliates',
+			'Luxe Amazon View on Amazon Bridge',
+			'Amazon Affiliate Autopilot for WooCommerce',
+			'YITH WooCommerce Wishlist',
+			'Snapshot Pro',
+			'Luxe Hard Rescue Admin Cleaner',
+			'Luxe Hard Rescue Safe Trash Extension',
+			'Luxe WZone Deletion Shield',
+			'Luxe Site Hardening Guard',
+			'Luxe Rank Math Schema Guard',
+			'Luxe Simple Homepage Mirror Master',
+			'Luxe WOW Homepage Rotator Ultra Premium Edition',
+			'Luxe Performance Link Guardian Suite',
+			'Luxe Unified Site Guardian Green Signals Safe Rebuild',
+			'Luxe Category Authority Lock Safe Activation',
+			'Link Whisper Premium',
+			'24/7 Smart 90-Day Commission Tracker ULTIMATE',
+			'Luxe Plugin Consolidator',
+		);
+	}
+
+	/**
+	 * Plugin titles to deactivate. 24/7 overlap scanners, one-time cleaners, Hostinger AI.
+	 *
+	 * @return array
+	 */
+	public static function deactivate_titles() {
+		return array(
+			'Action Scheduler Healer PRO',
+			'Hostinger AI',
+			'Luxe Affiliate Product Scout',
+			'Luxe AI Readiness Autopilot 100',
+			'Luxe Amazon Mobile Recovery',
+			'Luxe Amazon Correct Tag Green Signals',
+			'Luxe Bad Content Eraser Safe One Time Cleanup',
+			'Luxe Blog Master Command Center',
+			'Luxe Comment Shield Learning Guard',
+			'Luxe CRON Mobilizer Pro',
+			'Luxe Duplicate Plugin Cleaner',
+			'Luxe Index Recovery Guard',
+			'Luxe Keyword Intelligence Autopilot',
+			'Luxe Master Plugin Orchestrator',
+			'Luxe Performance Core Fusion',
+			'Luxe Reader Love Unified',
+			'Transients Manager',
+		);
+	}
+
+	/**
+	 * Folder names that must never be deactivated even if a title match fails.
 	 *
 	 * @return array
 	 */
@@ -42,47 +107,51 @@ class Luxe_Plugin_Consolidator {
 			'luxe-plugin-consolidator',
 			'contact-form-7',
 			'classic-editor',
-			'luxe-performance-link-guardian-suite',
-			'luxe-amazon-bridge',
-			'luxe-unified-site-guardian',
-			'luxe-hard-rescue-admin-cleaner',
 			'yith-woocommerce-wishlist',
+			'woocommerce-amazon-affiliates',
+			'woozone',
+			'wzone',
+			'snapshot',
+			'snapshot-pro',
+			'link-whisper',
+			'link-whisper-premium',
 		);
 	}
 
 	/**
-	 * Folder prefixes to deactivate (unused checkout/YITH/overlap scanners).
-	 *
-	 * @return array
+	 * @param string $title Title.
+	 * @return string
 	 */
-	public static function deactivate_prefixes() {
-		return array(
-			'yith-woocommerce-points',
-			'yith-woocommerce-coupon',
-			'yith-woocommerce-product-add',
-			'yith-woocommerce-minimum',
-			'yith-woocommerce-custom-order',
-			'yith-woocommerce-product-countdown',
-			'yith-woocommerce-color',
-			'yith-woocommerce-frequently',
-			'yith-woocommerce-product-image',
-			'yith-woocommerce-product-gallery',
-			'yith-woocommerce-compare',
-			'yith-woocommerce-ajax',
-			'nextend-facebook',
-			'nextend-social',
-			'jetpack',
-			'wordpress-seo',
-			'wordpress-seo-premium',
-			'redirection',
-			'luxe-keyword-intelligence',
-			'luxe-ai-readiness',
-			'luxe-reader-love',
-			'woocommerce-paypal-payments',
-			'elementor',
-			'autoptimize',
-			'wp-optimize',
-		);
+	public static function normalize_title( $title ) {
+		$title = html_entity_decode( (string) $title, ENT_QUOTES, 'UTF-8' );
+		$title = strtolower( $title );
+		$title = str_replace( array( '–', '—', '‑', '-', '+', '/' ), ' ', $title );
+		$title = preg_replace( '/[^a-z0-9]+/', ' ', $title );
+		return trim( preg_replace( '/\s+/', ' ', (string) $title ) );
+	}
+
+	/**
+	 * Exact normalized title match. Mission Control must not match Stay Repair.
+	 *
+	 * @param string $installed Installed plugin Name.
+	 * @param array  $titles    Candidate titles.
+	 * @return bool
+	 */
+	public static function title_in_list( $installed, $titles ) {
+		$have = self::normalize_title( $installed );
+		if ( '' === $have ) {
+			return false;
+		}
+		foreach ( $titles as $title ) {
+			$want = self::normalize_title( $title );
+			if ( $want === $have ) {
+				return true;
+			}
+			if ( '' !== $want && 0 === strpos( $have, $want . ' ' ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -139,10 +208,8 @@ class Luxe_Plugin_Consolidator {
 			return;
 		}
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( $screen && 'plugins' !== $screen->id && ( empty( $screen->id ) || false === strpos( (string) $screen->id, 'luxe-consolidator' ) ) ) {
-			if ( 'plugins' !== $screen->id ) {
-				return;
-			}
+		if ( ! $screen || ( 'plugins' !== $screen->id && false === strpos( (string) $screen->id, 'luxe-consolidator' ) ) ) {
+			return;
 		}
 		$count = count( $run['deactivated'] );
 		echo '<div class="notice notice-success"><p><strong>Luxe Consolidator:</strong> deactivated ' . esc_html( (string) $count ) . ' unused plugin(s). Files were not deleted. <a href="' . esc_url( admin_url( 'tools.php?page=luxe-consolidator' ) ) . '">Review list</a>.</p></div>';
@@ -155,31 +222,88 @@ class Luxe_Plugin_Consolidator {
 		if ( ! current_user_can( 'activate_plugins' ) ) {
 			return;
 		}
-		$run = get_option( self::OPTION, array() );
-		echo '<div class="wrap"><h1>Luxe Plugin Consolidator</h1>';
-		echo '<p>Keeps the store/SEO/security stack. Deactivates unused YITH checkout plugins and overlapping Luxe scanners. Does not delete anything.</p>';
-		echo '<h2>Keep active</h2><ul>';
-		foreach ( self::keep_folders() as $folder ) {
-			echo '<li><code>' . esc_html( $folder ) . '</code></li>';
-		}
-		echo '</ul><h2>Deactivate if found</h2><ul>';
-		foreach ( self::deactivate_prefixes() as $prefix ) {
-			echo '<li><code>' . esc_html( $prefix ) . '*</code></li>';
-		}
-		echo '</ul>';
-		if ( ! empty( $run['deactivated'] ) ) {
-			echo '<h2>Last run</h2><p>' . esc_html( gmdate( 'Y-m-d H:i:s', absint( $run['at'] ) ) ) . ' UTC via ' . esc_html( $run['via'] ) . '</p><ol>';
-			foreach ( $run['deactivated'] as $file ) {
-				echo '<li><code>' . esc_html( $file ) . '</code></li>';
+		$plan = $this->plan();
+		$run  = get_option( self::OPTION, array() );
+		echo '<div class="wrap"><h1>Luxe Plugin Consolidator 1.1.0</h1>';
+		echo '<p>Built from the live 43-plugin list. Keeps WooCommerce, WZone, Rank Math, Site Kit, Wordfence, LiteSpeed, Mission Control 1.8.2, Stay Repair, Amazon Bridge, and backups. Turns off overlapping 24/7 Luxe scanners. Does not delete files and does not publish content.</p>';
+
+		echo '<h2>Will deactivate now (' . esc_html( (string) count( $plan['deactivate'] ) ) . ')</h2>';
+		if ( $plan['deactivate'] ) {
+			echo '<ol>';
+			foreach ( $plan['deactivate'] as $row ) {
+				echo '<li>' . esc_html( $row['name'] ) . ' <code>' . esc_html( $row['file'] ) . '</code></li>';
 			}
 			echo '</ol>';
 		} else {
-			echo '<p>No matching active plugins were deactivated yet (they may already be off, or the folder names differ).</p>';
+			echo '<p>None of the overlap scanners are active.</p>';
 		}
+
+		echo '<h2>Keep active (' . esc_html( (string) count( $plan['keep'] ) ) . ')</h2><ol>';
+		foreach ( $plan['keep'] as $row ) {
+			echo '<li>' . esc_html( $row['name'] ) . '</li>';
+		}
+		echo '</ol>';
+
+		if ( $plan['unknown'] ) {
+			echo '<h2>Leave alone (not in keep or deactivate lists)</h2><ol>';
+			foreach ( $plan['unknown'] as $row ) {
+				echo '<li>' . esc_html( $row['name'] ) . ' <code>' . esc_html( $row['file'] ) . '</code></li>';
+			}
+			echo '</ol>';
+		}
+
+		if ( ! empty( $run['deactivated'] ) ) {
+			echo '<h2>Last run</h2><p>' . esc_html( gmdate( 'Y-m-d H:i:s', absint( $run['at'] ) ) ) . ' UTC via ' . esc_html( (string) $run['via'] ) . '</p><ol>';
+			foreach ( $run['deactivated'] as $file ) {
+				$label = is_array( $file ) ? $file['name'] . ' (' . $file['file'] . ')' : $file;
+				echo '<li><code>' . esc_html( (string) $label ) . '</code></li>';
+			}
+			echo '</ol>';
+		}
+
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( 'luxe_consol_run' );
 		echo '<input type="hidden" name="action" value="luxe_consol_run" />';
-		echo '<p><button class="button button-primary" type="submit">Run deactivation now</button></p></form></div>';
+		echo '<p><button class="button button-primary" type="submit">Deactivate the overlap list now</button></p></form></div>';
+	}
+
+	/**
+	 * Classify active plugins.
+	 *
+	 * @return array
+	 */
+	public function plan() {
+		if ( ! function_exists( 'get_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+		$all    = get_plugins();
+		$active = (array) get_option( 'active_plugins', array() );
+		$keep   = array();
+		$off    = array();
+		$unk    = array();
+		foreach ( $active as $file ) {
+			$name   = isset( $all[ $file ]['Name'] ) ? $all[ $file ]['Name'] : $file;
+			$parts  = explode( '/', (string) $file );
+			$folder = strtolower( (string) $parts[0] );
+			$row    = array(
+				'file' => $file,
+				'name' => $name,
+			);
+			if ( in_array( $folder, self::keep_folders(), true ) || self::title_in_list( $name, self::keep_titles() ) ) {
+				$keep[] = $row;
+				continue;
+			}
+			if ( self::title_in_list( $name, self::deactivate_titles() ) ) {
+				$off[] = $row;
+				continue;
+			}
+			$unk[] = $row;
+		}
+		return array(
+			'keep'       => $keep,
+			'deactivate' => $off,
+			'unknown'    => $unk,
+		);
 	}
 
 	/**
@@ -188,24 +312,10 @@ class Luxe_Plugin_Consolidator {
 	 * @param string $via activation|manual.
 	 */
 	public function run( $via ) {
-		if ( ! function_exists( 'get_plugins' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/plugin.php';
-		}
-		$active = (array) get_option( 'active_plugins', array() );
-		$keep   = self::keep_folders();
-		$prefs  = self::deactivate_prefixes();
-		$off    = array();
-		foreach ( $active as $file ) {
-			$folder = strtolower( strtok( $file, '/' ) );
-			if ( in_array( $folder, $keep, true ) ) {
-				continue;
-			}
-			foreach ( $prefs as $prefix ) {
-				if ( 0 === strpos( $folder, $prefix ) ) {
-					$off[] = $file;
-					break;
-				}
-			}
+		$plan = $this->plan();
+		$off  = array();
+		foreach ( $plan['deactivate'] as $row ) {
+			$off[] = $row['file'];
 		}
 		$off = array_values( array_unique( $off ) );
 		if ( $off ) {
@@ -214,10 +324,10 @@ class Luxe_Plugin_Consolidator {
 		update_option(
 			self::OPTION,
 			array(
-				'at'           => time(),
-				'via'          => $via,
-				'deactivated'  => $off,
-				'keep'         => $keep,
+				'at'          => time(),
+				'via'         => $via,
+				'deactivated' => $plan['deactivate'],
+				'kept'        => wp_list_pluck( $plan['keep'], 'name' ),
 			),
 			false
 		);

@@ -1,9 +1,9 @@
-# Luxe efficiency pack
+# Luxe Plugin Consolidator 1.1.0
 
-Install in this order:
+Upload `Luxe-Plugin-Consolidator-v1.1.0.zip` in Plugins → Add Plugin → Upload Plugin, then activate.
 
-1. `Luxe-Plugin-Consolidator-v1.0.0.zip` — activate to deactivate unused plugins
-2. `Richard-Brummer-SEO-Mission-Control-v1.9.0.zip` — only if you are replacing 1.2.0. If 1.8.1 is live, keep 1.8.1 and skip this replace.
-3. LiteSpeed → Guest Mode OFF → purge all caches
+It deactivates overlapping 24/7 Luxe scanners from the live 43-plugin list. It does not delete files.
 
-This pack cannot log into WordPress for you. Activating the consolidator is what turns plugins off.
+Keep Mission Control **1.8.2**. Upload Stay Repair **1.9.2** over 1.9.1. Do not install Nextend Social Login.
+
+Then LiteSpeed → Guest Mode OFF, Crawler OFF → Purge All.
