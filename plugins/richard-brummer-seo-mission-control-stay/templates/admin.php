@@ -11,22 +11,27 @@ $checks = array(
 	'helpful_404'              => 'Replace empty 404s with search + live guides',
 	'log_404'                  => 'Log 404 paths for Rank Math redirect review',
 	'dwell_beacon'             => 'Record honest first-party time-on-page buckets',
+	'drop_missing_assets'      => 'Do not print plugin CSS/JS when the file is missing on disk',
+	'serve_bot_placeholders'   => 'Answer /meta.json and /.well-known/agents.js instead of 404',
+	'repair_known_dead_urls'   => '301 a short exact-path list of deleted posts to live catalog pages',
 	'neutralize_history_traps' => 'Neutralize back-button traps if found (off by default)',
 	'auto_redirect_404'        => 'Auto-create redirects (leave OFF — review in Rank Math)',
 );
 ?>
 <div class="wrap rbsmc-stay-wrap">
-	<h1>Richard Brummer SEO · Stay Repair 1.9.0</h1>
+	<h1>Richard Brummer SEO · Stay Repair 1.9.2</h1>
 	<p class="rbsmc-stay-lead">This module sits beside Mission Control 1.8.1. It does not auto-publish, rewrite stored posts, or restore fake 5–15 minute time with back-button hijacking. It stops the 1-second Guest Mode reload and keeps people on real guides.</p>
 
 	<section class="rbsmc-stay-card">
-		<h2>Why time-on-page collapsed to 1 second</h2>
+		<h2>Why this WordPress dashboard still looks worse</h2>
 		<ol>
-			<li><strong>LiteSpeed Guest Mode</strong> reloads the first visit after <code>guest.vary.php</code>. Site Kit records that as a 1s page. Disable Guest Mode, then purge cache.</li>
+			<li><strong>Site Kit 1s / 19K users is a rolling 28-day average.</strong> Stay Repair dwell samples (minutes, not 1s) are the current truth. Site Kit will not jump the same day.</li>
+			<li><strong>LiteSpeed Guest Mode</strong> still injects <code>guest.vary.php</code> on cache MISS. Stay Repair sets <code>litespeed_reloaded</code> first so the reload is skipped. Keep Guest Mode, Guest Optimization, and Crawler OFF.</li>
 			<li>The old 5–15 minute number was not restored with <code>pushState</code>/<code>popstate</code> traps. Google treats those as spam.</li>
-			<li>Rank Math Overview at 0 impressions/clicks is a disconnected widget. Site Kit already shows 36 impressions and 0 clicks — search is not the traffic source.</li>
-			<li>63 Rank Math 404 URLs and AI filler on cart/account pages cause instant exits.</li>
+			<li>Rank Math Overview at 0 impressions/clicks is a disconnected widget. Trust Site Kit (36 impressions, 0 clicks) — search is not the traffic source.</li>
+			<li>Rank Math 404s can rise (75 URLs / 184 hits) while missing plugin files and bot probes are still 404ing. 1.9.2 stops those. It does not invent Rank Math redirect rules.</li>
 			<li>WooCommerce $0 is expected on an Amazon affiliate catalog. Watch Amazon reports, not WooCommerce orders.</li>
+			<li>Mission Control 1.8.1 “1 verified red” is a separate dashboard. Open that evidence screen; Stay Repair can be 0 red at the same time.</li>
 		</ol>
 	</section>
 
@@ -40,7 +45,7 @@ $checks = array(
 				<label>Avg time on page (seconds) <input type="number" name="snapshot_avg_seconds" value="<?php echo isset( $snap['avg_seconds'] ) ? esc_attr( $snap['avg_seconds'] ) : '1'; ?>" /></label>
 				<label>Search impressions <input type="number" name="snapshot_impressions" value="<?php echo isset( $snap['impressions'] ) ? esc_attr( $snap['impressions'] ) : '36'; ?>" /></label>
 				<label>Search clicks <input type="number" name="snapshot_clicks" value="<?php echo isset( $snap['clicks'] ) ? esc_attr( $snap['clicks'] ) : '0'; ?>" /></label>
-				<label>404 URL count <input type="number" name="snapshot_404" value="<?php echo isset( $snap['not_found'] ) ? esc_attr( $snap['not_found'] ) : '63'; ?>" /></label>
+				<label>404 URL count <input type="number" name="snapshot_404" value="<?php echo isset( $snap['not_found'] ) ? esc_attr( $snap['not_found'] ) : '75'; ?>" /></label>
 				<label>WooCommerce sales <input type="text" name="snapshot_wc_sales" value="<?php echo isset( $snap['wc_sales'] ) ? esc_attr( $snap['wc_sales'] ) : '0'; ?>" /></label>
 			</div>
 			<h3>Safe output fixes</h3>
@@ -102,7 +107,7 @@ $checks = array(
 				echo '<tr><td>' . esc_html( $path ) . '</td><td>' . esc_html( (string) $row['hits'] ) . '</td></tr>';
 			}
 			echo '</tbody></table>';
-			echo '<p>Create matching redirects in Rank Math → Redirections. Stay Repair will not invent redirects automatically.</p>';
+			echo '<p>1.9.2 already 301s a short exact-path list and answers bot probes. For anything else, create matching redirects in Rank Math → Redirections. Leave “Auto-create redirects” OFF.</p>';
 		} else {
 			echo '<p>No 404s logged by Stay Repair yet.</p>';
 		}

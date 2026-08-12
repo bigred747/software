@@ -30,6 +30,7 @@ class RBSMC_Stay_Audit {
 		$signals[] = $this->signal_woocommerce_affiliate();
 		$signals[] = $this->signal_robots( $robots );
 		$signals[] = $this->signal_404_volume();
+		$signals[] = $this->signal_missing_plugin_assets( $home_html );
 
 		$red = 0;
 		foreach ( $signals as $signal ) {
@@ -61,7 +62,7 @@ class RBSMC_Stay_Audit {
 				'redirection' => 3,
 				'sslverify'   => true,
 				'headers'     => array(
-					'User-Agent' => 'RBSMC-StayRepair/1.9.0; ' . home_url( '/' ),
+					'User-Agent' => 'RBSMC-StayRepair/1.9.2; ' . home_url( '/' ),
 				),
 			)
 		);
@@ -252,7 +253,26 @@ class RBSMC_Stay_Audit {
 			'id'     => '404-volume',
 			'level'  => $level,
 			'title'  => '404 monitor: ' . $dash . ' Rank Math URLs, ' . $count . ' Stay Repair logged paths',
-			'detail' => 'Rank Math shows 63 logged 404 URLs on the dashboard snapshot. Stay Repair logs new 404s and shows a helpful recovery page. It does not auto-create redirects unless you enable that unsafe option.',
+			'detail' => 'Rank Math 404 count can rise while Stay Repair is logging newly discovered dead URLs. 1.9.2 answers /meta.json and /.well-known/agents.js, drops missing plugin CSS/JS, and 301s a short exact-path list of deleted posts. It still does not auto-create Rank Math redirects.',
+			'scored' => false,
+		);
+	}
+
+	/**
+	 * Homepage still requesting deleted Link Guardian files.
+	 *
+	 * @param string $html Homepage HTML.
+	 * @return array
+	 */
+	private function signal_missing_plugin_assets( $html ) {
+		$found = (bool) preg_match( '/luxe-performance-link-guardian-suite\/includes\/assets\/(front\.css|clicks\.js)/', $html );
+		return array(
+			'id'     => 'missing-plugin-assets',
+			'level'  => $found ? 'yellow' : 'green',
+			'title'  => $found ? 'Homepage still requests missing Link Guardian CSS/JS' : 'Homepage does not request missing Link Guardian assets',
+			'detail' => $found
+				? 'front.css / clicks.js 404 and inflate Rank Math 404 hits. Stay Repair 1.9.2 dequeues plugin files that are missing on disk. Purge LiteSpeed after upload.'
+				: 'Sampled homepage HTML does not link to the missing Link Guardian asset paths.',
 			'scored' => false,
 		);
 	}

@@ -29,6 +29,9 @@ class RBSMC_Stay_Frontend {
 	public function boot() {
 		add_action( 'wp_head', array( $this, 'guest_vary_shield' ), 0 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'drop_missing_plugin_assets' ), 9999 );
+		add_action( 'wp_print_styles', array( $this, 'drop_missing_plugin_assets' ), 1 );
+		add_action( 'wp_print_scripts', array( $this, 'drop_missing_plugin_assets' ), 1 );
 		add_filter( 'the_content', array( $this, 'filter_content' ), 32 );
 		add_action( 'wp_footer', array( $this, 'reading_progress_markup' ), 5 );
 	}
@@ -78,6 +81,57 @@ class RBSMC_Stay_Frontend {
 				'utility'    => $this->is_utility_page() ? 1 : 0,
 			)
 		);
+	}
+
+	/**
+	 * Stop enqueueing plugin CSS/JS whose files are missing on disk (Link Guardian 404s).
+	 */
+	public function drop_missing_plugin_assets() {
+		if ( is_admin() || ! RBSMC_Stay_Plugin::instance()->enabled( 'drop_missing_assets' ) ) {
+			return;
+		}
+		global $wp_styles, $wp_scripts;
+		$this->drop_missing_from_queue( $wp_styles, true );
+		$this->drop_missing_from_queue( $wp_scripts, false );
+	}
+
+	/**
+	 * @param WP_Dependencies|null $queue Style or script queue.
+	 * @param bool                 $is_style Whether this is a style queue.
+	 */
+	private function drop_missing_from_queue( $queue, $is_style ) {
+		if ( ! $queue || empty( $queue->registered ) || ! is_array( $queue->registered ) ) {
+			return;
+		}
+		$content_url_path = wp_parse_url( content_url(), PHP_URL_PATH );
+		if ( ! is_string( $content_url_path ) || '' === $content_url_path ) {
+			return;
+		}
+		foreach ( $queue->registered as $handle => $obj ) {
+			$src = isset( $obj->src ) ? (string) $obj->src : '';
+			if ( '' === $src ) {
+				continue;
+			}
+			$path = wp_parse_url( $src, PHP_URL_PATH );
+			if ( ! is_string( $path ) || false === strpos( $path, '/plugins/' ) ) {
+				continue;
+			}
+			if ( 0 !== strpos( $path, $content_url_path ) ) {
+				continue;
+			}
+			$rel  = substr( $path, strlen( $content_url_path ) );
+			$file = WP_CONTENT_DIR . $rel;
+			if ( is_readable( $file ) ) {
+				continue;
+			}
+			if ( $is_style ) {
+				wp_dequeue_style( $handle );
+				wp_deregister_style( $handle );
+			} else {
+				wp_dequeue_script( $handle );
+				wp_deregister_script( $handle );
+			}
+		}
 	}
 
 	/**

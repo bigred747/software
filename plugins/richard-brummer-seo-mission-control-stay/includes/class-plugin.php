@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Shared options, cron, and AJAX for Stay Repair 1.9.0.
+ * Shared options, cron, and AJAX for Stay Repair 1.9.2.
  */
 class RBSMC_Stay_Plugin {
 
@@ -47,6 +47,9 @@ class RBSMC_Stay_Plugin {
 			'helpful_404'               => 1,
 			'log_404'                   => 1,
 			'dwell_beacon'              => 1,
+			'drop_missing_assets'       => 1,
+			'serve_bot_placeholders'    => 1,
+			'repair_known_dead_urls'    => 1,
 			'neutralize_history_traps'  => 0,
 			'auto_redirect_404'         => 0,
 			'target_dwell_minutes_min'  => 5,
@@ -150,7 +153,7 @@ class RBSMC_Stay_Plugin {
 			update_option( self::OPTION_SNAPSHOT, $snapshot, false );
 		}
 
-		add_settings_error( 'rbsmc_stay', 'saved', __( 'Stay Repair settings saved. Purge LiteSpeed cache once so public pages pick up the guest-vary shield.', 'rbsmc-stay' ), 'updated' );
+		add_settings_error( 'rbsmc_stay', 'saved', __( 'Stay Repair settings saved. Purge LiteSpeed cache once so public pages drop missing assets and pick up the guest-vary shield.', 'rbsmc-stay' ), 'updated' );
 	}
 
 	/**
