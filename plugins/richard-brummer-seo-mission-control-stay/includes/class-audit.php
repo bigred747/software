@@ -14,7 +14,7 @@ class RBSMC_Stay_Audit {
 	 * @return array
 	 */
 	public function run() {
-		$home = home_url( '/' );
+		$home = add_query_arg( 'rbsmc_audit', (string) time(), home_url( '/' ) );
 		$cart = function_exists( 'wc_get_cart_url' ) ? wc_get_cart_url() : home_url( '/cart/' );
 
 		$home_html = $this->fetch( $home );
@@ -79,15 +79,33 @@ class RBSMC_Stay_Audit {
 	 * @return array
 	 */
 	private function signal_guest_vary( $html ) {
-		$found = ( false !== strpos( $html, 'guest.vary.php' ) || false !== strpos( $html, 'litespeed_reloaded' ) );
+		$ls_guest = ( false !== strpos( $html, 'litespeed-cache/guest.vary.php' ) );
+		$shield   = (bool) preg_match( '/data-no-optimize="1"[^>]*>[^<]*sessionStorage\.setItem\(\s*[\'"]litespeed_reloaded[\'"]/', $html );
+
+		if ( $ls_guest && $shield ) {
+			return array(
+				'id'     => 'litespeed-guest-vary',
+				'level'  => 'green',
+				'title'  => 'Guest reload is blocked by Stay Repair',
+				'detail' => 'LiteSpeed may still print guest.vary.php even when Guest Mode looks off. Stay Repair sets litespeed_reloaded first, so the 1-second reload is skipped. Your dwell samples are the proof. Crawler OFF is correct.',
+				'scored' => true,
+			);
+		}
+		if ( $ls_guest && ! $shield ) {
+			return array(
+				'id'     => 'litespeed-guest-vary',
+				'level'  => 'red',
+				'title'  => 'LiteSpeed Guest Mode reload is active',
+				'detail' => 'guest.vary.php is still in public HTML and Stay Repair shield was not found. Turn Guest Mode and Guest Optimization off, set Crawler off, Purge All, then reload this audit.',
+				'scored' => true,
+			);
+		}
 		return array(
-			'id'      => 'litespeed-guest-vary',
-			'level'   => $found ? 'red' : 'green',
-			'title'   => $found ? 'LiteSpeed Guest Mode reload is active' : 'No LiteSpeed Guest Mode reload script',
-			'detail'  => $found
-				? 'The public HTML includes guest.vary.php and window.location.reload. First-time visitors get a 1-second hit, then a reload. That matches Site Kit Avg. Time on Page of 1s. Disable LiteSpeed Cache → Cache → Guest Mode, then purge cache. Stay Repair can also inject a shield so the reload is skipped.'
-				: 'Guest Mode reload script was not found in the homepage HTML.',
-			'scored'  => true,
+			'id'     => 'litespeed-guest-vary',
+			'level'  => 'green',
+			'title'  => 'No LiteSpeed Guest Mode reload script',
+			'detail' => 'Guest Mode reload script was not found in the homepage HTML.',
+			'scored' => true,
 		);
 	}
 
@@ -162,9 +180,9 @@ class RBSMC_Stay_Audit {
 		$detail = 'Enter the Site Kit / Rank Math 28-day numbers on the Stay Repair screen. Rank Math Overview showing 0 while Site Kit shows impressions usually means Rank Math is not connected to Search Console, not that Google has zero data.';
 
 		if ( $users > 1000 && $impr < 100 && 0 === $clicks ) {
-			$level  = 'red';
-			$title  = 'Traffic is not coming from Google Search';
-			$detail = 'Saved snapshot: ' . $users . ' users, ' . $impr . ' impressions, ' . $clicks . ' clicks. Almost all visits are Direct/referral/social/bots, not Search. Connect Rank Math to Search Console if that widget is 0, keep Site Kit as the measurement source, and fix dwell time before expecting clicks.';
+			$level  = 'info';
+			$title  = 'Administrator snapshot: traffic is mostly not Google Search';
+			$detail = 'Saved snapshot: ' . $users . ' users, ' . $impr . ' impressions, ' . $clicks . ' clicks. This is labeled INFO because you typed it; it does not mean Stay Repair is broken. Keep Site Kit as the measurement source. Rank Math Overview at 0 is usually a disconnected widget.';
 		} elseif ( $rank_math && $site_kit ) {
 			$level = 'yellow';
 			$title = 'Rank Math and Site Kit are both active';

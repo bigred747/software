@@ -4,7 +4,7 @@ Tags: seo, dwell time, litespeed, 404, amazon associates, wordpress
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.9.0
+Stable tag: 1.9.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,11 @@ Stay Repair 1.9.0:
 7. LiteSpeed Cache → Cache → turn Guest Mode OFF, then purge all caches.
 
 == Changelog ==
+
+= 1.9.1 =
+* Guest Mode red is green when Stay Repair is already skipping the reload.
+* Administrator-entered traffic snapshot is INFO, not a verified red.
+* Audit fetches a cache-busted homepage.
 
 = 1.9.0 =
 * First Stay Repair module for the 1-second Site Kit dwell collapse, 404 recovery, and Search Console zero diagnostics.
