@@ -1,0 +1,118 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Public cache and security headers. Does not alter cookies for carts.
+ */
+class Luxe_Score_Repair_Headers {
+
+	/**
+	 * @var self|null
+	 */
+	private static $instance = null;
+
+	/**
+	 * @return self
+	 */
+	public static function instance() {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
+
+	/**
+	 * Register header filters.
+	 */
+	public function boot() {
+		add_filter( 'wp_headers', array( $this, 'wp_headers' ), 999 );
+		add_action( 'send_headers', array( $this, 'send_headers' ), 20 );
+		add_filter( 'nocache_headers', array( $this, 'nocache_headers' ), 999 );
+	}
+
+	/**
+	 * @param array $headers Headers.
+	 * @return array
+	 */
+	public function wp_headers( $headers ) {
+		if ( ! is_array( $headers ) || ! Luxe_Score_Repair_Plugin::instance()->enabled( 'fix_headers' ) ) {
+			return $headers;
+		}
+		if ( ! $this->is_cacheable_public() ) {
+			return $headers;
+		}
+		$headers['Cache-Control'] = 'public, max-age=600, s-maxage=600';
+		unset( $headers['Expires'], $headers['Pragma'] );
+		if ( empty( $headers['X-Content-Type-Options'] ) ) {
+			$headers['X-Content-Type-Options'] = 'nosniff';
+		}
+		if ( empty( $headers['Referrer-Policy'] ) ) {
+			$headers['Referrer-Policy'] = 'strict-origin-when-cross-origin';
+		}
+		if ( empty( $headers['X-Frame-Options'] ) ) {
+			$headers['X-Frame-Options'] = 'SAMEORIGIN';
+		}
+		return $headers;
+	}
+
+	/**
+	 * HSTS only on HTTPS. Short enough to reverse if hosting changes.
+	 */
+	public function send_headers() {
+		if ( is_admin() || ! Luxe_Score_Repair_Plugin::instance()->enabled( 'fix_headers' ) ) {
+			return;
+		}
+		if ( ! is_ssl() ) {
+			return;
+		}
+		if ( headers_sent() ) {
+			return;
+		}
+		header( 'Strict-Transport-Security: max-age=15552000; includeSubDomains', false );
+	}
+
+	/**
+	 * Stop WordPress from forcing no-store on public catalog pages.
+	 *
+	 * @param array $headers Headers.
+	 * @return array
+	 */
+	public function nocache_headers( $headers ) {
+		if ( ! Luxe_Score_Repair_Plugin::instance()->enabled( 'fix_headers' ) ) {
+			return $headers;
+		}
+		if ( ! $this->is_cacheable_public() ) {
+			return $headers;
+		}
+		return array(
+			'Cache-Control' => 'public, max-age=600, s-maxage=600',
+		);
+	}
+
+	/**
+	 * @return bool
+	 */
+	private function is_cacheable_public() {
+		if ( is_admin() || is_user_logged_in() || wp_doing_ajax() ) {
+			return false;
+		}
+		if ( $_POST ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			return false;
+		}
+		if ( function_exists( 'is_cart' ) && is_cart() ) {
+			return false;
+		}
+		if ( function_exists( 'is_checkout' ) && is_checkout() ) {
+			return false;
+		}
+		if ( function_exists( 'is_account_page' ) && is_account_page() ) {
+			return false;
+		}
+		if ( is_preview() ) {
+			return false;
+		}
+		return true;
+	}
+}
