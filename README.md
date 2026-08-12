@@ -10,7 +10,9 @@ The live Dashboard is noisy, not broken. Upload these two ZIPs in **Plugins → 
 
 File: `dist/Luxe-Operator-Dashboard-v1.0.0.zip`
 
-SHA-256: `375f7412c9977e523e65f1cdc67240ef1a8d630405368e2742a9578f1032495c`
+SHA-256: `956d0f1a31f8b756c73dadfb53425aad62adcfd3b9d79b4f8485a2e97bfb3ad4`
+
+Direct download: https://github.com/bigred747/software/raw/cursor/operator-dashboard-9b7a/dist/Luxe-Operator-Dashboard-v1.0.0.zip
 
 Hides YITH news, Rank Math blog marketing, WordPress news, empty reviews, and repeating plugin nags **on the Dashboard screen only**. Adds one operator card that translates the numbers you pasted.
 
@@ -20,7 +22,9 @@ Keep **Luxe Hard Rescue Admin Cleaner** active.
 
 File: `dist/Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.3.zip`
 
-SHA-256: `8a7822328e69a8e492af78fb6c9a9a5971152c88d95209d480b2408305a47cec`
+SHA-256: `b418b24f32517694cb77971fbc6605c80ccf7a8ff01a970c1d723bdc1f1138c4`
+
+Direct download: https://github.com/bigred747/software/raw/cursor/operator-dashboard-9b7a/dist/Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.3.zip
 
 Upload **over** Stay Repair 1.9.2. Do **not** replace Mission Control 1.8.1.
 
