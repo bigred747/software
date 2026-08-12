@@ -11,7 +11,7 @@ $checks = array(
 );
 ?>
 <div class="wrap luxe-op-wrap">
-	<h1>Luxe Operator Dashboard 1.1.0</h1>
+	<h1>Luxe Operator Dashboard 1.1.1</h1>
 	<p>Admin-only. It does not auto-write, auto-publish, hook frontend content, or run content cron. Keep <strong>Luxe Hard Rescue Admin Cleaner</strong> active.</p>
 
 	<form method="post">

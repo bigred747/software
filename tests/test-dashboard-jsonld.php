@@ -60,6 +60,19 @@ assert_true( 'crawler-or-guest-reload' === RBSMC_Stay_Traffic::classify( 19000, 
 assert_true( 'not-google-search' === RBSMC_Stay_Traffic::classify( 19000, 80, 20, 0 ), 'high Direct with longer sessions is not-google-search' );
 assert_true( 'mixed' === RBSMC_Stay_Traffic::classify( 500, 40, 90, 20 ), 'small mixed traffic stays mixed' );
 
+require dirname( __DIR__ ) . '/plugins/richard-brummer-seo-mission-control-stay/includes/class-hub.php';
+$hub = RBSMC_Stay_Hub::markup(
+	'Apple',
+	array( array( 'url' => 'https://luxetrendsetters.com/p/watch/', 'title' => 'Apple Watch Ultra 2' ) ),
+	array( array( 'url' => 'https://luxetrendsetters.com/blog/laptops/', 'title' => 'Best laptops' ) ),
+	array( array( 'url' => 'https://luxetrendsetters.com/brand/dji/', 'title' => 'DJI' ) )
+);
+assert_true( false !== strpos( $hub, 'data-rbsmc-stay-hub' ), 'hub has marker' );
+assert_true( false !== strpos( $hub, 'Compare Apple for about five minutes' ), 'hub uses collection name' );
+assert_true( false !== strpos( $hub, 'Apple Watch Ultra 2' ), 'hub lists products' );
+assert_true( false !== strpos( $hub, '/brand/dji/' ), 'hub lists sibling collections' );
+assert_true( false === strpos( $hub, '<script' ), 'hub has no script' );
+
 if ( $fail ) {
 	echo "\n$fail failed\n";
 	exit( 1 );

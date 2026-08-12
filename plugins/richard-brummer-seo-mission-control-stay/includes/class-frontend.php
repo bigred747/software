@@ -24,6 +24,11 @@ class RBSMC_Stay_Frontend {
 	}
 
 	/**
+	 * @var bool
+	 */
+	private $hub_printed = false;
+
+	/**
 	 * Register frontend hooks.
 	 */
 	public function boot() {
@@ -34,11 +39,14 @@ class RBSMC_Stay_Frontend {
 		add_action( 'wp_print_styles', array( $this, 'drop_missing_plugin_assets' ), 1 );
 		add_action( 'wp_print_scripts', array( $this, 'drop_missing_plugin_assets' ), 1 );
 		add_filter( 'the_content', array( $this, 'filter_content' ), 32 );
+		add_action( 'woocommerce_after_shop_loop', array( $this, 'archive_hub' ), 30 );
+		add_action( 'woocommerce_no_products_found', array( $this, 'archive_hub' ), 30 );
+		add_action( 'wp_footer', array( $this, 'archive_hub' ), 4 );
 		add_action( 'wp_footer', array( $this, 'reading_progress_markup' ), 5 );
 	}
 
 	/**
-	 * Buffer public HTML so only invalid JSON-LD is stripped. Valid Rank Math schema stays.
+	 * Buffer public HTML so invalid JSON-LD is stripped and the Guest Mode shield is first in head.
 	 */
 	public function start_schema_buffer() {
 		if ( is_admin() || wp_doing_ajax() || ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) ) {
@@ -50,7 +58,8 @@ class RBSMC_Stay_Frontend {
 		if ( is_feed() || is_robots() || is_trackback() ) {
 			return;
 		}
-		if ( ! RBSMC_Stay_Plugin::instance()->enabled( 'schema_quarantine' ) ) {
+		$plugin = RBSMC_Stay_Plugin::instance();
+		if ( ! $plugin->enabled( 'schema_quarantine' ) && ! $plugin->enabled( 'guest_vary_shield' ) ) {
 			return;
 		}
 		ob_start( array( $this, 'quarantine_buffer' ) );
@@ -61,7 +70,29 @@ class RBSMC_Stay_Frontend {
 	 * @return string
 	 */
 	public function quarantine_buffer( $html ) {
-		return RBSMC_Stay_Schema::quarantine_invalid( $html );
+		$plugin = RBSMC_Stay_Plugin::instance();
+		if ( $plugin->enabled( 'schema_quarantine' ) ) {
+			$html = RBSMC_Stay_Schema::quarantine_invalid( $html );
+		}
+		if ( $plugin->enabled( 'guest_vary_shield' ) ) {
+			$html = $this->inject_guest_shield( $html );
+		}
+		return $html;
+	}
+
+	/**
+	 * Put the Guest Mode skip flag before LiteSpeed guest.vary.php so the 1s reload never runs.
+	 *
+	 * @param string $html HTML.
+	 * @return string
+	 */
+	private function inject_guest_shield( $html ) {
+		if ( ! is_string( $html ) || false !== strpos( $html, 'data-rbsmc-guest-shield' ) ) {
+			return $html;
+		}
+		$script = '<script data-no-optimize="1" data-rbsmc-guest-shield="1">(function(){try{sessionStorage.setItem("litespeed_reloaded","1");}catch(e){}})();</script>';
+		$next   = preg_replace( '/<head([^>]*)>/i', '<head$1>' . $script, $html, 1 );
+		return is_string( $next ) ? $next : $html;
 	}
 
 	/**
@@ -71,7 +102,7 @@ class RBSMC_Stay_Frontend {
 		if ( is_admin() || ! RBSMC_Stay_Plugin::instance()->enabled( 'guest_vary_shield' ) ) {
 			return;
 		}
-		echo "<script data-no-optimize=\"1\">(function(){try{if(!document.cookie.match(/(?:^|;\\s*)_lscache_vary=/)){sessionStorage.setItem('litespeed_reloaded','1');}}catch(e){}})();</script>\n";
+		echo "<script data-no-optimize=\"1\" data-rbsmc-guest-shield=\"1\">(function(){try{sessionStorage.setItem('litespeed_reloaded','1');}catch(e){}})();</script>\n";
 	}
 
 	/**
@@ -107,6 +138,7 @@ class RBSMC_Stay_Frontend {
 				'progress'   => $plugin->enabled( 'reading_progress' ) ? 1 : 0,
 				'neutralize' => $plugin->enabled( 'neutralize_history_traps' ) ? 1 : 0,
 				'utility'    => $this->is_utility_page() ? 1 : 0,
+				'stayPage'   => $this->is_stay_surface() ? 1 : 0,
 			)
 		);
 	}
@@ -190,10 +222,27 @@ class RBSMC_Stay_Frontend {
 	 * Reading progress bar markup.
 	 */
 	public function reading_progress_markup() {
-		if ( ! RBSMC_Stay_Plugin::instance()->enabled( 'reading_progress' ) || ! $this->is_reading_page() ) {
+		if ( ! RBSMC_Stay_Plugin::instance()->enabled( 'reading_progress' ) || ! $this->is_stay_surface() ) {
 			return;
 		}
 		echo '<div class="rbsmc-stay-progress" aria-hidden="true"><span></span></div>';
+	}
+
+	/**
+	 * Compare hub on the tag/category/brand archives that Site Kit shows at 1s.
+	 */
+	public function archive_hub() {
+		if ( $this->hub_printed || is_admin() || is_feed() ) {
+			return;
+		}
+		if ( ! RBSMC_Stay_Plugin::instance()->enabled( 'archive_compare_hub' ) ) {
+			return;
+		}
+		if ( ! $this->is_catalog_archive() ) {
+			return;
+		}
+		$this->hub_printed = true;
+		echo $this->archive_hub_html();
 	}
 
 	/**
@@ -221,6 +270,146 @@ class RBSMC_Stay_Frontend {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Pages where we want real stay time: guides and catalog archives.
+	 *
+	 * @return bool
+	 */
+	private function is_stay_surface() {
+		return $this->is_reading_page() || $this->is_catalog_archive();
+	}
+
+	/**
+	 * Product tag, category, brand, shop — the 1s Site Kit URLs.
+	 *
+	 * @return bool
+	 */
+	private function is_catalog_archive() {
+		if ( $this->is_utility_page() ) {
+			return false;
+		}
+		if ( function_exists( 'is_shop' ) && is_shop() ) {
+			return true;
+		}
+		if ( function_exists( 'is_product_taxonomy' ) && is_product_taxonomy() ) {
+			return true;
+		}
+		if ( is_post_type_archive( 'product' ) ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * @return string
+	 */
+	private function archive_hub_html() {
+		$term  = get_queried_object();
+		$label = ( $term && isset( $term->name ) ) ? (string) $term->name : 'this collection';
+		return RBSMC_Stay_Hub::markup(
+			$label,
+			$this->hub_products( $term ),
+			$this->hub_guides(),
+			$this->hub_siblings( $term )
+		);
+	}
+
+	/**
+	 * @param object|null $term Term.
+	 * @return array
+	 */
+	private function hub_products( $term ) {
+		$args = array(
+			'post_type'           => 'product',
+			'post_status'         => 'publish',
+			'posts_per_page'      => 8,
+			'ignore_sticky_posts' => true,
+			'no_found_rows'       => true,
+			'orderby'             => 'date',
+			'order'               => 'DESC',
+		);
+		if ( $term && isset( $term->taxonomy, $term->term_id ) && taxonomy_exists( $term->taxonomy ) ) {
+			$args['tax_query'] = array(
+				array(
+					'taxonomy' => $term->taxonomy,
+					'field'    => 'term_id',
+					'terms'    => (int) $term->term_id,
+				),
+			);
+		}
+		return $this->query_links( $args );
+	}
+
+	/**
+	 * @return array
+	 */
+	private function hub_guides() {
+		return $this->query_links(
+			array(
+				'post_type'           => 'post',
+				'post_status'         => 'publish',
+				'posts_per_page'      => 4,
+				'ignore_sticky_posts' => true,
+				'no_found_rows'       => true,
+				'orderby'             => 'date',
+				'order'               => 'DESC',
+			)
+		);
+	}
+
+	/**
+	 * @param object|null $term Term.
+	 * @return array
+	 */
+	private function hub_siblings( $term ) {
+		$out = array();
+		if ( ! $term || empty( $term->taxonomy ) || ! taxonomy_exists( $term->taxonomy ) ) {
+			return $out;
+		}
+		$terms = get_terms(
+			array(
+				'taxonomy'   => $term->taxonomy,
+				'hide_empty' => true,
+				'number'     => 6,
+				'exclude'    => array( (int) $term->term_id ),
+			)
+		);
+		if ( is_wp_error( $terms ) || ! $terms ) {
+			return $out;
+		}
+		foreach ( $terms as $row ) {
+			$link = get_term_link( $row );
+			if ( is_wp_error( $link ) ) {
+				continue;
+			}
+			$out[] = array(
+				'url'   => $link,
+				'title' => $row->name,
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * @param array $args WP_Query args.
+	 * @return array
+	 */
+	private function query_links( $args ) {
+		$query = new WP_Query( $args );
+		$out   = array();
+		if ( $query->have_posts() ) {
+			while ( $query->have_posts() ) {
+				$query->the_post();
+				$out[] = array(
+					'url'   => get_permalink(),
+					'title' => get_the_title(),
+				);
+			}
+		}
+		wp_reset_postdata();
+		return $out;
 	}
 
 	/**

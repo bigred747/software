@@ -7,6 +7,7 @@ $checks = array(
 	'hide_leaked_shortcodes'   => 'Hide leaked [toc] / [ez-toc] shortcodes on output',
 	'hide_utility_ai_filler'   => 'Hide AI filler on cart, checkout, account, wishlist',
 	'related_rail'             => 'Show related published guides at the end of posts/products',
+	'archive_compare_hub'      => 'Add a five-minute compare hub on tag/category/brand archives (the 1s Site Kit pages)',
 	'reading_progress'         => 'Show a reading progress bar on long pages',
 	'helpful_404'              => 'Replace empty 404s with search + live guides',
 	'log_404'                  => 'Log 404 paths for Rank Math redirect review',
@@ -20,18 +21,17 @@ $checks = array(
 );
 ?>
 <div class="wrap rbsmc-stay-wrap">
-	<h1>Richard Brummer SEO · Stay Repair 1.9.4</h1>
-	<p class="rbsmc-stay-lead">This module sits beside Mission Control 1.8.1. It does not auto-publish, rewrite stored posts, or restore fake 5–15 minute time with back-button hijacking. It stops the 1-second Guest Mode reload, quarantines broken JSON-LD, and keeps people on real guides.</p>
+	<h1>Richard Brummer SEO · Stay Repair 1.9.5</h1>
+	<p class="rbsmc-stay-lead">This module sits beside Mission Control 1.8.1. It does not fake 5-minute Site Kit numbers, auto-publish, rewrite stored posts, or trap the back button. It stops the 1-second Guest Mode reload and puts a real compare hub on the tag/category/brand pages that currently show 1s.</p>
 
 	<section class="rbsmc-stay-card">
-		<h2>Why Site Kit still looks like a crisis</h2>
+		<h2>The 1-second look vs a 5-minute stay</h2>
 		<ol>
-			<li><strong>19K users / 99.8% Direct / 1s / 0 search clicks</strong> is crawler and Guest Mode reload traffic counted as Direct. It is not Google growth. Keep Guest Mode and Crawler OFF.</li>
-			<li><strong>36 impressions, 0 clicks, 0% CTR keywords</strong> is the real search picture. Do not connect AdSense or Reader Revenue Manager to “fix” it.</li>
-			<li><strong>Add to cart 0% / WooCommerce $0</strong> is expected. Shoppers leave to Amazon. Watch Amazon Associate reports.</li>
-			<li><strong>Tag pages at 1s</strong> (/product-tag/apple/, /brand/dji/) are archive lists, not guides. Stay Repair related rail is on product/post pages.</li>
-			<li><strong>TBT 260ms</strong> is lab JavaScript. LCP 1.7s and CLS 0 are already Good. Do not install more optimization plugins.</li>
-			<li><strong>Mission Control 1 red</strong> is truncated homepage FAQ JSON-LD. 1.9.3+ quarantines it. Purge LiteSpeed, then re-audit Mission Control.</li>
+			<li><strong>Site Kit 1s will not jump today.</strong> It is a 28-day rolling average of 18,555 Direct sessions. After this upload + LiteSpeed purge, new visits can stay. Site Kit lags.</li>
+			<li><strong>99.8% Direct + 1s</strong> is Guest Mode reload / crawler traffic. Keep Guest Mode and Crawler OFF. 1.9.5 puts the skip flag first in <code>&lt;head&gt;</code> so the reload cannot run.</li>
+			<li><strong>The 1s URLs are archives</strong> (/product-tag/apple/, /brand/dji/, wearables). 1.9.5 adds a compare hub there: checklist, products, guides. That is how someone actually spends five minutes.</li>
+			<li>Do not connect AdSense or Reader Revenue Manager. Do not restore back-button traps.</li>
+			<li>Trust Stay Repair dwell samples after you browse as a guest. That is the current truth.</li>
 		</ol>
 	</section>
 

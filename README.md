@@ -2,59 +2,23 @@
 
 Admin plugins for [luxetrendsetters.com](https://luxetrendsetters.com/). They do not auto-publish, rewrite stored posts, or run content cron.
 
-## Fix the WordPress / Site Kit Dashboard
+## Fix the 1-second look
 
-Download the pack, unzip it, then upload the two plugin zips in **Plugins → Add Plugin → Upload Plugin**. Do not upload the pack zip itself.
+Site Kit 1s on `/product-tag/apple/` and `/brand/dji/` is Guest Mode reload plus thin archives. Stay Repair 1.9.5 stops the reload and adds a real five-minute compare hub on those pages. Site Kit is a 28-day average and will not show 5 minutes today.
 
 ### Pack (one download)
 
-File: `dist/Luxe-Dashboard-Fix-v1.1.0.zip`
+File: `dist/Luxe-Dashboard-Fix-v1.1.1.zip`
 
-SHA-256: `5473aae6c469c11af2051a0b1d9b7debd2a2a442acceb0d0aab875e84f0a5508`
+SHA-256: `47591c8d6504c556138981508736e321849c4bd57a6ee4ffcc889c3573155a1d`
 
-Direct download: https://github.com/bigred747/software/raw/cursor/operator-dashboard-9b7a/dist/Luxe-Dashboard-Fix-v1.1.0.zip
+Direct download: https://github.com/bigred747/software/raw/cursor/operator-dashboard-9b7a/dist/Luxe-Dashboard-Fix-v1.1.1.zip
 
-### 1. Luxe Operator Dashboard 1.1.0
+Unzip, then upload in **Plugins → Add Plugin → Upload Plugin**:
 
-File: `dist/Luxe-Operator-Dashboard-v1.1.0.zip`
+1. `Luxe-Operator-Dashboard-v1.1.1.zip` — SHA-256 `51e1dcd21921a32dab40b43ae4374ad01f33bfd1cef1471795398ca83417cabc`
+2. `Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.5.zip` — SHA-256 `75e4ae63b8423d831b3b7fe218dd90c85fe74f781aeca087c07642047356eaf3` (over Stay Repair, not Mission Control)
 
-SHA-256: `fa5c0960a574d9c0c8649d67ca5dba96fc8b43977d3f9f14ab964e70f0b5d789`
+Then: LiteSpeed Guest Mode OFF, Crawler OFF, Purge All. Open `/product-tag/apple/` logged out and browse the compare hub.
 
-Direct download: https://github.com/bigred747/software/raw/cursor/operator-dashboard-9b7a/dist/Luxe-Operator-Dashboard-v1.1.0.zip
-
-Hides YITH news, Rank Math blog marketing, Site Kit Reader Revenue Manager / Ads / AdSense upsells, and repeating nags. Adds one operator card that translates the numbers you pasted.
-
-Keep **Luxe Hard Rescue Admin Cleaner** active.
-
-### 2. Stay Repair 1.9.4
-
-File: `dist/Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.4.zip`
-
-SHA-256: `8c568197e24e34c7899b88458e92fe19d7ae067cfc4446ad5dc366145ac19f86`
-
-Direct download: https://github.com/bigred747/software/raw/cursor/operator-dashboard-9b7a/dist/Richard-Brummer-SEO-Mission-Control-Stay-Repair-v1.9.4.zip
-
-Upload **over** Stay Repair 1.9.2 or 1.9.3. Do **not** replace Mission Control 1.8.1.
-
-Then:
-
-1. LiteSpeed Cache → Guest Mode OFF, Crawler OFF → Purge All
-2. Stay Repair → paste Site Kit numbers → Save → Run audit now
-3. Open Mission Control → run the bounded full audit
-
-## What the pasted Site Kit numbers mean
-
-| What you see | Meaning |
-| --- | --- |
-| 19K users, 99.8% Direct, 1s | Crawler / LiteSpeed Guest Mode reloads counted as Direct. Not Google growth. |
-| 36 impressions, 0 clicks, 0% CTR | Real search picture. Keywords have 1 impression each. |
-| Add to cart 0% / AdSense disconnected / no sales | Amazon affiliate catalog. Do not connect AdSense or Reader Revenue Manager. |
-| Reader Revenue Manager / Ads nags | Site Kit upsells. Hidden by Operator Dashboard 1.1.0. |
-| Tag pages at 1s | Archive lists plus Guest Mode reload. |
-| Engagement 18% | Bot-heavy Direct sessions. |
-| TBT 260ms | Lab JS. LCP 1.7s and CLS 0 are already Good. |
-| Richard Brummer SEO 1 red | Truncated FAQ JSON-LD. Stay Repair quarantines it. |
-
-## Safety
-
-None of these plugins change post status, Amazon URLs, or Rank Math redirect rules unless you turn on an unsafe Stay Repair checkbox (off by default).
+Do not connect AdSense or Reader Revenue Manager. Do not use back-button traps.

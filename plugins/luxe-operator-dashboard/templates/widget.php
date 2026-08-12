@@ -27,11 +27,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<tbody>
 			<tr>
 				<td>19K users · 99.8% Direct · 1s</td>
-				<td>Crawler / LiteSpeed Guest Mode reloads counted as Direct, not Google growth. Site Kit is a 28-day rolling average. Stay Repair dwell samples
+				<td>Guest Mode reload + thin tag/category pages. Stay Repair 1.9.5 stops the reload and adds a five-minute compare hub on those archives. Site Kit is a 28-day average and will not show 5 minutes today. Stay Repair dwell samples
 					<?php if ( $brief['dwell_samples'] ) : ?>
 						(<?php echo esc_html( (string) $brief['dwell_samples'] ); ?> samples, avg <?php echo esc_html( (string) $brief['dwell_avg'] ); ?>s)
 					<?php else : ?>
-						(none yet — browse as a guest after cache purge)
+						(none yet — after purge, open /product-tag/apple/ as a guest and browse)
 					<?php endif; ?>
 					are the current truth. Keep Guest Mode and Crawler OFF.
 				</td>
@@ -46,7 +46,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</tr>
 			<tr>
 				<td>Top pages /product-tag/apple/ at 1s</td>
-				<td>Archive/tag lists, not buyer guides. 1s matches the Guest Mode reload. Related-guide rail is on product/post pages after Stay Repair.</td>
+				<td>Those archives had no compare hub. 1.9.5 prints one under the product grid. Five minutes is real browsing, not a faked analytics ping.</td>
 			</tr>
 			<tr>
 				<td>Engagement 18% · AI Assistant 0%</td>

@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Shared options, cron, and AJAX for Stay Repair 1.9.4.
+ * Shared options, cron, and AJAX for Stay Repair 1.9.5.
  */
 class RBSMC_Stay_Plugin {
 
@@ -43,6 +43,7 @@ class RBSMC_Stay_Plugin {
 			'hide_leaked_shortcodes'    => 1,
 			'hide_utility_ai_filler'    => 1,
 			'related_rail'              => 1,
+			'archive_compare_hub'       => 1,
 			'reading_progress'          => 1,
 			'helpful_404'               => 1,
 			'log_404'                   => 1,
