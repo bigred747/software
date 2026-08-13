@@ -14,7 +14,7 @@ DEST_DIR = ROOT.parents[1]
 OUTPUTS = [
     DEST_DIR / "luxe-affiliate-product-scout.zip",
     DEST_DIR / "Luxe-Affiliate-Product-Scout.zip",
-    DEST_DIR / "dist" / "Luxe-Affiliate-Product-Scout-v5.6.6.zip",
+    DEST_DIR / "dist" / "Luxe-Affiliate-Product-Scout-v5.6.7.zip",
     DEST_DIR / "luxe-affiliate-product-scout-windows11-wordpress.zip",
 ]
 TARGET = 145 * 1024
@@ -65,28 +65,40 @@ def build_zip(files: list[tuple[str, bytes, bool]]) -> bytes:
     buf = io.BytesIO()
     central = io.BytesIO()
     count = 0
-    for name, data, store in files:
+    written: list[tuple[str, bytes, bool]] = []
+    dirs = []
+    seen = set()
+    for name, _data, _store in files:
+        parts = name.split("/")
+        acc = []
+        for part in parts[:-1]:
+            acc.append(part)
+            d = "/".join(acc) + "/"
+            if d not in seen:
+                seen.add(d)
+                dirs.append(d)
+    for d in dirs:
+        written.append((d, b"", True))
+    written.extend(files)
+    for name, data, store in written:
         name_b = name.encode("ascii")
         crc = zlib.crc32(data) & 0xFFFFFFFF
-        compressed = data if store else deflate(data)
-        method = 0 if store else 8
+        is_dir = name.endswith("/")
+        compressed = data if store or is_dir else deflate(data)
+        method = 0 if store or is_dir else 8
         offset = buf.tell()
-        # Local file header: PKZIP 2.0, MS-DOS, no extra field, no data descriptor.
         buf.write(b"PK\x03\x04")
         buf.write(struct.pack("<HHHHHIIIHH", 20, 0, method, dostime, dosdate, crc, len(compressed), len(data), len(name_b), 0))
         buf.write(name_b)
         buf.write(compressed)
-        # Central directory: version made by = 20 / host OS 0 (FAT / Windows).
+        ext_attr = 0x10 if is_dir else 0x20
         central.write(b"PK\x01\x02")
-        central.write(struct.pack("<HH", 20, 20))  # made by DOS 2.0, need 2.0
-        central.write(struct.pack("<HHHHIIIHHHII", 0, method, dostime, dosdate, crc, len(compressed), len(data), len(name_b), 0, 0, 0, 0x20))
-        central.write(struct.pack("<I", offset))
+        central.write(struct.pack("<HHHHHHIIIHHHHHII", 20, 20, 0, method, dostime, dosdate, crc, len(compressed), len(data), len(name_b), 0, 0, 0, 0, ext_attr, offset))
         central.write(name_b)
         count += 1
     cd = central.getvalue()
     cd_offset = buf.tell()
     buf.write(cd)
-    # End of central directory, no zip64, no comment.
     buf.write(b"PK\x05\x06")
     buf.write(struct.pack("<HHHHIIH", 0, 0, count, count, len(cd), cd_offset, 0))
     return buf.getvalue()

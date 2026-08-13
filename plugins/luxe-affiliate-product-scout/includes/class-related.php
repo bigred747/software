@@ -3,6 +3,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( class_exists( 'LAPS_Related' ) ) {
+	return;
+}
+
 /**
  * WooCommerce related products stay in the same real product bucket.
  * Audited products below 95 Readiness or Integrity are excluded.
@@ -28,29 +32,35 @@ class LAPS_Related {
 		if ( ! is_array( $related ) ) {
 			return array();
 		}
-		$product = wc_get_product( $product_id );
-		if ( ! $product ) {
+		try {
+			$product = wc_get_product( $product_id );
+			if ( ! $product ) {
+				return $related;
+			}
+			$bucket = LAPS_Catalog::bucket( (string) $product->get_name(), LAPS_Catalog::title_brand( (string) $product->get_name() ) );
+			$keep   = array();
+			foreach ( $related as $id ) {
+				$id   = (int) $id;
+				$item = wc_get_product( $id );
+				if ( ! $item ) {
+					continue;
+				}
+				$score = LAPS_Score::read( $id );
+				if ( (int) $score['readiness'] < 95 || (int) $score['integrity'] < 95 ) {
+					continue;
+				}
+				$other = LAPS_Catalog::bucket( (string) $item->get_name(), LAPS_Catalog::title_brand( (string) $item->get_name() ) );
+				if ( $other !== $bucket ) {
+					continue;
+				}
+				$keep[] = $id;
+			}
+			return $keep;
+		} catch ( Exception $e ) {
+			return $related;
+		} catch ( Throwable $e ) {
 			return $related;
 		}
-		$bucket = LAPS_Catalog::bucket( $product->get_name(), LAPS_Catalog::title_brand( $product->get_name() ) );
-		$keep   = array();
-		foreach ( $related as $id ) {
-			$id   = (int) $id;
-			$item = wc_get_product( $id );
-			if ( ! $item ) {
-				continue;
-			}
-			$score = LAPS_Score::read( $id );
-			if ( (int) $score['readiness'] < 95 || (int) $score['integrity'] < 95 ) {
-				continue;
-			}
-			$other = LAPS_Catalog::bucket( $item->get_name(), LAPS_Catalog::title_brand( $item->get_name() ) );
-			if ( $other !== $bucket ) {
-				continue;
-			}
-			$keep[] = $id;
-		}
-		return $keep;
 	}
 
 	/**

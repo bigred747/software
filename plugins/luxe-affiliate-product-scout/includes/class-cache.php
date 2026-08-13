@@ -3,6 +3,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( class_exists( 'LAPS_Cache' ) ) {
+	return;
+}
+
 /**
  * LiteSpeed / WooCommerce cache flush only. Does not call Hostinger CDN.
  */
@@ -34,6 +38,5 @@ class LAPS_Cache {
 		if ( function_exists( 'wc_delete_product_transients' ) ) {
 			wc_delete_product_transients( $product_id );
 		}
-		do_action( 'woocommerce_update_product', $product_id );
 	}
 }

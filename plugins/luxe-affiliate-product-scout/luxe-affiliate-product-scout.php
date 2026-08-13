@@ -3,7 +3,7 @@
  * Plugin Name: Luxe Affiliate Product Scout
  * Plugin URI: https://luxetrendsetters.com/
  * Description: Honest WooCommerce catalog audit and repair. Scores supported products 95-100 when brand, ASIN, price, and a primary image are present with no hard risk flags. Never publishes, never deletes, never rewrites Amazon URLs.
- * Version: 5.6.6
+ * Version: 5.6.7
  * Requires at least: 6.4
  * Tested up to: 6.8
  * Requires PHP: 7.4
@@ -24,35 +24,72 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LAPS_VERSION', '5.6.6' );
-define( 'LAPS_FILE', __FILE__ );
-define( 'LAPS_DIR', plugin_dir_path( __FILE__ ) );
-define( 'LAPS_URL', plugin_dir_url( __FILE__ ) );
-define( 'LAPS_BASENAME', plugin_basename( __FILE__ ) );
+if ( ! defined( 'LAPS_VERSION' ) ) {
+	define( 'LAPS_VERSION', '5.6.7' );
+}
+if ( ! defined( 'LAPS_FILE' ) ) {
+	define( 'LAPS_FILE', __FILE__ );
+}
+if ( ! defined( 'LAPS_DIR' ) ) {
+	define( 'LAPS_DIR', plugin_dir_path( __FILE__ ) );
+}
+if ( ! defined( 'LAPS_URL' ) ) {
+	define( 'LAPS_URL', plugin_dir_url( __FILE__ ) );
+}
+if ( ! defined( 'LAPS_BASENAME' ) ) {
+	define( 'LAPS_BASENAME', plugin_basename( __FILE__ ) );
+}
 
-require_once LAPS_DIR . 'includes/class-catalog.php';
-require_once LAPS_DIR . 'includes/class-cache.php';
-require_once LAPS_DIR . 'includes/class-score.php';
-require_once LAPS_DIR . 'includes/class-repair.php';
-require_once LAPS_DIR . 'includes/class-related.php';
-require_once LAPS_DIR . 'includes/class-audit.php';
-require_once LAPS_DIR . 'includes/class-plugin.php';
-require_once LAPS_DIR . 'includes/class-admin.php';
+$laps_includes = array(
+	'includes/class-catalog.php',
+	'includes/class-cache.php',
+	'includes/class-score.php',
+	'includes/class-repair.php',
+	'includes/class-related.php',
+	'includes/class-audit.php',
+	'includes/class-plugin.php',
+	'includes/class-admin.php',
+);
+foreach ( $laps_includes as $laps_include ) {
+	$laps_path = LAPS_DIR . $laps_include;
+	if ( is_readable( $laps_path ) ) {
+		require_once $laps_path;
+	}
+}
 
 /**
- * Boot after WooCommerce.
+ * Boot after WooCommerce. Never throws to the public site.
  */
-function laps_boot() {
-	LAPS_Plugin::instance()->boot();
+if ( ! function_exists( 'laps_boot' ) ) {
+	function laps_boot() {
+		if ( ! class_exists( 'LAPS_Plugin' ) ) {
+			return;
+		}
+		try {
+			LAPS_Plugin::instance()->boot();
+		} catch ( Exception $e ) {
+			if ( function_exists( 'error_log' ) ) {
+				error_log( 'Luxe Product Scout: ' . $e->getMessage() );
+			}
+		} catch ( Throwable $e ) {
+			if ( function_exists( 'error_log' ) ) {
+				error_log( 'Luxe Product Scout: ' . $e->getMessage() );
+			}
+		}
+	}
 }
 add_action( 'plugins_loaded', 'laps_boot', 30 );
 
 /**
  * @return bool
  */
-function laps_woocommerce_ready() {
-	return class_exists( 'WooCommerce' ) && function_exists( 'wc_get_products' );
+if ( ! function_exists( 'laps_woocommerce_ready' ) ) {
+	function laps_woocommerce_ready() {
+		return class_exists( 'WooCommerce' ) && function_exists( 'wc_get_products' );
+	}
 }
 
-register_activation_hook( __FILE__, array( 'LAPS_Plugin', 'activate' ) );
-register_deactivation_hook( __FILE__, array( 'LAPS_Plugin', 'deactivate' ) );
+if ( class_exists( 'LAPS_Plugin' ) ) {
+	register_activation_hook( __FILE__, array( 'LAPS_Plugin', 'activate' ) );
+	register_deactivation_hook( __FILE__, array( 'LAPS_Plugin', 'deactivate' ) );
+}

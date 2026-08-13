@@ -3,6 +3,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( class_exists( 'LAPS_Score' ) ) {
+	return;
+}
+
 /**
  * Honest 95–100 Product Integrity / Catalog Readiness.
  *

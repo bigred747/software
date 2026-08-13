@@ -3,6 +3,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( class_exists( 'LAPS_Catalog' ) ) {
+	return;
+}
+
 /**
  * Brand, ASIN, bucket, and conflict helpers. No database writes.
  */
@@ -40,9 +44,19 @@ class LAPS_Catalog {
 			$text = strip_tags( $text );
 		}
 		$text = html_entity_decode( $text, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
-		$text = preg_replace( '/[\x{200B}-\x{200F}\x{FEFF}]/u', '', $text );
+		if ( function_exists( 'mb_convert_encoding' ) ) {
+			$converted = @mb_convert_encoding( $text, 'UTF-8', 'UTF-8' );
+			if ( is_string( $converted ) ) {
+				$text = $converted;
+			}
+		}
+		$stripped = @preg_replace( '/[\x{200B}-\x{200F}\x{FEFF}]/u', '', $text );
+		if ( is_string( $stripped ) ) {
+			$text = $stripped;
+		}
 		$text = str_replace( "\xC2\xA0", ' ', $text );
-		return trim( preg_replace( '/\s+/', ' ', $text ) );
+		$spaced = preg_replace( '/\s+/', ' ', $text );
+		return trim( is_string( $spaced ) ? $spaced : $text );
 	}
 
 	/**

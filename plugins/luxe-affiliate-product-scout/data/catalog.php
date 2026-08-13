@@ -9,6 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * @return array<string,mixed>
  */
+if ( ! function_exists( 'laps_catalog_data' ) ) :
 function laps_catalog_data() {
 	return array(
 		'brands'  => array(
@@ -288,3 +289,4 @@ function laps_catalog_data() {
 		'hard_risk' => '/\b(renewed|refurbished|open[- ]box|for parts|used\b|pre[- ]owned|certified refurbished)\b/i',
 	);
 }
+endif;

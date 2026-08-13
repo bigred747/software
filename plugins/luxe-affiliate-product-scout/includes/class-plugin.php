@@ -3,6 +3,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( class_exists( 'LAPS_Plugin' ) ) {
+	return;
+}
+
 /**
  * Shared options and boot.
  */
@@ -30,8 +34,8 @@ class LAPS_Plugin {
 	 */
 	public static function defaults() {
 		return array(
-			'auto_repair'     => 1,
-			'related_filter'  => 1,
+			'auto_repair'     => 0,
+			'related_filter'  => 0,
 			'batch_size'      => 25,
 		);
 	}
@@ -46,7 +50,9 @@ class LAPS_Plugin {
 		} else {
 			update_option( self::OPTION, wp_parse_args( $settings, self::defaults() ), false );
 		}
-		LAPS_Audit::activate();
+		if ( class_exists( 'LAPS_Audit' ) ) {
+			LAPS_Audit::activate();
+		}
 	}
 
 	/**

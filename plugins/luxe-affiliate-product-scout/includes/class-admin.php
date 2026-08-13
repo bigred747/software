@@ -3,6 +3,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( class_exists( 'LAPS_Admin' ) ) {
+	return;
+}
+
 /**
  * Luxe Product Scout admin board.
  */

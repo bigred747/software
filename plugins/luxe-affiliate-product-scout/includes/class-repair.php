@@ -3,6 +3,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( class_exists( 'LAPS_Repair' ) ) {
+	return;
+}
+
 /**
  * Live taxonomy, brand-attribute, marker, copy, and Rank Math conflict repair.
  * Never publishes, never deletes, never rewrites Amazon URLs, never invents brands.

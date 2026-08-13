@@ -4,12 +4,14 @@ Tags: woocommerce, affiliate products, catalog audit, product integrity, rank ma
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 5.6.6
+Stable tag: 5.6.7
 License: GPLv2 or later
 
 Safe WooCommerce catalog auditing and repair with honest 95-100 product-integrity scoring, supported-brand repair, taxonomy/SEO cleanup, and related-product integrity.
 
 == Description ==
+
+Version 5.6.7 is admin-only until you click Repair ALL. It does not hook the public site on activate, does not run an immediate cron repair, and cannot take WordPress down with an uncaught error.
 
 Version 5.6.6 scores every product that already has supported brand evidence, ASIN, price, a primary image, and no hard risk flags at 95–100. Taxonomy/brand-attribute leftovers are still repaired, but they no longer cap those products at 94.
 
@@ -70,6 +72,13 @@ Safety rules:
 8. Review any remaining products below 95. They are intentionally held when the brand is unknown, ASIN/price/image is missing, or a real hard-risk condition remains. Taxonomy leftovers no longer keep an otherwise valid product at 94.
 
 == Changelog ==
+
+= 5.6.7 =
+* Admin-only by default. No frontend related-product hook and no auto-repair on activate, so WordPress cannot white-screen.
+* Activation no longer fires an immediate catalog cron.
+* Product cache refresh no longer triggers WooCommerce update hooks / WZone.
+* Invalid UTF-8 in Amazon titles cannot throw a PHP error.
+* Class/function guards prevent a fatal if an old Product Scout copy is still present.
 
 = 5.6.6 =
 * 95–100 now follows the published gates: supported brand + ASIN + price + primary image + no hard risk flags.

@@ -3,6 +3,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( class_exists( 'LAPS_Audit' ) ) {
+	return;
+}
+
 /**
  * Repair ALL + Full Catalog Audit. Bounded batches. Never publishes.
  */
@@ -61,9 +65,8 @@ class LAPS_Audit {
 	 */
 	public static function activate() {
 		if ( ! wp_next_scheduled( self::CRON ) ) {
-			wp_schedule_event( time() + 120, 'laps_six', self::CRON );
+			wp_schedule_event( time() + 600, 'laps_six', self::CRON );
 		}
-		wp_schedule_single_event( time() + 20, self::CRON );
 	}
 
 	/**
@@ -162,7 +165,13 @@ class LAPS_Audit {
 		if ( ! LAPS_Plugin::instance()->enabled( 'auto_repair' ) ) {
 			return;
 		}
-		$this->run_catalog( true, LAPS_Plugin::instance()->batch_size() );
+		try {
+			$this->run_catalog( true, LAPS_Plugin::instance()->batch_size() );
+		} catch ( Exception $e ) {
+			error_log( 'Luxe Product Scout cron: ' . $e->getMessage() );
+		} catch ( Throwable $e ) {
+			error_log( 'Luxe Product Scout cron: ' . $e->getMessage() );
+		}
 	}
 
 	/**
@@ -222,23 +231,30 @@ class LAPS_Audit {
 
 		foreach ( $ids as $id ) {
 			$scanned++;
-			$product = wc_get_product( $id );
-			if ( ! $product ) {
+			try {
+				$product = wc_get_product( $id );
+				if ( ! $product ) {
+					continue;
+				}
+				$fix = array( 'flags' => array() );
+				if ( $repair ) {
+					$fixer = new LAPS_Repair();
+					$fix   = $fixer->repair_product( $product );
+					$product = wc_get_product( $id );
+					if ( 'repaired' === $fix['status'] ) {
+						$repaired++;
+						$changes[] = $fix;
+					} elseif ( 'held' !== $fix['status'] ) {
+						$clean++;
+					}
+				}
+				$score = LAPS_Score::evaluate( $product, isset( $fix['flags'] ) ? $fix['flags'] : array() );
+				LAPS_Score::write( (int) $id, $score );
+			} catch ( Exception $e ) {
+				continue;
+			} catch ( Throwable $e ) {
 				continue;
 			}
-			$fix = array( 'flags' => array() );
-			if ( $repair ) {
-				$fix = $fixer->repair_product( $product );
-				$product = wc_get_product( $id );
-				if ( 'repaired' === $fix['status'] ) {
-					$repaired++;
-					$changes[] = $fix;
-				} elseif ( 'held' !== $fix['status'] ) {
-					$clean++;
-				}
-			}
-			$score = LAPS_Score::evaluate( $product, isset( $fix['flags'] ) ? $fix['flags'] : array() );
-			LAPS_Score::write( (int) $id, $score );
 			$sum_r += (int) $score['readiness'];
 			$sum_i += (int) $score['integrity'];
 			if ( 'HOLD' === $score['status'] ) {
@@ -271,16 +287,22 @@ class LAPS_Audit {
 		}
 
 		if ( $repair && 0 === $cursor ) {
-			$site = $fixer->repair_homepage_shell();
-			$about = $fixer->maybe_about_draft();
-			if ( $site || $about ) {
-				$changes[] = array(
-					'id'     => 0,
-					'title'  => 'Site shell',
-					'brand'  => 'LuxeTrendsetters',
-					'status' => 'repaired',
-					'did'    => array_merge( $site, $about ),
-				);
+			try {
+				$site  = $fixer->repair_homepage_shell();
+				$about = $fixer->maybe_about_draft();
+				if ( $site || $about ) {
+					$changes[] = array(
+						'id'     => 0,
+						'title'  => 'Site shell',
+						'brand'  => 'LuxeTrendsetters',
+						'status' => 'repaired',
+						'did'    => array_merge( $site, $about ),
+					);
+				}
+			} catch ( Exception $e ) {
+				$site = array();
+			} catch ( Throwable $e ) {
+				$site = array();
 			}
 		}
 
