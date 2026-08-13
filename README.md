@@ -2,10 +2,11 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Product Integrity Repair 1.1.0
+## Luxe Affiliate Product Scout 5.6.5
 
-Companion to Product Scout 5.6.4. Repairs taxonomy/brand conflicts that cap honest product scores at 94. Does not write fake 100s.
+Full plugin zip. Same folder as the live 5.6.4 plugin (`luxe-affiliate-product-scout`). Upload and choose **Replace current with uploaded**.
 
-- Zip: `dist/Luxe-Product-Integrity-Repair-v1.1.0.zip`  
-  SHA-256 `8b3ff5d0d377dbd7bf668f6894944f2d8c98c7aeae8cc86b57feaeb2515a3fe9`
-- Upload over 1.0.0 → Tools → Luxe Product Integrity → **Repair ALL catalog conflicts** → Product Scout → **Run Full Catalog Audit**
+**Download (repo root):** [Luxe-Affiliate-Product-Scout.zip](https://github.com/bigred747/software/blob/cursor/product-scout-integrity-7e00/Luxe-Affiliate-Product-Scout.zip)  
+Click **Download raw file** on that page.
+
+Then open **Luxe Product Scout** → **Repair ALL Catalog Data + Recalculate** → **Run Full Catalog Audit**.
