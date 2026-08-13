@@ -60,15 +60,34 @@ class LAPS_Plugin {
 	 * Register modules.
 	 */
 	public function boot() {
+		add_action( 'admin_notices', array( $this, 'woocommerce_notice' ) );
 		add_action( 'admin_init', array( $this, 'maybe_save' ) );
+		if ( is_admin() ) {
+			LAPS_Admin::instance()->boot();
+		}
+		if ( ! function_exists( 'laps_woocommerce_ready' ) || ! laps_woocommerce_ready() ) {
+			return;
+		}
 		LAPS_Audit::instance()->boot();
 		if ( $this->enabled( 'related_filter' ) ) {
 			$related = new LAPS_Related();
 			$related->boot();
 		}
-		if ( is_admin() ) {
-			LAPS_Admin::instance()->boot();
+	}
+
+	/**
+	 * WordPress admin notice when WooCommerce is missing.
+	 */
+	public function woocommerce_notice() {
+		if ( function_exists( 'laps_woocommerce_ready' ) && laps_woocommerce_ready() ) {
+			return;
 		}
+		if ( ! current_user_can( 'activate_plugins' ) ) {
+			return;
+		}
+		echo '<div class="notice notice-error"><p>';
+		echo esc_html__( 'Luxe Affiliate Product Scout needs WooCommerce to be installed and active.', 'luxe-affiliate-product-scout' );
+		echo '</p></div>';
 	}
 
 	/**

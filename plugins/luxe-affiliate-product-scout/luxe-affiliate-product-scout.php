@@ -2,10 +2,14 @@
 /**
  * Plugin Name: Luxe Affiliate Product Scout
  * Plugin URI: https://luxetrendsetters.com/
- * Description: Honest WooCommerce catalog audit and repair for LuxeTrendsetters. Scores supported products 95–100 only when brand, ASIN, price, image, and public taxonomy/brand metadata are consistent. Never publishes, never deletes, never rewrites Amazon URLs, never invents ratings, seller, warranty, or unknown brands.
+ * Description: Honest WooCommerce catalog audit and repair. Scores supported products 95-100 only when brand, ASIN, price, image, and public taxonomy are consistent. Never publishes, never deletes, never rewrites Amazon URLs.
  * Version: 5.6.5
  * Requires at least: 6.4
+ * Tested up to: 6.8
  * Requires PHP: 7.4
+ * Requires Plugins: woocommerce
+ * WC requires at least: 8.0
+ * WC tested up to: 9.9
  * Author: LuxeTrendsetters
  * Author URI: https://luxetrendsetters.com/
  * License: GPL-2.0-or-later
@@ -42,6 +46,13 @@ function laps_boot() {
 	LAPS_Plugin::instance()->boot();
 }
 add_action( 'plugins_loaded', 'laps_boot', 30 );
+
+/**
+ * @return bool
+ */
+function laps_woocommerce_ready() {
+	return class_exists( 'WooCommerce' ) && function_exists( 'wc_get_products' );
+}
 
 register_activation_hook( __FILE__, array( 'LAPS_Plugin', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'LAPS_Plugin', 'deactivate' ) );

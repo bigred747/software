@@ -1,29 +1,21 @@
-# Luxe Affiliate Product Scout 5.6.5
+# Install in WordPress
 
-Full WordPress plugin for https://luxetrendsetters.com/. Same folder as the live 5.6.4 plugin: `luxe-affiliate-product-scout`.
+Use **luxe-affiliate-product-scout.zip**. That filename matches the plugin folder WordPress expects.
 
-## Install
+## WordPress admin (Hostinger / wp-admin)
 
-1. Download `Luxe-Affiliate-Product-Scout.zip` from the repo root.
-2. WordPress → Plugins → Add Plugin → Upload Plugin.
-3. When WordPress says the plugin is already installed, choose **Replace current with uploaded**.
-4. Open **Luxe Product Scout** in the admin menu.
-5. Click **Repair ALL Catalog Data + Recalculate**.
-6. Click **Run Full Catalog Audit**.
-7. Purge LiteSpeed once.
+1. Download [luxe-affiliate-product-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/product-scout-integrity-7e00/luxe-affiliate-product-scout.zip) (use this raw link, not the GitHub preview page).
+2. In WordPress go to **Plugins → Add Plugin → Upload Plugin**.
+3. Choose `luxe-affiliate-product-scout.zip` → **Install Now**.
+4. If WordPress says the plugin is already installed, click **Replace current with uploaded**.
+5. Click **Activate Plugin** if it is not already active.
+6. Open **Luxe Product Scout** in the left admin menu.
+7. Click **Repair ALL Catalog Data + Recalculate**, then **Run Full Catalog Audit**.
+8. Purge LiteSpeed once.
 
-Do not upload this zip over Score Repair, Mission Control, or Integrity Repair. Those stay in their own folders.
+WooCommerce must already be active. This plugin does not replace WooCommerce, Rank Math, Score Repair, or Mission Control.
 
-## What 5.6.5 fixes that kept 5.6.4 at 94
+## What WordPress should show after upload
 
-- Samsung Galaxy Watch in `Apple Watches`
-- Laptop stands / hubs in `MacBooks`
-- Brand vs Manufacturer mismatches (example: Apple Watch with Manufacturer Beats)
-- Missing Brand attribute on supported products (example: Bose earbuds)
-- Stale manufacturer tags
-
-## What stays below 95 on purpose
-
-- Renewed / refurbished / used (HOLD)
-- Unknown-brand listings
-- Products missing ASIN, price, or primary image
+- Plugins list: **Luxe Affiliate Product Scout** version **5.6.5**
+- Admin menu: **Luxe Product Scout**
