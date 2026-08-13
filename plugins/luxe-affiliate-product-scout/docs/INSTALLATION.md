@@ -4,7 +4,7 @@ Use **luxe-affiliate-product-scout.zip**. That filename matches the plugin folde
 
 ## WordPress admin (Hostinger / wp-admin)
 
-1. Download [luxe-affiliate-product-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/product-scout-95-100-e8f3/luxe-affiliate-product-scout.zip) (use this raw link, not the GitHub preview page).
+1. Download [luxe-affiliate-product-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/product-scout-95-100-e8f3/luxe-affiliate-product-scout.zip) (use this raw link, not the GitHub preview page). The file is **145KB**. If it is ~30KB, it is not the zip.
 2. In WordPress go to **Plugins → Add Plugin → Upload Plugin**.
 3. Choose `luxe-affiliate-product-scout.zip` → **Install Now**.
 4. If WordPress says the plugin is already installed, click **Replace current with uploaded**.
