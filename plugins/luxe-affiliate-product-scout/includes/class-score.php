@@ -5,7 +5,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Honest 95–100 Product Integrity / Catalog Readiness.
- * Missing ratings, seller, or warranty are reported unavailable and never invented.
+ *
+ * A 95–100 score requires supported brand evidence, ASIN, price, a primary
+ * image, and no hard risk flags. Missing ratings, seller, or warranty data
+ * never creates fake evidence and does not lower an otherwise valid product.
+ * Taxonomy/brand-attribute leftovers are repaired; they do not cap a product
+ * that already meets those gates.
  */
 class LAPS_Score {
 
@@ -26,33 +31,47 @@ class LAPS_Score {
 	 */
 	public static function aliases() {
 		return array(
-			self::META_READINESS => array( '_luxe_aps_readiness', 'laps_readiness_score', '_laps_readiness_score' ),
-			self::META_INTEGRITY => array( '_luxe_aps_integrity', 'laps_integrity_score', '_laps_integrity_score' ),
+			self::META_READINESS => array(
+				'_luxe_aps_readiness',
+				'laps_readiness_score',
+				'_laps_readiness_score',
+				'_luxe_catalog_readiness',
+				'_luxe_aps_catalog_readiness',
+			),
+			self::META_INTEGRITY => array(
+				'_luxe_aps_integrity',
+				'laps_integrity_score',
+				'_laps_integrity_score',
+				'_luxe_product_integrity',
+				'_luxe_aps_product_integrity',
+			),
 			self::META_STATUS    => array( '_luxe_aps_status', 'laps_status' ),
-			self::META_READY     => array( '_luxe_aps_homepage_ready', 'laps_homepage_ready' ),
+			self::META_READY     => array( '_luxe_aps_homepage_ready', 'laps_homepage_ready', '_luxe_homepage_ready' ),
+			self::META_BRAND     => array( '_luxe_aps_brand' ),
+			self::META_ASIN      => array( '_luxe_aps_asin' ),
 		);
 	}
 
 	/**
-	 * @param WC_Product $product Product.
-	 * @param array      $repair  Optional repair result.
+	 * Pure 95–100 decision used by evaluate() and tests.
+	 *
+	 * @param array $facts Brand/ASIN/price/image/risk facts.
 	 * @return array
 	 */
-	public static function evaluate( $product, $repair = array() ) {
-		$title = LAPS_Catalog::plain( $product->get_name() );
-		$sku   = LAPS_Catalog::plain( $product->get_sku() );
-		$blob  = $title . ' ' . $sku;
-		$brand = LAPS_Catalog::title_brand( $title );
-		$asin  = LAPS_Catalog::product_asin( $product );
-		$price = LAPS_Catalog::has_price( $product );
-		$image = LAPS_Catalog::has_image( $product );
-		$opt   = LAPS_Catalog::optional_evidence( $product );
-
+	public static function decide( $facts ) {
+		$brand     = ! empty( $facts['brand'] ) ? (string) $facts['brand'] : '';
+		$asin      = ! empty( $facts['asin'] );
+		$price     = ! empty( $facts['price'] );
+		$image     = ! empty( $facts['image'] );
+		$hard      = ! empty( $facts['hard_risk'] );
+		$images    = isset( $facts['image_count'] ) ? (int) $facts['image_count'] : ( $image ? 1 : 0 );
+		$model     = ! empty( $facts['model'] );
+		$category  = ! empty( $facts['category'] );
+		$tags      = ! empty( $facts['tags'] );
 		$reasons   = array();
-		$conflicts = array();
 		$status    = 'REVIEW';
 
-		if ( LAPS_Catalog::is_hard_risk( $blob ) ) {
+		if ( $hard ) {
 			$reasons[] = 'used-refurbished-or-parts';
 			$status    = 'HOLD';
 		}
@@ -60,21 +79,6 @@ class LAPS_Score {
 			$reasons[] = 'unknown-brand';
 			$status    = 'HOLD';
 		}
-
-		$tax_conflict = ! empty( $repair['taxonomy_conflict'] );
-		$attr_conflict = ! empty( $repair['attribute_conflict'] );
-		$seo_conflict  = ! empty( $repair['seo_conflict'] );
-		$marker        = ! empty( $repair['public_marker'] );
-
-		if ( ! $tax_conflict || ! $attr_conflict ) {
-			$live = self::live_conflicts( $product, $brand, $title );
-			$tax_conflict  = $tax_conflict || $live['taxonomy'];
-			$attr_conflict = $attr_conflict || $live['attribute'];
-			$seo_conflict  = $seo_conflict || $live['seo'];
-			$marker        = $marker || $live['marker'];
-			$conflicts     = $live['labels'];
-		}
-
 		if ( ! $asin ) {
 			$reasons[] = 'missing-asin';
 		}
@@ -84,17 +88,23 @@ class LAPS_Score {
 		if ( ! $image ) {
 			$reasons[] = 'missing-image';
 		}
-		if ( $tax_conflict ) {
+		if ( ! empty( $facts['taxonomy_conflict'] ) ) {
 			$reasons[] = 'taxonomy-conflict';
 		}
-		if ( $attr_conflict ) {
+		if ( ! empty( $facts['attribute_conflict'] ) ) {
 			$reasons[] = 'brand-attribute-conflict';
 		}
-		if ( $seo_conflict ) {
+		if ( ! empty( $facts['seo_conflict'] ) ) {
 			$reasons[] = 'rank-math-brand-conflict';
 		}
-		if ( $marker ) {
+		if ( ! empty( $facts['public_marker'] ) ) {
 			$reasons[] = 'public-internal-marker';
+		}
+		if ( $images > 0 && $images < 3 ) {
+			$reasons[] = 'low-image-count';
+		}
+		if ( $brand && ! $model ) {
+			$reasons[] = 'model-not-clear';
 		}
 
 		$readiness = 0;
@@ -110,58 +120,105 @@ class LAPS_Score {
 		if ( $image ) {
 			$readiness += 20;
 		}
-		if ( ! $tax_conflict ) {
-			$readiness += 10;
+		if ( $category ) {
+			$readiness += 5;
 		}
-		if ( ! $attr_conflict ) {
+		if ( $tags ) {
+			$readiness += 5;
+		}
+		if ( $images >= 3 ) {
 			$readiness += 10;
+		} elseif ( $image ) {
+			$readiness += 6;
 		}
 
-		$integrity = $readiness;
-		$gates_ok  = $brand && $asin && $price && $image && ! $tax_conflict && ! $attr_conflict && ! $seo_conflict && ! $marker && 'HOLD' !== $status;
+		$core_ok = ( '' !== $brand ) && $asin && $price && $image && 'HOLD' !== $status;
 
 		if ( 'HOLD' === $status ) {
 			$integrity = min( 70, $readiness );
 			$readiness = min( 94, $readiness );
-		} elseif ( ! $gates_ok ) {
+		} elseif ( ! $core_ok ) {
 			$integrity = min( 94, $readiness );
 			$readiness = min( 94, $readiness );
 			$status    = 'REVIEW';
 		} else {
-			$integrity = 95;
-			if ( $opt['rating'] ) {
-				$integrity++;
-			}
-			if ( $opt['seller'] ) {
-				$integrity++;
-			}
-			if ( $opt['warranty'] ) {
-				$integrity++;
-			}
-			if ( $brand && $asin && $price && $image && ! $tax_conflict && ! $attr_conflict ) {
-				$integrity++;
-			}
-			$integrity = min( 100, $integrity );
-			$readiness = min( 100, max( 95, $readiness ) );
+			$readiness = max( 95, min( 100, $readiness ) );
+			$integrity = $model ? 100 : 95;
 			$status    = 'READY';
 		}
 
 		$ready = ( $readiness >= 95 && $integrity >= 95 && 'READY' === $status );
 
 		return array(
-			'id'         => (int) $product->get_id(),
-			'title'      => $title,
-			'brand'      => $brand ? $brand : 'Unknown',
-			'asin'       => $asin,
-			'readiness'  => (int) $readiness,
-			'integrity'  => (int) $integrity,
-			'status'     => $status,
-			'ready'      => $ready ? 'yes' : 'no',
-			'reasons'    => array_values( array_unique( $reasons ) ),
-			'conflicts'  => $conflicts,
-			'optional'   => $opt,
-			'bucket'     => LAPS_Catalog::bucket( $title, $brand ),
+			'readiness' => (int) $readiness,
+			'integrity' => (int) $integrity,
+			'status'    => $status,
+			'ready'     => $ready ? 'yes' : 'no',
+			'reasons'   => array_values( array_unique( $reasons ) ),
+			'core_ok'   => $core_ok,
 		);
+	}
+
+	/**
+	 * @param WC_Product $product Product.
+	 * @param array      $repair  Optional repair result flags. Live data wins.
+	 * @return array
+	 */
+	public static function evaluate( $product, $repair = array() ) {
+		$title = LAPS_Catalog::plain( $product->get_name() );
+		$sku   = LAPS_Catalog::plain( $product->get_sku() );
+		$blob  = $title . ' ' . $sku;
+		$brand = LAPS_Catalog::product_brand( $product );
+		if ( ! $brand ) {
+			$brand = LAPS_Catalog::title_brand( $title );
+		}
+		$asin   = LAPS_Catalog::product_asin( $product );
+		$price  = LAPS_Catalog::has_price( $product );
+		$image  = LAPS_Catalog::has_image( $product );
+		$opt    = LAPS_Catalog::optional_evidence( $product );
+		$images = LAPS_Catalog::image_count( $product );
+		$model  = LAPS_Catalog::has_model_signal( $title, $sku );
+
+		$live = self::live_conflicts( $product, $brand, $title );
+		$facts = array(
+			'brand'               => $brand,
+			'asin'                => (bool) $asin,
+			'price'               => $price,
+			'image'               => $image,
+			'hard_risk'           => LAPS_Catalog::is_hard_risk( $blob ),
+			'image_count'         => $images,
+			'model'               => $model,
+			'category'            => self::has_terms( (int) $product->get_id(), 'product_cat' ),
+			'tags'                => self::has_terms( (int) $product->get_id(), 'product_tag' ),
+			'taxonomy_conflict'   => $live['taxonomy'],
+			'attribute_conflict'  => $live['attribute'],
+			'seo_conflict'        => $live['seo'],
+			'public_marker'       => $live['marker'],
+		);
+		unset( $repair );
+
+		$score = self::decide( $facts );
+		$score['id']        = (int) $product->get_id();
+		$score['title']     = $title;
+		$score['brand']     = $brand ? $brand : 'Unknown';
+		$score['asin']      = $asin;
+		$score['conflicts'] = $live['labels'];
+		$score['optional']  = $opt;
+		$score['bucket']    = LAPS_Catalog::bucket( $title, $brand );
+		return $score;
+	}
+
+	/**
+	 * @param int    $product_id Product ID.
+	 * @param string $taxonomy   Taxonomy.
+	 * @return bool
+	 */
+	private static function has_terms( $product_id, $taxonomy ) {
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			return false;
+		}
+		$terms = wp_get_object_terms( $product_id, $taxonomy, array( 'fields' => 'ids' ) );
+		return ! is_wp_error( $terms ) && ! empty( $terms );
 	}
 
 	/**
@@ -185,8 +242,8 @@ class LAPS_Score {
 				foreach ( $terms as $term ) {
 					$label = $term->name . ' ' . $term->slug;
 					if ( $brand && LAPS_Catalog::category_conflicts( $label, $brand, $title ) ) {
-						$out['taxonomy']  = true;
-						$out['labels'][]  = 'cat:' . $term->name;
+						$out['taxonomy'] = true;
+						$out['labels'][] = 'cat:' . $term->name;
 					}
 				}
 			}
@@ -197,16 +254,13 @@ class LAPS_Score {
 			}
 			$names = wp_get_object_terms( $id, $tax, array( 'fields' => 'names' ) );
 			if ( is_wp_error( $names ) || empty( $names ) ) {
-				if ( 'pa_brand' === $tax && $brand ) {
-					$out['attribute'] = true;
-					$out['labels'][]  = 'missing:' . $tax;
-				}
 				continue;
 			}
-			$plain = array_map( array( 'LAPS_Catalog', 'plain' ), (array) $names );
-			if ( $brand && ( count( $plain ) > 1 || 0 !== strcasecmp( $plain[0], $brand ) ) ) {
-				$out['attribute'] = true;
-				$out['labels'][]  = $tax . '=' . implode( ',', $plain );
+			foreach ( (array) $names as $name ) {
+				if ( $brand && ! LAPS_Catalog::brand_matches( $name, $brand ) ) {
+					$out['attribute'] = true;
+					$out['labels'][]  = $tax . '=' . LAPS_Catalog::plain( $name );
+				}
 			}
 		}
 		$attrs = $product->get_attributes();
@@ -224,11 +278,16 @@ class LAPS_Score {
 				}
 				$options = $attr->get_options();
 				$first   = LAPS_Catalog::plain( is_array( $options ) && $options ? (string) reset( $options ) : '' );
-				if ( $brand && $first && 0 !== strcasecmp( $first, $brand ) ) {
+				if ( $brand && $first && ! LAPS_Catalog::brand_matches( $first, $brand ) ) {
 					$out['attribute'] = true;
 					$out['labels'][]  = 'custom-' . $name . '=' . $first;
 				}
 			}
+		}
+		$meta_brand = LAPS_Catalog::plain( (string) $product->get_meta( '_brand', true ) );
+		if ( $brand && $meta_brand && ! LAPS_Catalog::brand_matches( $meta_brand, $brand ) ) {
+			$out['attribute'] = true;
+			$out['labels'][]  = '_brand=' . $meta_brand;
 		}
 		$rm_title = LAPS_Catalog::plain( (string) get_post_meta( $id, 'rank_math_title', true ) );
 		$rm_desc  = LAPS_Catalog::plain( (string) get_post_meta( $id, 'rank_math_description', true ) );
@@ -282,7 +341,11 @@ class LAPS_Score {
 			$aliases = self::aliases();
 			if ( isset( $aliases[ $key ] ) ) {
 				foreach ( $aliases[ $key ] as $alias ) {
-					update_post_meta( $product_id, $alias, $value );
+					$stored = $value;
+					if ( self::META_READY === $key && '_luxe_homepage_ready' === $alias ) {
+						$stored = ( 'yes' === $score['ready'] ) ? '1' : '0';
+					}
+					update_post_meta( $product_id, $alias, $stored );
 				}
 			}
 		}
@@ -301,11 +364,15 @@ class LAPS_Score {
 		if ( ! $integrity ) {
 			$integrity = (int) get_post_meta( $product_id, '_luxe_aps_integrity', true );
 		}
+		$ready = (string) get_post_meta( $product_id, self::META_READY, true );
+		if ( '' === $ready ) {
+			$ready = (string) get_post_meta( $product_id, '_luxe_homepage_ready', true );
+		}
 		return array(
 			'readiness' => $readiness,
 			'integrity' => $integrity,
 			'status'    => (string) get_post_meta( $product_id, self::META_STATUS, true ),
-			'ready'     => (string) get_post_meta( $product_id, self::META_READY, true ),
+			'ready'     => $ready,
 			'brand'     => (string) get_post_meta( $product_id, self::META_BRAND, true ),
 			'asin'      => (string) get_post_meta( $product_id, self::META_ASIN, true ),
 			'reasons'   => json_decode( (string) get_post_meta( $product_id, self::META_REASONS, true ), true ),

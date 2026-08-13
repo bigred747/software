@@ -4,7 +4,7 @@ Use **luxe-affiliate-product-scout.zip**. That filename matches the plugin folde
 
 ## WordPress admin (Hostinger / wp-admin)
 
-1. Download [luxe-affiliate-product-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/product-scout-integrity-7e00/luxe-affiliate-product-scout.zip) (use this raw link, not the GitHub preview page).
+1. Download [luxe-affiliate-product-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/product-scout-95-100-e8f3/luxe-affiliate-product-scout.zip) (use this raw link, not the GitHub preview page).
 2. In WordPress go to **Plugins → Add Plugin → Upload Plugin**.
 3. Choose `luxe-affiliate-product-scout.zip` → **Install Now**.
 4. If WordPress says the plugin is already installed, click **Replace current with uploaded**.
@@ -17,5 +17,5 @@ WooCommerce must already be active. This plugin does not replace WooCommerce, Ra
 
 ## What WordPress should show after upload
 
-- Plugins list: **Luxe Affiliate Product Scout** version **5.6.5**
+- Plugins list: **Luxe Affiliate Product Scout** version **5.6.6**
 - Admin menu: **Luxe Product Scout**

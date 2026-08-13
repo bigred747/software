@@ -101,18 +101,18 @@ class LAPS_Audit {
 		check_admin_referer( 'laps_run' );
 		delete_transient( self::LOCK );
 		if ( function_exists( 'set_time_limit' ) ) {
-			@set_time_limit( 180 );
+			@set_time_limit( 300 );
 		}
 		if ( $repair_all ) {
 			update_option( self::OPTION_CURSOR, 0, false );
-			$result = $this->run_catalog( true, 250 );
+			$result = $this->run_catalog( true, 400 );
 			LAPS_Cache::flush();
 			add_settings_error(
 				'laps',
 				'repair',
 				sprintf(
 					/* translators: 1: scanned, 2: repaired, 3: held, 4: ready */
-					__( 'Repair ALL + Recalculate finished. Scanned %1$d, repaired %2$d, held %3$d, homepage-ready %4$d. Integrity is honest: unknown-brand and renewed items stay below 95.', 'luxe-affiliate-product-scout' ),
+					__( 'Repair ALL + Recalculate finished. Scanned %1$d, repaired %2$d, held %3$d, homepage-ready %4$d. Products with supported brand + ASIN + price + image and no hard risk flags now score 95–100. Unknown-brand and renewed items stay below 95.', 'luxe-affiliate-product-scout' ),
 					(int) $result['scanned'],
 					(int) $result['repaired'],
 					(int) $result['held'],
@@ -124,7 +124,7 @@ class LAPS_Audit {
 		}
 		if ( $audit_all ) {
 			update_option( self::OPTION_CURSOR, 0, false );
-			$result = $this->run_catalog( false, 250 );
+			$result = $this->run_catalog( false, 400 );
 			LAPS_Cache::flush();
 			add_settings_error(
 				'laps',
@@ -191,7 +191,7 @@ class LAPS_Audit {
 		}
 
 		$limit  = (int) $limit;
-		$cap    = ( $limit < 1 ) ? 250 : min( 250, $limit );
+		$cap    = ( $limit < 1 ) ? 400 : min( 400, $limit );
 		$cursor = (int) get_option( self::OPTION_CURSOR, 0 );
 		$ids    = wc_get_products(
 			array(

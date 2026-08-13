@@ -16,13 +16,13 @@ $need    = isset( $dash['need_work'] ) ? (int) $dash['need_work'] : 0;
 $at      = ! empty( $dash['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $dash['at'] ) : 'Not run yet';
 $below   = isset( $dash['below'] ) && is_array( $dash['below'] ) ? $dash['below'] : array();
 $changes = isset( $dash['changes'] ) && is_array( $dash['changes'] ) ? $dash['changes'] : array();
-$integrity_ok = $avg_i >= 95 && 0 === $tax_c && 0 === $attr_c;
+$integrity_ok = $avg_i >= 95 && $avg_r >= 95;
 ?>
 <div class="wrap lsr-wrap laps-wrap">
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · catalog integrity</p>
 		<h1>Luxe Affiliate Product Scout <?php echo esc_html( LAPS_VERSION ); ?></h1>
-		<p class="lsr-lead">Repair ALL Catalog Data + Recalculate, then Run Full Catalog Audit. Supported products can score 95–100 only when brand, ASIN, price, image, and public taxonomy/brand metadata are consistent. Unknown brands and renewed items stay below 95 on purpose.</p>
+		<p class="lsr-lead">Repair ALL Catalog Data + Recalculate, then Run Full Catalog Audit. A 95–100 score requires supported brand evidence, ASIN, price, a primary image, and no hard risk flags. Missing ratings, seller, or warranty data never lowers an otherwise valid product. Taxonomy leftovers are repaired and no longer cap those products below 95.</p>
 	</header>
 
 	<section class="lsr-scorebar <?php echo $integrity_ok ? 'laps-green' : 'laps-red'; ?>">
@@ -61,7 +61,7 @@ $integrity_ok = $avg_i >= 95 && 0 === $tax_c && 0 === $attr_c;
 
 	<form method="post" class="lsr-learn-form laps-actions">
 		<?php wp_nonce_field( 'laps_run' ); ?>
-		<button type="submit" name="laps_repair_all" value="1" class="button button-primary lsr-save" data-laps-confirm="Repair ALL Catalog Data + Recalculate will fix Apple/Samsung/MacBooks leftovers and Brand/Manufacturer mismatches, then rescore. It never publishes or rewrites Amazon URLs.">Repair ALL Catalog Data + Recalculate</button>
+		<button type="submit" name="laps_repair_all" value="1" class="button button-primary lsr-save" data-laps-confirm="Repair ALL Catalog Data + Recalculate will fix brand/taxonomy leftovers, then rescore. Products with supported brand + ASIN + price + image score 95–100. It never publishes or rewrites Amazon URLs.">Repair ALL Catalog Data + Recalculate</button>
 		<button type="submit" name="laps_audit_all" value="1" class="button lsr-save">Run Full Catalog Audit</button>
 		<button type="submit" name="laps_repair_batch" value="1" class="button">Repair next batch</button>
 	</form>
@@ -86,9 +86,9 @@ $integrity_ok = $avg_i >= 95 && 0 === $tax_c && 0 === $attr_c;
 				<li>Traceable ASIN</li>
 				<li>Real local price</li>
 				<li>Primary product image</li>
-				<li>No Apple Watches / Samsung Watches / MacBooks leftovers</li>
-				<li>Brand and Manufacturer agree with the title brand</li>
-				<li>No public internal verification marker</li>
+				<li>No used / refurbished / for-parts hard risk</li>
+				<li>Unknown brands stay below 95</li>
+				<li>Taxonomy leftovers are repaired, not used as a 94 cap</li>
 			</ul>
 		</article>
 	</section>

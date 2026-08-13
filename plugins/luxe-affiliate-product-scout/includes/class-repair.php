@@ -40,9 +40,13 @@ class LAPS_Repair {
 			);
 		}
 
-		$brand = LAPS_Catalog::title_brand( $title );
+		$brand = LAPS_Catalog::product_brand( $product );
+		if ( ! $brand ) {
+			$brand = LAPS_Catalog::title_brand( $title );
+		}
 		if ( $brand ) {
 			$did = array_merge( $did, $this->sync_brand_attributes( $product, $brand ) );
+			$did = array_merge( $did, $this->sync_brand_meta( $product_id, $brand ) );
 			$did = array_merge( $did, $this->sync_brand_taxonomies( $product_id, $brand ) );
 			$did = array_merge( $did, $this->repair_categories( $product_id, $brand, $title ) );
 			$did = array_merge( $did, $this->repair_stale_tags( $product_id, $brand ) );
@@ -52,6 +56,11 @@ class LAPS_Repair {
 		$did = array_merge( $did, $this->strip_markers( $product ) );
 		$did = array_merge( $did, $this->strip_machine_tags( $product_id ) );
 
+		LAPS_Cache::product( $product_id );
+		$fresh = function_exists( 'wc_get_product' ) ? wc_get_product( $product_id ) : $product;
+		if ( $fresh ) {
+			$product = $fresh;
+		}
 		$live = LAPS_Score::live_conflicts( $product, $brand, $title );
 		$flags['taxonomy_conflict']  = $live['taxonomy'];
 		$flags['attribute_conflict'] = $live['attribute'];
@@ -89,7 +98,14 @@ class LAPS_Repair {
 				continue;
 			}
 			$names = array_map( array( 'LAPS_Catalog', 'plain' ), (array) $current );
-			if ( in_array( $brand, $names, true ) && 1 === count( $names ) ) {
+			$ok    = ! empty( $names );
+			foreach ( $names as $name ) {
+				if ( ! LAPS_Catalog::brand_matches( $name, $brand ) ) {
+					$ok = false;
+					break;
+				}
+			}
+			if ( $ok && 1 === count( $names ) ) {
 				continue;
 			}
 			if ( $this->set_term_attribute( $product, $tax, $brand ) ) {
@@ -113,7 +129,7 @@ class LAPS_Repair {
 				}
 				$options = $attr->get_options();
 				$first   = LAPS_Catalog::plain( is_array( $options ) && $options ? (string) reset( $options ) : '' );
-				if ( 0 === strcasecmp( $first, $brand ) ) {
+				if ( LAPS_Catalog::brand_matches( $first, $brand ) ) {
 					continue;
 				}
 				$attr->set_options( array( $brand ) );
@@ -177,6 +193,50 @@ class LAPS_Repair {
 	}
 
 	/**
+	 * Align WZone / Amazon _brand meta with the supported title brand.
+	 *
+	 * @param int    $product_id Product ID.
+	 * @param string $brand      Brand.
+	 * @return string[]
+	 */
+	private function sync_brand_meta( $product_id, $brand ) {
+		$did  = array();
+		$keys = array( '_brand', 'brand', '_wzone_brand', '_amz_brand' );
+		foreach ( $keys as $key ) {
+			$current = LAPS_Catalog::plain( (string) get_post_meta( $product_id, $key, true ) );
+			if ( '' === $current ) {
+				continue;
+			}
+			if ( LAPS_Catalog::brand_matches( $current, $brand ) ) {
+				continue;
+			}
+			update_post_meta( $product_id, $key, $brand );
+			$did[] = 'meta:' . $key . '=' . $brand;
+		}
+		return $did;
+	}
+
+	/**
+	 * Default WooCommerce product category when a leftover brand category was the only term.
+	 *
+	 * @return int
+	 */
+	private function safe_category_id() {
+		$default = (int) get_option( 'default_product_cat' );
+		if ( $default ) {
+			return $default;
+		}
+		if ( ! taxonomy_exists( 'product_cat' ) ) {
+			return 0;
+		}
+		$term = get_term_by( 'slug', 'uncategorized', 'product_cat' );
+		if ( $term && ! is_wp_error( $term ) ) {
+			return (int) $term->term_id;
+		}
+		return 0;
+	}
+
+	/**
 	 * @param WC_Product $product  Product.
 	 * @param string     $taxonomy Taxonomy.
 	 * @param string     $value    Value.
@@ -230,7 +290,14 @@ class LAPS_Repair {
 				continue;
 			}
 			$names = array_map( array( 'LAPS_Catalog', 'plain' ), (array) $current );
-			if ( in_array( $brand, $names, true ) && 1 === count( $names ) ) {
+			$ok    = ! empty( $names );
+			foreach ( $names as $name ) {
+				if ( ! LAPS_Catalog::brand_matches( $name, $brand ) ) {
+					$ok = false;
+					break;
+				}
+			}
+			if ( $ok && 1 === count( $names ) ) {
 				continue;
 			}
 			$term = term_exists( $brand, $tax );
@@ -281,7 +348,11 @@ class LAPS_Repair {
 			}
 		}
 		if ( ! $left ) {
-			return array();
+			$fallback = $this->safe_category_id();
+			if ( ! $fallback ) {
+				return array();
+			}
+			$left = array( $fallback );
 		}
 		$set = wp_set_object_terms( $product_id, $left, 'product_cat', false );
 		if ( is_wp_error( $set ) ) {
@@ -316,7 +387,7 @@ class LAPS_Repair {
 					break;
 				}
 			}
-			if ( $hit && 0 !== strcasecmp( $hit, $brand ) ) {
+			if ( $hit && ! LAPS_Catalog::brand_matches( $hit, $brand ) ) {
 				$removed[] = $name;
 				continue;
 			}

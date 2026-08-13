@@ -9,7 +9,7 @@ $dest_dir = dirname( dirname( $root ) );
 $names = array(
 	$dest_dir . '/luxe-affiliate-product-scout.zip',
 	$dest_dir . '/Luxe-Affiliate-Product-Scout.zip',
-	$dest_dir . '/dist/Luxe-Affiliate-Product-Scout-v5.6.5.zip',
+	$dest_dir . '/dist/Luxe-Affiliate-Product-Scout-v5.6.6.zip',
 );
 
 $skip = array( '/tests/', '/bin/', '/.DS_Store' );
@@ -49,13 +49,16 @@ foreach ( $names as $dest ) {
 		unlink( $dest );
 	}
 	$zip = new ZipArchive();
-	if ( true !== $zip->open( $dest, ZipArchive::CREATE ) ) {
+	if ( true !== $zip->open( $dest, ZipArchive::CREATE | ZipArchive::OVERWRITE ) ) {
 		fwrite( STDERR, "Cannot write $dest\n" );
 		exit( 1 );
 	}
 	foreach ( $files as $local => $path ) {
 		$zip->addFile( $path, $local );
 		$zip->setCompressionName( $local, ZipArchive::CM_DEFLATE );
+		if ( method_exists( $zip, 'setExternalAttributesName' ) ) {
+			$zip->setExternalAttributesName( $local, ZipArchive::OPSYS_DOS, 32 << 16 );
+		}
 	}
 	$zip->close();
 	echo basename( $dest ) . ' ' . filesize( $dest ) . " bytes\n";

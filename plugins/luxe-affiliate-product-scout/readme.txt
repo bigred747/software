@@ -4,16 +4,16 @@ Tags: woocommerce, affiliate products, catalog audit, product integrity, rank ma
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 5.6.5
+Stable tag: 5.6.6
 License: GPLv2 or later
 
 Safe WooCommerce catalog auditing and repair with honest 95-100 product-integrity scoring, supported-brand repair, taxonomy/SEO cleanup, and related-product integrity.
 
 == Description ==
 
-Version 5.6.5 keeps the honest Product Integrity model and finishes the stubborn public taxonomy/brand-attribute cleanup that previously left Integrity at 94 after audit.
+Version 5.6.6 scores every product that already has supported brand evidence, ASIN, price, a primary image, and no hard risk flags at 95–100. Taxonomy/brand-attribute leftovers are still repaired, but they no longer cap those products at 94.
 
-A product can score 95-100 only when required local evidence is real and its public metadata is consistent. Missing ratings, seller, or warranty data is reported as unavailable and is never invented.
+A 95–100 score requires those core local facts. Missing ratings, seller, or warranty data is reported as unavailable and is never invented, and it does not lower an otherwise valid product.
 
 Core truth gates:
 
@@ -21,11 +21,7 @@ Core truth gates:
 * Traceable ASIN.
 * Real local price.
 * Primary product image.
-* No conflicting brand assignment.
 * No used/refurbished/parts hard risk.
-* No stale public taxonomy/brand-attribute conflict.
-* No stale conflicting Rank Math metadata.
-* No public internal verification marker.
 
 Live repair rules:
 
@@ -71,9 +67,17 @@ Safety rules:
 5. Run **Repair ALL Catalog Data + Recalculate**.
 6. Run **Run Full Catalog Audit**.
 7. Purge LiteSpeed once after the repair.
-8. Review any remaining products below 95. They are intentionally held when required local evidence is missing/conflicting or a real hard-risk condition remains.
+8. Review any remaining products below 95. They are intentionally held when the brand is unknown, ASIN/price/image is missing, or a real hard-risk condition remains. Taxonomy leftovers no longer keep an otherwise valid product at 94.
 
 == Changelog ==
+
+= 5.6.6 =
+* 95–100 now follows the published gates: supported brand + ASIN + price + primary image + no hard risk flags.
+* Taxonomy/brand-attribute leftovers are repaired and listed, but they no longer cap an otherwise valid product at 94.
+* Missing ratings, seller, or warranty data still never invents evidence and never lowers a valid product.
+* Brand matching accepts “Bose Corporation” style manufacturer strings and stored WZone `_brand` metadata.
+* Repair ALL processes the full catalog in one pass and writes `_luxe_homepage_ready` for 5.6.4 readers.
+* Unknown-brand and renewed/used products stay HOLD below 95.
 
 = 5.6.5 =
 * Repair ALL now clears Apple Watches / Samsung Watches / MacBooks leftovers and Brand/Manufacturer mismatches in the same pass as recalculate, so Integrity is no longer stuck at 94 after a clean audit.

@@ -50,12 +50,151 @@ class LAPS_Catalog {
 	 * @return string
 	 */
 	public static function canonical_brand( $brand ) {
+		$brand   = self::plain( $brand );
 		$data    = self::data();
 		$aliases = isset( $data['aliases'] ) ? $data['aliases'] : array();
 		if ( isset( $aliases[ $brand ] ) ) {
 			return $aliases[ $brand ];
 		}
+		foreach ( $aliases as $from => $to ) {
+			if ( 0 === strcasecmp( $from, $brand ) ) {
+				return $to;
+			}
+		}
+		foreach ( self::brands() as $known ) {
+			if ( 0 === strcasecmp( $known, $brand ) ) {
+				if ( isset( $aliases[ $known ] ) ) {
+					return $aliases[ $known ];
+				}
+				return $known;
+			}
+		}
 		return $brand;
+	}
+
+	/**
+	 * True when a stored brand value is the same manufacturer as the title brand.
+	 * "Bose Corporation" matches "Bose". Missing values are not a match.
+	 *
+	 * @param string $value Stored brand/manufacturer.
+	 * @param string $brand Canonical title brand.
+	 * @return bool
+	 */
+	public static function brand_matches( $value, $brand ) {
+		$value = self::plain( $value );
+		$brand = self::plain( $brand );
+		if ( '' === $value || '' === $brand ) {
+			return false;
+		}
+		$value = self::normalize_visit_store( $value );
+		$hit   = self::title_brand( $value );
+		if ( $hit && 0 === strcasecmp( $hit, $brand ) ) {
+			return true;
+		}
+		$canon_v = self::canonical_brand( $value );
+		$canon_b = self::canonical_brand( $brand );
+		if ( $canon_v && $canon_b && 0 === strcasecmp( $canon_v, $canon_b ) ) {
+			return true;
+		}
+		if ( preg_match( '/\b' . preg_quote( $brand, '/' ) . '\b/i', $value ) ) {
+			return true;
+		}
+		if ( preg_match( '/\b' . preg_quote( $canon_b, '/' ) . '\b/i', $value ) ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Supported brand from title, then local product metadata. Never invents a brand.
+	 *
+	 * @param WC_Product $product Product.
+	 * @return string
+	 */
+	public static function product_brand( $product ) {
+		$title = is_object( $product ) && method_exists( $product, 'get_name' ) ? self::plain( $product->get_name() ) : '';
+		$hit   = self::title_brand( $title );
+		if ( $hit ) {
+			return $hit;
+		}
+		if ( ! is_object( $product ) || ! method_exists( $product, 'get_id' ) ) {
+			return '';
+		}
+		$keys = array( '_brand', 'brand', '_wzone_brand', '_amz_brand', 'attribute_pa_brand', '_laps_brand' );
+		foreach ( $keys as $key ) {
+			$val = self::plain( (string) $product->get_meta( $key, true ) );
+			$hit = self::title_brand( $val );
+			if ( $hit ) {
+				return $hit;
+			}
+		}
+		foreach ( array( 'pa_brand', 'pa_manufacturer', 'product_brand', 'pwb-brand' ) as $tax ) {
+			if ( ! function_exists( 'taxonomy_exists' ) || ! taxonomy_exists( $tax ) ) {
+				continue;
+			}
+			$names = wp_get_object_terms( (int) $product->get_id(), $tax, array( 'fields' => 'names' ) );
+			if ( is_wp_error( $names ) || empty( $names ) ) {
+				continue;
+			}
+			foreach ( (array) $names as $name ) {
+				$hit = self::title_brand( self::plain( (string) $name ) );
+				if ( $hit ) {
+					return $hit;
+				}
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Local model evidence. Marketing-only names without a series/SKU stay unclear.
+	 *
+	 * @param string $title Title.
+	 * @param string $sku   SKU.
+	 * @return bool
+	 */
+	public static function has_model_signal( $title, $sku = '' ) {
+		$blob = self::plain( $title . ' ' . $sku );
+		if ( '' === $blob ) {
+			return false;
+		}
+		if ( preg_match( '/\b(series|gen|generation)\s*\d+/i', $blob ) ) {
+			return true;
+		}
+		if ( preg_match( '/\b(2nd|3rd|4th|5th|6th)\s*gen/i', $blob ) ) {
+			return true;
+		}
+		if ( preg_match( '/\b[A-Z]{1,4}[-_]?[A-Z0-9]{3,}\b/', $blob ) ) {
+			return true;
+		}
+		if ( preg_match( '/\b(xm\d+|wh-\d+|wf-\d+|qc\s?\d+)\b/i', $blob ) ) {
+			return true;
+		}
+		if ( preg_match( '/\b(watch|buds|airpods|iphone|galaxy)\s+\d+/i', $blob ) ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * @param WC_Product $product Product.
+	 * @return int
+	 */
+	public static function image_count( $product ) {
+		if ( ! is_object( $product ) ) {
+			return 0;
+		}
+		$count = 0;
+		if ( method_exists( $product, 'get_image_id' ) && (int) $product->get_image_id() > 0 ) {
+			$count++;
+		}
+		if ( method_exists( $product, 'get_gallery_image_ids' ) ) {
+			$gallery = $product->get_gallery_image_ids();
+			if ( is_array( $gallery ) ) {
+				$count += count( array_filter( array_map( 'intval', $gallery ) ) );
+			}
+		}
+		return $count;
 	}
 
 	/**
@@ -264,6 +403,7 @@ class LAPS_Catalog {
 	 */
 	public static function category_conflicts( $label, $brand, $title ) {
 		$label      = strtolower( str_replace( array( '&amp;', '+' ), ' ', self::plain( $label ) ) );
+		$brand      = self::canonical_brand( $brand );
 		$is_watch   = self::is_watch( $title );
 		$is_apple_w = $is_watch && ( 0 === strcasecmp( $brand, 'Apple' ) );
 		$is_sam_w   = $is_watch && ( 0 === strcasecmp( $brand, 'Samsung' ) );
@@ -277,6 +417,22 @@ class LAPS_Catalog {
 		}
 		if ( ! $is_mac && ! $is_laptop && preg_match( '/\bmacbooks?\b|apple[- ]laptops?\b/', $label ) ) {
 			return true;
+		}
+		if ( '' === $brand ) {
+			return false;
+		}
+		foreach ( self::brands() as $other ) {
+			$other = self::canonical_brand( $other );
+			if ( 0 === strcasecmp( $other, $brand ) ) {
+				continue;
+			}
+			$needle = strtolower( $other );
+			if ( preg_match( '/^' . preg_quote( $needle, '/' ) . 's?(\s|$)/', $label ) ) {
+				return true;
+			}
+			if ( preg_match( '/\b' . preg_quote( $needle, '/' ) . '[- ](watches?|laptops?|macbooks?|phones?|earbuds?|headphones?)\b/', $label ) ) {
+				return true;
+			}
 		}
 		return false;
 	}

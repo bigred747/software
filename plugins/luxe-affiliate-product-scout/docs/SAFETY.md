@@ -1,6 +1,6 @@
 # Safety
 
-Product Scout 5.6.5 will not:
+Product Scout 5.6.6 will not:
 
 - publish a draft, pending, or private item
 - change publication status

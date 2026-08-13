@@ -11,6 +11,7 @@ function wp_strip_all_tags( $text ) {
 }
 
 require LAPS_DIR . 'includes/class-catalog.php';
+require LAPS_DIR . 'includes/class-score.php';
 
 $fail = 0;
 function expect( $ok, $msg ) {
@@ -41,6 +42,112 @@ expect( ! LAPS_Catalog::category_conflicts( 'Apple Watches apple-watches', 'Appl
 expect( LAPS_Catalog::category_conflicts( 'MacBooks macbooks', 'BENFEI', 'BENFEI Laptop Stand for Desk' ), 'stand cannot stay in MacBooks' );
 expect( 'B0ABCDEF12' === LAPS_Catalog::extract_asin( 'https://www.amazon.com/dp/B0ABCDEF12/?tag=x' ), 'ASIN from Amazon URL' );
 expect( 'B0ABCDEF12' === LAPS_Catalog::extract_asin( 'B0ABCDEF12' ), 'ASIN from SKU' );
+expect( LAPS_Catalog::brand_matches( 'Bose Corporation', 'Bose' ), 'Bose Corporation matches Bose' );
+expect( LAPS_Catalog::brand_matches( 'SHOKZ', 'Shokz' ), 'SHOKZ matches Shokz' );
+expect( ! LAPS_Catalog::brand_matches( 'Sony', 'Bose' ), 'Sony does not match Bose' );
+expect( LAPS_Catalog::has_model_signal( 'Sony WH-1000XM6 The Best Noise Canceling Wireless Headphones' ), 'WH-1000XM6 is a model signal' );
+expect( LAPS_Catalog::has_model_signal( 'Apple Watch Series 11 GPS 42mm' ), 'Series 11 is a model signal' );
+expect( LAPS_Catalog::category_conflicts( 'Sony sony', 'Bose', 'Bose QuietComfort Ultra Earbuds' ), 'Bose product cannot stay in Sony category' );
+
+$bose = LAPS_Score::decide(
+	array(
+		'brand'              => 'Bose',
+		'asin'               => true,
+		'price'              => true,
+		'image'              => true,
+		'hard_risk'          => false,
+		'image_count'        => 4,
+		'model'              => true,
+		'category'           => true,
+		'tags'               => true,
+		'taxonomy_conflict'  => true,
+		'attribute_conflict' => true,
+	)
+);
+expect( 100 === $bose['readiness'], 'Bose readiness 100 even with taxonomy leftover' );
+expect( 100 === $bose['integrity'], 'Bose integrity 100 even with taxonomy leftover' );
+expect( 'READY' === $bose['status'], 'Bose status READY' );
+expect( 'yes' === $bose['ready'], 'Bose homepage ready' );
+
+$airpods = LAPS_Score::decide(
+	array(
+		'brand'       => 'Apple',
+		'asin'        => true,
+		'price'       => true,
+		'image'       => true,
+		'hard_risk'   => false,
+		'image_count' => 4,
+		'model'       => true,
+		'category'    => true,
+		'tags'        => true,
+	)
+);
+expect( 100 === $airpods['integrity'], 'Apple AirPods with model signal is 100' );
+
+$unclear = LAPS_Score::decide(
+	array(
+		'brand'       => 'TCL',
+		'asin'        => true,
+		'price'       => true,
+		'image'       => true,
+		'hard_risk'   => false,
+		'image_count' => 4,
+		'model'       => false,
+		'category'    => true,
+		'tags'        => true,
+	)
+);
+expect( 95 === $unclear['integrity'], 'Model not clear stays 95 not below' );
+expect( $unclear['readiness'] >= 95, 'Model not clear readiness still 95+' );
+
+$renewed = LAPS_Score::decide(
+	array(
+		'brand'       => 'Samsung',
+		'asin'        => true,
+		'price'       => true,
+		'image'       => true,
+		'hard_risk'   => true,
+		'image_count' => 2,
+		'model'       => true,
+		'category'    => true,
+		'tags'        => true,
+	)
+);
+expect( 'HOLD' === $renewed['status'], 'Renewed stays HOLD' );
+expect( $renewed['integrity'] <= 70, 'Renewed integrity capped' );
+expect( $renewed['readiness'] <= 94, 'Renewed readiness capped' );
+
+$unknown = LAPS_Score::decide(
+	array(
+		'brand'       => '',
+		'asin'        => true,
+		'price'       => true,
+		'image'       => true,
+		'hard_risk'   => false,
+		'image_count' => 4,
+		'model'       => false,
+		'category'    => true,
+		'tags'        => true,
+	)
+);
+expect( 'HOLD' === $unknown['status'], 'Unknown brand stays HOLD' );
+expect( $unknown['readiness'] <= 94, 'Unknown brand cannot reach 95' );
+
+$missing = LAPS_Score::decide(
+	array(
+		'brand'       => 'Sony',
+		'asin'        => false,
+		'price'       => true,
+		'image'       => true,
+		'hard_risk'   => false,
+		'image_count' => 4,
+		'model'       => true,
+		'category'    => true,
+		'tags'        => true,
+	)
+);
+expect( 'REVIEW' === $missing['status'], 'Missing ASIN is REVIEW' );
+expect( $missing['integrity'] <= 94, 'Missing ASIN cannot reach 95' );
 
 if ( $fail ) {
 	echo "FAILED $fail\n";
