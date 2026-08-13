@@ -95,11 +95,16 @@ class Luxe_PIR_Repair {
 			return;
 		}
 		check_admin_referer( 'luxe_pir_run' );
+		delete_transient( self::LOCK );
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 180 );
+		}
 		$all = ! empty( $_POST['luxe_pir_run_all'] );
 		if ( $all ) {
 			update_option( self::OPTION_CURSOR, 0, false );
 		}
 		$result = $this->run_batch( $all ? 250 : Luxe_PIR_Plugin::instance()->batch_size() );
+		$this->flush_catalog_caches();
 		add_settings_error(
 			'luxe_pir',
 			'ran',
@@ -247,6 +252,13 @@ class Luxe_PIR_Repair {
 		}
 
 		$did = array_values( array_unique( array_filter( $did ) ) );
+		if ( $did ) {
+			clean_post_cache( $product_id );
+			if ( function_exists( 'wc_delete_product_transients' ) ) {
+				wc_delete_product_transients( $product_id );
+			}
+			do_action( 'woocommerce_update_product', $product_id );
+		}
 
 		return array(
 			'id'     => $product_id,
@@ -578,14 +590,15 @@ class Luxe_PIR_Repair {
 
 		$remove = array();
 		foreach ( $terms as $term ) {
-			$label = strtolower( $term->name . ' ' . $term->slug );
-			if ( ! $is_apple_w && ( false !== strpos( $label, 'apple-watch' ) || false !== strpos( $label, 'apple watch' ) ) ) {
+			$label = strtolower( $this->plain( $term->name ) . ' ' . $term->slug );
+			$label = str_replace( array( '&amp;', '+' ), ' ', $label );
+			if ( ! $is_apple_w && preg_match( '/apple[- ]watches?\b/', $label ) ) {
 				$remove[] = (int) $term->term_id;
 			}
-			if ( ! $is_sam_w && ( false !== strpos( $label, 'samsung-watch' ) || false !== strpos( $label, 'samsung watch' ) ) ) {
+			if ( ! $is_sam_w && preg_match( '/samsung[- ]watches?\b/', $label ) ) {
 				$remove[] = (int) $term->term_id;
 			}
-			if ( ! $is_mac && ! $is_laptop && ( false !== strpos( $label, 'macbook' ) || false !== strpos( $label, 'apple-laptop' ) || false !== strpos( $label, 'apple laptop' ) ) ) {
+			if ( ! $is_mac && ! $is_laptop && preg_match( '/\bmacbooks?\b|apple[- ]laptops?\b/', $label ) ) {
 				$remove[] = (int) $term->term_id;
 			}
 		}
@@ -680,6 +693,24 @@ class Luxe_PIR_Repair {
 			)
 		);
 		update_option( self::OPTION_LOG, array_slice( $log, 0, 20 ), false );
+	}
+
+	/**
+	 * LiteSpeed / WooCommerce object cache only. Does not call Hostinger CDN.
+	 */
+	private function flush_catalog_caches() {
+		if ( class_exists( 'WC_Cache_Helper' ) && method_exists( 'WC_Cache_Helper', 'invalidate_cache_group' ) ) {
+			WC_Cache_Helper::invalidate_cache_group( 'product' );
+		}
+		if ( function_exists( 'wp_cache_flush' ) ) {
+			wp_cache_flush();
+		}
+		if ( has_action( 'litespeed_purge_all' ) ) {
+			do_action( 'litespeed_purge_all' );
+		}
+		if ( class_exists( '\LiteSpeed\Purge' ) && method_exists( '\LiteSpeed\Purge', 'purge_all' ) ) {
+			\LiteSpeed\Purge::purge_all();
+		}
 	}
 
 	/**

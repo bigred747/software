@@ -1,4 +1,4 @@
-# Luxe Product Integrity Repair 1.0.0
+# Luxe Product Integrity Repair 1.1.0
 
 Companion to **Luxe Affiliate Product Scout 5.6.4** on https://luxetrendsetters.com/.
 
@@ -6,8 +6,8 @@ The original Product Scout zip was not in this repo. This plugin repairs the Woo
 
 ## Install
 
-1. Download `dist/Luxe-Product-Integrity-Repair-v1.0.0.zip`.
-2. Plugins → Add Plugin → Upload Plugin. This is a **new folder** (`luxe-product-integrity-repair`). Do not upload over Product Scout, Score Repair, or Mission Control.
+1. Download `dist/Luxe-Product-Integrity-Repair-v1.1.0.zip`.
+2. Plugins → Add Plugin → Upload Plugin. Upload **over** 1.0.0 (same folder `luxe-product-integrity-repair`) or as a new plugin if 1.0.0 is not installed.
 3. Activate it. Keep Product Scout active.
 4. Open **Tools → Luxe Product Integrity**.
 5. Click **Repair ALL catalog conflicts**.

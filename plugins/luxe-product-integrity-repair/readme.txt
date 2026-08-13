@@ -4,7 +4,7 @@ Tags: woocommerce, product integrity, luxetrendsetters
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 
 Companion to Luxe Affiliate Product Scout. Repairs taxonomy/brand conflicts that cap honest scores at 94.
@@ -23,6 +23,11 @@ Safety:
 * never invents ratings, seller, warranty, or brands
 
 == Changelog ==
+
+= 1.1.0 =
+* Repair ALL ignores a stale lock so the full 233-product catalog always runs
+* Stronger Apple Watches / Samsung Watches / MacBooks matching
+* Flushes WooCommerce and LiteSpeed caches after repair so Product Scout sees live data
 
 = 1.0.0 =
 * Repair Apple Watches / Samsung Watches / MacBooks leftovers

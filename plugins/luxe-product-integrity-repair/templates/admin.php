@@ -15,7 +15,7 @@ $changes  = isset( $last['changes'] ) && is_array( $last['changes'] ) ? $last['c
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · Product Scout companion</p>
 		<h1>Luxe Product Integrity Repair <?php echo esc_html( LUXE_PIR_VERSION ); ?></h1>
-		<p class="lsr-lead">Fixes the live catalog conflicts that keep Product Scout at 94: Samsung watches in Apple Watches, laptop stands in MacBooks, and Brand/Manufacturer mismatches. Then open Product Scout and click <strong>Run Full Catalog Audit</strong>. This plugin does not write fake 100s.</p>
+		<p class="lsr-lead">Version 1.1.0 repairs the live catalog conflicts that keep Product Scout at 94, then flushes WooCommerce/LiteSpeed so the next Full Catalog Audit can score supported products 95–100. This plugin does not write fake 100s.</p>
 	</header>
 
 	<section class="lsr-scorebar">
