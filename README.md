@@ -4,16 +4,17 @@ WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
 ## Luxe Affiliate Product Scout 5.6.6
 
-WordPress-uploadable plugin zip. Folder name matches the live plugin: `luxe-affiliate-product-scout`.
+Windows 11 / WordPress PclZip package. PKZIP 2.0, MS-DOS headers, no Unix extra fields. Size **145KB**.
 
-**WordPress upload file (145KB):** [luxe-affiliate-product-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/product-scout-95-100-e8f3/luxe-affiliate-product-scout.zip)
+**Upload this file from Windows 11 into WordPress:**
 
-SHA-256 `b084ba92ddc3814a3c57c64d63b061ea289fdc45f6c7d97e1baeb8b469acce26`
+[luxe-affiliate-product-scout-windows11-wordpress.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/product-scout-95-100-e8f3/luxe-affiliate-product-scout-windows11-wordpress.zip)
 
-The file must be **145KB**. If the download is ~30KB, you saved the GitHub HTML page instead of the zip.
+SHA-256 `61649fb8ea17ecca66ea9b6e5f15f6ea5ad5208b00d357d2cdc8042f3d7536e9`
+
+Do not unzip it on the PC and re-zip it. WordPress needs this file as-is.
 
 In WordPress: **Plugins → Add Plugin → Upload Plugin → Install Now**. If it is already installed, choose **Replace current with uploaded**, then **Activate Plugin**.
 
 Open **Luxe Product Scout** → **Repair ALL Catalog Data + Recalculate** → **Run Full Catalog Audit**.
 
-Products with supported brand + ASIN + price + primary image and no hard risk flags score **95–100**. Taxonomy leftovers are repaired and no longer cap those products at 94. Unknown-brand and renewed items stay below 95.

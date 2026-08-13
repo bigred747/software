@@ -1,19 +1,22 @@
-# Install in WordPress
+# Install in WordPress from Windows 11
 
-Use **luxe-affiliate-product-scout.zip**. That filename matches the plugin folder WordPress expects.
+Use **luxe-affiliate-product-scout-windows11-wordpress.zip**. It is a PKZIP 2.0 / MS-DOS zip (the format Windows 11 and WordPress PclZip both accept). Size **145KB**.
 
-## WordPress admin (Hostinger / wp-admin)
+Do not unzip it on the PC and zip it again. Upload the downloaded file as-is.
 
-1. Download [luxe-affiliate-product-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/product-scout-95-100-e8f3/luxe-affiliate-product-scout.zip) (use this raw link, not the GitHub preview page). The file is **145KB**. If it is ~30KB, it is not the zip.
-2. In WordPress go to **Plugins → Add Plugin → Upload Plugin**.
-3. Choose `luxe-affiliate-product-scout.zip` → **Install Now**.
-4. If WordPress says the plugin is already installed, click **Replace current with uploaded**.
-5. Click **Activate Plugin** if it is not already active.
-6. Open **Luxe Product Scout** in the left admin menu.
-7. Click **Repair ALL Catalog Data + Recalculate**, then **Run Full Catalog Audit**.
-8. Purge LiteSpeed once.
+## WordPress admin
 
-WooCommerce must already be active. This plugin does not replace WooCommerce, Rank Math, Score Repair, or Mission Control.
+1. Download [luxe-affiliate-product-scout-windows11-wordpress.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/product-scout-95-100-e8f3/luxe-affiliate-product-scout-windows11-wordpress.zip) with **Download raw file**.
+2. Confirm File Explorer shows **145KB**. If it is ~30KB, you saved the GitHub webpage, not the zip.
+3. In WordPress go to **Plugins → Add Plugin → Upload Plugin**.
+4. Choose `luxe-affiliate-product-scout-windows11-wordpress.zip` → **Install Now**.
+5. If WordPress says the plugin is already installed, click **Replace current with uploaded**.
+6. Click **Activate Plugin** if it is not already active.
+7. Open **Luxe Product Scout**.
+8. Click **Repair ALL Catalog Data + Recalculate**, then **Run Full Catalog Audit**.
+9. Purge LiteSpeed once.
+
+WooCommerce must already be active.
 
 ## What WordPress should show after upload
 
