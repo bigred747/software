@@ -34,7 +34,8 @@ class LAPS_Plugin {
 	 */
 	public static function defaults() {
 		return array(
-			'auto_repair'     => 0,
+			'learning_24_7'   => 1,
+			'auto_repair'     => 1,
 			'related_filter'  => 0,
 			'batch_size'      => 25,
 		);
@@ -53,6 +54,9 @@ class LAPS_Plugin {
 		if ( class_exists( 'LAPS_Audit' ) ) {
 			LAPS_Audit::activate();
 		}
+		if ( class_exists( 'LAPS_Learning' ) ) {
+			LAPS_Learning::activate();
+		}
 	}
 
 	/**
@@ -60,6 +64,9 @@ class LAPS_Plugin {
 	 */
 	public static function deactivate() {
 		LAPS_Audit::deactivate();
+		if ( class_exists( 'LAPS_Learning' ) ) {
+			LAPS_Learning::deactivate();
+		}
 	}
 
 	/**
@@ -75,6 +82,9 @@ class LAPS_Plugin {
 			return;
 		}
 		LAPS_Audit::instance()->boot();
+		if ( class_exists( 'LAPS_Learning' ) ) {
+			LAPS_Learning::instance()->boot();
+		}
 		if ( $this->enabled( 'related_filter' ) ) {
 			$related = new LAPS_Related();
 			$related->boot();
@@ -113,6 +123,9 @@ class LAPS_Plugin {
 	 */
 	public function enabled( $key ) {
 		$settings = $this->settings();
+		if ( 'learning_24_7' === $key ) {
+			return ! empty( $settings['learning_24_7'] ) || ! empty( $settings['auto_repair'] );
+		}
 		return ! empty( $settings[ $key ] );
 	}
 
@@ -143,11 +156,19 @@ class LAPS_Plugin {
 		}
 		check_admin_referer( 'laps_save' );
 		$next = array(
-			'auto_repair'    => empty( $_POST['auto_repair'] ) ? 0 : 1,
+			'learning_24_7'  => empty( $_POST['learning_24_7'] ) ? 0 : 1,
+			'auto_repair'    => empty( $_POST['learning_24_7'] ) ? 0 : 1,
 			'related_filter' => empty( $_POST['related_filter'] ) ? 0 : 1,
 			'batch_size'     => isset( $_POST['batch_size'] ) ? (int) $_POST['batch_size'] : 25,
 		);
 		update_option( self::OPTION, wp_parse_args( $next, self::defaults() ), false );
+		if ( class_exists( 'LAPS_Learning' ) ) {
+			if ( ! empty( $next['learning_24_7'] ) ) {
+				LAPS_Learning::activate();
+			} else {
+				LAPS_Learning::deactivate();
+			}
+		}
 		add_settings_error(
 			'laps',
 			'saved',

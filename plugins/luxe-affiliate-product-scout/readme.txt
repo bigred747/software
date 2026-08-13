@@ -4,12 +4,14 @@ Tags: woocommerce, affiliate products, catalog audit, product integrity, rank ma
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 5.6.7
+Stable tag: 5.6.8
 License: GPLv2 or later
 
 Safe WooCommerce catalog auditing and repair with honest 95-100 product-integrity scoring, supported-brand repair, taxonomy/SEO cleanup, and related-product integrity.
 
 == Description ==
+
+Version 5.6.8 runs 24/7 catalog learning: one product per 5-minute cycle and an hourly read-only snapshot of the full catalog. Tiny cycles never replace the full-catalog scoreboard. Publication status is always preserved.
 
 Version 5.6.7 is admin-only until you click Repair ALL. It does not hook the public site on activate, does not run an immediate cron repair, and cannot take WordPress down with an uncaught error.
 
@@ -72,6 +74,12 @@ Safety rules:
 8. Review any remaining products below 95. They are intentionally held when the brand is unknown, ASIN/price/image is missing, or a real hard-risk condition remains. Taxonomy leftovers no longer keep an otherwise valid product at 94.
 
 == Changelog ==
+
+= 5.6.8 =
+* 24/7 learning: one product per 5-minute cycle, hourly read-only catalog snapshot.
+* Full-catalog scoreboard is no longer replaced by a 25-product batch.
+* WP-Cron is kept alive without running repair on public page views.
+* Still never publishes, deletes, or rewrites Amazon URLs.
 
 = 5.6.7 =
 * Admin-only by default. No frontend related-product hook and no auto-repair on activate, so WordPress cannot white-screen.

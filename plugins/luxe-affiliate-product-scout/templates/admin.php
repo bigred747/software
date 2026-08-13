@@ -17,13 +17,27 @@ $at      = ! empty( $dash['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $dash['at'] ) 
 $below   = isset( $dash['below'] ) && is_array( $dash['below'] ) ? $dash['below'] : array();
 $changes = isset( $dash['changes'] ) && is_array( $dash['changes'] ) ? $dash['changes'] : array();
 $integrity_ok = $avg_i >= 95 && $avg_r >= 95;
+$learn     = isset( $learn ) && is_array( $learn ) ? $learn : array();
+$learn_log = isset( $learn_log ) && is_array( $learn_log ) ? $learn_log : array();
+$learn_next = ! empty( $learn_next ) ? (int) $learn_next : 0;
+$learn_on  = ! empty( $settings['learning_24_7'] ) || ! empty( $settings['auto_repair'] );
+$next_label = $learn_next ? wp_date( 'Y-m-d H:i:s', $learn_next ) : 'scheduling…';
+$last_item = ! empty( $learn['id'] ) ? (string) (int) $learn['id'] : '—';
+$last_ri   = ( isset( $learn['readiness'] ) ? (int) $learn['readiness'] : 0 ) . '/' . ( isset( $learn['integrity'] ) ? (int) $learn['integrity'] : 0 );
 ?>
 <div class="wrap lsr-wrap laps-wrap">
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · catalog integrity</p>
 		<h1>Luxe Affiliate Product Scout <?php echo esc_html( LAPS_VERSION ); ?></h1>
-		<p class="lsr-lead">Repair ALL Catalog Data + Recalculate, then Run Full Catalog Audit. A 95–100 score requires supported brand evidence, ASIN, price, a primary image, and no hard risk flags. Missing ratings, seller, or warranty data never lowers an otherwise valid product. Taxonomy leftovers are repaired and no longer cap those products below 95.</p>
+		<p class="lsr-lead">24/7 learning is on: one product per cycle, hourly read-only catalog snapshot. Repair ALL still processes the full catalog. A 95–100 score requires supported brand evidence, ASIN, price, a primary image, and no hard risk flags.</p>
 	</header>
+
+	<section class="laps-counters">
+		<span>24/7 learning: <strong><?php echo $learn_on ? 'On' : 'Off'; ?></strong></span>
+		<span>Next cycle: <strong><?php echo esc_html( $next_label ); ?></strong></span>
+		<span>Last learned ID: <strong><?php echo esc_html( $last_item ); ?></strong> (<?php echo esc_html( $last_ri ); ?>)</span>
+		<span>One item per cycle · status preserved</span>
+	</section>
 
 	<section class="lsr-scorebar <?php echo $integrity_ok ? 'laps-green' : 'laps-red'; ?>">
 		<div>
@@ -64,7 +78,10 @@ $integrity_ok = $avg_i >= 95 && $avg_r >= 95;
 		<button type="submit" name="laps_repair_all" value="1" class="button button-primary lsr-save" data-laps-confirm="Repair ALL Catalog Data + Recalculate will fix brand/taxonomy leftovers, then rescore. Products with supported brand + ASIN + price + image score 95–100. It never publishes or rewrites Amazon URLs.">Repair ALL Catalog Data + Recalculate</button>
 		<button type="submit" name="laps_audit_all" value="1" class="button lsr-save">Run Full Catalog Audit</button>
 		<button type="submit" name="laps_repair_batch" value="1" class="button">Repair next batch</button>
+		<button type="submit" name="laps_learn_one" value="1" class="button">Run 1 learning cycle</button>
+		<button type="submit" name="laps_learn_snapshot" value="1" class="button">Run learning snapshot</button>
 	</form>
+	<p class="lsr-note">24/7 uses WP-Cron: one product every 5 minutes, then an hourly read-only snapshot of stored scores. Tiny batches never replace the full-catalog board. If Hostinger has a real cron job, point it at <code>wp-cron.php</code> every 5 minutes so learning continues without waiting for a visitor.</p>
 
 	<section class="lsr-grid">
 		<article class="lsr-card lsr-card-safe">
@@ -184,6 +201,38 @@ $integrity_ok = $avg_i >= 95 && $avg_r >= 95;
 		</section>
 	<?php endif; ?>
 
+	<?php if ( ! empty( $learn_log ) ) : ?>
+		<section class="lsr-card">
+			<h2>24/7 learning log</h2>
+			<table class="widefat striped">
+				<thead>
+					<tr>
+						<th>When</th>
+						<th>Source</th>
+						<th>ID</th>
+						<th>Product</th>
+						<th>R</th>
+						<th>I</th>
+						<th>Status</th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php foreach ( $learn_log as $row ) : ?>
+					<tr>
+						<td><?php echo esc_html( ! empty( $row['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $row['at'] ) : '' ); ?></td>
+						<td><?php echo esc_html( isset( $row['source'] ) ? $row['source'] : 'cron' ); ?></td>
+						<td><?php echo esc_html( isset( $row['id'] ) ? (string) (int) $row['id'] : '0' ); ?></td>
+						<td><?php echo esc_html( isset( $row['title'] ) ? $row['title'] : '' ); ?></td>
+						<td><?php echo esc_html( isset( $row['readiness'] ) ? (string) (int) $row['readiness'] : '0' ); ?></td>
+						<td><?php echo esc_html( isset( $row['integrity'] ) ? (string) (int) $row['integrity'] : '0' ); ?></td>
+						<td><?php echo esc_html( isset( $row['status'] ) ? $row['status'] : '' ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+		</section>
+	<?php endif; ?>
+
 	<form method="post" class="lsr-form">
 		<?php wp_nonce_field( 'laps_save' ); ?>
 		<input type="hidden" name="laps_save" value="1" />
@@ -192,12 +241,12 @@ $integrity_ok = $avg_i >= 95 && $avg_r >= 95;
 				<tr>
 					<td>
 						<label class="lsr-switch">
-							<input type="checkbox" name="auto_repair" value="1" <?php checked( ! empty( $settings['auto_repair'] ) ); ?> />
+							<input type="checkbox" name="learning_24_7" value="1" <?php checked( $learn_on ); ?> />
 							<span>On</span>
 						</label>
 					</td>
-					<td><strong>6-hour automatic conflict repair</strong></td>
-					<td>Heals remaining taxonomy/brand conflicts in small batches, then rescores. Does not publish.</td>
+					<td><strong>24/7 catalog learning</strong></td>
+					<td>One product per 5-minute cycle, plus an hourly read-only snapshot of the full catalog. Never publishes. Tiny cycles do not replace the 233-product scoreboard.</td>
 				</tr>
 				<tr>
 					<td>

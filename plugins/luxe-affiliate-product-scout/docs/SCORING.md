@@ -25,4 +25,4 @@ Missing ratings, seller, or warranty data is reported as unavailable. Those fiel
 
 ## Averages
 
-The dashboard averages Readiness and Integrity across the products scanned in the last Repair ALL or Full Catalog Audit. HOLD rows stay visible on purpose.
+The dashboard averages Readiness and Integrity across the **full catalog** stored by Repair ALL, Full Catalog Audit, or the hourly 24/7 snapshot. A 25-product batch never replaces that board. HOLD rows stay visible on purpose.

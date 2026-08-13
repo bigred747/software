@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Luxe Affiliate Product Scout
  * Plugin URI: https://luxetrendsetters.com/
- * Description: Honest WooCommerce catalog audit and repair. Scores supported products 95-100 when brand, ASIN, price, and a primary image are present with no hard risk flags. Never publishes, never deletes, never rewrites Amazon URLs.
- * Version: 5.6.7
+ * Description: 24/7 WooCommerce catalog learning. One product per cycle, hourly snapshot, honest 95-100 scores. Never publishes, never deletes, never rewrites Amazon URLs.
+ * Version: 5.6.8
  * Requires at least: 6.4
  * Tested up to: 6.8
  * Requires PHP: 7.4
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'LAPS_VERSION' ) ) {
-	define( 'LAPS_VERSION', '5.6.7' );
+	define( 'LAPS_VERSION', '5.6.8' );
 }
 if ( ! defined( 'LAPS_FILE' ) ) {
 	define( 'LAPS_FILE', __FILE__ );
@@ -47,6 +47,7 @@ $laps_includes = array(
 	'includes/class-repair.php',
 	'includes/class-related.php',
 	'includes/class-audit.php',
+	'includes/class-learning.php',
 	'includes/class-plugin.php',
 	'includes/class-admin.php',
 );

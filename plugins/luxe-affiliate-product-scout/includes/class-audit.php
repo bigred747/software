@@ -64,9 +64,7 @@ class LAPS_Audit {
 	 * Activation.
 	 */
 	public static function activate() {
-		if ( ! wp_next_scheduled( self::CRON ) ) {
-			wp_schedule_event( time() + 600, 'laps_six', self::CRON );
-		}
+		wp_clear_scheduled_hook( self::CRON );
 	}
 
 	/**
@@ -80,6 +78,10 @@ class LAPS_Audit {
 	 * Keep cron alive.
 	 */
 	public function ensure_cron() {
+		if ( LAPS_Plugin::instance()->enabled( 'learning_24_7' ) ) {
+			wp_clear_scheduled_hook( self::CRON );
+			return;
+		}
 		if ( ! LAPS_Plugin::instance()->enabled( 'auto_repair' ) ) {
 			return;
 		}
@@ -108,7 +110,10 @@ class LAPS_Audit {
 		}
 		if ( $repair_all ) {
 			update_option( self::OPTION_CURSOR, 0, false );
-			$result = $this->run_catalog( true, 400 );
+			$result = $this->run_catalog( true, 400, true );
+			if ( class_exists( 'LAPS_Learning' ) ) {
+				update_option( LAPS_Learning::OPTION_SNAP, time(), false );
+			}
 			LAPS_Cache::flush();
 			add_settings_error(
 				'laps',
@@ -127,7 +132,10 @@ class LAPS_Audit {
 		}
 		if ( $audit_all ) {
 			update_option( self::OPTION_CURSOR, 0, false );
-			$result = $this->run_catalog( false, 400 );
+			$result = $this->run_catalog( false, 400, true );
+			if ( class_exists( 'LAPS_Learning' ) ) {
+				update_option( LAPS_Learning::OPTION_SNAP, time(), false );
+			}
 			LAPS_Cache::flush();
 			add_settings_error(
 				'laps',
@@ -144,7 +152,7 @@ class LAPS_Audit {
 			);
 			return;
 		}
-		$result = $this->run_catalog( true, LAPS_Plugin::instance()->batch_size() );
+		$result = $this->run_catalog( true, LAPS_Plugin::instance()->batch_size(), false );
 		add_settings_error(
 			'laps',
 			'batch',
@@ -162,7 +170,7 @@ class LAPS_Audit {
 	 * Cron batch.
 	 */
 	public function cron_batch() {
-		if ( ! LAPS_Plugin::instance()->enabled( 'auto_repair' ) ) {
+		if ( LAPS_Plugin::instance()->enabled( 'learning_24_7' ) ) {
 			return;
 		}
 		try {
@@ -175,11 +183,12 @@ class LAPS_Audit {
 	}
 
 	/**
-	 * @param bool $repair Whether to repair before scoring.
-	 * @param int  $limit  Batch size. 250 = full catalog pass.
+	 * @param bool $repair        Whether to repair before scoring.
+	 * @param int  $limit         Batch size. 400 = full catalog pass.
+	 * @param bool $replace_board Whether this run is the full-catalog scoreboard.
 	 * @return array
 	 */
-	public function run_catalog( $repair, $limit = 25 ) {
+	public function run_catalog( $repair, $limit = 25, $replace_board = false ) {
 		if ( get_transient( self::LOCK ) ) {
 			$last = get_option( self::OPTION_DASH, array() );
 			return is_array( $last ) ? $last : array();
@@ -334,7 +343,12 @@ class LAPS_Audit {
 			'below'      => array_slice( $below, 0, 80 ),
 			'changes'    => array_slice( $changes, 0, 40 ),
 		);
-		update_option( self::OPTION_DASH, $out, false );
+		if ( $replace_board ) {
+			update_option( self::OPTION_DASH, $out, false );
+			if ( class_exists( 'LAPS_Learning' ) ) {
+				update_option( LAPS_Learning::OPTION_CATALOG, $out, false );
+			}
+		}
 		if ( $repair ) {
 			update_option( self::OPTION_REPAIR, $out, false );
 		} else {
@@ -374,6 +388,12 @@ class LAPS_Audit {
 	 * @return array
 	 */
 	public static function dashboard() {
+		if ( class_exists( 'LAPS_Learning' ) ) {
+			$cat = LAPS_Learning::catalog();
+			if ( ! empty( $cat['scanned'] ) ) {
+				return $cat;
+			}
+		}
 		$dash = get_option( self::OPTION_DASH, array() );
 		return is_array( $dash ) ? $dash : array();
 	}
