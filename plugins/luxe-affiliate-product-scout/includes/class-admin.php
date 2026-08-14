@@ -94,9 +94,13 @@ class LAPS_Admin {
 		$settings = LAPS_Plugin::instance()->settings();
 		$dash     = LAPS_Audit::dashboard();
 		$log      = LAPS_Audit::log();
-		$learn    = class_exists( 'LAPS_Learning' ) ? LAPS_Learning::last() : array();
+		$learn     = class_exists( 'LAPS_Learning' ) ? LAPS_Learning::last() : array();
 		$learn_log = class_exists( 'LAPS_Learning' ) ? LAPS_Learning::log() : array();
 		$learn_next = class_exists( 'LAPS_Learning' ) ? LAPS_Learning::next_ts() : 0;
+		$ig        = class_exists( 'LAPS_Instagram' ) ? LAPS_Instagram::last() : array();
+		$ig_log    = class_exists( 'LAPS_Instagram' ) ? LAPS_Instagram::log() : array();
+		$ig_board  = class_exists( 'LAPS_Instagram' ) ? LAPS_Instagram::signals( isset( $ig['rows'] ) ? $ig['rows'] : array() ) : array();
+		$ig_studio = class_exists( 'LAPS_Instagram' ) ? LAPS_Instagram::studio( 'LuxeTrendsetters luxury tech', 'LuxeTrendsetters' ) : array();
 		include LAPS_DIR . 'templates/admin.php';
 	}
 }

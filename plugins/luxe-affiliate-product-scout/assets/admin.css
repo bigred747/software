@@ -127,6 +127,58 @@
 .laps-actions {
 	margin: 0 0 24px;
 }
+.lsr-signals h2 {
+	margin: 8px 0 12px;
+}
+.lsr-signal-list {
+	list-style: none;
+	margin: 0 0 16px;
+	padding: 0;
+	display: grid;
+	gap: 8px;
+}
+.lsr-signal {
+	display: flex;
+	gap: 12px;
+	align-items: flex-start;
+	padding: 12px 14px;
+	border-radius: 16px;
+	background: #ecfdf5;
+	border: 1px solid #6ee7b7;
+}
+.lsr-signal-red {
+	background: #fef2f2;
+	border-color: #fecaca;
+}
+.lsr-signal-red .lsr-dot {
+	background: #dc2626;
+}
+.lsr-dot {
+	width: 10px;
+	height: 10px;
+	margin-top: 6px;
+	border-radius: 50%;
+	background: #059669;
+	flex: 0 0 10px;
+}
+.lsr-signal strong {
+	display: block;
+	color: #064e3b;
+}
+.lsr-signal-red strong {
+	color: #991b1b;
+}
+.lsr-signal em {
+	display: block;
+	margin-top: 3px;
+	font-style: normal;
+	color: #047857;
+	font-size: 13px;
+	line-height: 1.45;
+}
+.lsr-signal-red em {
+	color: #b91c1c;
+}
 .lsr-switch span {
 	margin-left: 6px;
 }

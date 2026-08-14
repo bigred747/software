@@ -167,6 +167,9 @@ class LAPS_Learning {
 		try {
 			$this->cycle_one();
 			$this->maybe_snapshot();
+			if ( class_exists( 'LAPS_Instagram' ) && LAPS_Plugin::instance()->enabled( 'ig_scan_24_7' ) ) {
+				LAPS_Instagram::instance()->cycle_one( 'cron' );
+			}
 		} catch ( Exception $e ) {
 			error_log( 'Luxe Product Scout 24/7: ' . $e->getMessage() );
 		} catch ( Throwable $e ) {

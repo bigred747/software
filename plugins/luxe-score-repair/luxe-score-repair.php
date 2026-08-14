@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: Luxe Score Repair
+ * Plugin Name: Luxe SEO Score Repair
  * Plugin URI: https://luxetrendsetters.com/
- * Description: Safe public-output repair for LuxeTrendsetters with process learning and a green-signal board. Heals robots.txt on disk, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes. Never writes post content, never changes post status, never rewrites Amazon URLs, never creates Rank Math redirects.
- * Version: 1.1.0
+ * Description: The LuxeTrendsetters SEO plugin. Public-output repair, unique-copy ranking signals, copyright lock (no copied Instagram video, no thin 37-word pages), process learning, and a green-signal board. Never writes post content, never changes post status, never rewrites Amazon URLs.
+ * Version: 1.2.0
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Richard Brummer
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LUXE_SCORE_REPAIR_VERSION', '1.1.0' );
+define( 'LUXE_SCORE_REPAIR_VERSION', '1.2.0' );
 define( 'LUXE_SCORE_REPAIR_FILE', __FILE__ );
 define( 'LUXE_SCORE_REPAIR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LUXE_SCORE_REPAIR_URL', plugin_dir_url( __FILE__ ) );
