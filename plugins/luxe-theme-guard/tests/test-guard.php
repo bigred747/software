@@ -99,6 +99,46 @@ expect( $child_row && 'green' === $child_row['level'], 'parent-only is green, no
 expect( array( 'recommended', 'license' ) === $red_ids, 'only license and 3.20.9 stay red without a purchase code' );
 expect( 11 === (int) $parent_only['green'], '3.20.6 without license is 11 / 13 green' );
 
+require LUXE_THEME_GUARD_DIR . 'includes/class-learning.php';
+expect( 300 === Luxe_Theme_Guard_Learning::INTERVAL, '24/7 cycle is 5 minutes' );
+expect( 3600 === Luxe_Theme_Guard_Learning::SNAPSHOT_EVERY, 'snapshot is hourly' );
+expect( 43200 === Luxe_Theme_Guard_Learning::UPGRADE_EVERY, 'official upgrade at most every 12 hours' );
+expect( 0 === Luxe_Theme_Guard_Learning::next_cursor( 12, 13 ), 'cursor wraps after the last process' );
+expect( 1 === Luxe_Theme_Guard_Learning::next_cursor( 0, 13 ), 'cursor advances one process' );
+expect( Luxe_Theme_Guard_Learning::should_snapshot( 0, 100 ), 'first snapshot is due' );
+expect( ! Luxe_Theme_Guard_Learning::should_snapshot( 90, 100 ), 'snapshot is not due inside an hour' );
+expect( Luxe_Theme_Guard_Learning::should_snapshot( 1, 3602 ), 'snapshot is due after an hour' );
+expect( Luxe_Theme_Guard_Learning::should_upgrade_check( 0, 10 ), 'first upgrade check is due' );
+expect( ! Luxe_Theme_Guard_Learning::should_upgrade_check( 10, 100 ), 'upgrade is not due inside 12 hours' );
+expect( Luxe_Theme_Guard_Learning::should_upgrade_check( 1, 43202 ), 'upgrade check is due after 12 hours' );
+
+$focus = Luxe_Theme_Guard_Learning::focus_row( $parent_only['signals'], 2 );
+expect( isset( $focus['id'] ) && 'recommended' === $focus['id'], 'cycle 2 learns the recommended-version process' );
+
+$off = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'   => true,
+		'version'     => '3.20.9',
+		'available'   => '',
+		'package'     => '',
+		'stylesheet'  => 'flatsome-child',
+		'child'       => 'flatsome-child',
+		'license'     => true,
+		'xss_ok'      => true,
+		'recommended' => true,
+		'can_upgrade' => false,
+		'learning_on' => false,
+		'cron_next'   => 0,
+	)
+);
+$cron_row = null;
+foreach ( $off['signals'] as $signal ) {
+	if ( 'cron' === $signal['id'] ) {
+		$cron_row = $signal;
+	}
+}
+expect( $cron_row && 'red' === $cron_row['level'], '24/7 off is a red process-learning signal' );
+
 if ( $fail ) {
 	echo "FAILED $fail\n";
 	exit( 1 );

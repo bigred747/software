@@ -146,16 +146,18 @@ class Luxe_Theme_Guard_Signals {
 			}
 		}
 		return array(
-			'installed'   => $installed,
-			'version'     => $version,
-			'available'   => $available,
-			'package'     => $package,
-			'stylesheet'  => $stylesheet,
-			'child'       => $child,
-			'license'     => self::license_registered(),
-			'xss_ok'      => $installed && self::xss_patched( $version ),
-			'recommended' => $installed && self::at_recommended( $version ),
-			'can_upgrade' => self::may_upgrade( self::THEME, $package, $version, $available ? $available : '0' ),
+			'installed'    => $installed,
+			'version'      => $version,
+			'available'    => $available,
+			'package'      => $package,
+			'stylesheet'   => $stylesheet,
+			'child'        => $child,
+			'license'      => self::license_registered(),
+			'xss_ok'       => $installed && self::xss_patched( $version ),
+			'recommended'  => $installed && self::at_recommended( $version ),
+			'can_upgrade'  => self::may_upgrade( self::THEME, $package, $version, $available ? $available : '0' ),
+			'learning_on'  => class_exists( 'Luxe_Theme_Guard_Plugin' ) ? Luxe_Theme_Guard_Plugin::instance()->enabled( 'learning_24_7' ) : true,
+			'cron_next'    => ( class_exists( 'Luxe_Theme_Guard_Learning' ) && function_exists( 'wp_next_scheduled' ) ) ? (int) wp_next_scheduled( Luxe_Theme_Guard_Learning::CRON ) : 0,
 		);
 	}
 
@@ -168,6 +170,20 @@ class Luxe_Theme_Guard_Signals {
 		$ver     = isset( $snap['version'] ) ? (string) $snap['version'] : '';
 		$avail   = isset( $snap['available'] ) ? (string) $snap['available'] : '';
 		$auto    = class_exists( 'Luxe_Theme_Guard_Plugin' ) ? Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_update' ) : true;
+		$learn_on = true;
+		if ( isset( $snap['learning_on'] ) ) {
+			$learn_on = ! empty( $snap['learning_on'] );
+		} elseif ( class_exists( 'Luxe_Theme_Guard_Plugin' ) ) {
+			$learn_on = Luxe_Theme_Guard_Plugin::instance()->enabled( 'learning_24_7' );
+		}
+		$cron_next = isset( $snap['cron_next'] ) ? (int) $snap['cron_next'] : 0;
+		$cron_ok   = $learn_on;
+		if ( $learn_on && function_exists( 'wp_next_scheduled' ) ) {
+			$cron_ok = ( $cron_next > 0 ) || ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() );
+		}
+		$cron_detail = $learn_on
+			? '24/7: one process every 5 minutes. Hourly licensed-package snapshot. Official Flatsome upgrade at most once per 12 hours. Never on a shopper page.'
+			: '24/7 process learning is off.';
 		$child   = isset( $snap['child'] ) ? (string) $snap['child'] : '';
 		$has_child = ( $child && $child !== self::THEME );
 		$signals = array(
@@ -183,7 +199,7 @@ class Luxe_Theme_Guard_Signals {
 			self::row( 'publish', 'Never publishes content', true, 'No post status changes. Theme files only.' ),
 			self::row( 'public', 'No public-page upgrader', true, 'Updates run from cron or the admin button, never on a shopper page view.' ),
 			self::row( 'purge', 'Cache purge ready', true, ! empty( $heals['purge'] ) ? implode( ', ', (array) $heals['purge'] ) : 'LiteSpeed purge after a successful theme update.' ),
-			self::row( 'cron', 'Process learning heartbeat', true, 'Checks every 12 hours. One Flatsome upgrade at a time.' ),
+			self::row( 'cron', '24/7 process learning', $cron_ok, $cron_detail ),
 		);
 		$green = 0;
 		foreach ( $signals as $signal ) {

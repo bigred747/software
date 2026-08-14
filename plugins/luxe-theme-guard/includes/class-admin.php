@@ -84,6 +84,8 @@ class Luxe_Theme_Guard_Admin {
 		$settings = Luxe_Theme_Guard_Plugin::instance()->settings();
 		$last     = Luxe_Theme_Guard_Signals::last();
 		$log      = Luxe_Theme_Guard_Signals::log();
+		$learn_on = Luxe_Theme_Guard_Plugin::instance()->enabled( 'learning_24_7' );
+		$learn_next = Luxe_Theme_Guard_Learning::next_ts();
 		if ( empty( $last['signals'] ) ) {
 			$last = Luxe_Theme_Guard_Signals::build( Luxe_Theme_Guard_Signals::snapshot() );
 		}

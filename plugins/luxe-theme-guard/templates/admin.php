@@ -12,13 +12,25 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 $snap  = isset( $last['snap'] ) && is_array( $last['snap'] ) ? $last['snap'] : array();
 $ver   = isset( $snap['version'] ) ? (string) $snap['version'] : 'unknown';
 $all   = $total > 0 && $green === $total;
+$learn_on = ! empty( $learn_on );
+$learn_next = ! empty( $learn_next ) ? (int) $learn_next : 0;
+$next_label = $learn_next ? wp_date( 'Y-m-d H:i:s', $learn_next ) : 'scheduling…';
+$last_focus = ! empty( $last['focus_label'] ) ? (string) $last['focus_label'] : '—';
+$last_source = ! empty( $last['source'] ) ? (string) $last['source'] : 'cron';
 ?>
 <div class="wrap lsr-wrap">
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · Flatsome auto-update</p>
 		<h1>Luxe Theme Guard <?php echo esc_html( LUXE_THEME_GUARD_VERSION ); ?></h1>
-		<p class="lsr-lead">Automatically updates the official Flatsome parent theme when WordPress has a licensed package. Green signals mean the theme is current and safe. Never downloads nulled zips. Never overwrites plugins. Never publishes. Never rewrites Amazon URLs.</p>
+		<p class="lsr-lead"><?php echo $learn_on ? '24/7 process learning is on' : '24/7 process learning is off'; ?>: one signal every 5 minutes, hourly licensed-package snapshot, official Flatsome upgrade at most once per 12 hours. Green signals mean the theme is current and safe. Never downloads nulled zips. Never overwrites plugins. Never publishes. Never rewrites Amazon URLs.</p>
 	</header>
+
+	<section class="laps-counters">
+		<span>24/7 learning: <strong><?php echo $learn_on ? 'On' : 'Off'; ?></strong></span>
+		<span>Next cycle: <strong><?php echo esc_html( $next_label ); ?></strong></span>
+		<span>Last process: <strong><?php echo esc_html( $last_focus ); ?></strong> (<?php echo esc_html( $last_source ); ?>)</span>
+		<span>One process per cycle · never publishes</span>
+	</section>
 
 	<section class="lsr-scorebar<?php echo $all ? '' : ' lsr-scorebar-warn'; ?>">
 		<div>
@@ -57,19 +69,23 @@ $all   = $total > 0 && $green === $total;
 				</li>
 			<?php endforeach; ?>
 		</ul>
-		<form method="post" class="lsr-learn-form">
+		<form method="post" class="lsr-learn-form laps-actions">
 			<?php wp_nonce_field( 'luxe_theme_guard_run' ); ?>
 			<button type="submit" name="luxe_theme_guard_run" value="1" class="button button-primary lsr-save">Check and update Flatsome now</button>
+			<button type="submit" name="luxe_theme_guard_learn_one" value="1" class="button lsr-save">Run 1 learning cycle</button>
 		</form>
+		<p class="lsr-note">24/7 uses WP-Cron: one process every 5 minutes, then an hourly read-only snapshot of the licensed Flatsome package. An official upgrade is attempted at most once per 12 hours. Theme files are never written on a shopper page. If Hostinger has a real cron job, point it at <code>wp-cron.php</code> every 5 minutes so learning continues without waiting for a visitor.</p>
 	</section>
 
 	<?php if ( ! empty( $log ) ) : ?>
 		<section class="lsr-card">
-			<h2>Learning log</h2>
+			<h2>24/7 learning log</h2>
 			<table class="widefat striped">
 				<thead>
 					<tr>
 						<th>When</th>
+						<th>Source</th>
+						<th>Process</th>
 						<th>Green</th>
 						<th>Band</th>
 					</tr>
@@ -78,6 +94,8 @@ $all   = $total > 0 && $green === $total;
 				<?php foreach ( $log as $row ) : ?>
 					<tr>
 						<td><?php echo esc_html( ! empty( $row['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $row['at'] ) : '' ); ?></td>
+						<td><?php echo esc_html( isset( $row['source'] ) ? $row['source'] : 'cron' ); ?></td>
+						<td><?php echo esc_html( isset( $row['focus'] ) ? $row['focus'] : '' ); ?></td>
 						<td><?php echo esc_html( ( isset( $row['green'] ) ? $row['green'] : '0' ) . ' / ' . ( isset( $row['total'] ) ? $row['total'] : '0' ) ); ?></td>
 						<td><?php echo esc_html( isset( $row['band'] ) ? $row['band'] : '' ); ?></td>
 					</tr>
@@ -125,7 +143,7 @@ $all   = $total > 0 && $green === $total;
 						</label>
 					</td>
 					<td><strong>Auto-update Flatsome</strong></td>
-					<td>WordPress applies official licensed packages. Checks every 12 hours.</td>
+					<td>WordPress applies official licensed packages. 24/7 learning tries an upgrade at most once per 12 hours.</td>
 				</tr>
 				<tr>
 					<td>
@@ -134,8 +152,8 @@ $all   = $total > 0 && $green === $total;
 							<span>On</span>
 						</label>
 					</td>
-					<td><strong>Process learning</strong></td>
-					<td>Rebuilds the green-signal board on each cycle.</td>
+					<td><strong>24/7 process learning</strong></td>
+					<td>One signal every 5 minutes plus an hourly read-only package snapshot. Never publishes. Never rewrites Amazon URLs. Never upgrades on a shopper page.</td>
 				</tr>
 				<tr>
 					<td>

@@ -14,7 +14,7 @@ DEST_DIR = ROOT.parents[1]
 OUTPUTS = [
     DEST_DIR / "luxe-theme-guard.zip",
     DEST_DIR / "Luxe-Theme-Guard.zip",
-    DEST_DIR / "dist" / "Luxe-Theme-Guard-v1.0.1.zip",
+    DEST_DIR / "dist" / "Luxe-Theme-Guard-v1.1.0.zip",
     DEST_DIR / "luxe-theme-guard-windows11-wordpress.zip",
 ]
 TARGET = 145 * 1024
@@ -49,7 +49,7 @@ def png_pad(png: bytes, extra: int) -> bytes:
         raise SystemExit("PNG IEND missing")
     before, iend = png[: pos - 4], png[pos - 4 :]
     extra = max(0, extra)
-    payload = b"Comment\x00Luxe Theme Guard 1.0.1 Windows 11 WordPress package." + (b"\n" * extra)
+    payload = b"Comment\x00Luxe Theme Guard 1.1.0 Windows 11 WordPress package." + (b"\n" * extra)
     chunk = b"tEXt" + payload
     crc = zlib.crc32(chunk) & 0xFFFFFFFF
     return before + struct.pack(">I", len(payload)) + chunk + struct.pack(">I", crc) + iend

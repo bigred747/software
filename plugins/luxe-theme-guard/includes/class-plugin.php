@@ -32,6 +32,7 @@ class Luxe_Theme_Guard_Plugin {
 		return array(
 			'auto_update'      => 1,
 			'process_learning' => 1,
+			'learning_24_7'    => 1,
 			'auto_purge'       => 1,
 		);
 	}
@@ -62,6 +63,7 @@ class Luxe_Theme_Guard_Plugin {
 	public function boot() {
 		add_action( 'admin_init', array( $this, 'maybe_save' ) );
 		Luxe_Theme_Guard_Updater::instance()->boot();
+		Luxe_Theme_Guard_Learning::instance()->boot();
 		if ( is_admin() ) {
 			Luxe_Theme_Guard_Admin::instance()->boot();
 		}
@@ -84,6 +86,9 @@ class Luxe_Theme_Guard_Plugin {
 	 */
 	public function enabled( $key ) {
 		$settings = $this->settings();
+		if ( 'process_learning' === $key || 'learning_24_7' === $key ) {
+			return ! empty( $settings['process_learning'] ) || ! empty( $settings['learning_24_7'] );
+		}
 		return ! empty( $settings[ $key ] );
 	}
 
@@ -100,18 +105,28 @@ class Luxe_Theme_Guard_Plugin {
 		check_admin_referer( 'luxe_theme_guard_save' );
 		$next = array();
 		foreach ( self::defaults() as $key => $default ) {
+			if ( 'learning_24_7' === $key ) {
+				continue;
+			}
 			$next[ $key ] = empty( $_POST[ $key ] ) ? 0 : 1;
 		}
+		$next['learning_24_7']    = ! empty( $next['process_learning'] ) ? 1 : 0;
+		$next['process_learning'] = $next['learning_24_7'];
 		update_option( self::OPTION, $next, false );
-		if ( ! empty( $next['auto_update'] ) && ! empty( $next['process_learning'] ) ) {
-			Luxe_Theme_Guard_Updater::activate();
+		if ( ! empty( $next['auto_update'] ) ) {
+			Luxe_Theme_Guard_Updater::arm_auto();
 		} else {
-			Luxe_Theme_Guard_Updater::deactivate();
+			Luxe_Theme_Guard_Updater::disarm_auto();
+		}
+		if ( ! empty( $next['learning_24_7'] ) ) {
+			Luxe_Theme_Guard_Learning::activate();
+		} else {
+			Luxe_Theme_Guard_Learning::deactivate();
 		}
 		add_settings_error(
 			'luxe_theme_guard',
 			'saved',
-			__( 'Theme Guard settings saved. Open the green signal board below.', 'luxe-theme-guard' ),
+			__( 'Theme Guard settings saved. 24/7 process learning uses WP-Cron every 5 minutes.', 'luxe-theme-guard' ),
 			'updated'
 		);
 	}

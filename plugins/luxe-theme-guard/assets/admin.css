@@ -168,8 +168,19 @@
 .lsr-signal-red em {
 	color: #b91c1c;
 }
-.lsr-learn-form {
-	margin: 0 0 24px;
+.laps-counters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	margin: 0 0 18px;
+	color: #334155;
+	font-size: 13px;
+}
+.laps-actions {
+	margin: 0 0 8px;
+}
+.lsr-learn-form .button + .button {
+	margin-left: 8px;
 }
 .lsr-switch span {
 	margin-left: 6px;

@@ -8,7 +8,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Luxe_Theme_Guard_Updater {
 
-	const CRON      = 'luxe_theme_guard_learn';
 	const LOCK      = 'luxe_theme_guard_lock';
 	const AUTO_SITE = 'auto_update_themes';
 
@@ -28,38 +27,25 @@ class Luxe_Theme_Guard_Updater {
 	}
 
 	/**
-	 * Register cron and WordPress auto-update for Flatsome.
+	 * WordPress auto-update for Flatsome parent only. 24/7 learning owns cron.
 	 */
 	public function boot() {
-		add_filter( 'cron_schedules', array( $this, 'schedules' ) );
-		add_action( self::CRON, array( $this, 'run' ) );
 		add_filter( 'auto_update_theme', array( $this, 'auto_update_theme' ), 10, 2 );
 		add_action( 'admin_init', array( $this, 'maybe_manual' ) );
-		add_action( 'init', array( $this, 'ensure_cron' ), 50 );
 	}
 
 	/**
-	 * @param array $schedules Schedules.
-	 * @return array
-	 */
-	public function schedules( $schedules ) {
-		if ( ! is_array( $schedules ) ) {
-			$schedules = array();
-		}
-		$schedules['ltg_twelve'] = array(
-			'interval' => 12 * HOUR_IN_SECONDS,
-			'display'  => __( 'Every 12 hours', 'luxe-theme-guard' ),
-		);
-		return $schedules;
-	}
-
-	/**
-	 * Schedule. Do not upgrade on activate.
+	 * Arm official Flatsome auto-update. Do not upgrade on activate.
 	 */
 	public static function activate() {
-		if ( ! wp_next_scheduled( self::CRON ) ) {
-			wp_schedule_event( time() + 180, 'ltg_twelve', self::CRON );
-		}
+		self::arm_auto();
+		Luxe_Theme_Guard_Learning::activate();
+	}
+
+	/**
+	 * Allow WordPress to apply official Flatsome packages.
+	 */
+	public static function arm_auto() {
 		$auto = get_site_option( self::AUTO_SITE, array() );
 		if ( ! is_array( $auto ) ) {
 			$auto = array();
@@ -71,22 +57,22 @@ class Luxe_Theme_Guard_Updater {
 	}
 
 	/**
-	 * Clear cron.
+	 * Stop asking WordPress to auto-update Flatsome. Other themes are left alone.
 	 */
-	public static function deactivate() {
-		wp_clear_scheduled_hook( self::CRON );
+	public static function disarm_auto() {
+		$auto = get_site_option( self::AUTO_SITE, array() );
+		if ( ! is_array( $auto ) ) {
+			return;
+		}
+		$auto = array_values( array_diff( $auto, array( Luxe_Theme_Guard_Signals::THEME ) ) );
+		update_site_option( self::AUTO_SITE, $auto );
 	}
 
 	/**
-	 * Keep cron alive without upgrading on public views.
+	 * Clear 24/7 cron. Leave other plugins' events alone.
 	 */
-	public function ensure_cron() {
-		if ( ! Luxe_Theme_Guard_Plugin::instance()->enabled( 'process_learning' ) ) {
-			return;
-		}
-		if ( ! wp_next_scheduled( self::CRON ) ) {
-			wp_schedule_event( time() + 120, 'ltg_twelve', self::CRON );
-		}
+	public static function deactivate() {
+		Luxe_Theme_Guard_Learning::deactivate();
 	}
 
 	/**
@@ -171,10 +157,27 @@ class Luxe_Theme_Guard_Updater {
 		}
 
 		$board = Luxe_Theme_Guard_Signals::build( $snap, $heals );
+		$board['source']      = 'manual';
+		$board['focus']       = 'upgrade';
+		$board['focus_label'] = 'Check and update Flatsome now';
 		update_option( Luxe_Theme_Guard_Signals::OPTION_LAST, $board, false );
 		$this->push_log( $board );
 		delete_transient( self::LOCK );
 		return $board;
+	}
+
+	/**
+	 * @return array
+	 */
+	public function attempt_upgrade() {
+		return $this->upgrade_flatsome();
+	}
+
+	/**
+	 * @return string[]
+	 */
+	public function purge_caches() {
+		return $this->purge();
 	}
 
 	/**
@@ -236,12 +239,15 @@ class Luxe_Theme_Guard_Updater {
 		array_unshift(
 			$log,
 			array(
-				'at'    => isset( $board['at'] ) ? $board['at'] : time(),
-				'green' => isset( $board['green'] ) ? $board['green'] : 0,
-				'total' => isset( $board['total'] ) ? $board['total'] : 0,
-				'band'  => isset( $board['band'] ) ? $board['band'] : '',
+				'at'     => isset( $board['at'] ) ? $board['at'] : time(),
+				'green'  => isset( $board['green'] ) ? $board['green'] : 0,
+				'total'  => isset( $board['total'] ) ? $board['total'] : 0,
+				'band'   => isset( $board['band'] ) ? $board['band'] : '',
+				'source' => 'manual',
+				'focus'  => 'Check and update Flatsome now',
+				'level'  => ( ! empty( $board['green'] ) && isset( $board['total'] ) && (int) $board['green'] === (int) $board['total'] ) ? 'green' : 'red',
 			)
 		);
-		update_option( Luxe_Theme_Guard_Signals::OPTION_LOG, array_slice( $log, 0, 20 ), false );
+		update_option( Luxe_Theme_Guard_Signals::OPTION_LOG, array_slice( $log, 0, 30 ), false );
 	}
 }
