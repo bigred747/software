@@ -12,6 +12,8 @@ Windows 11 / WordPress zip. Size **145KB**.
 
 [luxe-theme-guard.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/theme-guard-flatsome-0935/luxe-theme-guard.zip)
 
+SHA-256 `f81a77b970c0f2a66935d4498dfe1a5a227a98946422f55b2b1a3ab78e6dee7f`
+
 Plugins → Add Plugin → Upload Plugin → Install Now → Activate. Open **Luxe Theme** → **Check and update Flatsome now**.
 
 Register Flatsome under **Flatsome → Theme Registration** so WordPress can fetch the official package. Do not upload this zip over Flatsome or any other plugin.
