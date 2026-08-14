@@ -4,7 +4,7 @@ Tags: flatsome, theme update, security, luxetrendsetters
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ Automatically updates official Flatsome and shows a green-signal board. Never do
 
 == Description ==
 
-Luxe Theme Guard 1.0.0 is the Flatsome auto-update plugin for luxetrendsetters.com. WordPress admin menu: **Luxe Theme**.
+Luxe Theme Guard 1.0.1 is the Flatsome auto-update plugin for luxetrendsetters.com. WordPress admin menu: **Luxe Theme**.
 
 It:
 
@@ -26,6 +26,10 @@ It does **not** download pirate/nulled Flatsome zips, overwrite plugins, write p
 A ThemeForest purchase code must already be registered under **Flatsome → Theme Registration** or WordPress cannot fetch the official package.
 
 == Changelog ==
+
+= 1.0.1 =
+* Parent-only Flatsome is green (child theme is optional)
+* Board shows only license + 3.20.9 as red until ThemeForest registration
 
 = 1.0.0 =
 * Flatsome parent auto-update

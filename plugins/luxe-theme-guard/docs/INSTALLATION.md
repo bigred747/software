@@ -1,4 +1,4 @@
-# Luxe Theme Guard 1.0.0
+# Luxe Theme Guard 1.0.1
 
 Automatically updates official Flatsome and shows green signals. WordPress admin menu: **Luxe Theme**.
 

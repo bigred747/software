@@ -71,6 +71,34 @@ $board = Luxe_Theme_Guard_Signals::build(
 expect( (int) $board['green'] === (int) $board['total'], 'current licensed 3.20.9 is all green' );
 expect( $board['total'] >= 12, 'at least 12 green signals' );
 
+$parent_only = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'   => true,
+		'version'     => '3.20.6',
+		'available'   => '',
+		'package'     => '',
+		'stylesheet'  => 'flatsome',
+		'child'       => 'flatsome',
+		'license'     => false,
+		'xss_ok'      => true,
+		'recommended' => false,
+		'can_upgrade' => false,
+	)
+);
+$child_row = null;
+$red_ids   = array();
+foreach ( $parent_only['signals'] as $signal ) {
+	if ( 'child' === $signal['id'] ) {
+		$child_row = $signal;
+	}
+	if ( 'red' === $signal['level'] ) {
+		$red_ids[] = $signal['id'];
+	}
+}
+expect( $child_row && 'green' === $child_row['level'], 'parent-only is green, not a failure' );
+expect( array( 'recommended', 'license' ) === $red_ids, 'only license and 3.20.9 stay red without a purchase code' );
+expect( 11 === (int) $parent_only['green'], '3.20.6 without license is 11 / 13 green' );
+
 if ( $fail ) {
 	echo "FAILED $fail\n";
 	exit( 1 );

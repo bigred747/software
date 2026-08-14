@@ -102,10 +102,12 @@ $all   = $total > 0 && $green === $total;
 		<article class="lsr-card">
 			<h2>If a signal is red</h2>
 			<ul>
+				<li>Parent-only is <strong>not</strong> a problem. You do not need a child theme unless you edited Flatsome files.</li>
 				<li>Open <strong>Flatsome → Theme Registration</strong></li>
-				<li>Enter your ThemeForest purchase code</li>
-				<li>Click <strong>Check and update Flatsome now</strong></li>
+				<li>Enter your ThemeForest purchase code from ThemeForest → Downloads</li>
+				<li>Click <strong>Check and update Flatsome now</strong> so WordPress can fetch official <strong>3.20.9</strong></li>
 				<li>Purge LiteSpeed once after a successful update</li>
+				<li>Do not install a nulled Flatsome zip</li>
 			</ul>
 		</article>
 	</section>

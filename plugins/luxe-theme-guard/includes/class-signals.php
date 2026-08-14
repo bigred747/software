@@ -169,16 +169,15 @@ class Luxe_Theme_Guard_Signals {
 		$avail   = isset( $snap['available'] ) ? (string) $snap['available'] : '';
 		$auto    = class_exists( 'Luxe_Theme_Guard_Plugin' ) ? Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_update' ) : true;
 		$child   = isset( $snap['child'] ) ? (string) $snap['child'] : '';
-		$parent  = isset( $snap['stylesheet'] ) ? (string) $snap['stylesheet'] : '';
-		$using   = ( self::THEME === $parent ) || ( self::THEME === $child );
+		$has_child = ( $child && $child !== self::THEME );
 		$signals = array(
 			self::row( 'installed', 'Flatsome parent installed', ! empty( $snap['installed'] ), $ver ? ( 'Installed ' . $ver ) : 'Flatsome folder not found in wp-content/themes/flatsome' ),
 			self::row( 'xss', 'XSS patch 3.20.6+', ! empty( $snap['xss_ok'] ), ! empty( $snap['xss_ok'] ) ? 'CVE-2026-28083 is patched.' : 'Update past 3.20.5. 3.20.6+ is required.' ),
-			self::row( 'recommended', 'Recommended 3.20.9+', ! empty( $snap['recommended'] ), ! empty( $snap['recommended'] ) ? ( 'Current ' . $ver ) : ( 'Need ' . self::RECOMMENDED . ( $avail ? ( '; WordPress offers ' . $avail ) : '' ) ) ),
+			self::row( 'recommended', 'Recommended 3.20.9+', ! empty( $snap['recommended'] ), ! empty( $snap['recommended'] ) ? ( 'Current ' . $ver ) : ( 'Need ' . self::RECOMMENDED . ( $avail ? ( '; WordPress offers ' . $avail ) : '. Register the theme so WordPress can download it.' ) ) ),
 			self::row( 'license', 'Official license registered', ! empty( $snap['license'] ) || ! empty( $snap['recommended'] ), ! empty( $snap['license'] ) || ! empty( $snap['recommended'] ) ? 'UX Themes / Envato registration present or already current.' : 'Open Flatsome → Theme Registration and enter your ThemeForest purchase code.' ),
 			self::row( 'auto', 'Auto-update armed for Flatsome only', $auto, $auto ? 'WordPress may apply official Flatsome packages. Child theme is never overwritten.' : 'Auto-update is off.' ),
 			self::row( 'package', 'No nulled download', true, 'Guard refuses unofficial zip URLs. Official HTTPS package only.' ),
-			self::row( 'child', 'Child theme keeps custom work', ( $child && $child !== self::THEME ) || ! $using, $child && $child !== self::THEME ? ( 'Active stylesheet ' . $child ) : 'Using parent only is OK if you did not edit parent files.' ),
+			self::row( 'child', 'Child theme never overwritten', true, $has_child ? ( 'Active child theme ' . $child . '. Guard never replaces it.' ) : 'Parent only is OK. Guard never replaces a child theme if you add one later.' ),
 			self::row( 'plugins', 'Plugins left alone', true, 'Never replaces Product Scout, Luxe SEO, Mission Control, or Stay Repair.' ),
 			self::row( 'amazon', 'Amazon URLs untouched', true, 'Theme Guard never rewrites affiliate links.' ),
 			self::row( 'publish', 'Never publishes content', true, 'No post status changes. Theme files only.' ),
