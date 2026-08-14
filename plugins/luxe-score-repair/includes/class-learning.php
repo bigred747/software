@@ -298,11 +298,14 @@ class Luxe_Score_Repair_Learning {
 			$this->signal( 'blog_301', '/blog/ → /blogs/', $blog_ok, $blog_loc ? $blog_loc : 'Redirect map active on init' ),
 			$this->signal( 'learning', 'Process learning heartbeat', true, '15-minute bounded cycle. No post writes. No Amazon URL rewrites.' ),
 			$this->signal( 'purge', 'Cache purge', true, ! empty( $heals['purge']['did'] ) ? implode( ', ', $heals['purge']['did'] ) : 'Object cache flushed' ),
+			$this->signal( 'copyright_lock', 'Copyright lock (no copied Instagram video)', $this->no_copied_instagram( $html ), 'No Instagram CDN video or copied reel media on the homepage.' ),
+			$this->signal( 'unique_copy', 'Unique buyer-guide copy (thin 37-word pages refused)', $this->unique_copy_ok( $html ), 'Homepage keeps real unique copy. Copied 37-word ranking pages stay off.' ),
+			$this->signal( 'canonical', 'Homepage canonical', $html && ( false !== strpos( $html, 'rel="canonical"' ) || false !== strpos( $html, "rel='canonical'" ) ), 'Canonical present or Rank Math / theme will print it.' ),
 		);
 
 		if ( ! $html ) {
 			foreach ( $signals as $i => $signal ) {
-				if ( in_array( $signal['id'], array( 'learning', 'robots_file', 'purge' ), true ) ) {
+				if ( in_array( $signal['id'], array( 'learning', 'robots_file', 'purge', 'copyright_lock', 'unique_copy' ), true ) ) {
 					continue;
 				}
 				if ( 'green' !== $signal['level'] ) {
@@ -313,6 +316,41 @@ class Luxe_Score_Repair_Learning {
 		}
 
 		return $signals;
+	}
+
+	/**
+	 * Copied Instagram video/CDN media is a copyright fail.
+	 *
+	 * @param string $html HTML.
+	 * @return bool
+	 */
+	private function no_copied_instagram( $html ) {
+		if ( ! is_string( $html ) || '' === $html ) {
+			return true;
+		}
+		if ( preg_match( '#scontent[^"\']*cdninstagram|cdninstagram\.com/.+\.mp4|instagram\.com/[^"\']+\.mp4#i', $html ) ) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Affiliate catalog pages need real unique copy. Thin 37-word landers are refused.
+	 *
+	 * @param string $html HTML.
+	 * @return bool
+	 */
+	private function unique_copy_ok( $html ) {
+		if ( ! is_string( $html ) || '' === $html ) {
+			return true;
+		}
+		$text  = wp_strip_all_tags( $html );
+		$words = preg_split( '/\s+/', trim( $text ) );
+		$count = is_array( $words ) ? count( $words ) : 0;
+		if ( $count > 0 && $count <= 37 ) {
+			return false;
+		}
+		return $count >= 80;
 	}
 
 	/**
@@ -355,7 +393,7 @@ class Luxe_Score_Repair_Learning {
 		foreach ( $signals as $signal ) {
 			$map[ $signal['id'] ] = $signal['level'];
 		}
-		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'alts', 'blog_301' );
+		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'alts', 'blog_301', 'copyright_lock', 'unique_copy' );
 		foreach ( $need as $id ) {
 			if ( isset( $map[ $id ] ) && 'green' !== $map[ $id ] ) {
 				return 'repairing';

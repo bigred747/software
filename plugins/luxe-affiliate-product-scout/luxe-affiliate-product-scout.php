@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Luxe Affiliate Product Scout
  * Plugin URI: https://luxetrendsetters.com/
- * Description: 24/7 WooCommerce catalog learning. One product per cycle, hourly snapshot, honest 95-100 scores. Never publishes, never deletes, never rewrites Amazon URLs.
- * Version: 5.6.8
+ * Description: 24/7 WooCommerce catalog learning plus copyright-safe Instagram video scanning. One product per cycle, hourly snapshot, honest 95-100 scores. Never copies Instagram video, never publishes, never deletes, never rewrites Amazon URLs.
+ * Version: 5.7.0
  * Requires at least: 6.4
  * Tested up to: 6.8
  * Requires PHP: 7.4
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'LAPS_VERSION' ) ) {
-	define( 'LAPS_VERSION', '5.6.8' );
+	define( 'LAPS_VERSION', '5.7.0' );
 }
 if ( ! defined( 'LAPS_FILE' ) ) {
 	define( 'LAPS_FILE', __FILE__ );
@@ -48,6 +48,7 @@ $laps_includes = array(
 	'includes/class-related.php',
 	'includes/class-audit.php',
 	'includes/class-learning.php',
+	'includes/class-instagram.php',
 	'includes/class-plugin.php',
 	'includes/class-admin.php',
 );

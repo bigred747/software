@@ -56,6 +56,14 @@ $checks = array(
 		'label' => 'Homepage Amazon disclosure',
 		'help'  => 'Prints a clear Associate disclosure on the homepage footer.',
 	),
+	'copyright_lock'       => array(
+		'label' => 'Copyright lock',
+		'help'  => 'Refuses copied Instagram video, CDN media, and republished reels on public pages.',
+	),
+	'unique_copy'          => array(
+		'label' => 'Unique buyer-guide copy',
+		'help'  => 'Keeps real unique copy. The 37-word ranking trick is refused for this catalog site.',
+	),
 	'process_learning'     => array(
 		'label' => 'Process learning',
 		'help'  => 'Every 15 minutes: heal robots.txt, purge LiteSpeed, verify each process, learn exact 301 hops.',
@@ -75,9 +83,9 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 ?>
 <div class="wrap lsr-wrap">
 	<header class="lsr-hero">
-		<p class="lsr-kicker">LuxeTrendsetters · public output repair</p>
-		<h1>Luxe Score Repair <?php echo esc_html( LUXE_SCORE_REPAIR_VERSION ); ?></h1>
-		<p class="lsr-lead">Each process has a live signal. Learning heals robots.txt on disk, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes.</p>
+		<p class="lsr-kicker">LuxeTrendsetters · SEO plugin</p>
+		<h1>Luxe SEO Score Repair <?php echo esc_html( LUXE_SCORE_REPAIR_VERSION ); ?></h1>
+		<p class="lsr-lead">This is the SEO plugin. Each process has a live green/red signal. Unique buyer-guide copy stays on. Copied Instagram video and thin 37-word ranking pages stay off. Learning heals robots.txt, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes.</p>
 	</header>
 
 	<section class="lsr-scorebar">
@@ -157,6 +165,7 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 				<li>Never changes post status</li>
 				<li>Never rewrites Amazon or product permalinks</li>
 				<li>Never creates Rank Math redirect rows</li>
+				<li>Never copies Instagram video or thin third-party landing pages</li>
 				<li>Learning is heal + verify only</li>
 			</ul>
 		</article>

@@ -14,3 +14,7 @@ delete_option( 'laps_learn_last' );
 delete_option( 'laps_learn_log' );
 delete_option( 'laps_catalog' );
 delete_option( 'laps_learn_snapshot_at' );
+delete_option( 'laps_ig_queue' );
+delete_option( 'laps_ig_last' );
+delete_option( 'laps_ig_log' );
+delete_option( 'laps_ig_cursor' );

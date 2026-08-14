@@ -38,6 +38,9 @@ class LAPS_Plugin {
 			'auto_repair'     => 1,
 			'related_filter'  => 0,
 			'batch_size'      => 25,
+			'ig_scan_24_7'    => 1,
+			'ig_urls'         => '',
+			'ig_notes'        => '',
 		);
 	}
 
@@ -84,6 +87,9 @@ class LAPS_Plugin {
 		LAPS_Audit::instance()->boot();
 		if ( class_exists( 'LAPS_Learning' ) ) {
 			LAPS_Learning::instance()->boot();
+		}
+		if ( class_exists( 'LAPS_Instagram' ) && is_admin() ) {
+			LAPS_Instagram::instance()->boot();
 		}
 		if ( $this->enabled( 'related_filter' ) ) {
 			$related = new LAPS_Related();
@@ -160,6 +166,9 @@ class LAPS_Plugin {
 			'auto_repair'    => empty( $_POST['learning_24_7'] ) ? 0 : 1,
 			'related_filter' => empty( $_POST['related_filter'] ) ? 0 : 1,
 			'batch_size'     => isset( $_POST['batch_size'] ) ? (int) $_POST['batch_size'] : 25,
+			'ig_scan_24_7'   => empty( $_POST['ig_scan_24_7'] ) ? 0 : 1,
+			'ig_urls'        => isset( $_POST['ig_urls'] ) ? sanitize_textarea_field( wp_unslash( (string) $_POST['ig_urls'] ) ) : '',
+			'ig_notes'       => isset( $_POST['ig_notes'] ) ? sanitize_textarea_field( wp_unslash( (string) $_POST['ig_notes'] ) ) : '',
 		);
 		update_option( self::OPTION, wp_parse_args( $next, self::defaults() ), false );
 		if ( class_exists( 'LAPS_Learning' ) ) {
@@ -168,6 +177,10 @@ class LAPS_Plugin {
 			} else {
 				LAPS_Learning::deactivate();
 			}
+		}
+		if ( class_exists( 'LAPS_Instagram' ) ) {
+			$urls = LAPS_Instagram::extract_urls( $next['ig_urls'] . "\n" . $next['ig_notes'] );
+			update_option( LAPS_Instagram::OPTION_QUEUE, $urls, false );
 		}
 		add_settings_error(
 			'laps',

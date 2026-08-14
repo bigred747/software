@@ -45,6 +45,8 @@ class Luxe_Score_Repair_Plugin {
 			'affiliate_disclosure'  => 1,
 			'process_learning'      => 1,
 			'auto_purge'            => 1,
+			'copyright_lock'        => 1,
+			'unique_copy'           => 1,
 		);
 	}
 
