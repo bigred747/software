@@ -30,10 +30,15 @@ class Luxe_Theme_Guard_Plugin {
 	 */
 	public static function defaults() {
 		return array(
-			'auto_update'      => 1,
-			'process_learning' => 1,
-			'learning_24_7'    => 1,
-			'auto_purge'       => 1,
+			'auto_update'           => 1,
+			'process_learning'      => 1,
+			'learning_24_7'         => 1,
+			'auto_purge'            => 1,
+			'amazon_ai'             => 1,
+			'amazon_tag'            => 'luxetrendse0f-20',
+			'amazon_client_id'      => '',
+			'amazon_client_secret'  => '',
+			'amazon_marketplace'    => 'www.amazon.com',
 		);
 	}
 
@@ -64,6 +69,7 @@ class Luxe_Theme_Guard_Plugin {
 		add_action( 'admin_init', array( $this, 'maybe_save' ) );
 		Luxe_Theme_Guard_Updater::instance()->boot();
 		Luxe_Theme_Guard_Learning::instance()->boot();
+		Luxe_Theme_Guard_Amazon::instance()->boot();
 		if ( is_admin() ) {
 			Luxe_Theme_Guard_Admin::instance()->boot();
 		}
@@ -103,15 +109,21 @@ class Luxe_Theme_Guard_Plugin {
 			return;
 		}
 		check_admin_referer( 'luxe_theme_guard_save' );
-		$next = array();
-		foreach ( self::defaults() as $key => $default ) {
-			if ( 'learning_24_7' === $key ) {
-				continue;
-			}
-			$next[ $key ] = empty( $_POST[ $key ] ) ? 0 : 1;
-		}
-		$next['learning_24_7']    = ! empty( $next['process_learning'] ) ? 1 : 0;
+		$prev = $this->settings();
+		$next = array(
+			'auto_update'      => empty( $_POST['auto_update'] ) ? 0 : 1,
+			'process_learning' => empty( $_POST['process_learning'] ) ? 0 : 1,
+			'auto_purge'       => empty( $_POST['auto_purge'] ) ? 0 : 1,
+			'amazon_ai'        => empty( $_POST['amazon_ai'] ) ? 0 : 1,
+		);
+		$next['learning_24_7']    = $next['process_learning'];
 		$next['process_learning'] = $next['learning_24_7'];
+		$tag = isset( $_POST['amazon_tag'] ) ? sanitize_text_field( wp_unslash( $_POST['amazon_tag'] ) ) : ( isset( $prev['amazon_tag'] ) ? $prev['amazon_tag'] : Luxe_Theme_Guard_Amazon::TAG );
+		$next['amazon_tag']         = Luxe_Theme_Guard_Amazon::sanitize_tag( $tag );
+		$next['amazon_marketplace'] = Luxe_Theme_Guard_Amazon::MARKET;
+		$next['amazon_client_id']   = isset( $_POST['amazon_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['amazon_client_id'] ) ) : ( isset( $prev['amazon_client_id'] ) ? $prev['amazon_client_id'] : '' );
+		$secret = isset( $_POST['amazon_client_secret'] ) ? trim( (string) wp_unslash( $_POST['amazon_client_secret'] ) ) : '';
+		$next['amazon_client_secret'] = ( '' !== $secret ) ? $secret : ( isset( $prev['amazon_client_secret'] ) ? $prev['amazon_client_secret'] : '' );
 		update_option( self::OPTION, $next, false );
 		if ( ! empty( $next['auto_update'] ) ) {
 			Luxe_Theme_Guard_Updater::arm_auto();
@@ -126,7 +138,7 @@ class Luxe_Theme_Guard_Plugin {
 		add_settings_error(
 			'luxe_theme_guard',
 			'saved',
-			__( 'Theme Guard settings saved. 24/7 process learning uses WP-Cron every 5 minutes.', 'luxe-theme-guard' ),
+			__( 'Theme Guard settings saved. 24/7 process learning and Amazon AI use WP-Cron every 5 minutes.', 'luxe-theme-guard' ),
 			'updated'
 		);
 	}

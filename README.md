@@ -2,11 +2,9 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Theme Guard 1.1.0 — Flatsome auto-update + 24/7 process learning
+## Luxe Theme Guard 1.2.0 — Flatsome auto-update + 24/7 process learning + Amazon AI
 
-Visible in WordPress as **Luxe Theme**. 24/7 process learning (one signal every 5 minutes, hourly licensed-package snapshot) plus official Flatsome auto-update. Green-signal board. Never downloads nulled zips.
-
-Visible in WordPress as **Luxe Theme**. Automatically updates official Flatsome when a licensed package is available. Green-signal board. Never downloads nulled zips.
+Visible in WordPress as **Luxe Theme**. 24/7 process learning, Amazon AI (Associates tag/ASIN audit + optional official Creators API), and official Flatsome auto-update. Never downloads nulled zips. Never rewrites Amazon URLs.
 
 Windows 11 / WordPress zip. Size **145KB**.
 
@@ -14,7 +12,7 @@ Windows 11 / WordPress zip. Size **145KB**.
 
 [luxe-theme-guard.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/theme-guard-flatsome-0935/luxe-theme-guard.zip)
 
-SHA-256 `9c99d7e0650ab0e6cbda1b2414f9abfb96bc7d149a19567887251d7356d320af`
+SHA-256 `7b1ff3f0ce550499c49f5b75fddd9593281fd2ec60798e33354afbc5493b966d`
 
 Plugins → Add Plugin → Upload Plugin → Install Now → Activate. Open **Luxe Theme** → **Check and update Flatsome now**.
 
