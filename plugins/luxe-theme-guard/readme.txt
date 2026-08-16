@@ -4,7 +4,7 @@ Tags: flatsome, theme update, security, luxetrendsetters
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.1
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 == Description ==
 
-Luxe Theme Guard 1.2.1 is the Flatsome auto-update and Amazon AI plugin for luxetrendsetters.com. WordPress admin menu: **Luxe Theme** and **Amazon AI**.
+Luxe Theme Guard 1.3.0 is the Flatsome auto-update and Amazon AI plugin for luxetrendsetters.com. WordPress admin menu: **Luxe Theme** and **Amazon AI**.
 
 It:
 
@@ -20,16 +20,21 @@ It:
 * Runs Amazon AI: one catalog item per cycle (ASIN + Associates tag audit)
 * Optional official Amazon Creators API (PA-API v5 is retired)
 * Takes an hourly read-only snapshot of the licensed Flatsome package
-* Applies an official Flatsome parent upgrade at most once per 12 hours
+* Applies an official Flatsome parent upgrade as soon as WordPress has a licensed package
 * Shows GREEN / RED for XSS patch 3.20.6+, recommended 3.20.9+, license, 24/7 cron, and cache purge
 * Purges LiteSpeed after a successful theme update
 * Never upgrades during a shopper page view (WP-Cron / admin button only)
 
 It does **not** download pirate/nulled Flatsome zips, overwrite plugins, write post content, change post status, or rewrite Amazon URLs.
 
-A ThemeForest purchase code must already be registered under **Flatsome → Theme Registration** or WordPress cannot fetch the official package.
+A ThemeForest purchase code can be pasted on **Luxe Theme** settings (or Flatsome → Theme Registration). WordPress cannot fetch the official package without it.
 
 == Changelog ==
+
+= 1.3.0 =
+* Paste ThemeForest purchase code on Luxe Theme to register Flatsome
+* Auto-update official Flatsome every 5 minutes when a licensed package is available
+* Direct filesystem for cron upgrades on Hostinger
 
 = 1.2.1 =
 * Migrates leftover 12-hour WP-Cron timers to the 5-minute 24/7 loop after a zip replace

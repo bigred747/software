@@ -108,6 +108,31 @@ class Luxe_Theme_Guard_Learning {
 	}
 
 	/**
+	 * Refresh WordPress theme metadata when Flatsome is behind, otherwise hourly.
+	 *
+	 * @param bool $behind Behind recommended.
+	 * @param int  $last   Last refresh.
+	 * @param int  $now    Now.
+	 * @return bool
+	 */
+	public static function should_refresh_updates( $behind, $last, $now ) {
+		if ( $behind ) {
+			return true;
+		}
+		return self::should_snapshot( $last, $now );
+	}
+
+	/**
+	 * Apply an official package as soon as WordPress has one.
+	 *
+	 * @param bool $can_upgrade Official package ready.
+	 * @return bool
+	 */
+	public static function should_apply_upgrade( $can_upgrade ) {
+		return (bool) $can_upgrade;
+	}
+
+	/**
 	 * @param int $last Last unix time.
 	 * @param int $now  Now.
 	 * @return bool
@@ -280,24 +305,23 @@ class Luxe_Theme_Guard_Learning {
 		$heals = array(
 			'source' => $source,
 		);
-		$did_snap = self::should_snapshot( (int) get_option( self::OPTION_SNAP, 0 ), $now );
-		$did_up   = self::should_upgrade_check( (int) get_option( self::OPTION_UPGRADE, 0 ), $now );
+		$snap    = Luxe_Theme_Guard_Signals::snapshot();
+		$behind  = ! empty( $snap['installed'] ) && empty( $snap['recommended'] );
+		$refresh = self::should_refresh_updates( $behind, (int) get_option( self::OPTION_SNAP, 0 ), $now );
 
-		if ( $did_snap && function_exists( 'wp_update_themes' ) ) {
+		if ( $refresh && function_exists( 'wp_update_themes' ) ) {
 			wp_update_themes();
 			$heals['refresh'] = 'wp_update_themes';
 			update_option( self::OPTION_SNAP, $now, false );
+			$snap = Luxe_Theme_Guard_Signals::snapshot();
 		}
 
-		$snap = Luxe_Theme_Guard_Signals::snapshot();
-		if ( $did_up ) {
+		if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_update' ) && self::should_apply_upgrade( ! empty( $snap['can_upgrade'] ) ) ) {
 			update_option( self::OPTION_UPGRADE, $now, false );
-			if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_update' ) && ! empty( $snap['can_upgrade'] ) ) {
-				$heals['upgrade'] = Luxe_Theme_Guard_Updater::instance()->attempt_upgrade();
-				$snap             = Luxe_Theme_Guard_Signals::snapshot();
-				if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_purge' ) ) {
-					$heals['purge'] = Luxe_Theme_Guard_Updater::instance()->purge_caches();
-				}
+			$heals['upgrade'] = Luxe_Theme_Guard_Updater::instance()->attempt_upgrade();
+			$snap             = Luxe_Theme_Guard_Signals::snapshot();
+			if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_purge' ) ) {
+				$heals['purge'] = Luxe_Theme_Guard_Updater::instance()->purge_caches();
 			}
 		}
 
@@ -312,8 +336,8 @@ class Luxe_Theme_Guard_Learning {
 		$board['focus_label'] = isset( $focus['label'] ) ? (string) $focus['label'] : '';
 		$board['focus_level'] = isset( $focus['level'] ) ? (string) $focus['level'] : '';
 		$board['cursor']      = $next;
-		$board['snapshot']    = $did_snap ? 1 : 0;
-		$board['upgrade_due'] = $did_up ? 1 : 0;
+		$board['snapshot']    = $refresh ? 1 : 0;
+		$board['upgrade_due'] = ! empty( $heals['upgrade'] ) ? 1 : 0;
 		update_option( Luxe_Theme_Guard_Signals::OPTION_LAST, $board, false );
 		$this->push_log( $board );
 		if ( class_exists( 'Luxe_Theme_Guard_Amazon' ) && Luxe_Theme_Guard_Plugin::instance()->enabled( 'amazon_ai' ) ) {

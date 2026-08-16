@@ -39,6 +39,7 @@ class Luxe_Theme_Guard_Plugin {
 			'amazon_client_id'      => '',
 			'amazon_client_secret'  => '',
 			'amazon_marketplace'    => 'www.amazon.com',
+			'flatsome_purchase_code'=> '',
 		);
 	}
 
@@ -124,7 +125,25 @@ class Luxe_Theme_Guard_Plugin {
 		$next['amazon_client_id']   = isset( $_POST['amazon_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['amazon_client_id'] ) ) : ( isset( $prev['amazon_client_id'] ) ? $prev['amazon_client_id'] : '' );
 		$secret = isset( $_POST['amazon_client_secret'] ) ? trim( (string) wp_unslash( $_POST['amazon_client_secret'] ) ) : '';
 		$next['amazon_client_secret'] = ( '' !== $secret ) ? $secret : ( isset( $prev['amazon_client_secret'] ) ? $prev['amazon_client_secret'] : '' );
+		$code = isset( $_POST['flatsome_purchase_code'] ) ? sanitize_text_field( wp_unslash( $_POST['flatsome_purchase_code'] ) ) : '';
+		$next['flatsome_purchase_code'] = isset( $prev['flatsome_purchase_code'] ) ? $prev['flatsome_purchase_code'] : '';
+		if ( '' !== $code ) {
+			$clean = Luxe_Theme_Guard_Signals::sanitize_purchase_code( $code );
+			if ( $clean ) {
+				$next['flatsome_purchase_code'] = $clean;
+			} else {
+				add_settings_error(
+					'luxe_theme_guard',
+					'bad-code',
+					__( 'That purchase code is not a ThemeForest UUID. Example: bg91c1z0-bdcf-457f-a3e5-4e0762896c2d. Official Flatsome was not changed.', 'luxe-theme-guard' ),
+					'error'
+				);
+			}
+		}
 		update_option( self::OPTION, $next, false );
+		if ( ! empty( $next['flatsome_purchase_code'] ) ) {
+			Luxe_Theme_Guard_Updater::apply_purchase_code( $next['flatsome_purchase_code'] );
+		}
 		if ( ! empty( $next['auto_update'] ) ) {
 			Luxe_Theme_Guard_Updater::arm_auto();
 		} else {
@@ -135,10 +154,14 @@ class Luxe_Theme_Guard_Plugin {
 		} else {
 			Luxe_Theme_Guard_Learning::deactivate();
 		}
+		if ( ! empty( $next['auto_update'] ) && ! empty( $next['flatsome_purchase_code'] ) ) {
+			delete_transient( Luxe_Theme_Guard_Updater::LOCK );
+			Luxe_Theme_Guard_Updater::instance()->run( true );
+		}
 		add_settings_error(
 			'luxe_theme_guard',
 			'saved',
-			__( 'Theme Guard settings saved. 24/7 process learning and Amazon AI use WP-Cron every 5 minutes.', 'luxe-theme-guard' ),
+			__( 'Theme Guard settings saved. Official Flatsome auto-update runs every 5 minutes when WordPress has a licensed package.', 'luxe-theme-guard' ),
 			'updated'
 		);
 	}

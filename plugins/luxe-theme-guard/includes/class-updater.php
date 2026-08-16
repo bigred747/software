@@ -27,6 +27,40 @@ class Luxe_Theme_Guard_Updater {
 	}
 
 	/**
+	 * Write the Envato purchase code where Flatsome's official updater reads it.
+	 *
+	 * @param string $code Purchase code.
+	 * @return bool
+	 */
+	public static function apply_purchase_code( $code ) {
+		$code = Luxe_Theme_Guard_Signals::sanitize_purchase_code( $code );
+		if ( ! $code ) {
+			return false;
+		}
+		update_option( 'flatsome_wup_purchase_code', $code, false );
+		$reg = get_option( 'flatsome_registration', array() );
+		if ( ! is_array( $reg ) ) {
+			$reg = array();
+		}
+		$reg['purchase_code'] = $code;
+		update_option( 'flatsome_registration', $reg, false );
+		if ( function_exists( 'delete_site_transient' ) ) {
+			delete_site_transient( 'update_themes' );
+		}
+		return true;
+	}
+
+	/**
+	 * Cron upgrades need a writable themes directory.
+	 *
+	 * @param string $method Method.
+	 * @return string
+	 */
+	public function force_direct( $method ) {
+		return 'direct';
+	}
+
+	/**
 	 * WordPress auto-update for Flatsome parent only. 24/7 learning owns cron.
 	 */
 	public function boot() {
@@ -193,9 +227,11 @@ class Luxe_Theme_Guard_Updater {
 		if ( ! class_exists( 'Theme_Upgrader' ) ) {
 			return array( 'ok' => false, 'detail' => 'upgrader-missing' );
 		}
+		add_filter( 'filesystem_method', array( $this, 'force_direct' ), 99 );
 		$skin     = class_exists( 'Automatic_Upgrader_Skin' ) ? new Automatic_Upgrader_Skin() : new WP_Upgrader_Skin();
 		$upgrader = new Theme_Upgrader( $skin );
 		$result   = $upgrader->upgrade( Luxe_Theme_Guard_Signals::THEME );
+		remove_filter( 'filesystem_method', array( $this, 'force_direct' ), 99 );
 		if ( is_wp_error( $result ) ) {
 			return array(
 				'ok'     => false,

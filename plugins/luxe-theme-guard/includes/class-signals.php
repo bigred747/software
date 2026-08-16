@@ -81,16 +81,38 @@ class Luxe_Theme_Guard_Signals {
 	}
 
 	/**
+	 * ThemeForest / Envato purchase code (UUID).
+	 *
+	 * @param string $code Code.
+	 * @return string
+	 */
+	public static function sanitize_purchase_code( $code ) {
+		$code = strtolower( trim( (string) $code ) );
+		if ( preg_match( '/^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/', $code ) ) {
+			return $code;
+		}
+		return '';
+	}
+
+	/**
 	 * Detect UX Themes / Envato registration without storing a new code.
 	 *
 	 * @return bool
 	 */
 	public static function license_registered() {
+		if ( class_exists( 'Luxe_Theme_Guard_Plugin' ) ) {
+			$settings = Luxe_Theme_Guard_Plugin::instance()->settings();
+			if ( ! empty( $settings['flatsome_purchase_code'] ) && self::sanitize_purchase_code( $settings['flatsome_purchase_code'] ) ) {
+				return true;
+			}
+		}
 		$keys = array(
 			'flatsome_wup_purchase_code',
 			'flatsome_registration',
 			'flatsome_token',
 			'ux_theme_registration',
+			'flatsome_license',
+			'uxthemes_registration',
 		);
 		foreach ( $keys as $key ) {
 			$val = get_option( $key, '' );
@@ -186,10 +208,10 @@ class Luxe_Theme_Guard_Signals {
 			$cron_ok = false;
 		}
 		$cron_detail = $learn_on
-			? '24/7: one process every 5 minutes. Hourly licensed-package snapshot. Official Flatsome upgrade at most once per 12 hours. Never on a shopper page.'
+			? '24/7: one process every 5 minutes. When Flatsome is behind, Guard refreshes official packages and auto-upgrades. Never on a shopper page.'
 			: '24/7 process learning is off.';
 		if ( $learn_on && ! $cron_ok && ! empty( $snap['cron_schedule'] ) ) {
-			$cron_detail = 'Old 12-hour timer is still registered. Open Luxe Theme so 1.2.1 migrates it to every 5 minutes.';
+			$cron_detail = 'Old 12-hour timer is still registered. Open Luxe Theme so Theme Guard migrates it to every 5 minutes.';
 		}
 		$child   = isset( $snap['child'] ) ? (string) $snap['child'] : '';
 		$has_child = ( $child && $child !== self::THEME );
@@ -197,7 +219,7 @@ class Luxe_Theme_Guard_Signals {
 			self::row( 'installed', 'Flatsome parent installed', ! empty( $snap['installed'] ), $ver ? ( 'Installed ' . $ver ) : 'Flatsome folder not found in wp-content/themes/flatsome' ),
 			self::row( 'xss', 'XSS patch 3.20.6+', ! empty( $snap['xss_ok'] ), ! empty( $snap['xss_ok'] ) ? 'CVE-2026-28083 is patched.' : 'Update past 3.20.5. 3.20.6+ is required.' ),
 			self::row( 'recommended', 'Recommended 3.20.9+', ! empty( $snap['recommended'] ), ! empty( $snap['recommended'] ) ? ( 'Current ' . $ver ) : ( 'Need ' . self::RECOMMENDED . ( $avail ? ( '; WordPress offers ' . $avail ) : '. Register the theme so WordPress can download it.' ) ) ),
-			self::row( 'license', 'Official license registered', ! empty( $snap['license'] ) || ! empty( $snap['recommended'] ), ! empty( $snap['license'] ) || ! empty( $snap['recommended'] ) ? 'UX Themes / Envato registration present or already current.' : 'Open Flatsome → Theme Registration and enter your ThemeForest purchase code.' ),
+			self::row( 'license', 'Official license registered', ! empty( $snap['license'] ) || ! empty( $snap['recommended'] ), ! empty( $snap['license'] ) || ! empty( $snap['recommended'] ) ? 'UX Themes / Envato registration present or already current.' : 'Paste your ThemeForest purchase code on this page, or open Flatsome → Theme Registration.' ),
 			self::row( 'auto', 'Auto-update armed for Flatsome only', $auto, $auto ? 'WordPress may apply official Flatsome packages. Child theme is never overwritten.' : 'Auto-update is off.' ),
 			self::row( 'package', 'No nulled download', true, 'Guard refuses unofficial zip URLs. Official HTTPS package only.' ),
 			self::row( 'child', 'Child theme never overwritten', true, $has_child ? ( 'Active child theme ' . $child . '. Guard never replaces it.' ) : 'Parent only is OK. Guard never replaces a child theme if you add one later.' ),

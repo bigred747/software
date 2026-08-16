@@ -25,7 +25,7 @@ $amazon_on  = ! empty( $amazon_on );
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · Flatsome auto-update</p>
 		<h1>Luxe Theme Guard <?php echo esc_html( LUXE_THEME_GUARD_VERSION ); ?></h1>
-		<p class="lsr-lead"><?php echo $learn_on ? '24/7 process learning is on' : '24/7 process learning is off'; ?>: one theme signal and one Amazon catalog item every 5 minutes, Amazon AI audit-only, official Flatsome upgrade at most once per 12 hours. Never downloads nulled zips. Never overwrites plugins. Never publishes. Never rewrites Amazon URLs.</p>
+		<p class="lsr-lead"><?php echo $learn_on ? '24/7 process learning is on' : '24/7 process learning is off'; ?>: one theme signal and one Amazon catalog item every 5 minutes, Amazon AI audit-only, official Flatsome auto-update as soon as WordPress has a licensed package. Never downloads nulled zips. Never overwrites plugins. Never publishes. Never rewrites Amazon URLs.</p>
 	</header>
 
 	<section class="laps-counters">
@@ -197,9 +197,8 @@ $amazon_on  = ! empty( $amazon_on );
 			<h2>If a signal is red</h2>
 			<ul>
 				<li>Parent-only is <strong>not</strong> a problem. You do not need a child theme unless you edited Flatsome files.</li>
-				<li>Open <strong>Flatsome → Theme Registration</strong></li>
-				<li>Enter your ThemeForest purchase code from ThemeForest → Downloads</li>
-				<li>Click <strong>Check and update Flatsome now</strong> so WordPress can fetch official <strong>3.20.9</strong></li>
+				<li>Enter your ThemeForest purchase code on this page (or under Flatsome → Theme Registration)</li>
+				<li>Save settings. Guard auto-updates official Flatsome every 5 minutes once WordPress has the package</li>
 				<li>Purge LiteSpeed once after a successful update</li>
 				<li>Do not install a nulled Flatsome zip</li>
 				<li>Amazon AI: optional Creators API credentials from Associates Central → Tools → Creators API. PA-API v5 is retired.</li>
@@ -220,7 +219,7 @@ $amazon_on  = ! empty( $amazon_on );
 						</label>
 					</td>
 					<td><strong>Auto-update Flatsome</strong></td>
-					<td>WordPress applies official licensed packages. 24/7 learning tries an upgrade at most once per 12 hours.</td>
+					<td>WordPress applies official licensed packages as soon as they appear. When Flatsome is behind, Guard refreshes every 5 minutes and upgrades automatically. Never a nulled zip.</td>
 				</tr>
 				<tr>
 					<td>
@@ -241,6 +240,14 @@ $amazon_on  = ! empty( $amazon_on );
 					</td>
 					<td><strong>Purge cache after update</strong></td>
 					<td>LiteSpeed + object cache. Does not call Hostinger’s CDN API.</td>
+				</tr>
+				<tr>
+					<td></td>
+					<td><strong>ThemeForest purchase code</strong></td>
+					<td>
+						<input type="password" name="flatsome_purchase_code" class="regular-text" autocomplete="new-password" value="" placeholder="<?php echo ! empty( $settings['flatsome_purchase_code'] ) ? 'saved — paste to replace' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'; ?>" />
+						<p class="description">ThemeForest → Downloads → License certificate &amp; purchase code. Guard writes it to Flatsome’s official updater and auto-installs 3.20.9+. Leave blank to keep a saved code.</p>
+					</td>
 				</tr>
 				<tr>
 					<td>
