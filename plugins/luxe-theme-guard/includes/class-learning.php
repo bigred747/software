@@ -166,15 +166,53 @@ class Luxe_Theme_Guard_Learning {
 	}
 
 	/**
-	 * Keep the 5-minute event registered.
+	 * True when the stored WP-Cron recurrence is not the 5-minute 24/7 loop.
+	 *
+	 * @param string $schedule Recurrence name.
+	 * @return bool
+	 */
+	public static function needs_reschedule( $schedule ) {
+		return 'ltg_five' !== (string) $schedule;
+	}
+
+	/**
+	 * @return string
+	 */
+	public static function cron_schedule_name() {
+		if ( ! function_exists( '_get_cron_array' ) ) {
+			return '';
+		}
+		$crons = _get_cron_array();
+		if ( ! is_array( $crons ) ) {
+			return '';
+		}
+		foreach ( $crons as $hooks ) {
+			if ( empty( $hooks[ self::CRON ] ) || ! is_array( $hooks[ self::CRON ] ) ) {
+				continue;
+			}
+			foreach ( $hooks[ self::CRON ] as $event ) {
+				if ( ! empty( $event['schedule'] ) ) {
+					return (string) $event['schedule'];
+				}
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Keep the 5-minute event registered. Replace leftover 12-hour 1.0.x timers.
 	 */
 	public function ensure_cron() {
 		if ( ! Luxe_Theme_Guard_Plugin::instance()->enabled( 'learning_24_7' ) ) {
 			return;
 		}
-		if ( ! wp_next_scheduled( self::CRON ) ) {
-			wp_schedule_event( time() + 60, 'ltg_five', self::CRON );
+		$schedule = self::cron_schedule_name();
+		$next     = wp_next_scheduled( self::CRON );
+		if ( $next && ! self::needs_reschedule( $schedule ) ) {
+			return;
 		}
+		wp_clear_scheduled_hook( self::CRON );
+		wp_schedule_event( time() + 45, 'ltg_five', self::CRON );
 	}
 
 	/**

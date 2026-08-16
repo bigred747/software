@@ -3,7 +3,7 @@
  * Plugin Name: Luxe Theme Guard
  * Plugin URI: https://luxetrendsetters.com/
  * Description: 24/7 process learning, Amazon AI (Associates + official Creators API), and official Flatsome auto-update. Never downloads nulled zips, never overwrites plugins, never publishes, never rewrites Amazon URLs.
- * Version: 1.2.0
+ * Version: 1.2.1
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: LuxeTrendsetters
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LUXE_THEME_GUARD_VERSION', '1.2.0' );
+define( 'LUXE_THEME_GUARD_VERSION', '1.2.1' );
 define( 'LUXE_THEME_GUARD_FILE', __FILE__ );
 define( 'LUXE_THEME_GUARD_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LUXE_THEME_GUARD_URL', plugin_dir_url( __FILE__ ) );

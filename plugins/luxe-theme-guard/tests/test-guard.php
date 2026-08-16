@@ -100,7 +100,33 @@ expect( array( 'recommended', 'license' ) === $red_ids, 'only license and 3.20.9
 expect( 11 === (int) $parent_only['green'], '3.20.6 without license is 11 / 13 green' );
 
 require LUXE_THEME_GUARD_DIR . 'includes/class-learning.php';
-expect( 300 === Luxe_Theme_Guard_Learning::INTERVAL, '24/7 cycle is 5 minutes' );
+expect( Luxe_Theme_Guard_Learning::needs_reschedule( 'ltg_twelve' ), 'old 12-hour timer must be rescheduled' );
+expect( ! Luxe_Theme_Guard_Learning::needs_reschedule( 'ltg_five' ), '5-minute timer stays' );
+
+$stale = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'     => true,
+		'version'       => '3.20.9',
+		'available'     => '',
+		'package'       => '',
+		'stylesheet'    => 'flatsome-child',
+		'child'         => 'flatsome-child',
+		'license'       => true,
+		'xss_ok'        => true,
+		'recommended'   => true,
+		'can_upgrade'   => false,
+		'learning_on'   => true,
+		'cron_next'     => time() + 43200,
+		'cron_schedule' => 'ltg_twelve',
+	)
+);
+$stale_cron = null;
+foreach ( $stale['signals'] as $signal ) {
+	if ( 'cron' === $signal['id'] ) {
+		$stale_cron = $signal;
+	}
+}
+expect( $stale_cron && 'red' === $stale_cron['level'], 'leftover 12-hour cron is red until migrated' );
 expect( 3600 === Luxe_Theme_Guard_Learning::SNAPSHOT_EVERY, 'snapshot is hourly' );
 expect( 43200 === Luxe_Theme_Guard_Learning::UPGRADE_EVERY, 'official upgrade at most every 12 hours' );
 expect( 0 === Luxe_Theme_Guard_Learning::next_cursor( 12, 13 ), 'cursor wraps after the last process' );

@@ -157,7 +157,8 @@ class Luxe_Theme_Guard_Signals {
 			'recommended'  => $installed && self::at_recommended( $version ),
 			'can_upgrade'  => self::may_upgrade( self::THEME, $package, $version, $available ? $available : '0' ),
 			'learning_on'  => class_exists( 'Luxe_Theme_Guard_Plugin' ) ? Luxe_Theme_Guard_Plugin::instance()->enabled( 'learning_24_7' ) : true,
-			'cron_next'    => ( class_exists( 'Luxe_Theme_Guard_Learning' ) && function_exists( 'wp_next_scheduled' ) ) ? (int) wp_next_scheduled( Luxe_Theme_Guard_Learning::CRON ) : 0,
+			'cron_next'     => ( class_exists( 'Luxe_Theme_Guard_Learning' ) && function_exists( 'wp_next_scheduled' ) ) ? (int) wp_next_scheduled( Luxe_Theme_Guard_Learning::CRON ) : 0,
+			'cron_schedule' => class_exists( 'Luxe_Theme_Guard_Learning' ) ? Luxe_Theme_Guard_Learning::cron_schedule_name() : 'ltg_five',
 		);
 	}
 
@@ -181,9 +182,15 @@ class Luxe_Theme_Guard_Signals {
 		if ( $learn_on && function_exists( 'wp_next_scheduled' ) ) {
 			$cron_ok = ( $cron_next > 0 ) || ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() );
 		}
+		if ( $learn_on && ! empty( $snap['cron_schedule'] ) && class_exists( 'Luxe_Theme_Guard_Learning' ) && Luxe_Theme_Guard_Learning::needs_reschedule( $snap['cron_schedule'] ) ) {
+			$cron_ok = false;
+		}
 		$cron_detail = $learn_on
 			? '24/7: one process every 5 minutes. Hourly licensed-package snapshot. Official Flatsome upgrade at most once per 12 hours. Never on a shopper page.'
 			: '24/7 process learning is off.';
+		if ( $learn_on && ! $cron_ok && ! empty( $snap['cron_schedule'] ) ) {
+			$cron_detail = 'Old 12-hour timer is still registered. Open Luxe Theme so 1.2.1 migrates it to every 5 minutes.';
+		}
 		$child   = isset( $snap['child'] ) ? (string) $snap['child'] : '';
 		$has_child = ( $child && $child !== self::THEME );
 		$signals = array(

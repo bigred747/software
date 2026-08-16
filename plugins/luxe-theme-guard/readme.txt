@@ -4,7 +4,7 @@ Tags: flatsome, theme update, security, luxetrendsetters
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 == Description ==
 
-Luxe Theme Guard 1.2.0 is the Flatsome auto-update and Amazon AI plugin for luxetrendsetters.com. WordPress admin menu: **Luxe Theme** and **Amazon AI**.
+Luxe Theme Guard 1.2.1 is the Flatsome auto-update and Amazon AI plugin for luxetrendsetters.com. WordPress admin menu: **Luxe Theme** and **Amazon AI**.
 
 It:
 
@@ -30,6 +30,9 @@ It does **not** download pirate/nulled Flatsome zips, overwrite plugins, write p
 A ThemeForest purchase code must already be registered under **Flatsome → Theme Registration** or WordPress cannot fetch the official package.
 
 == Changelog ==
+
+= 1.2.1 =
+* Migrates leftover 12-hour WP-Cron timers to the 5-minute 24/7 loop after a zip replace
 
 = 1.2.0 =
 * Amazon AI: one catalog item per 5-minute cycle

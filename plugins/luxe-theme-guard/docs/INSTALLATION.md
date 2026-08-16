@@ -1,4 +1,4 @@
-# Luxe Theme Guard 1.2.0
+# Luxe Theme Guard 1.2.1
 
 24/7 process learning, Amazon AI, and official Flatsome auto-update. WordPress admin menu: **Luxe Theme** and **Amazon AI**.
 
