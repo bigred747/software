@@ -224,7 +224,7 @@ class Luxe_Theme_Guard_Signals {
 			self::row( 'package', 'No nulled download', true, 'Guard refuses unofficial zip URLs. Official HTTPS package only.' ),
 			self::row( 'child', 'Child theme never overwritten', true, $has_child ? ( 'Active child theme ' . $child . '. Guard never replaces it.' ) : 'Parent only is OK. Guard never replaces a child theme if you add one later.' ),
 			self::row( 'plugins', 'Plugins left alone', true, 'Never replaces Product Scout, Luxe SEO, Mission Control, or Stay Repair.' ),
-			self::row( 'amazon', 'Amazon URLs untouched', true, 'Amazon AI never rewrites affiliate links. tag=luxetrendse0f-20 stays as stored.' ),
+			self::row( 'amazon', 'Amazon URLs untouched', true, 'Theme Guard never rewrites affiliate links. Amazon AI lives on Luxe SEO. tag=luxetrendse0f-20 stays as stored.' ),
 			self::row( 'publish', 'Never publishes content', true, 'No post status changes. Theme files only.' ),
 			self::row( 'public', 'No public-page upgrader', true, 'Updates run from cron or the admin button, never on a shopper page view.' ),
 			self::row( 'purge', 'Cache purge ready', true, ! empty( $heals['purge'] ) ? implode( ', ', (array) $heals['purge'] ) : 'LiteSpeed purge after a successful theme update.' ),

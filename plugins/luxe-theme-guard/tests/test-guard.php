@@ -170,48 +170,6 @@ foreach ( $off['signals'] as $signal ) {
 }
 expect( $cron_row && 'red' === $cron_row['level'], '24/7 off is a red process-learning signal' );
 
-require LUXE_THEME_GUARD_DIR . 'includes/class-amazon.php';
-$good_url = 'https://www.amazon.com/dp/B0ABCDEF12/?tag=luxetrendse0f-20';
-expect( 'B0ABCDEF12' === Luxe_Theme_Guard_Amazon::extract_asin( $good_url ), 'ASIN from Amazon URL' );
-expect( 'luxetrendse0f-20' === Luxe_Theme_Guard_Amazon::extract_tag( $good_url ), 'Associates tag from URL' );
-expect( Luxe_Theme_Guard_Amazon::tag_ok( $good_url ), 'official Luxe tag is accepted' );
-expect( ! Luxe_Theme_Guard_Amazon::tag_ok( 'https://www.amazon.com/dp/B0ABCDEF12/?tag=other-20' ), 'foreign tag is refused' );
-expect( Luxe_Theme_Guard_Amazon::urls_untouched( array( $good_url ), array( $good_url ) ), 'identical Amazon URLs are untouched' );
-expect( ! Luxe_Theme_Guard_Amazon::urls_untouched( array( $good_url ), array( $good_url . '&foo=1' ) ), 'changed Amazon URL is detected' );
-expect( Luxe_Theme_Guard_Amazon::may_request( 'https://creatorsapi.amazon/catalog/v1/getItems' ), 'Creators API GetItems is allowed' );
-expect( Luxe_Theme_Guard_Amazon::may_request( 'https://api.amazon.com/auth/o2/token' ), 'Creators API token endpoint is allowed' );
-expect( ! Luxe_Theme_Guard_Amazon::may_request( 'https://webservices.amazon.com/paapi5/getitems' ), 'retired PA-API v5 is refused' );
-expect( ! Luxe_Theme_Guard_Amazon::may_request( 'https://www.amazon.com/dp/B0ABCDEF12' ), 'amazon.com HTML scrape is refused' );
-expect( 'luxetrendse0f-20' === Luxe_Theme_Guard_Amazon::sanitize_tag( '???' ), 'invalid tag falls back to luxetrendse0f-20' );
-
-$amazon_ok = Luxe_Theme_Guard_Amazon::build(
-	array(
-		'armed'     => true,
-		'tag'       => 'luxetrendse0f-20',
-		'tag_ok'    => true,
-		'asin'      => 'B0ABCDEF12',
-		'asin_ok'   => true,
-		'preserved' => true,
-		'api_mode'  => 'local',
-		'has_creds' => false,
-		'source'    => 'test',
-	)
-);
-expect( (int) $amazon_ok['green'] === (int) $amazon_ok['total'], 'local Amazon AI board is all green' );
-expect( 10 === (int) $amazon_ok['total'], 'Amazon AI has 10 signals' );
-
-$miss_tag = Luxe_Theme_Guard_Amazon::audit_item(
-	array(
-		'want_tag'        => 'luxetrendse0f-20',
-		'url'             => 'https://www.amazon.com/dp/B0ABCDEF12',
-		'invented_rating' => false,
-		'urls_before'     => array( 'https://www.amazon.com/dp/B0ABCDEF12' ),
-		'urls_after'      => array( 'https://www.amazon.com/dp/B0ABCDEF12' ),
-	)
-);
-expect( ! empty( $miss_tag['asin_ok'] ) && empty( $miss_tag['tag_ok'] ), 'missing tag is flagged and ASIN is still read' );
-expect( ! empty( $miss_tag['preserved'] ), 'audit does not rewrite the Amazon URL' );
-
 if ( $fail ) {
 	echo "FAILED $fail\n";
 	exit( 1 );

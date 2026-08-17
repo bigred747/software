@@ -46,21 +46,13 @@ class Luxe_Theme_Guard_Admin {
 			'dashicons-update',
 			58
 		);
-		add_submenu_page(
-			'luxe-theme-guard',
-			__( 'Amazon AI', 'luxe-theme-guard' ),
-			__( 'Amazon AI', 'luxe-theme-guard' ),
-			'update_themes',
-			'luxe-theme-guard-amazon',
-			array( $this, 'render' )
-		);
 	}
 
 	/**
 	 * @param string $hook Hook.
 	 */
 	public function assets( $hook ) {
-		if ( 'toplevel_page_luxe-theme-guard' !== $hook && 'luxe-theme_page_luxe-theme-guard-amazon' !== $hook ) {
+		if ( 'toplevel_page_luxe-theme-guard' !== $hook ) {
 			return;
 		}
 		wp_enqueue_style(
@@ -94,24 +86,8 @@ class Luxe_Theme_Guard_Admin {
 		$log      = Luxe_Theme_Guard_Signals::log();
 		$learn_on = Luxe_Theme_Guard_Plugin::instance()->enabled( 'learning_24_7' );
 		$learn_next = Luxe_Theme_Guard_Learning::next_ts();
-		$amazon     = Luxe_Theme_Guard_Amazon::last();
-		$amazon_log = Luxe_Theme_Guard_Amazon::log();
-		$amazon_on  = Luxe_Theme_Guard_Plugin::instance()->enabled( 'amazon_ai' );
 		if ( empty( $last['signals'] ) ) {
 			$last = Luxe_Theme_Guard_Signals::build( Luxe_Theme_Guard_Signals::snapshot() );
-		}
-		if ( empty( $amazon['signals'] ) ) {
-			$amazon = Luxe_Theme_Guard_Amazon::build(
-				array(
-					'armed'     => $amazon_on,
-					'tag'       => Luxe_Theme_Guard_Amazon::wanted_tag(),
-					'waiting'   => true,
-					'preserved' => true,
-					'api_mode'  => 'local',
-					'has_creds' => class_exists( 'Luxe_Theme_Guard_Amazon_API' ) && Luxe_Theme_Guard_Amazon_API::has_credentials(),
-					'source'    => 'board',
-				)
-			);
 		}
 		include LUXE_THEME_GUARD_DIR . 'templates/admin.php';
 	}
@@ -124,7 +100,7 @@ class Luxe_Theme_Guard_Admin {
 			return;
 		}
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( $screen && isset( $screen->id ) && in_array( $screen->id, array( 'toplevel_page_luxe-theme-guard', 'luxe-theme_page_luxe-theme-guard-amazon' ), true ) ) {
+		if ( $screen && isset( $screen->id ) && 'toplevel_page_luxe-theme-guard' === $screen->id ) {
 			return;
 		}
 		$last = Luxe_Theme_Guard_Signals::last();

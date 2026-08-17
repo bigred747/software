@@ -340,15 +340,6 @@ class Luxe_Theme_Guard_Learning {
 		$board['upgrade_due'] = ! empty( $heals['upgrade'] ) ? 1 : 0;
 		update_option( Luxe_Theme_Guard_Signals::OPTION_LAST, $board, false );
 		$this->push_log( $board );
-		if ( class_exists( 'Luxe_Theme_Guard_Amazon' ) && Luxe_Theme_Guard_Plugin::instance()->enabled( 'amazon_ai' ) ) {
-			try {
-				Luxe_Theme_Guard_Amazon::instance()->cycle_one( $source, true );
-			} catch ( Exception $e ) {
-				error_log( 'Luxe Theme Guard Amazon AI: ' . $e->getMessage() );
-			} catch ( Throwable $e ) {
-				error_log( 'Luxe Theme Guard Amazon AI: ' . $e->getMessage() );
-			}
-		}
 		delete_transient( self::LOCK );
 		return $board;
 	}
