@@ -191,6 +191,15 @@ class Luxe_Score_Repair_Learning {
 
 		update_option( self::OPTION_LAST, $result, false );
 		$this->push_log( $result );
+		if ( class_exists( 'Luxe_Score_Repair_Amazon' ) && Luxe_Score_Repair_Plugin::instance()->enabled( 'amazon_ai' ) ) {
+			try {
+				Luxe_Score_Repair_Amazon::instance()->cycle_one( 'learn', true );
+			} catch ( Exception $e ) {
+				error_log( 'Luxe SEO Amazon AI: ' . $e->getMessage() );
+			} catch ( Throwable $e ) {
+				error_log( 'Luxe SEO Amazon AI: ' . $e->getMessage() );
+			}
+		}
 		delete_transient( self::TRANSIENT );
 		return $result;
 	}
@@ -296,7 +305,7 @@ class Luxe_Score_Repair_Learning {
 			$this->signal( 'disclosure', 'Amazon disclosure', $html && false !== stripos( $html, 'amazon associate' ), 'Homepage disclosure present' ),
 			$this->signal( 'headers', 'Public cache + HSTS', ! empty( $home['hsts'] ) && ! empty( $home['public_cache'] ), 'HSTS and Cache-Control public' ),
 			$this->signal( 'blog_301', '/blog/ → /blogs/', $blog_ok, $blog_loc ? $blog_loc : 'Redirect map active on init' ),
-			$this->signal( 'learning', 'Process learning heartbeat', true, '15-minute bounded cycle. No post writes. No Amazon URL rewrites.' ),
+			$this->signal( 'learning', 'Process learning heartbeat', true, '15-minute SEO cycle. Amazon AI audits one catalog item every 5 minutes. No post writes. No Amazon URL rewrites.' ),
 			$this->signal( 'purge', 'Cache purge', true, ! empty( $heals['purge']['did'] ) ? implode( ', ', $heals['purge']['did'] ) : 'Object cache flushed' ),
 			$this->signal( 'copyright_lock', 'Copyright lock (no copied Instagram video)', $this->no_copied_instagram( $html ), 'No Instagram CDN video or copied reel media on the homepage.' ),
 			$this->signal( 'unique_copy', 'Unique buyer-guide copy (thin 37-word pages refused)', $this->unique_copy_ok( $html ), 'Homepage keeps real unique copy. Copied 37-word ranking pages stay off.' ),

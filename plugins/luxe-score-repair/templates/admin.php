@@ -64,6 +64,10 @@ $checks = array(
 		'label' => 'Unique buyer-guide copy',
 		'help'  => 'Keeps real unique copy. The 37-word ranking trick is refused for this catalog site.',
 	),
+	'amazon_ai'            => array(
+		'label' => 'Amazon AI',
+		'help'  => 'One catalog item every 5 minutes. Local ASIN/tag audit. Optional official Creators API. Never rewrites URLs. Never publishes.',
+	),
 	'process_learning'     => array(
 		'label' => 'Process learning',
 		'help'  => 'Every 15 minutes: heal robots.txt, purge LiteSpeed, verify each process, learn exact 301 hops.',
@@ -80,13 +84,59 @@ $band  = isset( $last['seo_band'] ) ? (string) $last['seo_band'] : '';
 $score = isset( $last['score_10'] ) ? $last['score_10'] : '';
 $at    = ! empty( $last['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $last['at'] ) : 'Not run yet';
 $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['signals'] : array();
+$amazon     = isset( $amazon ) && is_array( $amazon ) ? $amazon : array();
+$amazon_log = isset( $amazon_log ) && is_array( $amazon_log ) ? $amazon_log : array();
+$amazon_on  = ! empty( $amazon_on );
 ?>
 <div class="wrap lsr-wrap">
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · SEO plugin</p>
 		<h1>Luxe SEO Score Repair <?php echo esc_html( LUXE_SCORE_REPAIR_VERSION ); ?></h1>
-		<p class="lsr-lead">This is the SEO plugin. Each process has a live green/red signal. Unique buyer-guide copy stays on. Copied Instagram video and thin 37-word ranking pages stay off. Learning heals robots.txt, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes.</p>
+		<p class="lsr-lead">This is the SEO plugin. Amazon AI lives here (not in Luxe Theme). Each process has a live green/red signal. Unique buyer-guide copy stays on. Copied Instagram video and thin 37-word ranking pages stay off. Learning heals robots.txt, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes. Amazon AI audits one catalog item every 5 minutes and never rewrites affiliate URLs.</p>
 	</header>
+
+	<section id="luxe-amazon-ai" class="lsr-scorebar<?php echo ( ! empty( $amazon['green'] ) && isset( $amazon['total'] ) && (int) $amazon['green'] === (int) $amazon['total'] ) ? '' : ' lsr-scorebar-warn'; ?>">
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Amazon AI</p>
+			<p class="lsr-big"><?php echo esc_html( ( isset( $amazon['green'] ) ? (string) (int) $amazon['green'] : '0' ) . ' / ' . ( isset( $amazon['total'] ) ? (string) (int) $amazon['total'] : '0' ) ); ?> <span>green</span></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Process score</p>
+			<p class="lsr-big"><?php echo esc_html( isset( $amazon['score_10'] ) ? (string) $amazon['score_10'] : '0' ); ?><span> / 10</span></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Last ASIN</p>
+			<p class="lsr-big lsr-band"><?php echo esc_html( ! empty( $amazon['asin'] ) ? (string) $amazon['asin'] : '—' ); ?></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Mode</p>
+			<p class="lsr-when"><?php echo esc_html( ! empty( $amazon_on ) ? ( ( ! empty( $amazon['api_mode'] ) ? (string) $amazon['api_mode'] : 'local' ) . ' · On' ) : 'Off' ); ?></p>
+		</div>
+	</section>
+	<?php
+	$amazon_signals = isset( $amazon['signals'] ) && is_array( $amazon['signals'] ) ? $amazon['signals'] : array();
+	if ( $amazon_signals ) :
+		?>
+	<section class="lsr-signals">
+		<h2>Amazon AI signals</h2>
+		<ul class="lsr-signal-list">
+			<?php foreach ( $amazon_signals as $signal ) : ?>
+				<?php
+				$level  = isset( $signal['level'] ) ? $signal['level'] : 'red';
+				$label  = isset( $signal['label'] ) ? $signal['label'] : '';
+				$detail = isset( $signal['detail'] ) ? $signal['detail'] : '';
+				?>
+				<li class="lsr-signal lsr-signal-<?php echo esc_attr( $level ); ?>">
+					<span class="lsr-dot" aria-hidden="true"></span>
+					<span>
+						<strong><?php echo esc_html( strtoupper( $level ) ); ?> · <?php echo esc_html( $label ); ?></strong>
+						<em><?php echo esc_html( $detail ); ?></em>
+					</span>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+	</section>
+	<?php endif; ?>
 
 	<section class="lsr-scorebar">
 		<div>
@@ -128,7 +178,9 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 		<form method="post" class="lsr-learn-form">
 			<?php wp_nonce_field( 'luxe_score_repair_learn' ); ?>
 			<button type="submit" name="luxe_score_repair_learn_now" value="1" class="button button-primary lsr-save">Run process learning now</button>
+			<button type="submit" name="luxe_score_repair_amazon_one" value="1" class="button lsr-save">Run 1 Amazon AI cycle</button>
 		</form>
+		<p class="lsr-note">SEO learning is every 15 minutes. Amazon AI is a separate 5-minute WP-Cron on this plugin (not Luxe Theme). Audit-only: official Creators API if you paste credentials, otherwise local ASIN/tag checks. Never rewrites Amazon URLs, never invents ratings, never publishes.</p>
 	</section>
 
 	<?php if ( ! empty( $log ) ) : ?>
@@ -157,6 +209,34 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 		</section>
 	<?php endif; ?>
 
+	<?php if ( ! empty( $amazon_log ) ) : ?>
+		<section class="lsr-card">
+			<h2>Amazon AI log</h2>
+			<table class="widefat striped">
+				<thead>
+					<tr>
+						<th>When</th>
+						<th>Source</th>
+						<th>ASIN</th>
+						<th>Mode</th>
+						<th>Green</th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php foreach ( $amazon_log as $row ) : ?>
+					<tr>
+						<td><?php echo esc_html( ! empty( $row['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $row['at'] ) : '' ); ?></td>
+						<td><?php echo esc_html( isset( $row['source'] ) ? $row['source'] : 'cron' ); ?></td>
+						<td><?php echo esc_html( isset( $row['asin'] ) ? $row['asin'] : '' ); ?></td>
+						<td><?php echo esc_html( isset( $row['mode'] ) ? $row['mode'] : 'local' ); ?></td>
+						<td><?php echo esc_html( ( isset( $row['green'] ) ? $row['green'] : '0' ) . ' / ' . ( isset( $row['total'] ) ? $row['total'] : '0' ) ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+		</section>
+	<?php endif; ?>
+
 	<section class="lsr-grid">
 		<article class="lsr-card lsr-card-safe">
 			<h2>Safety lock</h2>
@@ -166,6 +246,7 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 				<li>Never rewrites Amazon or product permalinks</li>
 				<li>Never creates Rank Math redirect rows</li>
 				<li>Never copies Instagram video or thin third-party landing pages</li>
+				<li>Amazon AI never invents ratings</li>
 				<li>Learning is heal + verify only</li>
 			</ul>
 		</article>
@@ -176,6 +257,7 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 				<li>301 <code>/blog/</code> on <code>init</code> before Rank Math</li>
 				<li>LiteSpeed <code>purge_all</code> after each heal</li>
 				<li>Re-learn exact hops if Rank Math still fires first</li>
+				<li>Amazon AI: one ASIN + tag audit every 5 minutes</li>
 			</ul>
 		</article>
 	</section>
@@ -204,6 +286,28 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 					<td><?php echo esc_html( $row['help'] ); ?></td>
 				</tr>
 			<?php endforeach; ?>
+				<tr>
+					<td></td>
+					<td><strong>Associates tag</strong></td>
+					<td>
+						<input type="text" name="amazon_tag" class="regular-text" value="<?php echo esc_attr( isset( $settings['amazon_tag'] ) ? (string) $settings['amazon_tag'] : 'luxetrendse0f-20' ); ?>" />
+					</td>
+				</tr>
+				<tr>
+					<td></td>
+					<td><strong>Creators API Credential ID</strong></td>
+					<td>
+						<input type="text" name="amazon_client_id" class="regular-text" autocomplete="off" value="<?php echo esc_attr( isset( $settings['amazon_client_id'] ) ? (string) $settings['amazon_client_id'] : '' ); ?>" />
+						<p class="description">Associates Central → Tools → Creators API. Leave blank for local audit only. PA-API v5 is retired.</p>
+					</td>
+				</tr>
+				<tr>
+					<td></td>
+					<td><strong>Creators API Credential Secret</strong></td>
+					<td>
+						<input type="password" name="amazon_client_secret" class="regular-text" autocomplete="new-password" value="" placeholder="<?php echo ! empty( $settings['amazon_client_secret'] ) ? 'saved — paste to replace' : ''; ?>" />
+					</td>
+				</tr>
 			</tbody>
 		</table>
 		<p class="submit">

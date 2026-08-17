@@ -167,8 +167,13 @@
 .lsr-signal-red em {
 	color: #b91c1c;
 }
-.lsr-learn-form {
-	margin: 0 0 24px;
+.lsr-scorebar-warn {
+	background: #fff7ed;
+	border-color: #fdba74;
+}
+.lsr-learn-form .button {
+	margin-right: 8px;
+	margin-top: 4px;
 }
 @media (max-width: 782px) {
 	.lsr-grid {

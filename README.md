@@ -2,30 +2,31 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe SEO Score Repair 1.2.0 — THIS IS THE SEO PLUGIN
+## 1. Luxe SEO Score Repair 1.3.0 — THIS IS THE SEO PLUGIN + Amazon AI
 
-Visible in WordPress as **Luxe SEO** (left admin menu). Plugin list name: **Luxe SEO Score Repair**.
+Visible in WordPress as **Luxe SEO** (left admin menu). Plugin list name: **Luxe SEO Score Repair**. Amazon AI lives here, not in Luxe Theme.
 
 Windows 11 / WordPress zip. Size **145KB**.
 
 **Upload this file from Windows 11 into WordPress:**
 
-[luxe-score-repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/instagram-video-scan-0935/luxe-score-repair.zip)
+[luxe-score-repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/seo-amazon-ai-0935/luxe-score-repair.zip)
 
-SHA-256 `ae197e053be58203059044821d15353a39ddc909262c87072eda716f9bbc4548`
+SHA-256 `a862ee4a6d8b986e7d05a7c00be000e432d877666d5772edc8c9d5e31775af9d`
 
-Also named [Luxe-SEO-Score-Repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/instagram-video-scan-0935/Luxe-SEO-Score-Repair.zip)
+Also named [Luxe-SEO-Score-Repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/seo-amazon-ai-0935/Luxe-SEO-Score-Repair.zip)
 
 Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate.
 
-Then open the left menu **Luxe SEO** → **Run process learning now**. All signals should be green.
+Then open the left menu **Luxe SEO**. Leave **Amazon AI** On. Click **Run process learning now**.
 
 What it does:
 
+- Amazon AI: one catalog item every 5 minutes (ASIN + tag=luxetrendse0f-20). Never rewrites URLs.
 - Homepage title, description, Open Graph, JSON-LD, robots.txt, noindex junk URLs
 - Unique buyer-guide copy (thin 37-word ranking pages are refused)
 - Copyright lock (no copied Instagram video)
-- 15-minute process learning and LiteSpeed purge
+- 15-minute SEO process learning and LiteSpeed purge
 - Never writes post content, never rewrites Amazon URLs
 
 ## 2. Luxe Affiliate Product Scout 5.7.0 — catalog + Instagram scan

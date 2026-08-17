@@ -46,13 +46,21 @@ class Luxe_Score_Repair_Admin {
 			'dashicons-chart-area',
 			57
 		);
+		add_submenu_page(
+			'luxe-score-repair',
+			__( 'Amazon AI', 'luxe-score-repair' ),
+			__( 'Amazon AI', 'luxe-score-repair' ),
+			'manage_options',
+			'luxe-score-repair-amazon',
+			array( $this, 'render' )
+		);
 	}
 
 	/**
 	 * @param string $hook Hook.
 	 */
 	public function assets( $hook ) {
-		if ( 'toplevel_page_luxe-score-repair' !== $hook && 'tools_page_luxe-score-repair' !== $hook ) {
+		if ( 'toplevel_page_luxe-score-repair' !== $hook && 'luxe-seo_page_luxe-score-repair-amazon' !== $hook && 'tools_page_luxe-score-repair' !== $hook ) {
 			return;
 		}
 		wp_enqueue_style(
@@ -84,8 +92,24 @@ class Luxe_Score_Repair_Admin {
 		$settings = Luxe_Score_Repair_Plugin::instance()->settings();
 		$last     = Luxe_Score_Repair_Learning::last();
 		$log      = Luxe_Score_Repair_Learning::log();
+		$amazon     = Luxe_Score_Repair_Amazon::last();
+		$amazon_log = Luxe_Score_Repair_Amazon::log();
+		$amazon_on  = Luxe_Score_Repair_Plugin::instance()->enabled( 'amazon_ai' );
 		if ( empty( $last['signals'] ) ) {
 			$last = self::armed_board();
+		}
+		if ( empty( $amazon['signals'] ) ) {
+			$amazon = Luxe_Score_Repair_Amazon::build(
+				array(
+					'armed'     => $amazon_on,
+					'tag'       => Luxe_Score_Repair_Amazon::wanted_tag(),
+					'waiting'   => true,
+					'preserved' => true,
+					'api_mode'  => 'local',
+					'has_creds' => class_exists( 'Luxe_Score_Repair_Amazon_API' ) && Luxe_Score_Repair_Amazon_API::has_credentials(),
+					'source'    => 'board',
+				)
+			);
 		}
 		include LUXE_SCORE_REPAIR_DIR . 'templates/admin.php';
 	}
@@ -145,7 +169,7 @@ class Luxe_Score_Repair_Admin {
 			return;
 		}
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( $screen && isset( $screen->id ) && in_array( $screen->id, array( 'toplevel_page_luxe-score-repair', 'tools_page_luxe-score-repair' ), true ) ) {
+		if ( $screen && isset( $screen->id ) && in_array( $screen->id, array( 'toplevel_page_luxe-score-repair', 'luxe-seo_page_luxe-score-repair-amazon', 'tools_page_luxe-score-repair' ), true ) ) {
 			return;
 		}
 		$last = Luxe_Score_Repair_Learning::last();
