@@ -1,15 +1,17 @@
 === Luxe Affiliate Product Scout ===
 Contributors: luxetrendsetters
-Tags: woocommerce, affiliate products, catalog audit, product integrity, rank math
+Tags: woocommerce, affiliate products, catalog audit, product integrity, instagram
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 5.6.8
+Stable tag: 5.7.0
 License: GPLv2 or later
 
-Safe WooCommerce catalog auditing and repair with honest 95-100 product-integrity scoring, supported-brand repair, taxonomy/SEO cleanup, and related-product integrity.
+Safe WooCommerce catalog auditing and repair with honest 95-100 product-integrity scoring, copyright-safe Instagram video scanning, supported-brand repair, taxonomy/SEO cleanup, and related-product integrity.
 
 == Description ==
+
+Version 5.7.0 adds copyright-safe Instagram video scanning: operator-pasted permalinks, local-site URL discovery, and catalog matching. Instagram video is never downloaded, stored, or republished. Original Luxe reel-studio copy is included. Pair this with Luxe SEO Score Repair for the public SEO green-signal board.
 
 Version 5.6.8 runs 24/7 catalog learning: one product per 5-minute cycle and an hourly read-only snapshot of the full catalog. Tiny cycles never replace the full-catalog scoreboard. Publication status is always preserved.
 
@@ -74,6 +76,13 @@ Safety rules:
 8. Review any remaining products below 95. They are intentionally held when the brand is unknown, ASIN/price/image is missing, or a real hard-risk condition remains. Taxonomy leftovers no longer keep an otherwise valid product at 94.
 
 == Changelog ==
+
+= 5.7.0 =
+* Copyright-safe Instagram video scan: permalinks only, never downloads or republishes video.
+* Matches operator notes to the local WooCommerce catalog.
+* Original Luxe reel-studio copy. No third-party Instagram scripts.
+* Green-signal board for Instagram + copyright locks.
+* 24/7 one-permalink cycle. Still never publishes, deletes, or rewrites Amazon URLs.
 
 = 5.6.8 =
 * 24/7 learning: one product per 5-minute cycle, hourly read-only catalog snapshot.
