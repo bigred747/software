@@ -276,4 +276,69 @@ class Luxe_Score_Repair_Plugin {
 		}
 		return true;
 	}
+
+	/**
+	 * Yellow (unverified) rows are excluded so Hostinger loopback cannot fake-fail the score.
+	 *
+	 * @param int $green  Green count.
+	 * @param int $total  Total signals.
+	 * @param int $yellow Yellow count.
+	 * @return float
+	 */
+	public static function score_10( $green, $total, $yellow = 0 ) {
+		$counted = (int) $total - (int) $yellow;
+		if ( $counted < 1 ) {
+			return 0;
+		}
+		return round( 10 * ( (int) $green / $counted ), 1 );
+	}
+
+	/**
+	 * @param array $signals Signals.
+	 * @return string
+	 */
+	public static function seo_band( $signals ) {
+		$map        = array();
+		$has_red    = false;
+		$has_yellow = false;
+		if ( ! is_array( $signals ) ) {
+			return 'repairing';
+		}
+		foreach ( $signals as $signal ) {
+			if ( ! is_array( $signal ) || empty( $signal['id'] ) ) {
+				continue;
+			}
+			$level = isset( $signal['level'] ) ? (string) $signal['level'] : 'red';
+			$map[ $signal['id'] ] = $level;
+			if ( 'red' === $level ) {
+				$has_red = true;
+			}
+			if ( 'yellow' === $level ) {
+				$has_yellow = true;
+			}
+		}
+		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'alts', 'blog_301', 'copyright_lock', 'unique_copy' );
+		foreach ( $need as $id ) {
+			if ( isset( $map[ $id ] ) && 'red' === $map[ $id ] ) {
+				return 'repairing';
+			}
+		}
+		if ( $has_red ) {
+			return 'repairing';
+		}
+		if ( $has_yellow ) {
+			return 'unverified-loopback';
+		}
+		if ( isset( $map['robots_public'] ) && 'green' !== $map['robots_public'] ) {
+			return '95-pending-cdn';
+		}
+		return '95-100-ready';
+	}
+
+	/**
+	 * @return string
+	 */
+	public static function unverified_detail() {
+		return 'Unverified: live fetch skipped (loopback). Repair is on. This row is not a live HTML pass.';
+	}
 }

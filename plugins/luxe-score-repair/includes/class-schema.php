@@ -211,7 +211,7 @@ class Luxe_Score_Repair_Schema {
 				'name'           => 'Does LuxeTrendsetters earn commissions?',
 				'acceptedAnswer' => array(
 					'@type' => 'Answer',
-					'text'  => 'Yes. As an Amazon Associate, LuxeTrendsetters earns from qualifying purchases at no extra cost to you.',
+					'text'  => 'Yes. As an Amazon Associate I earn from qualifying purchases. LuxeTrendsetters participates in the Amazon Services LLC Associates Program.',
 				),
 			),
 		);

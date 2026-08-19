@@ -2,7 +2,7 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe SEO Score Repair 1.3.0 — THIS IS THE SEO PLUGIN + Amazon AI
+## 1. Luxe SEO Score Repair 1.4.0 — THIS IS THE SEO PLUGIN + Amazon AI
 
 Visible in WordPress as **Luxe SEO** (left admin menu). Plugin list name: **Luxe SEO Score Repair**. Amazon AI lives here, not in Luxe Theme.
 
@@ -10,24 +10,28 @@ Windows 11 / WordPress zip. Size **145KB**.
 
 **Upload this file from Windows 11 into WordPress:**
 
-[luxe-score-repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/seo-amazon-ai-0935/luxe-score-repair.zip)
+[luxe-score-repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/seo-404-safe-0935/luxe-score-repair.zip)
 
-SHA-256 `a862ee4a6d8b986e7d05a7c00be000e432d877666d5772edc8c9d5e31775af9d`
+SHA-256 `29ff297560212e1a47d78fd786175e63f5d0921343c78a1a57d19945c19cd2c0`
 
-Also named [Luxe-SEO-Score-Repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/seo-amazon-ai-0935/Luxe-SEO-Score-Repair.zip)
+Also named [Luxe-SEO-Score-Repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/seo-404-safe-0935/Luxe-SEO-Score-Repair.zip)
 
 Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate.
 
-Then open the left menu **Luxe SEO**. Leave **Amazon AI** On. Click **Run process learning now**.
+Then open the left menu **Luxe SEO**. Leave **Amazon AI** On. Click **Save repairs**, then **Run process learning now**.
 
 What it does:
 
+- Honest loopback: live HTML rows stay yellow when Hostinger blocks self-fetch
+- Official Amazon Associate identification on public pages
 - Amazon AI: one catalog item every 5 minutes (ASIN + tag=luxetrendse0f-20). Never rewrites URLs.
+- 301 `/wp-sitemap.xml` → `/sitemap_index.xml`. 410 for dead plugin files and `/meta.json`
+- Read-only duplicate title list (you edit Rank Math by hand)
 - Homepage title, description, Open Graph, JSON-LD, robots.txt, noindex junk URLs
 - Unique buyer-guide copy (thin 37-word ranking pages are refused)
 - Copyright lock (no copied Instagram video)
 - 15-minute SEO process learning and LiteSpeed purge
-- Never writes post content, never rewrites Amazon URLs
+- Never writes post content, never rewrites Amazon URLs, never invents Rank Math shop redirects
 
 ## 2. Luxe Affiliate Product Scout 5.7.0 — catalog + Instagram scan
 

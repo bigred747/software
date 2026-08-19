@@ -95,6 +95,7 @@ class Luxe_Score_Repair_Admin {
 		$amazon     = Luxe_Score_Repair_Amazon::last();
 		$amazon_log = Luxe_Score_Repair_Amazon::log();
 		$amazon_on  = Luxe_Score_Repair_Plugin::instance()->enabled( 'amazon_ai' );
+		$duplicates = class_exists( 'Luxe_Score_Repair_Duplicates' ) ? Luxe_Score_Repair_Duplicates::groups() : array();
 		if ( empty( $last['signals'] ) ) {
 			$last = self::armed_board();
 		}
@@ -133,9 +134,11 @@ class Luxe_Score_Repair_Admin {
 			'filler'            => 'AI filler hidden',
 			'alts'              => 'Image alt text',
 			'generator'         => 'Generator tag hidden',
-			'disclosure'        => 'Amazon disclosure',
+			'disclosure'        => 'Amazon Associate identification',
 			'headers'           => 'Public cache + HSTS',
 			'blog_301'          => '/blog/ → /blogs/',
+			'sitemap_301'       => '/wp-sitemap.xml → /sitemap_index.xml',
+			'gone_410'          => 'Dead plugin + /meta.json 410',
 			'learning'          => 'Process learning heartbeat',
 			'purge'             => 'Cache purge',
 			'copyright_lock'    => 'Copyright lock (no copied Instagram video)',
@@ -176,15 +179,19 @@ class Luxe_Score_Repair_Admin {
 		if ( empty( $last['total'] ) ) {
 			$last = self::armed_board();
 		}
-		$green = isset( $last['green'] ) ? (int) $last['green'] : 0;
-		$total = isset( $last['total'] ) ? (int) $last['total'] : 0;
+		$green  = isset( $last['green'] ) ? (int) $last['green'] : 0;
+		$total  = isset( $last['total'] ) ? (int) $last['total'] : 0;
+		$yellow = isset( $last['yellow'] ) ? (int) $last['yellow'] : 0;
 		if ( $total < 1 ) {
 			return;
 		}
 		$class = ( $green === $total ) ? 'notice-success' : 'notice-warning';
 		$url   = admin_url( 'admin.php?page=luxe-score-repair' );
 		echo '<div class="notice ' . esc_attr( $class ) . ' is-dismissible"><p><strong>Luxe SEO:</strong> ';
-		echo esc_html( $green . ' / ' . $total . ' processes green.' );
-		echo ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open signal board', 'luxe-score-repair' ) . '</a></p></div>';
+		echo esc_html( $green . ' / ' . $total . ' processes green' );
+		if ( $yellow > 0 ) {
+			echo esc_html( ' · ' . $yellow . ' unverified (loopback)' );
+		}
+		echo '. <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open signal board', 'luxe-score-repair' ) . '</a></p></div>';
 	}
 }

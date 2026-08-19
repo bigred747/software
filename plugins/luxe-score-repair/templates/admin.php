@@ -37,8 +37,8 @@ $checks = array(
 		'help'  => 'Stops no-store on public catalog HTML. Adds HSTS on HTTPS.',
 	),
 	'repair_known_404s'    => array(
-		'label' => 'Exact 301s for known dead URLs',
-		'help'  => '/blog/ → /blogs/ on init, before Rank Math. No Rank Math redirect rows.',
+		'label' => 'Exact 301s and 410s for known dead URLs',
+		'help'  => '/blog/ → /blogs/ and /wp-sitemap.xml → /sitemap_index.xml on init. 410 for the removed Link Guardian plugin files and /meta.json. No Rank Math redirect rows. Never auto-hops product, category, or Amazon URLs.',
 	),
 	'buffer_html'          => array(
 		'label' => 'Final HTML pass',
@@ -53,8 +53,8 @@ $checks = array(
 		'help'  => 'Removes Site Kit / WordPress generator tags from public HTML.',
 	),
 	'affiliate_disclosure' => array(
-		'label' => 'Homepage Amazon disclosure',
-		'help'  => 'Prints a clear Associate disclosure on the homepage footer.',
+		'label' => 'Amazon Associate identification',
+		'help'  => 'Prints the official required statement on every public page: “As an Amazon Associate I earn from qualifying purchases.”',
 	),
 	'copyright_lock'       => array(
 		'label' => 'Copyright lock',
@@ -80,19 +80,20 @@ $checks = array(
 
 $green = isset( $last['green'] ) ? (int) $last['green'] : 0;
 $total = isset( $last['total'] ) ? (int) $last['total'] : 0;
+$yellow = isset( $last['yellow'] ) ? (int) $last['yellow'] : 0;
 $band  = isset( $last['seo_band'] ) ? (string) $last['seo_band'] : '';
 $score = isset( $last['score_10'] ) ? $last['score_10'] : '';
 $at    = ! empty( $last['at'] ) ? wp_date( 'Y-m-d H:i:s', (int) $last['at'] ) : 'Not run yet';
 $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['signals'] : array();
 $amazon     = isset( $amazon ) && is_array( $amazon ) ? $amazon : array();
 $amazon_log = isset( $amazon_log ) && is_array( $amazon_log ) ? $amazon_log : array();
-$amazon_on  = ! empty( $amazon_on );
+$duplicates = isset( $duplicates ) && is_array( $duplicates ) ? $duplicates : array();
 ?>
 <div class="wrap lsr-wrap">
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · SEO plugin</p>
 		<h1>Luxe SEO Score Repair <?php echo esc_html( LUXE_SCORE_REPAIR_VERSION ); ?></h1>
-		<p class="lsr-lead">This is the SEO plugin. Amazon AI lives here (not in Luxe Theme). Each process has a live green/red signal. Unique buyer-guide copy stays on. Copied Instagram video and thin 37-word ranking pages stay off. Learning heals robots.txt, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes. Amazon AI audits one catalog item every 5 minutes and never rewrites affiliate URLs.</p>
+		<p class="lsr-lead">This is the SEO plugin. Amazon AI lives here (not in Luxe Theme). Live HTML rows stay yellow when Hostinger blocks loopback — they are not fake-green. Unique buyer-guide copy stays on. Copied Instagram video and thin 37-word ranking pages stay off. Learning heals robots.txt, 301s /blog/ and /wp-sitemap.xml, returns 410 for dead plugin files, purges LiteSpeed, and rechecks every 15 minutes. Amazon AI audits one catalog item every 5 minutes and never rewrites affiliate URLs.</p>
 	</header>
 
 	<section id="luxe-amazon-ai" class="lsr-scorebar<?php echo ( ! empty( $amazon['green'] ) && isset( $amazon['total'] ) && (int) $amazon['green'] === (int) $amazon['total'] ) ? '' : ' lsr-scorebar-warn'; ?>">
@@ -138,7 +139,7 @@ $amazon_on  = ! empty( $amazon_on );
 	</section>
 	<?php endif; ?>
 
-	<section class="lsr-scorebar">
+	<section class="lsr-scorebar<?php echo ( $green === $total && $total > 0 ) ? '' : ' lsr-scorebar-warn'; ?>">
 		<div>
 			<p class="lsr-kicker lsr-kicker-dark">Verified processes</p>
 			<p class="lsr-big"><?php echo esc_html( $green . ' / ' . $total ); ?> <span>green</span></p>
@@ -153,12 +154,12 @@ $amazon_on  = ! empty( $amazon_on );
 		</div>
 		<div>
 			<p class="lsr-kicker lsr-kicker-dark">Last learning</p>
-			<p class="lsr-when"><?php echo esc_html( $at ); ?></p>
+			<p class="lsr-when"><?php echo esc_html( $at ); ?><?php echo $yellow > 0 ? esc_html( ' · ' . $yellow . ' unverified' ) : ''; ?></p>
 		</div>
 	</section>
 
 	<section class="lsr-signals">
-		<h2>Green signals</h2>
+		<h2>Process signals</h2>
 		<ul class="lsr-signal-list">
 			<?php foreach ( $signals as $signal ) : ?>
 				<?php
@@ -180,8 +181,51 @@ $amazon_on  = ! empty( $amazon_on );
 			<button type="submit" name="luxe_score_repair_learn_now" value="1" class="button button-primary lsr-save">Run process learning now</button>
 			<button type="submit" name="luxe_score_repair_amazon_one" value="1" class="button lsr-save">Run 1 Amazon AI cycle</button>
 		</form>
-		<p class="lsr-note">SEO learning is every 15 minutes. Amazon AI is a separate 5-minute WP-Cron on this plugin (not Luxe Theme). Audit-only: official Creators API if you paste credentials, otherwise local ASIN/tag checks. Never rewrites Amazon URLs, never invents ratings, never publishes.</p>
+		<p class="lsr-note">SEO learning is every 15 minutes. Yellow means Hostinger blocked the plugin from fetching its own page — the repair is still on. Amazon AI is a separate 5-minute WP-Cron on this plugin (not Luxe Theme). Audit-only: official Creators API if you paste credentials, otherwise local ASIN/tag checks. Never rewrites Amazon URLs, never invents ratings, never publishes.</p>
 	</section>
+
+	<?php if ( ! empty( $duplicates ) ) : ?>
+		<section class="lsr-card">
+			<h2>Duplicate titles (read-only)</h2>
+			<p class="lsr-note">Exact published title collisions. Open Rank Math / the editor and change them by hand. This plugin never rewrites titles in the database and never publishes.</p>
+			<table class="widefat striped">
+				<thead>
+					<tr>
+						<th>Title</th>
+						<th>Count</th>
+						<th>Edit</th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php foreach ( $duplicates as $group ) : ?>
+					<tr>
+						<td><?php echo esc_html( isset( $group['title'] ) ? $group['title'] : '' ); ?></td>
+						<td><?php echo esc_html( isset( $group['count'] ) ? (string) (int) $group['count'] : '0' ); ?></td>
+						<td>
+							<?php
+							$ids = isset( $group['ids'] ) && is_array( $group['ids'] ) ? $group['ids'] : array();
+							$links = array();
+							foreach ( $ids as $pid ) {
+								$pid = (int) $pid;
+								if ( $pid < 1 ) {
+									continue;
+								}
+								$edit = get_edit_post_link( $pid, 'raw' );
+								if ( $edit ) {
+									$links[] = '<a href="' . esc_url( $edit ) . '">#' . esc_html( (string) $pid ) . '</a>';
+								} else {
+									$links[] = '#' . esc_html( (string) $pid );
+								}
+							}
+							echo implode( ' · ', $links ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+							?>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+		</section>
+	<?php endif; ?>
 
 	<?php if ( ! empty( $log ) ) : ?>
 		<section class="lsr-card">
@@ -254,7 +298,9 @@ $amazon_on  = ! empty( $amazon_on );
 			<h2>Automatic heals</h2>
 			<ul>
 				<li>Overwrite bloated <code>robots.txt</code> on disk</li>
-				<li>301 <code>/blog/</code> on <code>init</code> before Rank Math</li>
+				<li>301 <code>/blog/</code> and <code>/wp-sitemap.xml</code> on <code>init</code> before Rank Math</li>
+				<li>410 Gone for removed Link Guardian plugin files and <code>/meta.json</code></li>
+				<li>Official Amazon Associate identification on public pages</li>
 				<li>LiteSpeed <code>purge_all</code> after each heal</li>
 				<li>Re-learn exact hops if Rank Math still fires first</li>
 				<li>Amazon AI: one ASIN + tag audit every 5 minutes</li>

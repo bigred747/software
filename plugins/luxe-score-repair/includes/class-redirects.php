@@ -6,6 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Exact-path 301s. Runs on init so Rank Math cannot hop /blog/ first.
  * Learned paths are exact only and must land on an allowlisted destination.
+ * Dead plugin files get 410 Gone. Never invents Rank Math rows.
  */
 class Luxe_Score_Repair_Redirects {
 
@@ -32,15 +33,17 @@ class Luxe_Score_Repair_Redirects {
 	}
 
 	/**
-	 * Register redirect hooks before Rank Math.
+	 * Register redirect hooks before Rank Math. 410s for dead plugin files.
 	 */
 	public function boot() {
-		add_action( 'init', array( $this, 'maybe_redirect' ), 0 );
+		add_action( 'init', array( $this, 'maybe_gone' ), 0 );
+		add_action( 'init', array( $this, 'maybe_redirect' ), 1 );
+		add_action( 'template_redirect', array( $this, 'maybe_gone' ), 0 );
 		add_action( 'template_redirect', array( $this, 'maybe_redirect' ), 0 );
 	}
 
 	/**
-	 * Built-in exact map.
+	 * Built-in exact map. Never product permalinks. Never Amazon URLs.
 	 *
 	 * @return array<string,string>
 	 */
@@ -56,6 +59,8 @@ class Luxe_Score_Repair_Redirects {
 			'/privacy/'                         => '/privacy-policy/',
 			'/terms'                            => '/terms-and-conditions/',
 			'/terms/'                           => '/terms-and-conditions/',
+			'/wp-sitemap.xml'                   => '/sitemap_index.xml',
+			'/wp-sitemap.xml/'                  => '/sitemap_index.xml',
 		);
 	}
 
@@ -70,6 +75,7 @@ class Luxe_Score_Repair_Redirects {
 			'/privacy-policy/',
 			'/terms-and-conditions/',
 			'/welcome-to-our-contact-us-page/',
+			'/sitemap_index.xml',
 			'/',
 		);
 	}
@@ -98,10 +104,10 @@ class Luxe_Score_Repair_Redirects {
 		if ( '' === $from || '' === $to ) {
 			return false;
 		}
-		if ( ! in_array( trailingslashit( $to ), self::allowlist(), true ) && '/' !== $to ) {
+		if ( ! in_array( trailingslashit( $to ), self::allowlist(), true ) && '/' !== $to && '/sitemap_index.xml' !== $to ) {
 			return false;
 		}
-		if ( false !== strpos( $from, '/product/' ) || false !== strpos( $from, 'amazon' ) ) {
+		if ( self::is_forbidden_learn_source( $from ) ) {
 			return false;
 		}
 		$learned = get_option( self::LEARNED, array() );
@@ -111,10 +117,34 @@ class Luxe_Score_Repair_Redirects {
 		if ( count( $learned ) >= 40 ) {
 			return false;
 		}
-		$learned[ $from ]                    = trailingslashit( $to );
-		$learned[ trailingslashit( $from ) ] = trailingslashit( $to );
+		$dest                                = ( '/sitemap_index.xml' === $to ) ? $to : trailingslashit( $to );
+		$learned[ $from ]                    = $dest;
+		$learned[ trailingslashit( $from ) ] = $dest;
 		update_option( self::LEARNED, $learned, false );
 		return true;
+	}
+
+	/**
+	 * Never auto-learn shop, taxonomy, or Amazon hops. Human Rank Math only.
+	 *
+	 * @param string $from Source path.
+	 * @return bool
+	 */
+	public static function is_forbidden_learn_source( $from ) {
+		$from = strtolower( (string) $from );
+		if ( false !== strpos( $from, '/product/' ) ) {
+			return true;
+		}
+		if ( false !== strpos( $from, '/product-category/' ) ) {
+			return true;
+		}
+		if ( false !== strpos( $from, '/product-tag/' ) ) {
+			return true;
+		}
+		if ( false !== strpos( $from, 'amazon' ) ) {
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -132,6 +162,9 @@ class Luxe_Score_Repair_Redirects {
 		}
 		$path = Luxe_Score_Repair_Plugin::request_path();
 		if ( '/robots.txt' === $path ) {
+			return;
+		}
+		if ( self::is_gone_path( $path ) ) {
 			return;
 		}
 		$map  = self::map();
@@ -157,19 +190,62 @@ class Luxe_Score_Repair_Redirects {
 	}
 
 	/**
+	 * Dead plugin assets and junk files. 410 Gone. Empty body. Never copies content.
+	 *
+	 * @param string $path Path.
+	 * @return bool
+	 */
+	public static function is_gone_path( $path ) {
+		$path = self::normalize_path( $path );
+		if ( '/meta.json' === $path ) {
+			return true;
+		}
+		if ( 0 === strpos( $path, '/wp-content/plugins/luxe-performance-link-guardian-suite/' ) ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Serve 410 for gone paths. No copied HTML. No Rank Math redirect rows.
+	 */
+	public function maybe_gone() {
+		if ( $this->did || is_admin() || wp_doing_ajax() || wp_doing_cron() ) {
+			return;
+		}
+		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+			return;
+		}
+		if ( ! Luxe_Score_Repair_Plugin::instance()->enabled( 'repair_known_404s' ) ) {
+			return;
+		}
+		$path = Luxe_Score_Repair_Plugin::request_path();
+		if ( ! self::is_gone_path( $path ) ) {
+			return;
+		}
+		$this->did = true;
+		status_header( 410 );
+		nocache_headers();
+		header( 'Content-Type: text/plain; charset=utf-8' );
+		header( 'X-Robots-Tag: noindex, nofollow' );
+		echo 'Gone';
+		exit;
+	}
+
+	/**
 	 * @param string $path Path.
 	 * @return string
 	 */
-	private static function normalize_path( $path ) {
+	public static function normalize_path( $path ) {
 		$path = (string) $path;
 		if ( 0 === strpos( $path, 'http' ) ) {
-			$parsed = wp_parse_url( $path, PHP_URL_PATH );
+			$parsed = function_exists( 'wp_parse_url' ) ? wp_parse_url( $path, PHP_URL_PATH ) : parse_url( $path, PHP_URL_PATH );
 			$path   = is_string( $parsed ) ? $parsed : '';
 		}
 		$path = '/' . ltrim( $path, '/' );
 		if ( '/' === $path ) {
 			return '/';
 		}
-		return untrailingslashit( $path );
+		return rtrim( $path, '/' );
 	}
 }

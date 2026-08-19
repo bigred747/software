@@ -89,6 +89,8 @@ class Luxe_Score_Repair_Robots {
 			'Disallow: /wish-list/',
 			'Disallow: /client-portal/',
 			'Disallow: /test-blog-page/',
+			'Disallow: /wp-content/plugins/luxe-performance-link-guardian-suite/',
+			'Disallow: /meta.json',
 			'',
 			'User-agent: GPTBot',
 			'Allow: /',

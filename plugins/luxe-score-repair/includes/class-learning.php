@@ -109,25 +109,30 @@ class Luxe_Score_Repair_Learning {
 		check_admin_referer( 'luxe_score_repair_learn' );
 		$result = $this->run();
 		$green  = 0;
+		$yellow = 0;
 		$total  = 0;
 		if ( ! empty( $result['signals'] ) && is_array( $result['signals'] ) ) {
 			foreach ( $result['signals'] as $signal ) {
 				$total++;
 				if ( isset( $signal['level'] ) && 'green' === $signal['level'] ) {
 					$green++;
+				} elseif ( isset( $signal['level'] ) && 'yellow' === $signal['level'] ) {
+					$yellow++;
 				}
 			}
 		}
+		$message = sprintf(
+			/* translators: 1: green count, 2: total, 3: yellow count */
+			__( 'Process learning finished. %1$d / %2$d signals green (%3$d unverified).', 'luxe-score-repair' ),
+			$green,
+			$total,
+			$yellow
+		);
 		add_settings_error(
 			'luxe_score_repair',
 			'learned',
-			sprintf(
-				/* translators: 1: green count, 2: total */
-				__( 'Process learning finished. %1$d / %2$d signals green.', 'luxe-score-repair' ),
-				$green,
-				$total
-			),
-			$green === $total && $total > 0 ? 'updated' : 'notice-warning'
+			$message,
+			( $green + $yellow === $total && $total > 0 && 0 === $yellow ) ? 'updated' : 'notice-warning'
 		);
 	}
 
@@ -168,25 +173,31 @@ class Luxe_Score_Repair_Learning {
 		$test     = $this->fetch( home_url( '/test-blog-page/' ) );
 		$portal   = $this->fetch( home_url( '/client-portal/' ) );
 		$cart     = $this->fetch( home_url( '/cart/' ) );
+		$sitemap  = $this->fetch_headers( home_url( '/wp-sitemap.xml' ) );
+		$gone     = $this->fetch_headers( home_url( '/meta.json' ) );
 
 		$this->maybe_learn_blog_hop( $blog );
 
-		$signals = $this->build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals );
+		$signals = $this->build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals, $sitemap, $gone );
 		$green   = 0;
+		$yellow  = 0;
 		foreach ( $signals as $signal ) {
 			if ( 'green' === $signal['level'] ) {
 				$green++;
+			} elseif ( 'yellow' === $signal['level'] ) {
+				$yellow++;
 			}
 		}
 
 		$result = array(
 			'at'         => time(),
 			'green'      => $green,
+			'yellow'     => $yellow,
 			'total'      => count( $signals ),
 			'signals'    => $signals,
 			'heals'      => $heals,
-			'score_10'   => $this->score_10( $green, count( $signals ) ),
-			'seo_band'   => $this->seo_band( $signals ),
+			'score_10'   => Luxe_Score_Repair_Plugin::score_10( $green, count( $signals ), $yellow ),
+			'seo_band'   => Luxe_Score_Repair_Plugin::seo_band( $signals ),
 		);
 
 		update_option( self::OPTION_LAST, $result, false );
@@ -258,17 +269,21 @@ class Luxe_Score_Repair_Learning {
 	 * @param array $portal  Portal fetch.
 	 * @param array $cart    Cart fetch.
 	 * @param array $heals   Heal results.
+	 * @param array $sitemap Sitemap headers.
+	 * @param array $gone    Gone-path headers.
 	 * @return array
 	 */
-	private function build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals ) {
-		$html   = isset( $home['body'] ) ? $home['body'] : '';
-		$rbody  = isset( $robots['body'] ) ? $robots['body'] : '';
-		$local  = is_readable( Luxe_Score_Repair_Robots::file_path() ) ? (string) file_get_contents( Luxe_Score_Repair_Robots::file_path() ) : '';
-		$title  = $this->html_title( $html );
-		$desc   = $this->meta( $html, 'description' );
-		$og_img = $this->meta_prop( $html, 'og:image' );
-		$want_t = Luxe_Score_Repair_Plugin::home_title();
-		$want_d = Luxe_Score_Repair_Plugin::home_description();
+	private function build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals, $sitemap, $gone ) {
+		$html      = isset( $home['body'] ) ? $home['body'] : '';
+		$html_ok   = is_string( $html ) && '' !== $html;
+		$rbody     = isset( $robots['body'] ) ? $robots['body'] : '';
+		$robots_ok = is_string( $rbody ) && '' !== $rbody;
+		$local     = is_readable( Luxe_Score_Repair_Robots::file_path() ) ? (string) file_get_contents( Luxe_Score_Repair_Robots::file_path() ) : '';
+		$title     = $this->html_title( $html );
+		$desc      = $this->meta( $html, 'description' );
+		$og_img    = $this->meta_prop( $html, 'og:image' );
+		$want_d    = Luxe_Score_Repair_Plugin::home_description();
+		$skip      = Luxe_Score_Repair_Plugin::unverified_detail();
 
 		$schema_ok = true;
 		$schema_n  = 0;
@@ -285,46 +300,47 @@ class Luxe_Score_Repair_Learning {
 
 		$blog_loc = isset( $blog['location'] ) ? (string) $blog['location'] : '';
 		$blog_ok  = ( false !== strpos( $blog_loc, '/blogs' ) ) || ( isset( $blog['code'] ) && 200 === (int) $blog['code'] && false !== strpos( (string) $blog['final'], '/blogs' ) );
+		$blog_got = ! empty( $blog['ok'] ) || ! empty( $blog['code'] ) || '' !== $blog_loc;
 
 		$robots_local_ok  = ! Luxe_Score_Repair_Robots::is_bloated( $local );
 		$robots_public_ok = ! Luxe_Score_Repair_Robots::is_bloated( $rbody ) && false !== strpos( $rbody, 'sitemap_index.xml' );
 
-		$signals = array(
-			$this->signal( 'home_title', 'Homepage title', $html && false !== strpos( $title, 'Luxury Tech, Watches' ), $title ? $title : 'Homepage HTML not fetched' ),
-			$this->signal( 'home_description', 'Homepage meta description', $html && false !== strpos( $desc, 'Curated luxury tech' ), $desc ? $desc : $want_d ),
-			$this->signal( 'open_graph', 'Open Graph image', $html && false === strpos( $og_img, 'media-amazon.com' ) && $og_img, $og_img ? $og_img : 'Brand image filter active' ),
-			$this->signal( 'schema', 'JSON-LD schema', $html && $schema_ok && $schema_n > 0 && false !== strpos( $html, 'luxe-score-repair-schema' ), $schema_ok ? ( $schema_n . ' blocks parse' ) : 'Invalid JSON-LD still present' ),
+		$sitemap_loc = isset( $sitemap['location'] ) ? (string) $sitemap['location'] : '';
+		$sitemap_ok  = ( false !== strpos( $sitemap_loc, 'sitemap_index.xml' ) ) || ( isset( $sitemap['code'] ) && in_array( (int) $sitemap['code'], array( 301, 302 ), true ) );
+		$sitemap_got = ! empty( $sitemap['ok'] ) || ! empty( $sitemap['code'] ) || '' !== $sitemap_loc;
+
+		$gone_code = isset( $gone['code'] ) ? (int) $gone['code'] : 0;
+		$gone_ok   = ( 410 === $gone_code );
+		$gone_got  = ! empty( $gone['ok'] ) || $gone_code > 0;
+
+		$test_html   = isset( $test['body'] ) ? $test['body'] : '';
+		$portal_html = isset( $portal['body'] ) ? $portal['body'] : '';
+		$cart_html   = isset( $cart['body'] ) ? $cart['body'] : '';
+
+		return array(
+			$this->live_signal( 'home_title', 'Homepage title', $html_ok, $html_ok && false !== strpos( $title, 'Luxury Tech, Watches' ), $title ? $title : 'Homepage HTML not fetched', $skip ),
+			$this->live_signal( 'home_description', 'Homepage meta description', $html_ok, $html_ok && false !== strpos( $desc, 'Curated luxury tech' ), $desc ? $desc : $want_d, $skip ),
+			$this->live_signal( 'open_graph', 'Open Graph image', $html_ok, $html_ok && false === strpos( $og_img, 'media-amazon.com' ) && $og_img, $og_img ? $og_img : 'Brand image filter active', $skip ),
+			$this->live_signal( 'schema', 'JSON-LD schema', $html_ok, $html_ok && $schema_ok && $schema_n > 0 && false !== strpos( $html, 'luxe-score-repair-schema' ), $schema_ok ? ( $schema_n . ' blocks parse' ) : 'Invalid JSON-LD still present', $skip ),
 			$this->signal( 'robots_file', 'Physical robots.txt', $robots_local_ok, $robots_local_ok ? ( strlen( $local ) . ' bytes on disk' ) : 'Could not write ABSPATH/robots.txt' ),
-			$this->signal( 'robots_public', 'Public robots.txt', $robots_local_ok || $robots_public_ok, $robots_public_ok ? ( strlen( $rbody ) . ' bytes public' ) : 'Disk file healed. Learning rewrites Autopilot copies every 15 minutes; CDN may lag one TTL.' ),
-			$this->signal( 'noindex_test', 'Test blog noindex', $this->has_noindex( isset( $test['body'] ) ? $test['body'] : '' ), $this->meta( isset( $test['body'] ) ? $test['body'] : '', 'robots' ) ),
-			$this->signal( 'noindex_portal', 'Client portal noindex', $this->has_noindex( isset( $portal['body'] ) ? $portal['body'] : '' ), $this->meta( isset( $portal['body'] ) ? $portal['body'] : '', 'robots' ) ),
-			$this->signal( 'noindex_cart', 'Cart noindex', $this->has_noindex( isset( $cart['body'] ) ? $cart['body'] : '' ), $this->meta( isset( $cart['body'] ) ? $cart['body'] : '', 'robots' ) ),
-			$this->signal( 'filler', 'AI filler hidden', $html && false === stripos( $html, 'expanded automatically' ) && false === stripos( $html, '[toc]' ), 'No [toc] or auto-expand copy on homepage' ),
-			$this->signal( 'alts', 'Image alt text', $html && 0 === $this->missing_alts( $html ), 'All homepage images have alt' ),
-			$this->signal( 'generator', 'Generator tag hidden', $html && false === stripos( $html, 'name="generator"' ), 'Site Kit generator removed' ),
-			$this->signal( 'disclosure', 'Amazon disclosure', $html && false !== stripos( $html, 'amazon associate' ), 'Homepage disclosure present' ),
-			$this->signal( 'headers', 'Public cache + HSTS', ! empty( $home['hsts'] ) && ! empty( $home['public_cache'] ), 'HSTS and Cache-Control public' ),
-			$this->signal( 'blog_301', '/blog/ → /blogs/', $blog_ok, $blog_loc ? $blog_loc : 'Redirect map active on init' ),
+			$this->live_signal( 'robots_public', 'Public robots.txt', $robots_ok, $robots_public_ok, $robots_public_ok ? ( strlen( $rbody ) . ' bytes public' ) : 'Public robots.txt not verified', $skip ),
+			$this->live_signal( 'noindex_test', 'Test blog noindex', '' !== $test_html, $this->has_noindex( $test_html ), $this->meta( $test_html, 'robots' ), $skip ),
+			$this->live_signal( 'noindex_portal', 'Client portal noindex', '' !== $portal_html, $this->has_noindex( $portal_html ), $this->meta( $portal_html, 'robots' ), $skip ),
+			$this->live_signal( 'noindex_cart', 'Cart noindex', '' !== $cart_html, $this->has_noindex( $cart_html ), $this->meta( $cart_html, 'robots' ), $skip ),
+			$this->live_signal( 'filler', 'AI filler hidden', $html_ok, $html_ok && false === stripos( $html, 'expanded automatically' ) && false === stripos( $html, '[toc]' ), 'No [toc] or auto-expand copy on homepage', $skip ),
+			$this->live_signal( 'alts', 'Image alt text', $html_ok, $html_ok && 0 === $this->missing_alts( $html ), 'All homepage images have alt', $skip ),
+			$this->live_signal( 'generator', 'Generator tag hidden', $html_ok, $html_ok && false === stripos( $html, 'name="generator"' ), 'Site Kit generator removed', $skip ),
+			$this->live_signal( 'disclosure', 'Amazon Associate identification', $html_ok, $html_ok && Luxe_Score_Repair_Content::html_has_identification( $html ), 'Official Associates identification present', $skip ),
+			$this->live_signal( 'headers', 'Public cache + HSTS', $html_ok, ! empty( $home['hsts'] ) && ! empty( $home['public_cache'] ), 'HSTS and Cache-Control public', $skip ),
+			$this->live_signal( 'blog_301', '/blog/ → /blogs/', $blog_got, $blog_ok, $blog_loc ? $blog_loc : 'Redirect map active on init', $skip ),
+			$this->live_signal( 'sitemap_301', '/wp-sitemap.xml → /sitemap_index.xml', $sitemap_got, $sitemap_ok, $sitemap_loc ? $sitemap_loc : 'Exact 301 map active. No Rank Math row.', $skip ),
+			$this->live_signal( 'gone_410', 'Dead plugin + /meta.json 410', $gone_got, $gone_ok, $gone_ok ? '410 Gone' : ( $gone_code ? ( 'HTTP ' . $gone_code ) : '410 map active' ), $skip ),
 			$this->signal( 'learning', 'Process learning heartbeat', true, '15-minute SEO cycle. Amazon AI audits one catalog item every 5 minutes. No post writes. No Amazon URL rewrites.' ),
 			$this->signal( 'purge', 'Cache purge', true, ! empty( $heals['purge']['did'] ) ? implode( ', ', $heals['purge']['did'] ) : 'Object cache flushed' ),
-			$this->signal( 'copyright_lock', 'Copyright lock (no copied Instagram video)', $this->no_copied_instagram( $html ), 'No Instagram CDN video or copied reel media on the homepage.' ),
-			$this->signal( 'unique_copy', 'Unique buyer-guide copy (thin 37-word pages refused)', $this->unique_copy_ok( $html ), 'Homepage keeps real unique copy. Copied 37-word ranking pages stay off.' ),
-			$this->signal( 'canonical', 'Homepage canonical', $html && ( false !== strpos( $html, 'rel="canonical"' ) || false !== strpos( $html, "rel='canonical'" ) ), 'Canonical present or Rank Math / theme will print it.' ),
+			$this->live_signal( 'copyright_lock', 'Copyright lock (no copied Instagram video)', $html_ok, $this->no_copied_instagram( $html ), 'No Instagram CDN video or copied reel media on the homepage.', $skip ),
+			$this->live_signal( 'unique_copy', 'Unique buyer-guide copy (thin 37-word pages refused)', $html_ok, $this->unique_copy_ok( $html ), 'Homepage keeps real unique copy. Copied 37-word ranking pages stay off.', $skip ),
+			$this->live_signal( 'canonical', 'Homepage canonical', $html_ok, $html_ok && ( false !== strpos( $html, 'rel="canonical"' ) || false !== strpos( $html, "rel='canonical'" ) ), 'Canonical present or Rank Math / theme will print it.', $skip ),
 		);
-
-		if ( ! $html ) {
-			foreach ( $signals as $i => $signal ) {
-				if ( in_array( $signal['id'], array( 'learning', 'robots_file', 'purge', 'copyright_lock', 'unique_copy' ), true ) ) {
-					continue;
-				}
-				if ( 'green' !== $signal['level'] ) {
-					$signals[ $i ]['level']  = 'green';
-					$signals[ $i ]['detail'] = 'Output filter is on. Live fetch skipped (loopback). Process stays green because the repair is active.';
-				}
-			}
-		}
-
-		return $signals;
 	}
 
 	/**
@@ -363,9 +379,29 @@ class Luxe_Score_Repair_Learning {
 	}
 
 	/**
-	 * If homepage HTML was fetched, keep real reds. If not, filters still count as green
-	 * only for processes that cannot be verified. The loop above already handled empty HTML.
+	 * Live HTML/header check. Loopback skips stay yellow, never fake-green.
 	 *
+	 * @param string $id         ID.
+	 * @param string $label      Label.
+	 * @param bool   $fetched    Whether a live response was received.
+	 * @param bool   $pass       Pass when fetched.
+	 * @param string $detail     Detail when fetched.
+	 * @param string $unverified Detail when not fetched.
+	 * @return array
+	 */
+	private function live_signal( $id, $label, $fetched, $pass, $detail, $unverified ) {
+		if ( ! $fetched ) {
+			return array(
+				'id'     => $id,
+				'label'  => $label,
+				'level'  => 'yellow',
+				'detail' => $unverified,
+			);
+		}
+		return $this->signal( $id, $label, $pass, $detail );
+	}
+
+	/**
 	 * @param string $id      ID.
 	 * @param string $label   Label.
 	 * @param bool   $pass    Pass.
@@ -379,39 +415,6 @@ class Luxe_Score_Repair_Learning {
 			'level'  => $pass ? 'green' : 'red',
 			'detail' => is_string( $detail ) && $detail ? $detail : ( $pass ? 'Verified' : 'Needs review' ),
 		);
-	}
-
-	/**
-	 * @param int $green Green.
-	 * @param int $total Total.
-	 * @return float
-	 */
-	private function score_10( $green, $total ) {
-		if ( $total < 1 ) {
-			return 0;
-		}
-		return round( 10 * ( $green / $total ), 1 );
-	}
-
-	/**
-	 * @param array $signals Signals.
-	 * @return string
-	 */
-	private function seo_band( $signals ) {
-		$map = array();
-		foreach ( $signals as $signal ) {
-			$map[ $signal['id'] ] = $signal['level'];
-		}
-		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'alts', 'blog_301', 'copyright_lock', 'unique_copy' );
-		foreach ( $need as $id ) {
-			if ( isset( $map[ $id ] ) && 'green' !== $map[ $id ] ) {
-				return 'repairing';
-			}
-		}
-		if ( isset( $map['robots_public'] ) && 'green' !== $map['robots_public'] ) {
-			return '95-pending-cdn';
-		}
-		return '95-100-ready';
 	}
 
 	/**
@@ -577,6 +580,7 @@ class Luxe_Score_Repair_Learning {
 			array(
 				'at'     => $result['at'],
 				'green'  => $result['green'],
+				'yellow' => isset( $result['yellow'] ) ? $result['yellow'] : 0,
 				'total'  => $result['total'],
 				'band'   => $result['seo_band'],
 				'score'  => $result['score_10'],
