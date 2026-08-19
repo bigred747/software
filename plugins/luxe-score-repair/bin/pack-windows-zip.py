@@ -9,13 +9,14 @@ import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SLUG = "luxe-affiliate-product-scout"
+SLUG = "luxe-score-repair"
 DEST_DIR = ROOT.parents[1]
 OUTPUTS = [
-    DEST_DIR / "luxe-affiliate-product-scout.zip",
-    DEST_DIR / "Luxe-Affiliate-Product-Scout.zip",
-    DEST_DIR / "dist" / "Luxe-Affiliate-Product-Scout-v5.7.0.zip",
-    DEST_DIR / "luxe-affiliate-product-scout-windows11-wordpress.zip",
+    DEST_DIR / "luxe-score-repair.zip",
+    DEST_DIR / "Luxe-SEO-Score-Repair.zip",
+    DEST_DIR / "Luxe-Score-Repair.zip",
+    DEST_DIR / "dist" / "Luxe-Score-Repair-v1.4.2.zip",
+    DEST_DIR / "luxe-score-repair-windows11-wordpress.zip",
 ]
 TARGET = 145 * 1024
 SKIP_PARTS = {"tests", "bin"}
@@ -49,7 +50,7 @@ def png_pad(png: bytes, extra: int) -> bytes:
         raise SystemExit("PNG IEND missing")
     before, iend = png[: pos - 4], png[pos - 4 :]
     extra = max(0, extra)
-    payload = b"Comment\x00Luxe Affiliate Product Scout 5.7.0 Windows 11 WordPress package." + (b"\n" * extra)
+    payload = b"Comment\x00Luxe SEO Score Repair 1.4.2 Windows 11 WordPress package." + (b"\n" * extra)
     chunk = b"tEXt" + payload
     crc = zlib.crc32(chunk) & 0xFFFFFFFF
     return before + struct.pack(">I", len(payload)) + chunk + struct.pack(">I", crc) + iend
@@ -132,7 +133,7 @@ def main() -> None:
         if name == f"{SLUG}/{SLUG}.php":
             header = data
             break
-    if not header or b"Plugin Name: Luxe Affiliate Product Scout" not in header:
+    if not header or b"Plugin Name: Luxe SEO Score Repair" not in header:
         raise SystemExit("Plugin header missing")
     for dest in OUTPUTS:
         dest.parent.mkdir(parents=True, exist_ok=True)

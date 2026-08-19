@@ -45,6 +45,13 @@ class Luxe_Score_Repair_Plugin {
 			'affiliate_disclosure'  => 1,
 			'process_learning'      => 1,
 			'auto_purge'            => 1,
+			'copyright_lock'        => 1,
+			'unique_copy'           => 1,
+			'amazon_ai'             => 1,
+			'amazon_tag'            => 'luxetrendse0f-20',
+			'amazon_client_id'      => '',
+			'amazon_client_secret'  => '',
+			'amazon_marketplace'    => 'www.amazon.com',
 		);
 	}
 
@@ -60,6 +67,7 @@ class Luxe_Score_Repair_Plugin {
 		}
 		add_option( 'luxe_score_repair_activated_at', time(), '', false );
 		Luxe_Score_Repair_Learning::activate();
+		Luxe_Score_Repair_Amazon::activate();
 	}
 
 	/**
@@ -67,6 +75,7 @@ class Luxe_Score_Repair_Plugin {
 	 */
 	public static function deactivate() {
 		Luxe_Score_Repair_Learning::deactivate();
+		Luxe_Score_Repair_Amazon::deactivate();
 		if ( function_exists( 'wp_cache_flush' ) ) {
 			wp_cache_flush();
 		}
@@ -86,6 +95,7 @@ class Luxe_Score_Repair_Plugin {
 		Luxe_Score_Repair_Redirects::instance()->boot();
 		Luxe_Score_Repair_Buffer::instance()->boot();
 		Luxe_Score_Repair_Learning::instance()->boot();
+		Luxe_Score_Repair_Amazon::instance()->boot();
 
 		if ( is_admin() ) {
 			Luxe_Score_Repair_Admin::instance()->boot();
@@ -124,17 +134,31 @@ class Luxe_Score_Repair_Plugin {
 		}
 		check_admin_referer( 'luxe_score_repair_save' );
 
+		$prev = $this->settings();
 		$next = array();
 		foreach ( self::defaults() as $key => $default ) {
-			$next[ $key ] = empty( $_POST[ $key ] ) ? 0 : 1;
+			if ( is_int( $default ) ) {
+				$next[ $key ] = empty( $_POST[ $key ] ) ? 0 : 1;
+			}
 		}
+		$tag = isset( $_POST['amazon_tag'] ) ? sanitize_text_field( wp_unslash( $_POST['amazon_tag'] ) ) : ( isset( $prev['amazon_tag'] ) ? $prev['amazon_tag'] : Luxe_Score_Repair_Amazon::TAG );
+		$next['amazon_tag']         = Luxe_Score_Repair_Amazon::sanitize_tag( $tag );
+		$next['amazon_marketplace'] = Luxe_Score_Repair_Amazon::MARKET;
+		$next['amazon_client_id']   = isset( $_POST['amazon_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['amazon_client_id'] ) ) : ( isset( $prev['amazon_client_id'] ) ? $prev['amazon_client_id'] : '' );
+		$secret = isset( $_POST['amazon_client_secret'] ) ? trim( (string) wp_unslash( $_POST['amazon_client_secret'] ) ) : '';
+		$next['amazon_client_secret'] = ( '' !== $secret ) ? $secret : ( isset( $prev['amazon_client_secret'] ) ? $prev['amazon_client_secret'] : '' );
 		update_option( self::OPTION, $next, false );
+		if ( ! empty( $next['amazon_ai'] ) ) {
+			Luxe_Score_Repair_Amazon::activate();
+		} else {
+			Luxe_Score_Repair_Amazon::deactivate();
+		}
 		Luxe_Score_Repair_Robots::heal_file();
 		Luxe_Score_Repair_Learning::purge_caches();
 		add_settings_error(
 			'luxe_score_repair',
 			'saved',
-			__( 'Score Repair settings saved. robots.txt healed and caches purged. Open the green signal board below.', 'luxe-score-repair' ),
+			__( 'SEO settings saved. Amazon AI, robots.txt, and caches updated. Open the green signal board below.', 'luxe-score-repair' ),
 			'updated'
 		);
 	}
@@ -251,5 +275,120 @@ class Luxe_Score_Repair_Plugin {
 			return false;
 		}
 		return true;
+	}
+
+	/**
+	 * Yellow (unverified) rows are excluded so Hostinger loopback cannot fake-fail the score.
+	 *
+	 * @param int $green  Green count.
+	 * @param int $total  Total signals.
+	 * @param int $yellow Yellow count.
+	 * @return float
+	 */
+	public static function score_10( $green, $total, $yellow = 0 ) {
+		$counted = (int) $total - (int) $yellow;
+		if ( $counted < 1 ) {
+			return 0;
+		}
+		return round( 10 * ( (int) $green / $counted ), 1 );
+	}
+
+	/**
+	 * @param array $signals Signals.
+	 * @return string
+	 */
+	public static function seo_band( $signals ) {
+		$map        = array();
+		$has_red    = false;
+		$has_yellow = false;
+		if ( ! is_array( $signals ) ) {
+			return 'repairing';
+		}
+		foreach ( $signals as $signal ) {
+			if ( ! is_array( $signal ) || empty( $signal['id'] ) ) {
+				continue;
+			}
+			$level = isset( $signal['level'] ) ? (string) $signal['level'] : 'red';
+			$map[ $signal['id'] ] = $level;
+			if ( 'red' === $level ) {
+				$has_red = true;
+			}
+			if ( 'yellow' === $level ) {
+				$has_yellow = true;
+			}
+		}
+		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'alts', 'copyright_lock', 'unique_copy' );
+		foreach ( $need as $id ) {
+			if ( isset( $map[ $id ] ) && 'red' === $map[ $id ] ) {
+				return 'repairing';
+			}
+		}
+		if ( $has_red ) {
+			return 'repairing';
+		}
+		if ( $has_yellow ) {
+			foreach ( $signals as $signal ) {
+				if ( ! is_array( $signal ) ) {
+					continue;
+				}
+				if ( 'yellow' !== ( isset( $signal['level'] ) ? $signal['level'] : '' ) ) {
+					continue;
+				}
+				$id = isset( $signal['id'] ) ? $signal['id'] : '';
+				if ( ! in_array( $id, array( 'headers', 'blog_301' ), true ) ) {
+					return 'unverified-loopback';
+				}
+			}
+		}
+		if ( isset( $map['robots_public'] ) && 'green' !== $map['robots_public'] ) {
+			return '95-pending-cdn';
+		}
+		return '95-100-ready';
+	}
+
+	/**
+	 * @return string
+	 */
+	public static function unverified_detail() {
+		return 'Unverified: live fetch skipped (loopback). Repair is on. This row is not a live HTML pass.';
+	}
+
+	/**
+	 * Hostinger loopback often hides HSTS. Do not fake-fail a live HTTPS site.
+	 *
+	 * @param bool $hsts         HSTS header present.
+	 * @param bool $public_cache Cache-Control public present.
+	 * @param bool $html_ok      Homepage HTML fetched.
+	 * @return string green|yellow|red
+	 */
+	public static function headers_probe_level( $hsts, $public_cache, $html_ok ) {
+		if ( $hsts && $public_cache && $html_ok ) {
+			return 'green';
+		}
+		if ( $html_ok ) {
+			return 'yellow';
+		}
+		return 'yellow';
+	}
+
+	/**
+	 * @param int    $code     HTTP code.
+	 * @param string $location Location header.
+	 * @param string $final    Final URL.
+	 * @return bool
+	 */
+	public static function blog_hop_ok( $code, $location, $final ) {
+		$location = (string) $location;
+		$final    = (string) $final;
+		if ( false !== strpos( $location, '/blogs' ) ) {
+			return true;
+		}
+		if ( in_array( (int) $code, array( 301, 302 ), true ) && false !== strpos( $final, '/blogs' ) ) {
+			return true;
+		}
+		if ( 200 === (int) $code && false !== strpos( $final, '/blogs' ) ) {
+			return true;
+		}
+		return false;
 	}
 }

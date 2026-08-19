@@ -37,11 +37,21 @@ class Luxe_Score_Repair_Admin {
 	 * Settings page.
 	 */
 	public function menu() {
-		add_management_page(
-			__( 'Luxe Score Repair', 'luxe-score-repair' ),
-			__( 'Luxe Score Repair', 'luxe-score-repair' ),
+		add_menu_page(
+			__( 'Luxe SEO', 'luxe-score-repair' ),
+			__( 'Luxe SEO', 'luxe-score-repair' ),
 			'manage_options',
 			'luxe-score-repair',
+			array( $this, 'render' ),
+			'dashicons-chart-area',
+			57
+		);
+		add_submenu_page(
+			'luxe-score-repair',
+			__( 'Amazon AI', 'luxe-score-repair' ),
+			__( 'Amazon AI', 'luxe-score-repair' ),
+			'manage_options',
+			'luxe-score-repair-amazon',
 			array( $this, 'render' )
 		);
 	}
@@ -50,7 +60,7 @@ class Luxe_Score_Repair_Admin {
 	 * @param string $hook Hook.
 	 */
 	public function assets( $hook ) {
-		if ( 'tools_page_luxe-score-repair' !== $hook ) {
+		if ( 'toplevel_page_luxe-score-repair' !== $hook && 'luxe-seo_page_luxe-score-repair-amazon' !== $hook && 'tools_page_luxe-score-repair' !== $hook ) {
 			return;
 		}
 		wp_enqueue_style(
@@ -66,7 +76,7 @@ class Luxe_Score_Repair_Admin {
 	 * @return array
 	 */
 	public function action_links( $links ) {
-		$url = admin_url( 'tools.php?page=luxe-score-repair' );
+		$url = admin_url( 'admin.php?page=luxe-score-repair' );
 		array_unshift( $links, '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Open', 'luxe-score-repair' ) . '</a>' );
 		return $links;
 	}
@@ -82,8 +92,25 @@ class Luxe_Score_Repair_Admin {
 		$settings = Luxe_Score_Repair_Plugin::instance()->settings();
 		$last     = Luxe_Score_Repair_Learning::last();
 		$log      = Luxe_Score_Repair_Learning::log();
+		$amazon     = Luxe_Score_Repair_Amazon::last();
+		$amazon_log = Luxe_Score_Repair_Amazon::log();
+		$amazon_on  = Luxe_Score_Repair_Plugin::instance()->enabled( 'amazon_ai' );
+		$duplicates = class_exists( 'Luxe_Score_Repair_Duplicates' ) ? Luxe_Score_Repair_Duplicates::groups() : array();
 		if ( empty( $last['signals'] ) ) {
 			$last = self::armed_board();
+		}
+		if ( empty( $amazon['signals'] ) ) {
+			$amazon = Luxe_Score_Repair_Amazon::build(
+				array(
+					'armed'     => $amazon_on,
+					'tag'       => Luxe_Score_Repair_Amazon::wanted_tag(),
+					'waiting'   => true,
+					'preserved' => true,
+					'api_mode'  => 'local',
+					'has_creds' => class_exists( 'Luxe_Score_Repair_Amazon_API' ) && Luxe_Score_Repair_Amazon_API::has_credentials(),
+					'source'    => 'board',
+				)
+			);
 		}
 		include LUXE_SCORE_REPAIR_DIR . 'templates/admin.php';
 	}
@@ -107,11 +134,16 @@ class Luxe_Score_Repair_Admin {
 			'filler'            => 'AI filler hidden',
 			'alts'              => 'Image alt text',
 			'generator'         => 'Generator tag hidden',
-			'disclosure'        => 'Amazon disclosure',
+			'disclosure'        => 'Amazon Associate identification',
 			'headers'           => 'Public cache + HSTS',
 			'blog_301'          => '/blog/ → /blogs/',
+			'sitemap_301'       => '/wp-sitemap.xml → /sitemap_index.xml',
+			'gone_410'          => 'Dead plugin + /meta.json 410',
 			'learning'          => 'Process learning heartbeat',
 			'purge'             => 'Cache purge',
+			'copyright_lock'    => 'Copyright lock (no copied Instagram video)',
+			'unique_copy'       => 'Unique buyer-guide copy (thin 37-word pages refused)',
+			'canonical'         => 'Homepage canonical',
 		);
 		$signals = array();
 		foreach ( $items as $id => $label ) {
@@ -140,22 +172,26 @@ class Luxe_Score_Repair_Admin {
 			return;
 		}
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( $screen && isset( $screen->id ) && 'tools_page_luxe-score-repair' === $screen->id ) {
+		if ( $screen && isset( $screen->id ) && in_array( $screen->id, array( 'toplevel_page_luxe-score-repair', 'luxe-seo_page_luxe-score-repair-amazon', 'tools_page_luxe-score-repair' ), true ) ) {
 			return;
 		}
 		$last = Luxe_Score_Repair_Learning::last();
 		if ( empty( $last['total'] ) ) {
 			$last = self::armed_board();
 		}
-		$green = isset( $last['green'] ) ? (int) $last['green'] : 0;
-		$total = isset( $last['total'] ) ? (int) $last['total'] : 0;
+		$green  = isset( $last['green'] ) ? (int) $last['green'] : 0;
+		$total  = isset( $last['total'] ) ? (int) $last['total'] : 0;
+		$yellow = isset( $last['yellow'] ) ? (int) $last['yellow'] : 0;
 		if ( $total < 1 ) {
 			return;
 		}
 		$class = ( $green === $total ) ? 'notice-success' : 'notice-warning';
-		$url   = admin_url( 'tools.php?page=luxe-score-repair' );
-		echo '<div class="notice ' . esc_attr( $class ) . ' is-dismissible"><p><strong>Luxe Score Repair:</strong> ';
-		echo esc_html( $green . ' / ' . $total . ' processes green.' );
-		echo ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open signal board', 'luxe-score-repair' ) . '</a></p></div>';
+		$url   = admin_url( 'admin.php?page=luxe-score-repair' );
+		echo '<div class="notice ' . esc_attr( $class ) . ' is-dismissible"><p><strong>Luxe SEO:</strong> ';
+		echo esc_html( $green . ' / ' . $total . ' processes green' );
+		if ( $yellow > 0 ) {
+			echo esc_html( ' · ' . $yellow . ' unverified (loopback)' );
+		}
+		echo '. <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open signal board', 'luxe-score-repair' ) . '</a></p></div>';
 	}
 }

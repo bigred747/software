@@ -135,6 +135,12 @@ class Luxe_Score_Repair_Buffer {
 			$html = preg_replace( '/\[(\/?ez-?toc|toc)[^\]]*\]/i', '', $html );
 		}
 
+		if ( $plugin->enabled( 'affiliate_disclosure' ) ) {
+			$id   = Luxe_Score_Repair_Content::associate_identification();
+			$html = $this->upsert_meta( $html, 'name', 'amazon-associate', $id );
+			$html = Luxe_Score_Repair_Content::ensure_identification_html( $html );
+		}
+
 		return $html;
 	}
 

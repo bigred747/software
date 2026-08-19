@@ -29,7 +29,7 @@ $last_ri   = ( isset( $learn['readiness'] ) ? (int) $learn['readiness'] : 0 ) . 
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · catalog integrity</p>
 		<h1>Luxe Affiliate Product Scout <?php echo esc_html( LAPS_VERSION ); ?></h1>
-		<p class="lsr-lead">24/7 learning is on: one product per cycle, hourly read-only catalog snapshot. Repair ALL still processes the full catalog. A 95–100 score requires supported brand evidence, ASIN, price, a primary image, and no hard risk flags.</p>
+		<p class="lsr-lead">24/7 catalog learning plus copyright-safe Instagram video scanning. Repair ALL still processes the full catalog. A 95–100 score requires supported brand evidence, ASIN, price, a primary image, and no hard risk flags. Instagram video is never downloaded or republished.</p>
 	</header>
 
 	<section class="laps-counters">
@@ -93,6 +93,7 @@ $last_ri   = ( isset( $learn['readiness'] ) ? (int) $learn['readiness'] : 0 ) . 
 				<li>Never rewrites Amazon or affiliate URLs</li>
 				<li>Never invents ratings, seller, warranty, or unknown brands</li>
 				<li>Never imports products or creates redirects</li>
+				<li>Never copies Instagram video, audio, frames, or captions</li>
 				<li>Renewed / refurbished / used stay HOLD</li>
 			</ul>
 		</article>
@@ -109,7 +110,113 @@ $last_ri   = ( isset( $learn['readiness'] ) ? (int) $learn['readiness'] : 0 ) . 
 			</ul>
 		</article>
 	</section>
-	<p class="lsr-note">Keyword Intelligence still owns ongoing Rank Math keyword/title/description work. Mission Control still owns evidence auditing. Product Scout owns deterministic product-integrity conflicts only.</p>
+	<p class="lsr-note">Keyword Intelligence still owns ongoing Rank Math keyword/title/description work. Mission Control still owns evidence auditing. Product Scout owns deterministic product-integrity conflicts only. Upload <strong>Luxe SEO Score Repair</strong> for the public SEO green-signal board.</p>
+
+	<?php
+	$ig        = isset( $ig ) && is_array( $ig ) ? $ig : array();
+	$ig_log    = isset( $ig_log ) && is_array( $ig_log ) ? $ig_log : array();
+	$ig_board  = isset( $ig_board ) && is_array( $ig_board ) ? $ig_board : array();
+	$ig_studio = isset( $ig_studio ) && is_array( $ig_studio ) ? $ig_studio : array();
+	$ig_signals = isset( $ig_board['signals'] ) && is_array( $ig_board['signals'] ) ? $ig_board['signals'] : array();
+	$ig_green   = isset( $ig_board['green'] ) ? (int) $ig_board['green'] : 0;
+	$ig_total   = isset( $ig_board['total'] ) ? (int) $ig_board['total'] : 0;
+	$ig_rows    = isset( $ig['rows'] ) && is_array( $ig['rows'] ) ? $ig['rows'] : array();
+	$ig_on      = ! empty( $settings['ig_scan_24_7'] );
+	?>
+	<section class="lsr-scorebar laps-green">
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Instagram scan</p>
+			<p class="lsr-big"><?php echo esc_html( $ig_green . '/' . $ig_total ); ?></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Permalinks</p>
+			<p class="lsr-big"><?php echo esc_html( isset( $ig['scanned'] ) ? (string) (int) $ig['scanned'] : '0' ); ?></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Videos recorded</p>
+			<p class="lsr-big"><?php echo esc_html( isset( $ig['videos'] ) ? (string) (int) $ig['videos'] : '0' ); ?></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Catalog matches</p>
+			<p class="lsr-big"><?php echo esc_html( isset( $ig['matches'] ) ? (string) (int) $ig['matches'] : '0' ); ?></p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">Video copied</p>
+			<p class="lsr-big">0</p>
+		</div>
+		<div>
+			<p class="lsr-kicker lsr-kicker-dark">24/7 IG scan</p>
+			<p class="lsr-when"><?php echo $ig_on ? 'On' : 'Off'; ?></p>
+		</div>
+	</section>
+
+	<section class="lsr-signals">
+		<h2>Instagram + copyright green signals</h2>
+		<ul class="lsr-signal-list">
+			<?php foreach ( $ig_signals as $signal ) : ?>
+				<?php
+				$level  = isset( $signal['level'] ) ? $signal['level'] : 'red';
+				$label  = isset( $signal['label'] ) ? $signal['label'] : '';
+				$detail = isset( $signal['detail'] ) ? $signal['detail'] : '';
+				?>
+				<li class="lsr-signal lsr-signal-<?php echo esc_attr( $level ); ?>">
+					<span class="lsr-dot" aria-hidden="true"></span>
+					<span>
+						<strong><?php echo esc_html( strtoupper( $level ) ); ?> · <?php echo esc_html( $label ); ?></strong>
+						<em><?php echo esc_html( $detail ); ?></em>
+					</span>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+	</section>
+
+	<form method="post" class="laps-actions">
+		<?php wp_nonce_field( 'laps_run' ); ?>
+		<button type="submit" name="laps_ig_scan_all" value="1" class="button button-primary lsr-save">Scan all Instagram videos</button>
+		<button type="submit" name="laps_ig_scan_one" value="1" class="button">Scan next permalink</button>
+		<button type="submit" name="laps_ig_scan_site" value="1" class="button">Scan Instagram URLs already on this site</button>
+	</form>
+	<p class="lsr-note">Paste public reel/post URLs below. Product Scout records the permalink and matches your local catalog. It does <strong>not</strong> download Instagram video, copy captions, or publish anything.</p>
+
+	<?php if ( $ig_rows ) : ?>
+		<section class="lsr-card">
+			<h2>Instagram scan results</h2>
+			<table class="widefat striped">
+				<thead>
+					<tr>
+						<th>Type</th>
+						<th>Permalink</th>
+						<th>Status</th>
+						<th>Brands</th>
+						<th>Copied</th>
+						<th>Why</th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php foreach ( $ig_rows as $row ) : ?>
+					<tr>
+						<td><?php echo esc_html( isset( $row['type'] ) ? $row['type'] : '' ); ?></td>
+						<td><?php echo esc_html( isset( $row['url'] ) ? $row['url'] : '' ); ?></td>
+						<td><?php echo esc_html( isset( $row['status'] ) ? $row['status'] : '' ); ?></td>
+						<td><?php echo esc_html( ! empty( $row['brands'] ) ? implode( ', ', $row['brands'] ) : '' ); ?></td>
+						<td>no</td>
+						<td><?php echo esc_html( ! empty( $row['reasons'] ) ? implode( ', ', $row['reasons'] ) : '' ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+		</section>
+	<?php endif; ?>
+
+	<section class="lsr-card">
+		<h2>Original Luxe reel studio</h2>
+		<p class="lsr-note">These scripts are original LuxeTrendsetters copy for your own filming. They are not copied from Instagram creators.</p>
+		<ol>
+			<?php foreach ( $ig_studio as $script ) : ?>
+				<li><strong><?php echo esc_html( isset( $script['label'] ) ? $script['label'] : '' ); ?>:</strong> <?php echo esc_html( isset( $script['script'] ) ? $script['script'] : '' ); ?></li>
+			<?php endforeach; ?>
+		</ol>
+	</section>
 
 	<?php if ( $below ) : ?>
 		<section class="lsr-card">
@@ -263,6 +370,32 @@ $last_ri   = ( isset( $learn['readiness'] ) ? (int) $learn['readiness'] : 0 ) . 
 					<td><strong>Batch size</strong></td>
 					<td>
 						<input type="number" name="batch_size" min="5" max="50" value="<?php echo esc_attr( (string) (int) $settings['batch_size'] ); ?>" />
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<label class="lsr-switch">
+							<input type="checkbox" name="ig_scan_24_7" value="1" <?php checked( ! empty( $settings['ig_scan_24_7'] ) ); ?> />
+							<span>On</span>
+						</label>
+					</td>
+					<td><strong>24/7 Instagram permalink scan</strong></td>
+					<td>One queued Instagram permalink per 5-minute cycle. Never downloads video. Never publishes.</td>
+				</tr>
+				<tr>
+					<td></td>
+					<td><strong>Instagram reel URLs</strong></td>
+					<td>
+						<textarea name="ig_urls" rows="5" class="large-text" placeholder="https://www.instagram.com/reel/YOURSHORTCODE/"><?php echo esc_textarea( isset( $settings['ig_urls'] ) ? (string) $settings['ig_urls'] : '' ); ?></textarea>
+						<p class="description">One public permalink per line. Profiles are recorded as REVIEW until you paste reel URLs.</p>
+					</td>
+				</tr>
+				<tr>
+					<td></td>
+					<td><strong>Operator notes</strong></td>
+					<td>
+						<textarea name="ig_notes" rows="4" class="large-text" placeholder="Supported brands you saw, e.g. DJI Mini, Bose QuietComfort, Apple Watch"><?php echo esc_textarea( isset( $settings['ig_notes'] ) ? (string) $settings['ig_notes'] : '' ); ?></textarea>
+						<p class="description">Your words only. The plugin never scrapes Instagram captions.</p>
 					</td>
 				</tr>
 			</tbody>

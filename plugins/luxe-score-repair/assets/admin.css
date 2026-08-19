@@ -134,6 +134,19 @@
 	background: #ecfdf5;
 	border: 1px solid #6ee7b7;
 }
+.lsr-signal-yellow {
+	background: #fffbeb;
+	border-color: #fcd34d;
+}
+.lsr-signal-yellow .lsr-dot {
+	background: #d97706;
+}
+.lsr-signal-yellow strong {
+	color: #92400e;
+}
+.lsr-signal-yellow em {
+	color: #b45309;
+}
 .lsr-signal-red {
 	background: #fef2f2;
 	border-color: #fecaca;
@@ -167,8 +180,13 @@
 .lsr-signal-red em {
 	color: #b91c1c;
 }
-.lsr-learn-form {
-	margin: 0 0 24px;
+.lsr-scorebar-warn {
+	background: #fff7ed;
+	border-color: #fdba74;
+}
+.lsr-learn-form .button {
+	margin-right: 8px;
+	margin-top: 4px;
 }
 @media (max-width: 782px) {
 	.lsr-grid {
