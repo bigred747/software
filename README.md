@@ -2,7 +2,7 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe SEO Score Repair 1.4.1 — THIS IS THE SEO PLUGIN + Amazon AI
+## 1. Luxe SEO Score Repair 1.4.2 — THIS IS THE SEO PLUGIN + Amazon AI
 
 Visible in WordPress as **Luxe SEO** (left admin menu). Plugin list name: **Luxe SEO Score Repair**. Amazon AI lives here, not in Luxe Theme.
 

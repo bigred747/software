@@ -15,7 +15,7 @@ OUTPUTS = [
     DEST_DIR / "luxe-score-repair.zip",
     DEST_DIR / "Luxe-SEO-Score-Repair.zip",
     DEST_DIR / "Luxe-Score-Repair.zip",
-    DEST_DIR / "dist" / "Luxe-Score-Repair-v1.4.1.zip",
+    DEST_DIR / "dist" / "Luxe-Score-Repair-v1.4.2.zip",
     DEST_DIR / "luxe-score-repair-windows11-wordpress.zip",
 ]
 TARGET = 145 * 1024
@@ -50,7 +50,7 @@ def png_pad(png: bytes, extra: int) -> bytes:
         raise SystemExit("PNG IEND missing")
     before, iend = png[: pos - 4], png[pos - 4 :]
     extra = max(0, extra)
-    payload = b"Comment\x00Luxe SEO Score Repair 1.4.1 Windows 11 WordPress package." + (b"\n" * extra)
+    payload = b"Comment\x00Luxe SEO Score Repair 1.4.2 Windows 11 WordPress package." + (b"\n" * extra)
     chunk = b"tEXt" + payload
     crc = zlib.crc32(chunk) & 0xFFFFFFFF
     return before + struct.pack(">I", len(payload)) + chunk + struct.pack(">I", crc) + iend

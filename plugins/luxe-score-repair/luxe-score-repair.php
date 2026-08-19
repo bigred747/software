@@ -3,7 +3,7 @@
  * Plugin Name: Luxe SEO Score Repair
  * Plugin URI: https://luxetrendsetters.com/
  * Description: The LuxeTrendsetters SEO plugin. Public-output repair, Amazon AI (Associates + official Creators API), unique-copy ranking, copyright lock, process learning, and a green-signal board. Never writes post content, never changes post status, never rewrites Amazon URLs.
- * Version: 1.4.1
+ * Version: 1.4.2
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Richard Brummer
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LUXE_SCORE_REPAIR_VERSION', '1.4.1' );
+define( 'LUXE_SCORE_REPAIR_VERSION', '1.4.2' );
 define( 'LUXE_SCORE_REPAIR_FILE', __FILE__ );
 define( 'LUXE_SCORE_REPAIR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LUXE_SCORE_REPAIR_URL', plugin_dir_url( __FILE__ ) );

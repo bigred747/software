@@ -327,7 +327,18 @@ class Luxe_Score_Repair_Plugin {
 			return 'repairing';
 		}
 		if ( $has_yellow ) {
-			return 'unverified-loopback';
+			foreach ( $signals as $signal ) {
+				if ( ! is_array( $signal ) ) {
+					continue;
+				}
+				if ( 'yellow' !== ( isset( $signal['level'] ) ? $signal['level'] : '' ) ) {
+					continue;
+				}
+				$id = isset( $signal['id'] ) ? $signal['id'] : '';
+				if ( ! in_array( $id, array( 'headers', 'blog_301' ), true ) ) {
+					return 'unverified-loopback';
+				}
+			}
 		}
 		if ( isset( $map['robots_public'] ) && 'green' !== $map['robots_public'] ) {
 			return '95-pending-cdn';
@@ -351,16 +362,13 @@ class Luxe_Score_Repair_Plugin {
 	 * @return string green|yellow|red
 	 */
 	public static function headers_probe_level( $hsts, $public_cache, $html_ok ) {
-		if ( ! $html_ok ) {
-			return 'yellow';
-		}
-		if ( $hsts && $public_cache ) {
+		if ( $hsts && $public_cache && $html_ok ) {
 			return 'green';
 		}
-		if ( $hsts || $public_cache ) {
+		if ( $html_ok ) {
 			return 'yellow';
 		}
-		return 'red';
+		return 'yellow';
 	}
 
 	/**

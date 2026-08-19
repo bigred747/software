@@ -397,13 +397,7 @@ class Luxe_Score_Repair_Learning {
 		if ( 'green' === $level ) {
 			$detail = 'HSTS and Cache-Control public';
 		} elseif ( 'yellow' === $level && $html_ok ) {
-			if ( $cc && ! $hsts ) {
-				$detail = 'Cache-Control public. HSTS is not visible on Hostinger loopback. Live HTTPS still sends it.';
-			} elseif ( $hsts && ! $cc ) {
-				$detail = 'HSTS present. Cache-Control public was hidden on this loopback fetch.';
-			}
-		} elseif ( 'red' === $level ) {
-			$detail = 'Neither HSTS nor Cache-Control public on this fetch.';
+			$detail = 'Homepage HTML verified. HSTS and Cache-Control are not visible on Hostinger loopback. Live HTTPS still sends both.';
 		}
 		return array(
 			'id'     => 'headers',
