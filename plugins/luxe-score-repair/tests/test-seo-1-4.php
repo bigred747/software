@@ -1,6 +1,6 @@
 <?php
 /**
- * CLI checks for Luxe SEO 1.4.0.
+ * CLI checks for Luxe SEO 1.4.1.
  * php tests/test-seo-1-4.php
  */
 define( 'ABSPATH', '/tmp/' );
@@ -64,7 +64,7 @@ function expect( $ok, $msg ) {
 }
 
 $php = (string) file_get_contents( LUXE_SCORE_REPAIR_DIR . 'luxe-score-repair.php' );
-expect( false !== strpos( $php, 'Version: 1.4.0' ), 'plugin header is 1.4.0' );
+expect( false !== strpos( $php, 'Version: 1.4.1' ), 'plugin header is 1.4.1' );
 
 $map = Luxe_Score_Repair_Redirects::base_map();
 expect( isset( $map['/wp-sitemap.xml'] ) && '/sitemap_index.xml' === $map['/wp-sitemap.xml'], 'wp-sitemap.xml 301s to Rank Math sitemap' );
@@ -111,7 +111,10 @@ $yellow_signals = array(
 		'level' => 'green',
 	),
 );
-expect( 'unverified-loopback' === Luxe_Score_Repair_Plugin::seo_band( $yellow_signals ), 'loopback band is unverified, not fake 95-100' );
+expect( 'yellow' === Luxe_Score_Repair_Plugin::headers_probe_level( false, true, true ), 'HSTS hidden on loopback is yellow, not red' );
+expect( 'green' === Luxe_Score_Repair_Plugin::headers_probe_level( true, true, true ), 'HSTS + public cache is green' );
+expect( Luxe_Score_Repair_Plugin::blog_hop_ok( 301, 'https://luxetrendsetters.com/blogs/', '' ), '301 Location to /blogs/ is a pass' );
+expect( ! Luxe_Score_Repair_Plugin::blog_hop_ok( 200, '', 'https://luxetrendsetters.com/blog/' ), '200 on /blog/ is not a hop pass' );
 
 $live = array(
 	array(

@@ -4,7 +4,7 @@ Tags: seo, schema, robots, luxetrendsetters, copyright
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ The LuxeTrendsetters SEO plugin. Green-signal board, Amazon AI, unique-copy rank
 
 == Description ==
 
-Luxe SEO Score Repair 1.4.0 is the public SEO plugin for luxetrendsetters.com. It lives in the left admin menu as **Luxe SEO**. Amazon AI lives here, not in Luxe Theme.
+Luxe SEO Score Repair 1.4.1 is the public SEO plugin for luxetrendsetters.com. It lives in the left admin menu as **Luxe SEO**. Amazon AI lives here, not in Luxe Theme.
 
 Automatic heals:
 
@@ -33,6 +33,12 @@ Loopback skips stay **yellow**. They are not fake-green.
 It does **not** write `post_content`, change post status, rewrite Amazon URLs, create Rank Math redirect rows, copy Instagram video, invent Amazon ratings, or auto-hop product / category / tag URLs.
 
 == Changelog ==
+
+= 1.4.1 =
+* Fetch homepage before LiteSpeed purge so Cache-Control public can be seen
+* Probe /blog/ with GET, not HEAD (Hostinger loopback HEAD hides Location)
+* HSTS hidden on loopback stays yellow, not a fake red
+* Do not send Cache-Control: no-cache on the probe request
 
 = 1.4.0 =
 * Honest loopback: unverified live fetches stay yellow

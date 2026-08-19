@@ -61,7 +61,7 @@ expect( ! empty( $miss_tag['asin_ok'] ) && empty( $miss_tag['tag_ok'] ), 'missin
 expect( ! empty( $miss_tag['preserved'] ), 'audit does not rewrite the Amazon URL' );
 
 $php = (string) file_get_contents( LUXE_SCORE_REPAIR_DIR . 'luxe-score-repair.php' );
-expect( false !== strpos( $php, 'Version: 1.4.0' ), 'SEO plugin version is 1.4.0' );
+expect( false !== strpos( $php, 'Version: 1.4.1' ), 'SEO plugin version is 1.4.1' );
 expect( false !== strpos( $php, 'class-amazon.php' ), 'Amazon AI is required by the SEO plugin' );
 
 if ( $fail ) {

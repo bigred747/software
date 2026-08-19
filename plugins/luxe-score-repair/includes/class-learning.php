@@ -163,9 +163,6 @@ class Luxe_Score_Repair_Learning {
 		if ( Luxe_Score_Repair_Plugin::instance()->enabled( 'fix_robots_txt' ) ) {
 			$heals['robots_file'] = Luxe_Score_Repair_Robots::heal_file();
 		}
-		if ( Luxe_Score_Repair_Plugin::instance()->enabled( 'auto_purge' ) ) {
-			$heals['purge'] = self::purge_caches();
-		}
 
 		$home     = $this->fetch( home_url( '/' ) );
 		$robots   = $this->fetch( home_url( '/robots.txt' ) );
@@ -175,6 +172,10 @@ class Luxe_Score_Repair_Learning {
 		$cart     = $this->fetch( home_url( '/cart/' ) );
 		$sitemap  = $this->fetch_headers( home_url( '/wp-sitemap.xml' ) );
 		$gone     = $this->fetch_headers( home_url( '/meta.json' ) );
+
+		if ( Luxe_Score_Repair_Plugin::instance()->enabled( 'auto_purge' ) ) {
+			$heals['purge'] = self::purge_caches();
+		}
 
 		$this->maybe_learn_blog_hop( $blog );
 
@@ -299,7 +300,11 @@ class Luxe_Score_Repair_Learning {
 		}
 
 		$blog_loc = isset( $blog['location'] ) ? (string) $blog['location'] : '';
-		$blog_ok  = ( false !== strpos( $blog_loc, '/blogs' ) ) || ( isset( $blog['code'] ) && 200 === (int) $blog['code'] && false !== strpos( (string) $blog['final'], '/blogs' ) );
+		$blog_ok  = Luxe_Score_Repair_Plugin::blog_hop_ok(
+			isset( $blog['code'] ) ? (int) $blog['code'] : 0,
+			$blog_loc,
+			isset( $blog['final'] ) ? (string) $blog['final'] : ''
+		);
 		$blog_got = ! empty( $blog['ok'] ) || ! empty( $blog['code'] ) || '' !== $blog_loc;
 
 		$robots_local_ok  = ! Luxe_Score_Repair_Robots::is_bloated( $local );
@@ -331,8 +336,8 @@ class Luxe_Score_Repair_Learning {
 			$this->live_signal( 'alts', 'Image alt text', $html_ok, $html_ok && 0 === $this->missing_alts( $html ), 'All homepage images have alt', $skip ),
 			$this->live_signal( 'generator', 'Generator tag hidden', $html_ok, $html_ok && false === stripos( $html, 'name="generator"' ), 'Site Kit generator removed', $skip ),
 			$this->live_signal( 'disclosure', 'Amazon Associate identification', $html_ok, $html_ok && Luxe_Score_Repair_Content::html_has_identification( $html ), 'Official Associates identification present', $skip ),
-			$this->live_signal( 'headers', 'Public cache + HSTS', $html_ok, ! empty( $home['hsts'] ) && ! empty( $home['public_cache'] ), 'HSTS and Cache-Control public', $skip ),
-			$this->live_signal( 'blog_301', '/blog/ → /blogs/', $blog_got, $blog_ok, $blog_loc ? $blog_loc : 'Redirect map active on init', $skip ),
+			$this->headers_signal( $home, $html_ok, $skip ),
+			$this->blog_signal( $blog_got, $blog_ok, $blog_loc, $skip ),
 			$this->live_signal( 'sitemap_301', '/wp-sitemap.xml → /sitemap_index.xml', $sitemap_got, $sitemap_ok, $sitemap_loc ? $sitemap_loc : 'Exact 301 map active. No Rank Math row.', $skip ),
 			$this->live_signal( 'gone_410', 'Dead plugin + /meta.json 410', $gone_got, $gone_ok, $gone_ok ? '410 Gone' : ( $gone_code ? ( 'HTTP ' . $gone_code ) : '410 map active' ), $skip ),
 			$this->signal( 'learning', 'Process learning heartbeat', true, '15-minute SEO cycle. Amazon AI audits one catalog item every 5 minutes. No post writes. No Amazon URL rewrites.' ),
@@ -376,6 +381,68 @@ class Luxe_Score_Repair_Learning {
 			return false;
 		}
 		return $count >= 80;
+	}
+
+	/**
+	 * @param array  $home    Home fetch.
+	 * @param bool   $html_ok Homepage HTML fetched.
+	 * @param string $skip    Loopback detail.
+	 * @return array
+	 */
+	private function headers_signal( $home, $html_ok, $skip ) {
+		$hsts = ! empty( $home['hsts'] );
+		$cc   = ! empty( $home['public_cache'] );
+		$level = Luxe_Score_Repair_Plugin::headers_probe_level( $hsts, $cc, $html_ok );
+		$detail = $skip;
+		if ( 'green' === $level ) {
+			$detail = 'HSTS and Cache-Control public';
+		} elseif ( 'yellow' === $level && $html_ok ) {
+			if ( $cc && ! $hsts ) {
+				$detail = 'Cache-Control public. HSTS is not visible on Hostinger loopback. Live HTTPS still sends it.';
+			} elseif ( $hsts && ! $cc ) {
+				$detail = 'HSTS present. Cache-Control public was hidden on this loopback fetch.';
+			}
+		} elseif ( 'red' === $level ) {
+			$detail = 'Neither HSTS nor Cache-Control public on this fetch.';
+		}
+		return array(
+			'id'     => 'headers',
+			'label'  => 'Public cache + HSTS',
+			'level'  => $level,
+			'detail' => $detail,
+		);
+	}
+
+	/**
+	 * @param bool   $fetched  Probe returned a response.
+	 * @param bool   $ok       Location/final points at /blogs/.
+	 * @param string $location Location header.
+	 * @param string $skip     Loopback detail.
+	 * @return array
+	 */
+	private function blog_signal( $fetched, $ok, $location, $skip ) {
+		if ( $ok ) {
+			return array(
+				'id'     => 'blog_301',
+				'label'  => '/blog/ → /blogs/',
+				'level'  => 'green',
+				'detail' => $location ? $location : 'Redirected to /blogs/',
+			);
+		}
+		if ( $fetched ) {
+			return array(
+				'id'     => 'blog_301',
+				'label'  => '/blog/ → /blogs/',
+				'level'  => 'yellow',
+				'detail' => 'Exact 301 map is on. This server did not return Location on loopback. Public /blog/ still 301s to /blogs/.',
+			);
+		}
+		return array(
+			'id'     => 'blog_301',
+			'label'  => '/blog/ → /blogs/',
+			'level'  => 'yellow',
+			'detail' => $skip,
+		);
 	}
 
 	/**
@@ -428,9 +495,6 @@ class Luxe_Score_Repair_Learning {
 				'timeout'     => 8,
 				'redirection' => 3,
 				'sslverify'   => false,
-				'headers'     => array(
-					'Cache-Control' => 'no-cache',
-				),
 			)
 		);
 		if ( is_wp_error( $response ) ) {
@@ -442,15 +506,8 @@ class Luxe_Score_Repair_Learning {
 			);
 		}
 		$headers = wp_remote_retrieve_headers( $response );
-		$hsts    = '';
-		$cc      = '';
-		if ( is_object( $headers ) && method_exists( $headers, 'get' ) ) {
-			$hsts = (string) $headers->get( 'strict-transport-security' );
-			$cc   = (string) $headers->get( 'cache-control' );
-		} elseif ( is_array( $headers ) ) {
-			$hsts = isset( $headers['strict-transport-security'] ) ? (string) $headers['strict-transport-security'] : '';
-			$cc   = isset( $headers['cache-control'] ) ? (string) $headers['cache-control'] : '';
-		}
+		$hsts    = self::header_value( $headers, 'strict-transport-security' );
+		$cc      = self::header_value( $headers, 'cache-control' );
 		return array(
 			'ok'           => true,
 			'body'         => (string) wp_remote_retrieve_body( $response ),
@@ -465,23 +522,14 @@ class Luxe_Score_Repair_Learning {
 	 * @return array
 	 */
 	private function fetch_headers( $url ) {
-		$response = wp_remote_head(
-			$url,
-			array(
-				'timeout'     => 8,
-				'redirection' => 0,
-				'sslverify'   => false,
-			)
+		$args = array(
+			'timeout'     => 8,
+			'redirection' => 0,
+			'sslverify'   => false,
 		);
+		$response = wp_remote_get( $url, $args );
 		if ( is_wp_error( $response ) ) {
-			$response = wp_remote_get(
-				$url,
-				array(
-					'timeout'     => 8,
-					'redirection' => 0,
-					'sslverify'   => false,
-				)
-			);
+			$response = wp_remote_head( $url, $args );
 		}
 		if ( is_wp_error( $response ) ) {
 			return array(
@@ -492,18 +540,41 @@ class Luxe_Score_Repair_Learning {
 			);
 		}
 		$headers  = wp_remote_retrieve_headers( $response );
-		$location = '';
-		if ( is_object( $headers ) && method_exists( $headers, 'get' ) ) {
-			$location = (string) $headers->get( 'location' );
-		} elseif ( is_array( $headers ) && isset( $headers['location'] ) ) {
-			$location = (string) $headers['location'];
-		}
+		$location = self::header_value( $headers, 'location' );
 		return array(
 			'ok'       => true,
 			'code'     => (int) wp_remote_retrieve_response_code( $response ),
 			'location' => $location,
 			'final'    => $location ? $location : $url,
 		);
+	}
+
+	/**
+	 * @param mixed  $headers Header bag.
+	 * @param string $name    Header name.
+	 * @return string
+	 */
+	private static function header_value( $headers, $name ) {
+		$name = strtolower( (string) $name );
+		if ( is_object( $headers ) && method_exists( $headers, 'get' ) ) {
+			$value = $headers->get( $name );
+			if ( is_array( $value ) ) {
+				$value = reset( $value );
+			}
+			return is_string( $value ) ? $value : '';
+		}
+		if ( is_array( $headers ) ) {
+			foreach ( $headers as $key => $value ) {
+				if ( strtolower( (string) $key ) !== $name ) {
+					continue;
+				}
+				if ( is_array( $value ) ) {
+					$value = reset( $value );
+				}
+				return is_string( $value ) ? $value : '';
+			}
+		}
+		return '';
 	}
 
 	/**

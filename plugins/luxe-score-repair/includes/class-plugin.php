@@ -317,7 +317,7 @@ class Luxe_Score_Repair_Plugin {
 				$has_yellow = true;
 			}
 		}
-		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'alts', 'blog_301', 'copyright_lock', 'unique_copy' );
+		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'alts', 'copyright_lock', 'unique_copy' );
 		foreach ( $need as $id ) {
 			if ( isset( $map[ $id ] ) && 'red' === $map[ $id ] ) {
 				return 'repairing';
@@ -340,5 +340,47 @@ class Luxe_Score_Repair_Plugin {
 	 */
 	public static function unverified_detail() {
 		return 'Unverified: live fetch skipped (loopback). Repair is on. This row is not a live HTML pass.';
+	}
+
+	/**
+	 * Hostinger loopback often hides HSTS. Do not fake-fail a live HTTPS site.
+	 *
+	 * @param bool $hsts         HSTS header present.
+	 * @param bool $public_cache Cache-Control public present.
+	 * @param bool $html_ok      Homepage HTML fetched.
+	 * @return string green|yellow|red
+	 */
+	public static function headers_probe_level( $hsts, $public_cache, $html_ok ) {
+		if ( ! $html_ok ) {
+			return 'yellow';
+		}
+		if ( $hsts && $public_cache ) {
+			return 'green';
+		}
+		if ( $hsts || $public_cache ) {
+			return 'yellow';
+		}
+		return 'red';
+	}
+
+	/**
+	 * @param int    $code     HTTP code.
+	 * @param string $location Location header.
+	 * @param string $final    Final URL.
+	 * @return bool
+	 */
+	public static function blog_hop_ok( $code, $location, $final ) {
+		$location = (string) $location;
+		$final    = (string) $final;
+		if ( false !== strpos( $location, '/blogs' ) ) {
+			return true;
+		}
+		if ( in_array( (int) $code, array( 301, 302 ), true ) && false !== strpos( $final, '/blogs' ) ) {
+			return true;
+		}
+		if ( 200 === (int) $code && false !== strpos( $final, '/blogs' ) ) {
+			return true;
+		}
+		return false;
 	}
 }

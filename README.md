@@ -2,7 +2,7 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe SEO Score Repair 1.4.0 — THIS IS THE SEO PLUGIN + Amazon AI
+## 1. Luxe SEO Score Repair 1.4.1 — THIS IS THE SEO PLUGIN + Amazon AI
 
 Visible in WordPress as **Luxe SEO** (left admin menu). Plugin list name: **Luxe SEO Score Repair**. Amazon AI lives here, not in Luxe Theme.
 
@@ -12,17 +12,18 @@ Windows 11 / WordPress zip. Size **145KB**.
 
 [luxe-score-repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/seo-404-safe-0935/luxe-score-repair.zip)
 
-SHA-256 `29ff297560212e1a47d78fd786175e63f5d0921343c78a1a57d19945c19cd2c0`
+SHA-256 `9b7f6df95d9b73b25d8e99d230358cda7c3d25664a24659aaa12e93681f39a53`
 
 Also named [Luxe-SEO-Score-Repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/seo-404-safe-0935/Luxe-SEO-Score-Repair.zip)
 
 Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate.
 
-Then open the left menu **Luxe SEO**. Leave **Amazon AI** On. Click **Save repairs**, then **Run process learning now**.
+Then open the left menu **Luxe SEO**. Leave **Amazon AI** On. Click **Run process learning now** (Save repairs does not refresh the board).
 
 What it does:
 
 - Honest loopback: live HTML rows stay yellow when Hostinger blocks self-fetch
+- HSTS / `/blog/` probes no longer fake-red when Hostinger hides loopback headers
 - Official Amazon Associate identification on public pages
 - Amazon AI: one catalog item every 5 minutes (ASIN + tag=luxetrendse0f-20). Never rewrites URLs.
 - 301 `/wp-sitemap.xml` → `/sitemap_index.xml`. 410 for dead plugin files and `/meta.json`

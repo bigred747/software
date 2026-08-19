@@ -1,16 +1,15 @@
-# Luxe SEO Score Repair 1.4.0
+# Luxe SEO Score Repair 1.4.1
 
 This is the **SEO plugin** for https://luxetrendsetters.com/. WordPress admin menu: **Luxe SEO**. Amazon AI lives here, not in Luxe Theme.
 
 ## Install
 
 1. Download `luxe-score-repair.zip` (also named `Luxe-SEO-Score-Repair.zip`).
-2. Plugins → Add Plugin → Upload Plugin. Upload **over** 1.3.0 (same folder `luxe-score-repair`).
-3. Confirm Plugins shows **Luxe SEO Score Repair 1.4.0**.
+2. Plugins → Add Plugin → Upload Plugin. Upload **over** 1.4.0 (same folder `luxe-score-repair`).
+3. Confirm Plugins shows **Luxe SEO Score Repair 1.4.1**.
 4. Open the left menu **Luxe SEO**.
-5. Leave **Amazon AI** On. Optional: paste Creators API credentials.
-6. Click **Save repairs**, then **Run process learning now** and **Run 1 Amazon AI cycle**.
-7. Purge LiteSpeed if the homepage still shows the old disclosure.
+5. Leave **Amazon AI** On.
+6. Click **Run process learning now**. Do not expect Save repairs alone to refresh the board.
 
 Do **not** upload this zip over Mission Control, Stay Repair, Product Scout, or Luxe Theme Guard.
 
