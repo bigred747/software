@@ -2,36 +2,46 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe Blog Master Green Board 2.9.0 — KEEP 2.8.1
+## 1. Luxe Blog Master Command Center 2.9.0 — THE BLOG PLUGIN (~745KB)
 
-Process-health layer for **Luxe Blog Master Command Center v2.8.1**. New folder `luxe-blog-master-green`. Do **not** upload this zip over Blog Master 2.8.1, Reader-Love, Luxe SEO, Theme Guard, Finish, Mission Control, Stay Repair, Keyword Autopilot, Hard Rescue, or Product Scout.
+This is the full Command Center update for **v2.8.1**. Admin title stays **ADAPTIVE UNIQUENESS + AUTO DEPTH MASTER SCANNER**. Plugin Name is **Luxe Blog Master Command Center** so WordPress can Replace 2.8.1 when the folder slug matches.
 
-Windows 11 / WordPress zip. Size **145KB**.
+Windows 11 / WordPress zip. Size **745KB** (762,871 bytes). Do **not** upload the 145KB Green Board zip as this plugin.
 
 **Upload this file from Windows 11 into WordPress:**
 
-[luxe-blog-master-green.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/luxe-blog-master-green.zip)
+[luxe-blog-master-command-center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/luxe-blog-master-command-center.zip)
 
-SHA-256 `REPLACE_AFTER_PACK`
+SHA-256 `67d8d257b4d01b1ff58086945d1322e9e0595620a0ecfc80464299a924b8b7fa`
 
-Also named [Luxe-Blog-Master-Green.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/Luxe-Blog-Master-Green.zip)
+Also named [Luxe-Blog-Master-Command-Center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/Luxe-Blog-Master-Command-Center.zip)
 
-Plugins → Add Plugin → Upload Plugin → Install as a **new** plugin → Activate.
+Plugins → Add Plugin → Upload Plugin.
 
-Then open **Luxe Blog Green**. Leave every process On. Click **Run blog green learning now**.
+- If WordPress offers **Replace current with uploaded**, that is 2.8.1. Replace, then Activate.
+- If it installs as a **second** plugin, the old folder slug differed. Keep 2.8.1 until SCAN + BUILD on 2.9.0 is confirmed, then deactivate the old copy. Do not run two repair engines.
+- Do not upload this zip over Reader-Love, Luxe SEO, Theme Guard, Finish, Mission Control, Stay Repair, Keyword Autopilot, Hard Rescue, or Product Scout.
+
+Then open **Blog Master**. Click **SCAN + BUILD 95–100 MASTER LOCK**, then **RUN LEARNING SNAPSHOT NOW**.
 
 What it does:
 
-- Keeps all 25 original 2.8.1 button/hook processes
-- Live-verifies homepage, `/blogs/`, `/shop/`, master **#10833**, and a published watch guide
-- Keep Live 23 · Safe Draft 26 · Duplicate Hold 1 · Mismatch Hold 197 · Approval Ready 4 — nothing deleted, nothing published
+- All original buttons routed: SCAN + BUILD, 95–100 repair, Approval Ready, category FIX/VERIFY, re-link, autopilot, harden, daily draft, public scan, daily cycle
+- Draft-only unique rebuilds: ≥1800 words, uniqueness &lt;72%, one TOC, one disclosure, Rank Math description synced
+- Keep Live / Safe Draft / Duplicate Hold / Mismatch Hold / Approval Ready — nothing deleted, nothing published
+- Master **#10833** is read-only. Published bodies are never rewritten
 - Product #0 cannot fake-green to 95–100
+- Amazon tag lock `luxetrendse0f-20`. Stored URLs never rewritten. AJAX/cart never intercepted
 - Flatsome hamburger stays untouched (hiders OFF is a green process)
-- 15-minute 24/7 learning, LiteSpeed purge, zero frontend JS
+- Hard no-publish. Zero frontend JavaScript
 
-Live scan before this zip (2026-08-20): homepage, blogs, shop, master #10833, Watch Series 9, and Seiko product page all **100/100** public gates.
+Live scan before this zip (2026-08-20): homepage, `/blogs/`, `/shop/`, master #10833, and Watch Series 9 all returned **200**, one disclosure, no plugin frontend assets, hiders OFF.
 
-## 2. Luxe Affiliate Product Scout 5.6.8
+## 2. Luxe Blog Master Green Board 2.9.0 — NOT the blog plugin
+
+Thin 145KB process-health overlay. **Do not use this as the Blog Master replacement.** Upload the 745KB Command Center zip above.
+
+## 3. Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.
 
