@@ -1,4 +1,4 @@
-Luxe Blog Master Command Center v2.9.0
+Luxe Blog Master Command Center v2.9.1
 ======================================
 
 Upload luxe-blog-master-command-center.zip (~745KB). Plugin Name is

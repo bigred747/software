@@ -2,7 +2,7 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe Blog Master Command Center 2.9.0 — THE BLOG PLUGIN (~745KB)
+## 1. Luxe Blog Master Command Center 2.9.1 — THE BLOG PLUGIN (~745KB)
 
 This is the full Command Center update for **v2.8.1**. Admin title stays **ADAPTIVE UNIQUENESS + AUTO DEPTH MASTER SCANNER**. Plugin Name is **Luxe Blog Master Command Center** so WordPress can Replace 2.8.1 when the folder slug matches.
 
@@ -12,7 +12,7 @@ Windows 11 / WordPress zip. Size **745KB** (762,871 bytes). Do **not** upload th
 
 [luxe-blog-master-command-center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/luxe-blog-master-command-center.zip)
 
-SHA-256 `67d8d257b4d01b1ff58086945d1322e9e0595620a0ecfc80464299a924b8b7fa`
+SHA-256 `195dd66e5d19ad07eb684e6cc289c6db3c21fab3dad7783e00980abad3bd1458`
 
 Also named [Luxe-Blog-Master-Command-Center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/Luxe-Blog-Master-Command-Center.zip)
 

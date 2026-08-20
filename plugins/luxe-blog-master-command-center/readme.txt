@@ -4,7 +4,7 @@ Tags: blog, amazon, woocommerce, command-center
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 2.9.0
+Stable tag: 2.9.1
 License: GPLv2 or later
 
 Full Command Center 2.9.0. Scan, repair drafts, rescan, approval-ready. Keep every blog. Never publishes.
@@ -32,6 +32,10 @@ Full Command Center 2.9.0. Scan, repair drafts, rescan, approval-ready. Keep eve
 5. Open **Blog Master**. Click **SCAN + BUILD** then **RUN LEARNING SNAPSHOT NOW**.
 
 == Changelog ==
+
+= 2.9.1 =
+* Public scan counts visible Amazon Associate disclosure only. Head meta is not a second fail.
+* Published Keep Live rows show "live" instead of a fake 0 score.
 
 = 2.9.0 =
 * Full Command Center. All original buttons routed. Draft-only 95–100 rebuild. Master #10833 protected. Product #0 hold. Public hiders OFF scored green.

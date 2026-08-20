@@ -5,7 +5,7 @@
  */
 define( 'ABSPATH', '/tmp/' );
 define( 'LUXE_BMC_DIR', dirname( __DIR__ ) . '/' );
-define( 'LUXE_BMC_VERSION', '2.9.0' );
+define( 'LUXE_BMC_VERSION', '2.9.1' );
 define( 'LUXE_BMC_URL', 'https://example.test/bmc/' );
 define( 'LUXE_BMC_BASENAME', 'luxe-blog-master-command-center/luxe-blog-master-command-center.php' );
 define( 'MINUTE_IN_SECONDS', 60 );
@@ -114,7 +114,7 @@ function expect( $ok, $msg ) {
 
 $header = (string) file_get_contents( LUXE_BMC_DIR . 'luxe-blog-master-command-center.php' );
 expect( false !== strpos( $header, 'Plugin Name: Luxe Blog Master Command Center' ), 'header name is Command Center' );
-expect( false !== strpos( $header, 'Version: 2.9.0' ), 'header is 2.9.0' );
+expect( false !== strpos( $header, 'Version: 2.9.1' ), 'header is 2.9.1' );
 expect( false !== strpos( $header, 'Never publishes' ), 'header restates no-publish' );
 expect( 25 === count( Luxe_BMC_Plugin::keep_processes() ), '25 keep-processes preserved' );
 expect( 13 === count( Luxe_BMC_Plugin::action_buttons() ), '13 action buttons routed' );
@@ -151,6 +151,11 @@ expect( Luxe_BMC_Public::flatsome_menu_safe(), 'Flatsome hiders-off is green' );
 $scored = Luxe_BMC_Public::score_public( array( 'ok' => true, 'code' => 200, 'body' => $html ) );
 expect( ! empty( $scored['all'] ), 'fixture public gates all green' );
 expect( 100 === $scored['score'], 'fixture scores 100' );
+
+$html_meta = '<html><head><title>Premium Buyer Guides</title><meta name="viewport" content="width=device-width"><meta name="amazon-associate" content="As an Amazon Associate I earn from qualifying purchases." /></head><body><p>As an Amazon Associate I earn from qualifying purchases.</p><a href="https://www.amazon.com/dp/B0TEST/?tag=luxetrendse0f-20">View on Amazon</a> buyer guide review</body></html>';
+expect( 1 === Luxe_BMC_Public::disclosure_count( $html_meta ), 'head meta is not a second visible disclosure' );
+$scored_meta = Luxe_BMC_Public::score_public( array( 'ok' => true, 'code' => 200, 'body' => $html_meta ) );
+expect( 100 === $scored_meta['score'], 'meta duplicate does not drop public score' );
 
 $GLOBALS['luxe_posts'][9001] = 'Apple 2023 MacBook Pro 16-inch M2 Pro Space Black';
 $GLOBALS['luxe_posts'][9002] = 'Seiko Presage Cocktail Time Automatic Watch';

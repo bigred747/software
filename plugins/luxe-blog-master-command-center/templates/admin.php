@@ -158,7 +158,15 @@ if ( ! function_exists( 'luxe_bmc_action_form' ) ) {
 						<td><?php echo esc_html( (string) $row['title'] ); ?></td>
 						<td><?php echo esc_html( (string) $row['status'] ); ?></td>
 						<td><?php echo esc_html( (string) (int) $row['product'] ); ?></td>
-						<td><?php echo esc_html( (string) (int) $row['score'] ); ?></td>
+						<td>
+							<?php
+							if ( 'publish' === ( $row['status'] ?? '' ) && (int) $row['score'] < 1 ) {
+								echo 'live';
+							} else {
+								echo esc_html( (string) (int) $row['score'] );
+							}
+							?>
+						</td>
 						<td><?php echo esc_html( isset( $row['reason'] ) ? $row['reason'] : '' ); ?></td>
 					</tr>
 				<?php endforeach; ?>
@@ -213,7 +221,25 @@ if ( ! function_exists( 'luxe_bmc_action_form' ) ) {
 					<td><?php echo esc_html( $label ); ?></td>
 					<td><?php echo esc_html( isset( $row['status'] ) ? (string) $row['status'] : '—' ); ?></td>
 					<td><?php echo esc_html( isset( $row['title'] ) ? $row['title'] : ( isset( $row['h1'] ) ? $row['h1'] : '' ) ); ?></td>
-					<td><?php echo esc_html( isset( $scored['score'] ) ? $scored['score'] . '/100' : ( ! empty( $row['ok'] ) ? 'fetched' : 'not run' ) ); ?></td>
+					<td>
+						<?php
+						if ( isset( $scored['score'] ) ) {
+							$failed = array();
+							if ( ! empty( $scored['gates'] ) && is_array( $scored['gates'] ) ) {
+								foreach ( $scored['gates'] as $gate => $pass ) {
+									if ( ! $pass ) {
+										$failed[] = $gate;
+									}
+								}
+							}
+							echo esc_html( (string) (int) $scored['score'] . '/100' . ( $failed ? ' (' . implode( ', ', $failed ) . ')' : '' ) );
+						} elseif ( ! empty( $row['ok'] ) ) {
+							echo 'fetched';
+						} else {
+							echo 'not run';
+						}
+						?>
+					</td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

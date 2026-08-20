@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Luxe Blog Master Command Center
  * Plugin URI: https://luxetrendsetters.com/
- * Description: v2.9.0 Full-preservation automation. Scan, repair drafts, rescan, independent verification, APPROVAL READY. Keeps every blog. Protects master #10833. Never publishes. Never deletes. Never fake-greens Product #0. Never rewrites Amazon URLs. Never touches the Flatsome hamburger.
- * Version: 2.9.0
+ * Description: v2.9.1 Full-preservation automation. Scan, repair drafts, rescan, independent verification, APPROVAL READY. Keeps every blog. Protects master #10833. Never publishes. Never deletes. Never fake-greens Product #0. Never rewrites Amazon URLs. Never touches the Flatsome hamburger.
+ * Version: 2.9.1
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Richard Brummer
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LUXE_BMC_VERSION', '2.9.0' );
+define( 'LUXE_BMC_VERSION', '2.9.1' );
 define( 'LUXE_BMC_FILE', __FILE__ );
 define( 'LUXE_BMC_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LUXE_BMC_URL', plugin_dir_url( __FILE__ ) );

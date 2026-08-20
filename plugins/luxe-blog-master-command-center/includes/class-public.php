@@ -48,11 +48,16 @@ class Luxe_BMC_Public {
 	}
 
 	/**
+	 * Visible Amazon Associate count. Head/meta/script/style are not the public disclosure.
+	 *
 	 * @param string $html HTML.
 	 * @return int
 	 */
 	public static function disclosure_count( $html ) {
-		$body = preg_replace( '/<script\b[^>]*>.*?<\/script>/is', '', (string) $html );
+		$body = (string) $html;
+		$body = preg_replace( '/<head\b[^>]*>.*?<\/head>/is', '', $body );
+		$body = preg_replace( '/<meta\b[^>]*>/is', '', is_string( $body ) ? $body : '' );
+		$body = preg_replace( '/<script\b[^>]*>.*?<\/script>/is', '', is_string( $body ) ? $body : '' );
 		$body = preg_replace( '/<style\b[^>]*>.*?<\/style>/is', '', is_string( $body ) ? $body : '' );
 		if ( ! preg_match_all( '/Amazon Associate/i', is_string( $body ) ? $body : '', $m ) ) {
 			return 0;
