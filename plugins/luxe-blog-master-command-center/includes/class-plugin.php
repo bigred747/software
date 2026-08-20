@@ -149,6 +149,9 @@ class Luxe_BMC_Plugin {
 		} else {
 			update_option( self::OPTION, wp_parse_args( $settings, self::defaults() ), false );
 		}
+		if ( class_exists( 'Luxe_BMC_Companion' ) ) {
+			Luxe_BMC_Companion::arm();
+		}
 		Luxe_BMC_Learning::activate();
 	}
 

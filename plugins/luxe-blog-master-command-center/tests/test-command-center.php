@@ -5,7 +5,7 @@
  */
 define( 'ABSPATH', '/tmp/' );
 define( 'LUXE_BMC_DIR', dirname( __DIR__ ) . '/' );
-define( 'LUXE_BMC_VERSION', '2.9.2' );
+define( 'LUXE_BMC_VERSION', '2.9.3' );
 define( 'LUXE_BMC_URL', 'https://example.test/bmc/' );
 define( 'LUXE_BMC_BASENAME', 'luxe-blog-master-command-center/luxe-blog-master-command-center.php' );
 define( 'MINUTE_IN_SECONDS', 60 );
@@ -93,6 +93,19 @@ if ( ! function_exists( 'get_the_terms' ) ) {
 	}
 }
 
+if ( ! function_exists( 'add_filter' ) ) {
+	function add_filter( $tag, $fn, $priority = 10, $accepted = 1 ) {
+		unset( $tag, $fn, $priority, $accepted );
+		return true;
+	}
+}
+if ( ! function_exists( 'add_action' ) ) {
+	function add_action( $tag, $fn, $priority = 10, $accepted = 1 ) {
+		unset( $tag, $fn, $priority, $accepted );
+		return true;
+	}
+}
+
 require LUXE_BMC_DIR . 'includes/class-plugin.php';
 require LUXE_BMC_DIR . 'includes/class-safety.php';
 require LUXE_BMC_DIR . 'includes/class-amazon.php';
@@ -100,6 +113,8 @@ require LUXE_BMC_DIR . 'includes/class-score.php';
 require LUXE_BMC_DIR . 'includes/class-public.php';
 require LUXE_BMC_DIR . 'includes/class-blueprint.php';
 require LUXE_BMC_DIR . 'includes/class-admin.php';
+require LUXE_BMC_DIR . 'includes/class-companion.php';
+Luxe_BMC_Companion::arm();
 
 $fail = 0;
 function expect( $ok, $msg ) {
@@ -114,11 +129,22 @@ function expect( $ok, $msg ) {
 
 $header = (string) file_get_contents( LUXE_BMC_DIR . 'luxe-blog-master-command-center.php' );
 expect( false !== strpos( $header, 'Plugin Name: Luxe Blog Master Command Center' ), 'header name is Command Center' );
-expect( false !== strpos( $header, 'Version: 2.9.2' ), 'header is 2.9.2' );
+expect( false !== strpos( $header, 'Version: 2.9.3' ), 'header is 2.9.3' );
 expect( false !== strpos( $header, 'Never publishes' ), 'header restates no-publish' );
+expect( false !== strpos( $header, 'Complete Blog Master approval companion' ), 'header names Mission Control companion' );
+expect( false !== strpos( $header, 'Hard no-publish evidence armed' ), 'header names hard no-publish evidence' );
 expect( 25 === count( Luxe_BMC_Plugin::keep_processes() ), '25 keep-processes preserved' );
 expect( 13 === count( Luxe_BMC_Plugin::action_buttons() ), '13 action buttons routed' );
 expect( 13 === count( Luxe_BMC_Admin::routed_actions() ), 'dispatcher lists 13 actions' );
+expect( class_exists( 'Luxe_Blog_Master_Command_Center' ), '2.8.1 class name exists for Mission Control' );
+expect( function_exists( 'luxe_blog_master_hard_no_publish' ) && luxe_blog_master_hard_no_publish(), 'hard no-publish function armed' );
+expect( function_exists( 'luxe_blog_master_approval_companion' ) && luxe_blog_master_approval_companion(), 'approval companion function armed' );
+$handshake = Luxe_BMC_Companion::evidence();
+expect( ! empty( $handshake['complete_build'] ) && ! empty( $handshake['hard_no_publish'] ), 'companion evidence pack is complete' );
+expect( ! empty( $handshake['master_locked'] ), 'master #10833 locked in companion evidence' );
+expect( 46 === count( Luxe_BMC_Companion::stack() ), '46-plugin stack map present' );
+$stub = (string) file_get_contents( LUXE_BMC_DIR . 'luxe-blog-master.php' );
+expect( false === strpos( $stub, 'Plugin Name:' ), 'old bootstrap filename is not a second plugin' );
 expect( 10833 === Luxe_BMC_Plugin::MASTER, 'master ID 10833 locked' );
 expect( 10833 === Luxe_BMC_Plugin::MASTER_ID, 'MASTER_ID alias locked' );
 expect( 1800 === Luxe_BMC_Plugin::MIN_WORDS, 'min words 1800' );
@@ -185,6 +211,7 @@ expect( $overlap < 72, 'two product bodies overlap under 72% (' . $overlap . ')'
 $php_files = glob( LUXE_BMC_DIR . 'includes/*.php' );
 $php_files[] = LUXE_BMC_DIR . 'luxe-blog-master-command-center.php';
 $php_files[] = LUXE_BMC_DIR . 'uninstall.php';
+$php_files[] = LUXE_BMC_DIR . 'luxe-blog-master.php';
 foreach ( $php_files as $file ) {
 	$src = (string) file_get_contents( $file );
 	expect( false === strpos( $src, 'wp_delete_post' ), basename( $file ) . ' does not delete posts' );

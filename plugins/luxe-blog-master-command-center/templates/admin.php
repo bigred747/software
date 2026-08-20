@@ -14,6 +14,8 @@ $dups    = isset( $audit['dup_count'] ) ? (int) $audit['dup_count'] : 0;
 $holds   = isset( $audit['mismatch_count'] ) ? (int) $audit['mismatch_count'] : 0;
 $ready   = isset( $audit['ready_count'] ) ? (int) $audit['ready_count'] : 0;
 $when    = ! empty( $settings['last_learning'] ) ? $settings['last_learning'] : 'Not run yet';
+$companion = isset( $companion ) && is_array( $companion ) ? $companion : array();
+$stack     = isset( $stack ) && is_array( $stack ) ? $stack : array();
 
 if ( ! function_exists( 'luxe_bmc_action_form' ) ) {
 	/**
@@ -240,6 +242,40 @@ if ( ! function_exists( 'luxe_bmc_action_form' ) ) {
 						}
 						?>
 					</td>
+				</tr>
+			<?php endforeach; ?>
+			</tbody>
+		</table>
+	</div>
+
+	<div class="luxe-bmc-card">
+		<h2>Mission Control companion handshake</h2>
+		<p class="luxe-bmc-note">Richard Brummer SEO Mission Control 1.8.2 is the evidence dashboard. It does not write blogs. The three reds (“complete Blog Master approval companion was not detected” / hard no-publish incomplete) were a detection miss after 2.9.2 replaced 2.8.1 class names. 2.9.3 arms the complete-build handshake on load. After this zip: Plugins → Replace, then in Mission Control click the complete dashboard refresh. Do not upload this zip over Mission Control or Stay Repair.</p>
+		<table class="widefat striped luxe-bmc-table">
+			<tbody>
+				<tr><th>Complete build</th><td><?php echo ! empty( $companion['complete_build'] ) ? 'ARMED' : 'missing'; ?></td></tr>
+				<tr><th>Approval companion</th><td><?php echo ! empty( $companion['approval_companion'] ) ? 'ARMED' : 'missing'; ?></td></tr>
+				<tr><th>Hard no-publish</th><td><?php echo ! empty( $companion['hard_no_publish'] ) ? 'ARMED' : 'missing'; ?></td></tr>
+				<tr><th>Master #10833 locked</th><td><?php echo ! empty( $companion['master_locked'] ) ? 'read-only' : 'check'; ?></td></tr>
+				<tr><th>Published from this plugin</th><td>0</td></tr>
+			</tbody>
+		</table>
+	</div>
+
+	<div class="luxe-bmc-card">
+		<h2>46-plugin stack harmony</h2>
+		<p class="luxe-bmc-note">Live scan of luxetrendsetters.com: all 23 Keep Live review URLs returned 200. Command Center injects zero frontend JS/CSS. Flatsome hamburger markup stays present. Do not deactivate these plugins to “fix” overlap — Mission Control already marks those rows MANUAL, not conflict. Command Center never deactivates another plugin.</p>
+		<table class="widefat striped luxe-bmc-table">
+			<thead>
+				<tr><th>Plugin</th><th>Role</th><th>Owner</th><th>Coexistence</th></tr>
+			</thead>
+			<tbody>
+			<?php foreach ( $stack as $row ) : ?>
+				<tr>
+					<td><?php echo esc_html( $row['name'] ); ?></td>
+					<td><?php echo esc_html( $row['role'] ); ?></td>
+					<td><?php echo esc_html( $row['owner'] ); ?></td>
+					<td><?php echo esc_html( $row['note'] ); ?></td>
 				</tr>
 			<?php endforeach; ?>
 			</tbody>

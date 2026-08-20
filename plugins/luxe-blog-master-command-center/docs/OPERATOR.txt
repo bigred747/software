@@ -1,4 +1,4 @@
-Luxe Blog Master Command Center v2.9.1
+Luxe Blog Master Command Center v2.9.3
 ======================================
 
 Upload luxe-blog-master-command-center.zip (~745KB). Plugin Name is
@@ -32,6 +32,10 @@ no generic Q1-Q5 FAQ, no copied Amazon listing text.
 
 Keep-set (leave activated)
 --------------------------
-Mission Control, Keyword Autopilot, Hard Rescue, Reader-Love, Stay
-Repair, Luxe SEO, Product Scout, Theme Guard, Public Finish, and this
-Command Center.
+Mission Control 1.8.2, Stay Repair 1.9.1, Keyword Autopilot, Hard Rescue,
+Reader-Love, Luxe SEO, Product Scout, Theme Guard, Public Finish, Mirror
+Master (hamburger), Amazon Bridge, and this Command Center.
+
+After 2.9.3, open Mission Control and run the complete dashboard refresh
+so the three companion reds can see the hard no-publish handshake.
+Do not upload this zip over Mission Control or Stay Repair.

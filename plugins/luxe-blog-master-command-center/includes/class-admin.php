@@ -114,6 +114,8 @@ class Luxe_BMC_Admin {
 		}
 		$categories = Luxe_BMC_Audit::categories();
 		$public     = isset( $settings['public_scan'] ) && is_array( $settings['public_scan'] ) ? $settings['public_scan'] : array();
+		$companion  = class_exists( 'Luxe_BMC_Companion' ) ? Luxe_BMC_Companion::evidence() : array();
+		$stack      = class_exists( 'Luxe_BMC_Companion' ) ? Luxe_BMC_Companion::stack() : array();
 		include LUXE_BMC_DIR . 'templates/admin.php';
 	}
 

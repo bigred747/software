@@ -2,17 +2,17 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe Blog Master Command Center 2.9.1 — THE BLOG PLUGIN (~745KB)
+## 1. Luxe Blog Master Command Center 2.9.3 — THE BLOG PLUGIN (~745KB)
 
-This is the full Command Center update for **v2.8.1**. Admin title stays **ADAPTIVE UNIQUENESS + AUTO DEPTH MASTER SCANNER**. Plugin Name is **Luxe Blog Master Command Center** so WordPress can Replace 2.8.1 when the folder slug matches.
+This is the full Command Center update for **v2.8.1 / 2.9.2**. Admin title stays **ADAPTIVE UNIQUENESS + AUTO DEPTH MASTER SCANNER**. Plugin Name is **Luxe Blog Master Command Center** so WordPress can Replace when the folder slug matches.
 
-Windows 11 / WordPress zip. Size **745KB** (762,871 bytes). Do **not** upload the 145KB Green Board zip as this plugin.
+Windows 11 / WordPress zip. Size **745KB**. Do **not** upload the 145KB Green Board zip as this plugin.
 
 **Upload this file from Windows 11 into WordPress:**
 
 [luxe-blog-master-command-center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/luxe-blog-master-command-center.zip)
 
-SHA-256 `195dd66e5d19ad07eb684e6cc289c6db3c21fab3dad7783e00980abad3bd1458`
+SHA-256 `75ab1c45fb93de2f705ebec2ed8359f508f81241dae111702d4608fb0c6f7d3a`
 
 Also named [Luxe-Blog-Master-Command-Center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/Luxe-Blog-Master-Command-Center.zip)
 
@@ -34,8 +34,9 @@ What it does:
 - Amazon tag lock `luxetrendse0f-20`. Stored URLs never rewritten. AJAX/cart never intercepted
 - Flatsome hamburger stays untouched (hiders OFF is a green process)
 - Hard no-publish. Zero frontend JavaScript
+- Mission Control 1.8.2 companion handshake (complete Blog Master approval companion + hard no-publish evidence)
 
-Live scan before this zip (2026-08-20): homepage, `/blogs/`, `/shop/`, master #10833, and Watch Series 9 all returned **200**, one disclosure, no plugin frontend assets, hiders OFF.
+Live scan 2026-08-20: homepage, `/blogs/`, `/shop/`, master #10833, Watch Series 9, and all **23** sitemap review-2026 blogs returned **200**. No Command Center frontend assets. Flatsome hamburger markup present. Official Associate sentence is in header + article (counted as one disclosure).
 
 ## 2. Luxe Blog Master Green Board 2.9.0 — NOT the blog plugin
 
