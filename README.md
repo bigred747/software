@@ -2,7 +2,36 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Affiliate Product Scout 5.6.8
+## 1. Luxe Blog Master Green Board 2.9.0 — KEEP 2.8.1
+
+Process-health layer for **Luxe Blog Master Command Center v2.8.1**. New folder `luxe-blog-master-green`. Do **not** upload this zip over Blog Master 2.8.1, Reader-Love, Luxe SEO, Theme Guard, Finish, Mission Control, Stay Repair, Keyword Autopilot, Hard Rescue, or Product Scout.
+
+Windows 11 / WordPress zip. Size **145KB**.
+
+**Upload this file from Windows 11 into WordPress:**
+
+[luxe-blog-master-green.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/luxe-blog-master-green.zip)
+
+SHA-256 `REPLACE_AFTER_PACK`
+
+Also named [Luxe-Blog-Master-Green.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/Luxe-Blog-Master-Green.zip)
+
+Plugins → Add Plugin → Upload Plugin → Install as a **new** plugin → Activate.
+
+Then open **Luxe Blog Green**. Leave every process On. Click **Run blog green learning now**.
+
+What it does:
+
+- Keeps all 25 original 2.8.1 button/hook processes
+- Live-verifies homepage, `/blogs/`, `/shop/`, master **#10833**, and a published watch guide
+- Keep Live 23 · Safe Draft 26 · Duplicate Hold 1 · Mismatch Hold 197 · Approval Ready 4 — nothing deleted, nothing published
+- Product #0 cannot fake-green to 95–100
+- Flatsome hamburger stays untouched (hiders OFF is a green process)
+- 15-minute 24/7 learning, LiteSpeed purge, zero frontend JS
+
+Live scan before this zip (2026-08-20): homepage, blogs, shop, master #10833, Watch Series 9, and Seiko product page all **100/100** public gates.
+
+## 2. Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.
 
