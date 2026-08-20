@@ -4,7 +4,7 @@ Tags: blog, amazon, woocommerce, command-center
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 2.9.1
+Stable tag: 2.9.2
 License: GPLv2 or later
 
 Full Command Center 2.9.0. Scan, repair drafts, rescan, approval-ready. Keep every blog. Never publishes.
@@ -32,6 +32,9 @@ Full Command Center 2.9.0. Scan, repair drafts, rescan, approval-ready. Keep eve
 5. Open **Blog Master**. Click **SCAN + BUILD** then **RUN LEARNING SNAPSHOT NOW**.
 
 == Changelog ==
+
+= 2.9.2 =
+* Public scan: the official Associate sentence in header + article is one disclosure, not a 91 fail.
 
 = 2.9.1 =
 * Public scan counts visible Amazon Associate disclosure only. Head meta is not a second fail.

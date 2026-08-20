@@ -49,6 +49,7 @@ class Luxe_BMC_Public {
 
 	/**
 	 * Visible Amazon Associate count. Head/meta/script/style are not the public disclosure.
+	 * The official sentence repeated in header + article counts as one disclosure, not a fail.
 	 *
 	 * @param string $html HTML.
 	 * @return int
@@ -59,10 +60,21 @@ class Luxe_BMC_Public {
 		$body = preg_replace( '/<meta\b[^>]*>/is', '', is_string( $body ) ? $body : '' );
 		$body = preg_replace( '/<script\b[^>]*>.*?<\/script>/is', '', is_string( $body ) ? $body : '' );
 		$body = preg_replace( '/<style\b[^>]*>.*?<\/style>/is', '', is_string( $body ) ? $body : '' );
-		if ( ! preg_match_all( '/Amazon Associate/i', is_string( $body ) ? $body : '', $m ) ) {
+		$body = preg_replace( '/<noscript\b[^>]*>.*?<\/noscript>/is', '', is_string( $body ) ? $body : '' );
+		$plain = html_entity_decode( wp_strip_all_tags( is_string( $body ) ? $body : '' ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		$plain = preg_replace( '/\s+/', ' ', $plain );
+		if ( ! is_string( $plain ) || '' === $plain ) {
 			return 0;
 		}
-		return count( $m[0] );
+		if ( ! preg_match_all( '/Amazon Associate/i', $plain, $m ) ) {
+			return 0;
+		}
+		$total = count( $m[0] );
+		$official = preg_match_all( '/As an Amazon Associate I earn from qualifying purchases/i', $plain );
+		if ( $total <= 2 && (int) $official === $total ) {
+			return 1;
+		}
+		return $total;
 	}
 
 	/**
