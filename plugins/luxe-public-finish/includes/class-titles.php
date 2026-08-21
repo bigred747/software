@@ -198,7 +198,7 @@ class Luxe_Public_Finish_Titles {
 			}
 		}
 
-		return self::word_clip( $stripped, self::MAX_CHARS );
+		return self::finish_clip( self::word_clip( $stripped, self::MAX_CHARS ) );
 	}
 
 	/**
@@ -214,6 +214,12 @@ class Luxe_Public_Finish_Titles {
 			return true;
 		}
 		if ( preg_match( '/Review\s*&\s*Buyer\s*Che\w*\s*$/i', $title ) ) {
+			return true;
+		}
+		if ( preg_match( '/Review 2026:\s*Best Buyer\s*$/i', $title ) ) {
+			return true;
+		}
+		if ( preg_match( '/Review 2026:\s*Best\s*$/i', $title ) ) {
 			return true;
 		}
 		if ( preg_match( '/\s[A-Z][a-z]{0,2}$/', $title ) && strlen( $title ) >= 48 ) {
@@ -263,14 +269,28 @@ class Luxe_Public_Finish_Titles {
 		$text = self::plain( $text );
 		$max  = (int) $max;
 		if ( $max < 24 || strlen( $text ) <= $max ) {
-			return $text;
+			return self::finish_clip( $text );
 		}
 		$cut = substr( $text, 0, $max );
 		$sp  = strrpos( $cut, ' ' );
 		if ( false !== $sp && $sp > 24 ) {
 			$cut = substr( $cut, 0, $sp );
 		}
-		return rtrim( $cut, " |,;:-" );
+		return self::finish_clip( rtrim( $cut, " |,;:-" ) );
+	}
+
+	/**
+	 * Do not leave a 70-char cut on “Best Buyer” / “Best”. Snap to Review 2026.
+	 *
+	 * @param string $cut Clipped title.
+	 * @return string
+	 */
+	public static function finish_clip( $cut ) {
+		$cut = self::plain( $cut );
+		if ( preg_match( '/^(.*\bReview 2026):?\s*Best( Buyer)?$/i', $cut, $m ) ) {
+			return rtrim( $m[1] );
+		}
+		return $cut;
 	}
 
 	/**
@@ -306,7 +326,7 @@ class Luxe_Public_Finish_Titles {
 	}
 
 	/**
-	 * Keep the first Amazon Associate identification. Drop later variants.
+	 * Keep official Associate sentences (header + article). Drop unofficial extras.
 	 *
 	 * @param string $html HTML.
 	 * @return string
@@ -317,26 +337,27 @@ class Luxe_Public_Finish_Titles {
 		}
 		$parked = self::park_blocks( $html );
 		$html   = $parked['html'];
-		$kept   = 0;
 		$html   = preg_replace_callback(
 			'/<(p|div|span|small|em|section)(\b[^>]*)>([^<]{0,400}Amazon Associate[^<]{0,400})<\/\1>/i',
-			function ( $m ) use ( &$kept ) {
+			function ( $m ) {
 				$inner = $m[3];
+				if ( false !== stripos( $inner, self::OFFICIAL_ID ) ) {
+					return $m[0];
+				}
 				if ( ! preg_match( '/Amazon Associate/i', $inner ) ) {
 					return $m[0];
 				}
-				$kept++;
-				if ( 1 === $kept ) {
-					if ( false !== stripos( $inner, self::OFFICIAL_ID ) ) {
-						return $m[0];
-					}
-					$class = $m[2];
-					if ( false === stripos( $class, 'class=' ) ) {
-						$class .= ' class="luxe-public-finish-disclosure"';
-					}
-					return '<' . $m[1] . $class . '>' . esc_html( self::OFFICIAL_ID ) . '</' . $m[1] . '>';
-				}
 				return '';
+			},
+			$html
+		);
+		if ( ! is_string( $html ) ) {
+			$html = $parked['html'];
+		}
+		$html = preg_replace_callback(
+			'/As an Amazon Associate[^.]*\./i',
+			function ( $m ) {
+				return self::is_official_sentence( $m[0] ) ? $m[0] : '';
 			},
 			$html
 		);
@@ -347,17 +368,77 @@ class Luxe_Public_Finish_Titles {
 	}
 
 	/**
-	 * Count visible Amazon Associate identifications (scripts parked).
+	 * Official header + article sentences count as one identification.
+	 * Unofficial extras still add to the count.
 	 *
 	 * @param string $html HTML.
 	 * @return int
 	 */
 	public static function disclosure_count( $html ) {
-		$parked = self::park_blocks( is_string( $html ) ? $html : '' );
-		if ( ! preg_match_all( '/Amazon Associate/i', $parked['html'], $m ) ) {
+		$parked   = self::park_blocks( is_string( $html ) ? $html : '' );
+		$text     = $parked['html'];
+		$official = (int) preg_match_all( '/As an Amazon Associate I earn from qualifying purchases/i', $text );
+		$any      = (int) preg_match_all( '/Amazon Associate/i', $text );
+		$extra    = max( 0, $any - $official );
+		if ( $official < 1 && $any < 1 ) {
 			return 0;
 		}
-		return count( $m[0] );
+		if ( $official > 0 ) {
+			return 1 + $extra;
+		}
+		return $any;
+	}
+
+	/**
+	 * @param string $sentence Sentence.
+	 * @return bool
+	 */
+	public static function is_official_sentence( $sentence ) {
+		$plain = rtrim( self::plain( $sentence ), '.' ) . '.';
+		return 0 === strcasecmp( $plain, self::OFFICIAL_ID );
+	}
+
+	/**
+	 * Replace the document title and keep og/twitter titles in lockstep.
+	 *
+	 * @param string $html  HTML.
+	 * @param string $fixed Polished title.
+	 * @return string
+	 */
+	public static function replace_document_title( $html, $fixed ) {
+		if ( ! is_string( $html ) || '' === $fixed ) {
+			return $html;
+		}
+		if ( preg_match( '/<title[^>]*>.*?<\/title>/is', $html ) ) {
+			$replaced = preg_replace( '/<title[^>]*>.*?<\/title>/is', '<title>' . esc_html( $fixed ) . '</title>', $html, 1 );
+			if ( is_string( $replaced ) ) {
+				$html = $replaced;
+			}
+		}
+		$html = self::upsert_meta( $html, 'property', 'og:title', $fixed );
+		$html = self::upsert_meta( $html, 'name', 'twitter:title', $fixed );
+		return $html;
+	}
+
+	/**
+	 * @param string $html    HTML.
+	 * @param string $attr    name or property.
+	 * @param string $key     Key.
+	 * @param string $content Content.
+	 * @return string
+	 */
+	public static function upsert_meta( $html, $attr, $key, $content ) {
+		$tag = '<meta ' . $attr . '="' . esc_attr( $key ) . '" content="' . esc_attr( $content ) . '" />';
+		$re  = '/<meta[^>]+' . preg_quote( $attr, '/' ) . '=["\']' . preg_quote( $key, '/' ) . '["\'][^>]*>/i';
+		if ( preg_match( $re, $html ) ) {
+			$replaced = preg_replace( $re, $tag, $html, 1 );
+			return is_string( $replaced ) ? $replaced : $html;
+		}
+		if ( preg_match( '/<\/head>/i', $html ) ) {
+			$replaced = preg_replace( '/<\/head>/i', $tag . "\n</head>", $html, 1 );
+			return is_string( $replaced ) ? $replaced : $html;
+		}
+		return $html;
 	}
 
 	/**

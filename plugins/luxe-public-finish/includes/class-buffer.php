@@ -109,14 +109,11 @@ class Luxe_Public_Finish_Buffer {
 			}
 		}
 		$fixed = Luxe_Public_Finish_Titles::polish( $current, $preferred );
-		if ( $fixed && $fixed !== $current ) {
-			$html = preg_replace( '/<title[^>]*>.*?<\/title>/is', '<title>' . esc_html( $fixed ) . '</title>', $html, 1 );
-			$html = $this->upsert_meta( $html, 'property', 'og:title', $fixed );
-			$html = $this->upsert_meta( $html, 'name', 'twitter:title', $fixed );
-		} elseif ( $current && Luxe_Public_Finish_Titles::is_truncated( $current ) && $fixed ) {
-			$html = preg_replace( '/<title[^>]*>.*?<\/title>/is', '<title>' . esc_html( $fixed ) . '</title>', $html, 1 );
-			$html = $this->upsert_meta( $html, 'property', 'og:title', $fixed );
-			$html = $this->upsert_meta( $html, 'name', 'twitter:title', $fixed );
+		if ( ! $fixed ) {
+			$fixed = $current;
+		}
+		if ( $fixed ) {
+			$html = Luxe_Public_Finish_Titles::replace_document_title( $html, $fixed );
 		}
 		return $html;
 	}
@@ -130,22 +127,5 @@ class Luxe_Public_Finish_Buffer {
 			return Luxe_Public_Finish_Titles::plain( $m[1] );
 		}
 		return '';
-	}
-
-	/**
-	 * @param string $html    HTML.
-	 * @param string $attr    name or property.
-	 * @param string $key     Key.
-	 * @param string $content Content.
-	 * @return string
-	 */
-	private function upsert_meta( $html, $attr, $key, $content ) {
-		$esc = esc_attr( $content );
-		$tag = '<meta ' . $attr . '="' . esc_attr( $key ) . '" content="' . $esc . '" />';
-		$re  = '/<meta[^>]+' . preg_quote( $attr, '/' ) . '=["\']' . preg_quote( $key, '/' ) . '["\'][^>]*>/i';
-		if ( preg_match( $re, $html ) ) {
-			return preg_replace( $re, $tag, $html, 1 );
-		}
-		return $html;
 	}
 }

@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 $checks = array(
 	'polish_titles'    => array(
 		'label' => 'Complete document and Open Graph titles',
-		'help'  => 'Fixes clipped tabs such as “| Pr” and “Review & Buyer Che”. Caps at 70 characters on a word. Never writes post_title.',
+		'help'  => 'Fixes clipped tabs such as “| Pr”, “Review & Buyer Che”, and “Review 2026: Best Buyer”. Always syncs og:title to the tab title. Caps at 70 characters on a word. Never writes post_title.',
 	),
 	'unique_listings'  => array(
 		'label' => 'Unique product listing labels',
@@ -14,7 +14,7 @@ $checks = array(
 	),
 	'disclosure_once'  => array(
 		'label' => 'One Amazon Associate identification',
-		'help'  => 'Keeps the official phrase once. Extra “we earn from qualifying purchases” blocks are removed from the public HTML only.',
+		'help'  => 'Official header + article sentences count as one. Extra “we earn from qualifying purchases” blocks are removed from the public HTML only.',
 	),
 	'schema_org_once'  => array(
 		'label' => 'One Organization JSON-LD graph',
@@ -72,7 +72,7 @@ $warn     = ( $yellow > 0 || ( isset( $last['red'] ) && (int) $last['red'] > 0 )
 		<div class="lpf-card">
 			<h2><?php esc_html_e( 'What this plugin fixes', 'luxe-public-finish' ); ?></h2>
 			<ul>
-				<li><?php esc_html_e( 'Clipped browser tabs: “Seiko … | Pr”, “MacBook … Review & Buyer Che”.', 'luxe-public-finish' ); ?></li>
+				<li><?php esc_html_e( 'Clipped browser tabs: “Seiko … | Pr”, “MacBook … Review & Buyer Che”, “Review 2026: Best Buyer”.', 'luxe-public-finish' ); ?></li>
 				<li><?php esc_html_e( 'Duplicate related-product labels — second card gets SKU, not a copied title.', 'luxe-public-finish' ); ?></li>
 				<li><?php esc_html_e( 'Stacked Amazon Associate sentences and duplicate Organization JSON-LD.', 'luxe-public-finish' ); ?></li>
 			</ul>

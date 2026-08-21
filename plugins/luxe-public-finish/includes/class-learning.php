@@ -271,7 +271,7 @@ class Luxe_Public_Finish_Learning {
 			$bad[] = 'product';
 		}
 		if ( empty( $bad ) ) {
-			return $this->signal( 'title_complete', 'Document titles complete', 'green', 'No clipped tab titles (| Pr, Buyer Che). Sample: ' . $item_title );
+			return $this->signal( 'title_complete', 'Document titles complete', 'green', 'No clipped tab titles (| Pr, Buyer Che, Review 2026: Best Buyer). Sample: ' . $item_title );
 		}
 		return $this->signal( 'title_complete', 'Document titles complete', 'red', 'Still truncated on ' . implode( ', ', $bad ) . '. Purge LiteSpeed after upload.' );
 	}
@@ -282,9 +282,11 @@ class Luxe_Public_Finish_Learning {
 	 * @return array
 	 */
 	private function level_og( $home, $item ) {
-		$og = $this->meta_prop( $item, 'og:title' );
+		$html = $item ? $item : $home;
+		$og   = $this->meta_prop( $html, 'og:title' );
 		if ( '' === $og ) {
-			$og = $this->meta_prop( $home, 'og:title' );
+			$html = $home;
+			$og   = $this->meta_prop( $home, 'og:title' );
 		}
 		if ( '' === $og ) {
 			return $this->signal( 'og_title', 'Open Graph title', 'yellow', 'og:title was not visible on loopback.' );
@@ -292,7 +294,11 @@ class Luxe_Public_Finish_Learning {
 		if ( Luxe_Public_Finish_Titles::is_truncated( $og ) ) {
 			return $this->signal( 'og_title', 'Open Graph title', 'red', 'og:title is still clipped: ' . $og );
 		}
-		return $this->signal( 'og_title', 'Open Graph title', 'green', 'og:title is a complete phrase.' );
+		$tab = Luxe_Public_Finish_Titles::html_title( $html );
+		if ( $tab && strcasecmp( $og, $tab ) !== 0 ) {
+			return $this->signal( 'og_title', 'Open Graph title', 'red', 'og:title does not match the tab title. Purge LiteSpeed after upload.' );
+		}
+		return $this->signal( 'og_title', 'Open Graph title', 'green', 'og:title matches the document title.' );
 	}
 
 	/**
@@ -337,9 +343,9 @@ class Luxe_Public_Finish_Learning {
 			return $this->signal( 'disclosure_once', 'Amazon identification once', 'yellow', 'No visible Amazon Associate sentence on loopback. Luxe SEO still prints the official phrase.' );
 		}
 		if ( $n > 1 ) {
-			return $this->signal( 'disclosure_once', 'Amazon identification once', 'red', $n . ' visible Amazon Associate sentences remain. Purge cache after upload.' );
+			return $this->signal( 'disclosure_once', 'Amazon identification once', 'red', $n . ' Amazon Associate sentences remain after counting official header+article as one. Purge cache after upload.' );
 		}
-		return $this->signal( 'disclosure_once', 'Amazon identification once', 'green', 'Exactly one visible Amazon Associate identification.' );
+		return $this->signal( 'disclosure_once', 'Amazon identification once', 'green', 'Official Associate identification counts as one (header + article).' );
 	}
 
 	/**
@@ -422,7 +428,7 @@ class Luxe_Public_Finish_Learning {
 			'sslverify'   => false,
 			'headers'     => array(
 				'Cache-Control' => 'no-cache',
-				'User-Agent'    => 'LuxePublicFinish/1.0',
+				'User-Agent'    => 'LuxePublicFinish/1.0.1',
 			),
 		);
 		$response = wp_remote_get( $url, $args );

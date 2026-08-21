@@ -3,7 +3,7 @@
  * Plugin Name: Luxe Public Finish
  * Plugin URI: https://luxetrendsetters.com/
  * Description: Last-pass public polish: complete titles, unique listing labels, one Amazon identification, one Organization schema. 24/7 learning and a green-signal board. Adds zero frontend JavaScript or CSS. Never writes post content, never publishes, never rewrites Amazon URLs.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Richard Brummer
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LUXE_PUBLIC_FINISH_VERSION', '1.0.0' );
+define( 'LUXE_PUBLIC_FINISH_VERSION', '1.0.1' );
 define( 'LUXE_PUBLIC_FINISH_FILE', __FILE__ );
 define( 'LUXE_PUBLIC_FINISH_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LUXE_PUBLIC_FINISH_URL', plugin_dir_url( __FILE__ ) );

@@ -1,11 +1,11 @@
 <?php
 /**
- * CLI checks for Luxe Public Finish 1.0.0.
+ * CLI checks for Luxe Public Finish 1.0.1.
  * php tests/test-finish.php
  */
 define( 'ABSPATH', '/tmp/' );
 define( 'LUXE_PUBLIC_FINISH_DIR', dirname( __DIR__ ) . '/' );
-define( 'LUXE_PUBLIC_FINISH_VERSION', '1.0.0' );
+define( 'LUXE_PUBLIC_FINISH_VERSION', '1.0.1' );
 
 $GLOBALS['lpf_opt'] = array();
 
@@ -67,7 +67,7 @@ function expect( $ok, $msg ) {
 }
 
 $header = (string) file_get_contents( LUXE_PUBLIC_FINISH_DIR . 'luxe-public-finish.php' );
-expect( false !== strpos( $header, 'Version: 1.0.0' ), 'plugin header is 1.0.0' );
+expect( false !== strpos( $header, 'Version: 1.0.1' ), 'plugin header is 1.0.1' );
 expect( false !== strpos( $header, 'Never writes post content' ), 'header restates the write lock' );
 expect( false === strpos( $header, 'wp_insert_post' ), 'bootstrap does not insert posts' );
 
@@ -93,6 +93,32 @@ expect( strlen( $clip ) <= 70, 'word_clip respects 70' );
 expect( substr( $clip, -1 ) !== '…', 'word_clip does not add ellipsis' );
 expect( false === strpos( $clip, '| Pr' ), 'word_clip does not invent | Pr' );
 
+$watch = 'Apple Watch Series 9 GPS Cellular Smart Watch Review 2026: Best Buyer';
+expect( Luxe_Public_Finish_Titles::is_truncated( $watch ), 'Review 2026: Best Buyer is truncated' );
+$watch_fixed = Luxe_Public_Finish_Titles::polish( $watch );
+expect( false === (bool) preg_match( '/Best Buyer$/i', $watch_fixed ), 'polish snaps Best Buyer stub' );
+expect( false !== strpos( $watch_fixed, 'Review 2026' ), 'polish keeps Review 2026' );
+expect( false === Luxe_Public_Finish_Titles::is_truncated( $watch_fixed ), 'polished Watch title is complete' );
+expect( strlen( $watch_fixed ) <= 70, 'Watch title fits 70 chars' );
+
+$best_only = 'Sony WH-1000XM5 Wireless Headphones Review 2026: Best';
+expect( Luxe_Public_Finish_Titles::is_truncated( $best_only ), 'Review 2026: Best is truncated' );
+$best_fixed = Luxe_Public_Finish_Titles::word_clip( $best_only, 70 );
+expect( 'Sony WH-1000XM5 Wireless Headphones Review 2026' === $best_fixed, 'word_clip snaps Best stub to Review 2026' );
+
+$forced = Luxe_Public_Finish_Titles::word_clip( 'Apple Watch Series 9 GPS Cellular Smart Watch Review 2026: Best Buyer Guide Extra Words', 70 );
+expect( false === (bool) preg_match( '/Best Buyer$/i', $forced ), '70-char clip does not land on Best Buyer' );
+expect( false !== strpos( $forced, 'Review 2026' ), 'forced clip still contains Review 2026' );
+
+$official_twice = '<html><body>'
+	. '<header><p>As an Amazon Associate I earn from qualifying purchases.</p></header>'
+	. '<article><p>As an Amazon Associate I earn from qualifying purchases.</p></article>'
+	. '</body></html>';
+expect( 1 === Luxe_Public_Finish_Titles::disclosure_count( $official_twice ), 'official header+article counts as one before collapse' );
+$official_kept = Luxe_Public_Finish_Titles::collapse_disclosures( $official_twice );
+expect( 1 === Luxe_Public_Finish_Titles::disclosure_count( $official_kept ), 'official header+article still counts as one after collapse' );
+expect( 2 === substr_count( $official_kept, 'As an Amazon Associate I earn from qualifying purchases.' ), 'collapse keeps both official sentences' );
+
 $seen = array();
 $a    = Luxe_Public_Finish_Titles::unique_label( 'GEEKOM GeekBook X14 Pro', 101, 'GX14-A', $seen );
 $b    = Luxe_Public_Finish_Titles::unique_label( 'GEEKOM GeekBook X14 Pro', 202, 'GX14-B', $seen );
@@ -110,6 +136,17 @@ $html = '<html><body>'
 $collapsed = Luxe_Public_Finish_Titles::collapse_disclosures( $html );
 expect( 1 === Luxe_Public_Finish_Titles::disclosure_count( $collapsed ), 'disclosures collapse to one' );
 expect( false !== strpos( $collapsed, 'application/ld+json' ), 'disclosure pass parks JSON-LD' );
+expect( false === strpos( $collapsed, 'at no extra cost to you' ), 'unofficial extra sentence is stripped' );
+
+$blogs = '<html><head>'
+	. '<title>Blogs | LuxeTrendsetters</title>'
+	. '<meta property="og:title" content="Five Tips for Elevating Your Blog with Luxury High-End Products" />'
+	. '<meta name="twitter:title" content="Five Tips for Elevating Your Blog with Luxury High-End Products" />'
+	. '</head><body><h1>Blogs</h1></body></html>';
+$synced = Luxe_Public_Finish_Titles::replace_document_title( $blogs, 'Blogs | LuxeTrendsetters' );
+expect( false !== strpos( $synced, '<title>Blogs | LuxeTrendsetters</title>' ), 'blogs tab title stays complete' );
+expect( false !== strpos( $synced, 'content="Blogs | LuxeTrendsetters"' ), 'og/twitter titles sync to the tab title' );
+expect( false === strpos( $synced, 'Five Tips for Elevating Your Blog' ), 'stale Rank Math og:title is replaced' );
 
 $schema = '<html><head>'
 	. '<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"LuxeTrendsetters"}</script>'

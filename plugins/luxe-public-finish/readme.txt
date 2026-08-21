@@ -5,7 +5,7 @@ Tags: amazon, woocommerce, titles, schema, affiliates
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,7 +15,7 @@ Last-pass public polish for LuxeTrendsetters. Complete titles, unique listing la
 
 Luxe Public Finish is the storefront last pass for luxetrendsetters.com.
 
-* Restores clipped document / Open Graph titles (`| Pr`, `Review & Buyer Che`)
+* Restores clipped document / Open Graph titles (`| Pr`, `Review & Buyer Che`, `Review 2026: Best Buyer`)
 * Unique-ifies duplicate product listing labels with SKU or #ID (HTML only)
 * Keeps one official Amazon Associate identification
 * Keeps one Organization JSON-LD graph
@@ -31,6 +31,11 @@ Never writes post_content or post_title. Never publishes. Never deletes. Never r
 3. Activate. Open **Luxe Finish**. Click **Run finish learning now**.
 
 == Changelog ==
+
+= 1.0.1 =
+* Snap Rank Math 70-char stubs that land on “Review 2026: Best Buyer” / “Best” back to Review 2026.
+* Always sync og:title and twitter:title to the polished document title (fixes stale /blogs/ Open Graph).
+* Official Amazon Associate sentence in the header and article counts as one identification. Unofficial extras are still stripped.
 
 = 1.0.0 =
 * First public finish pass with 12 green signals and 24/7 learning.
