@@ -1,0 +1,49 @@
+Luxe Blog Master Command Center v2.9.4
+======================================
+
+Upload luxe-blog-master-command-center.zip (~745KB). Plugin Name is
+"Luxe Blog Master Command Center" so WordPress can Replace 2.8.1 when
+the folder slug matches.
+
+Do not upload the 145KB Luxe Blog Master Green Board zip as this plugin.
+
+Safety
+------
+- Never publish, never delete, never trash
+- Never write post_content on published posts
+- Master #10833 is read-only
+- Product #0 mismatch holds cannot score 95-100
+- Amazon URLs are read-only. Tag luxetrendse0f-20
+- Flatsome hamburger / off-canvas hiders stay OFF
+- Zero frontend JS/CSS
+- One heavy blog per request, backup before draft write
+
+Pipeline
+--------
+SCAN + BUILD -> repair locked-product drafts -> rescan -> Reader-Love
+independent verification stays in Reader-Love 7.3.1 -> APPROVAL READY
+stamp. WordPress status never changes to publish.
+
+Draft rebuild
+-------------
+Unique product-specific HTML, >=1800 words, uniqueness <72% vs other
+posts, excerpt + Rank Math description synced, one TOC, one disclosure,
+no generic Q1-Q5 FAQ, no copied Amazon listing text.
+
+Keep-set (leave activated)
+--------------------------
+Mission Control 1.8.2, Stay Repair 1.9.1, Keyword Autopilot, Hard Rescue,
+Reader-Love, Luxe SEO, Product Scout, Theme Guard, Public Finish, Mirror
+Master (hamburger), Amazon Bridge, Amazon Correct Tag, Amazon + Mobile
+Recovery, WZone + Deletion Shield, Rank Math, WooCommerce, LiteSpeed,
+Wordfence, Snapshot, and this Command Center.
+
+PARK (deactivate, do not delete)
+--------------------------------
+Hostinger AI (writer risk), Bad Content Eraser (one-time), Master Plugin
+Orchestrator (duplicate admin stack map). Duplicate Plugin Cleaner may
+stay on for scans but must never quarantine the keep-set.
+
+After 2.9.4, open Mission Control and run the complete dashboard refresh
+so the three companion reds can see the hard no-publish handshake.
+Do not upload this zip over Mission Control or Stay Repair.
