@@ -14,7 +14,7 @@ DEST_DIR = ROOT.parents[1]
 OUTPUTS = [
     DEST_DIR / "luxe-blog-master-command-center.zip",
     DEST_DIR / "Luxe-Blog-Master-Command-Center.zip",
-    DEST_DIR / "dist" / "Luxe-Blog-Master-Command-Center-v2.9.3.zip",
+    DEST_DIR / "dist" / "Luxe-Blog-Master-Command-Center-v2.9.4.zip",
     DEST_DIR / "luxe-blog-master-command-center-windows11-wordpress.zip",
 ]
 TARGET = 745 * 1024
@@ -49,7 +49,7 @@ def png_pad(png: bytes, extra: int) -> bytes:
         raise SystemExit("PNG IEND missing")
     before, iend = png[: pos - 4], png[pos - 4 :]
     extra = max(0, extra)
-    payload = b"Comment\x00Luxe Blog Master Command Center 2.9.3 Windows 11 WordPress package." + (b"\n" * extra)
+    payload = b"Comment\x00Luxe Blog Master Command Center 2.9.4 Windows 11 WordPress package." + (b"\n" * extra)
     chunk = b"tEXt" + payload
     crc = zlib.crc32(chunk) & 0xFFFFFFFF
     return before + struct.pack(">I", len(payload)) + chunk + struct.pack(">I", crc) + iend
@@ -134,7 +134,7 @@ def main() -> None:
             break
     if not header or b"Plugin Name: Luxe Blog Master Command Center" not in header:
         raise SystemExit("Plugin header missing")
-    if b"Version: 2.9.3" not in header:
+    if b"Version: 2.9.4" not in header:
         raise SystemExit("Version missing")
     for dest in OUTPUTS:
         dest.parent.mkdir(parents=True, exist_ok=True)

@@ -4,7 +4,7 @@ Tags: blog, amazon, woocommerce, command-center
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 2.9.3
+Stable tag: 2.9.4
 License: GPLv2 or later
 
 Full Command Center 2.9.0. Scan, repair drafts, rescan, approval-ready. Keep every blog. Never publishes.
@@ -32,6 +32,10 @@ Full Command Center 2.9.0. Scan, repair drafts, rescan, approval-ready. Keep eve
 5. Open **Blog Master**. Click **SCAN + BUILD** then **RUN LEARNING SNAPSHOT NOW**.
 
 == Changelog ==
+
+= 2.9.4 =
+* KEEP / LAYERED / PARK verdicts on the live 46-plugin stack. No duplicate plugin folders. Never deactivates another plugin.
+* PARK only Hostinger AI, Bad Content Eraser, and Master Plugin Orchestrator (deactivate, do not delete).
 
 = 2.9.3 =
 * Mission Control 1.8.2 companion handshake: complete Blog Master approval companion + hard no-publish evidence armed on load.

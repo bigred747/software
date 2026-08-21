@@ -19,7 +19,7 @@ class Luxe_BMC_Companion {
 	 */
 	public static function arm() {
 		if ( ! defined( 'LUXE_BLOG_MASTER_VERSION' ) ) {
-			define( 'LUXE_BLOG_MASTER_VERSION', defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.3' );
+			define( 'LUXE_BLOG_MASTER_VERSION', defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.4' );
 		}
 		if ( ! defined( 'LUXE_BLOG_MASTER_COMPLETE' ) ) {
 			define( 'LUXE_BLOG_MASTER_COMPLETE', true );
@@ -85,7 +85,7 @@ class Luxe_BMC_Companion {
 		$published_blocked = class_exists( 'Luxe_BMC_Safety' );
 		return array(
 			'plugin'                 => 'Luxe Blog Master Command Center',
-			'version'                => defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.3',
+			'version'                => defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.4',
 			'complete_build'         => true,
 			'complete'               => true,
 			'approval_companion'     => true,
@@ -108,60 +108,80 @@ class Luxe_BMC_Companion {
 
 	/**
 	 * Read-only ownership for the live 46-plugin stack. This plugin never
-	 * deactivates these rows.
+	 * deactivates these rows. Verdicts: KEEP (never off), LAYERED (overlap
+	 * by design, leave on), PARK (deactivate only — do not delete).
 	 *
 	 * @return array<int,array<string,string>>
 	 */
 	public static function stack() {
 		return array(
-			array( 'name' => 'Luxe Blog Master Command Center 2.9.3', 'role' => 'Blog drafts', 'owner' => 'This plugin', 'note' => 'Draft-only SCAN + BUILD. Hard no-publish. Master #10833 read-only.' ),
-			array( 'name' => 'Luxe Reader-Love Unified 7.3.1', 'role' => 'Independent verifier', 'owner' => 'Reader-Love', 'note' => 'Hourly read-only learning. Never publishes.' ),
-			array( 'name' => 'Luxe Hard Rescue Admin Cleaner 3.7.8', 'role' => 'Admin rescue', 'owner' => 'Hard Rescue', 'note' => 'Admin-only. No frontend, no content cron.' ),
-			array( 'name' => 'Luxe Hard Rescue Safe Trash 1.1.0', 'role' => 'Preview trash', 'owner' => 'Safe Trash', 'note' => 'Administrator preview-first IDs to WordPress Trash only.' ),
-			array( 'name' => 'Richard Brummer SEO Mission Control 1.8.2', 'role' => 'Evidence dashboard', 'owner' => 'Mission Control', 'note' => 'Audit only. Companion handshake armed here. Do not replace with 1.9.0 Stay zip.' ),
-			array( 'name' => 'Richard Brummer SEO Mission Control Stay Repair 1.9.1', 'role' => 'Output stay', 'owner' => 'Stay Repair', 'note' => 'Reading time / shortcodes on output. Does not rewrite stored posts.' ),
-			array( 'name' => 'Luxe Keyword Intelligence Autopilot 1.2.0', 'role' => 'SEO metadata', 'owner' => 'Keyword Autopilot', 'note' => 'Published SEO metadata only. Body audit-only. Status preserved.' ),
-			array( 'name' => 'Luxe SEO Score Repair 1.4.2', 'role' => 'Public SEO', 'owner' => 'Luxe SEO', 'note' => '18/22 green. Two loopback yellows stay honest. Never writes post content.' ),
-			array( 'name' => 'Luxe Theme Guard 1.3.1', 'role' => 'Theme', 'owner' => 'Theme Guard', 'note' => '13/13 green. Official Flatsome updates only.' ),
-			array( 'name' => 'Luxe Public Finish 1.0.0', 'role' => 'Public polish', 'owner' => 'Finish', 'note' => '11/12 green stays honest. Zero frontend JS/CSS from Finish.' ),
-			array( 'name' => 'Luxe Affiliate Product Scout 5.6.8', 'role' => 'Catalog', 'owner' => 'Product Scout', 'note' => 'One product per cycle. Never publishes. Never rewrites Amazon URLs.' ),
-			array( 'name' => 'Rank Math SEO 1.0.276', 'role' => 'SEO owner', 'owner' => 'Rank Math', 'note' => 'Titles, canonicals, schema owner. Other plugins must not fight it.' ),
-			array( 'name' => 'Luxe Rank Math Schema Guard 1.0', 'role' => 'Schema safety', 'owner' => 'Schema Guard', 'note' => 'Quarantines broken JSON-LD only.' ),
-			array( 'name' => 'Luxe Index Recovery Guard 1.8.0', 'role' => 'Index audit', 'owner' => 'Index Guard', 'note' => 'Read-only Rank Math diagnostics.' ),
-			array( 'name' => 'Amazon Affiliate Autopilot for WooCommerce 1.0.0', 'role' => 'Amazon cart path', 'owner' => 'Affiliate Autopilot', 'note' => 'Woo/WZone Amazon buttons and disclosure. Command Center does not intercept AJAX/cart.' ),
-			array( 'name' => 'Luxe Amazon View on Amazon Bridge 1.9.0', 'role' => 'Amazon CTA', 'owner' => 'Amazon Bridge', 'note' => 'One native View on Amazon button. Command Center never rewrites stored URLs.' ),
-			array( 'name' => 'Luxe Amazon Correct Tag + Green Signals 1.0.0', 'role' => 'Tag audit', 'owner' => 'Correct Tag', 'note' => 'Associates tag luxetrendse0f-20. Leave active.' ),
-			array( 'name' => 'Luxe Amazon + Mobile Recovery 1.7.0', 'role' => 'Mobile Amazon', 'owner' => 'Mobile Recovery', 'note' => 'Mobile menu recovery. Command Center hiders stay OFF so this can own hamburger repair.' ),
-			array( 'name' => 'WZone - WooCommerce Amazon Affiliates 15.2.0', 'role' => 'Amazon import', 'owner' => 'WZone', 'note' => 'Product import. Deletion Shield stays in front of dangerous WZone file ops.' ),
-			array( 'name' => 'Luxe WZone Deletion Shield 1.0.2', 'role' => 'WZone harden', 'owner' => 'Deletion Shield', 'note' => 'Blocks WZone file-deletion/path-traversal. Keep on.' ),
-			array( 'name' => 'WooCommerce 11.0.1', 'role' => 'Shop', 'owner' => 'WooCommerce', 'note' => 'Required. Do not deactivate.' ),
-			array( 'name' => 'YITH WooCommerce Wishlist 4.17.0', 'role' => 'Wishlist', 'owner' => 'YITH', 'note' => 'Requires WooCommerce.' ),
-			array( 'name' => 'LiteSpeed Cache 7.9', 'role' => 'Cache', 'owner' => 'LiteSpeed', 'note' => 'Public cache. Command Center may purge_all after learning only.' ),
-			array( 'name' => 'Wordfence Security 9.0.0', 'role' => 'Security', 'owner' => 'Wordfence', 'note' => 'Leave passkeys optional. Not an SEO conflict.' ),
-			array( 'name' => 'Site Kit by Google 1.185.0', 'role' => 'Analytics', 'owner' => 'Site Kit', 'note' => 'Mission Control traffic snapshot still needs a manual Analytics paste.' ),
-			array( 'name' => 'Snapshot Pro 4.27.0', 'role' => 'Backups', 'owner' => 'Snapshot', 'note' => 'Keep backups. Not a content writer.' ),
-			array( 'name' => 'Classic Editor 1.7.0', 'role' => 'Editor', 'owner' => 'Classic Editor', 'note' => 'Keep for legacy edit screens.' ),
-			array( 'name' => 'Contact Form 7 6.1.7', 'role' => 'Forms', 'owner' => 'CF7', 'note' => 'No blog-body overlap.' ),
-			array( 'name' => 'Hostinger AI 3.0.52', 'role' => 'Host AI', 'owner' => 'Hostinger', 'note' => 'Do not let it rewrite published buyer guides.' ),
-			array( 'name' => 'Link Whisper Premium 2.9.6', 'role' => 'Internal links', 'owner' => 'Link Whisper', 'note' => 'Internal linking. Not a publisher.' ),
-			array( 'name' => 'Luxe AI Readiness Autopilot 100 1.0.0', 'role' => 'AI files', 'owner' => 'AI Readiness', 'note' => 'robots/agents.json/llms.txt. Not scored as a Google ranking file.' ),
-			array( 'name' => 'Luxe Bad Content Eraser 1.0.0', 'role' => 'One-time cleanup', 'owner' => 'Eraser', 'note' => 'No cron/front-end. Leave parked unless you preview a cleanup.' ),
-			array( 'name' => 'Luxe Category Authority Lock 1.1.0', 'role' => 'Categories', 'owner' => 'Category Lock', 'note' => 'Remaps products. Does not delete products.' ),
-			array( 'name' => 'Luxe Comment Shield Learning Guard 1.1.0', 'role' => 'Comments', 'owner' => 'Comment Shield', 'note' => 'Spam quarantine. Not a blog writer.' ),
-			array( 'name' => 'Luxe CRON Mobilizer Pro 1.2.1', 'role' => 'Cron traffic', 'owner' => 'CRON Mobilizer', 'note' => 'Keeps WP-Cron awake. Protects Woo/LiteSpeed/Rank Math/Action Scheduler hooks.' ),
-			array( 'name' => 'Action Scheduler Healer PRO 2.0.0', 'role' => 'Queue healer', 'owner' => 'AS Healer', 'note' => 'Orphaned Action Scheduler jobs. Not a publisher.' ),
-			array( 'name' => '24/7 Smart 90-Day Commission Tracker ULTIMATE 4.0.0', 'role' => 'Commissions', 'owner' => 'Commission Tracker', 'note' => 'Read-only setup until you arm live ledgers.' ),
-			array( 'name' => 'Luxe Duplicate Plugin Cleaner 1.0.0', 'role' => 'Duplicate scan', 'owner' => 'Duplicate Cleaner', 'note' => 'Quarantines inactive copies. Do not run against the keep-set.' ),
-			array( 'name' => 'Luxe Master Plugin Orchestrator 1.0.0', 'role' => 'Stack map', 'owner' => 'Orchestrator', 'note' => 'Coordination layer. Does not replace Command Center.' ),
-			array( 'name' => 'Luxe Performance Core Fusion 1.0.0', 'role' => 'Perf', 'owner' => 'Core Fusion', 'note' => 'Hostinger-safe replacements for embed/image helpers.' ),
-			array( 'name' => 'Luxe Performance Link Guardian Suite 1.0.1', 'role' => 'Link/speed', 'owner' => 'Link Guardian', 'note' => 'Only Luxe frontend JS seen on the homepage (clicks.js). Not Blog Master.' ),
-			array( 'name' => 'Luxe Simple Homepage Mirror Master 2.9.6', 'role' => 'Homepage + hamburger', 'owner' => 'Mirror Master', 'note' => 'Protects Flatsome hamburger/off-canvas. Command Center hiders stay LOCKED OFF.' ),
-			array( 'name' => 'Luxe Site Hardening Guard 1.0.0', 'role' => 'Harden', 'owner' => 'Hardening Guard', 'note' => 'Headers/XML-RPC. Does not touch Amazon URLs.' ),
-			array( 'name' => 'Luxe Unified Site Guardian 5.1.0', 'role' => 'Site repair', 'owner' => 'Site Guardian', 'note' => 'Homepage card links / redirects. Status preserved.' ),
-			array( 'name' => 'Luxe WOW Homepage Rotator 3.2.0', 'role' => 'Homepage showcase', 'owner' => 'WOW Rotator', 'note' => 'Product journeys on home. Not a blog publisher.' ),
-			array( 'name' => 'Transients Manager 2.0.7', 'role' => 'Diagnostics', 'owner' => 'Transients Manager', 'note' => 'Admin tool. Not a writer.' ),
+			self::row( 'Luxe Blog Master Command Center 2.9.4', 'Blog drafts', 'This plugin', 'KEEP', 'Draft-only SCAN + BUILD. Hard no-publish. Master #10833 read-only. Never deactivates another plugin.' ),
+			self::row( 'Luxe Reader-Love Unified 7.3.1', 'Independent verifier', 'Reader-Love', 'KEEP', 'Hourly read-only learning. Never publishes.' ),
+			self::row( 'Luxe Hard Rescue Admin Cleaner 3.7.8', 'Admin rescue', 'Hard Rescue', 'KEEP', 'Admin-only. No frontend, no content cron.' ),
+			self::row( 'Luxe Hard Rescue Safe Trash 1.1.0', 'Preview trash', 'Safe Trash', 'KEEP', 'Administrator preview-first IDs to WordPress Trash only.' ),
+			self::row( 'Richard Brummer SEO Mission Control 1.8.2', 'Evidence dashboard', 'Mission Control', 'KEEP', 'Audit only. Companion handshake armed here. Do not replace with 1.9.0 Stay zip.' ),
+			self::row( 'Richard Brummer SEO Mission Control Stay Repair 1.9.1', 'Output stay', 'Stay Repair', 'KEEP', 'Reading time / shortcodes on output. Does not rewrite stored posts.' ),
+			self::row( 'Luxe Keyword Intelligence Autopilot 1.2.0', 'SEO metadata', 'Keyword Autopilot', 'KEEP', 'Published SEO metadata only. Body audit-only. Status preserved.' ),
+			self::row( 'Luxe SEO Score Repair 1.4.2', 'Public SEO', 'Luxe SEO', 'KEEP', '19/22 green. Two Hostinger loopback yellows stay honest. Never writes post content.' ),
+			self::row( 'Luxe Theme Guard 1.3.1', 'Theme', 'Theme Guard', 'KEEP', '13/13 green. Official Flatsome updates only. Do not touch the hamburger.' ),
+			self::row( 'Luxe Public Finish 1.0.1', 'Public polish', 'Finish', 'KEEP', 'Upload Finish 1.0.1 over Finish 1.0.0 only. Best Buyer titles + og:title sync. Zero Finish JS/CSS.' ),
+			self::row( 'Luxe Affiliate Product Scout 5.6.8', 'Catalog', 'Product Scout', 'KEEP', 'One product per cycle. Never publishes. Never rewrites Amazon URLs.' ),
+			self::row( 'Rank Math SEO 1.0.276', 'SEO owner', 'Rank Math', 'KEEP', 'Titles, canonicals, schema owner. Other plugins must not fight it.' ),
+			self::row( 'Luxe Rank Math Schema Guard 1.0', 'Schema safety', 'Schema Guard', 'LAYERED', 'Live homepage JSON-LD: 3 blocks, 0 parse failures. Leave on. Do not use it to blank Rank Math.' ),
+			self::row( 'Luxe Index Recovery Guard 1.8.0', 'Index audit', 'Index Guard', 'LAYERED', 'Read-only Rank Math diagnostics. Not a writer.' ),
+			self::row( 'Amazon Affiliate Autopilot for WooCommerce 1.0.0', 'Amazon cart path', 'Affiliate Autopilot', 'LAYERED', 'Woo/WZone cart path. Bridge owns the orange View on Amazon CTA. Not a second plugin copy.' ),
+			self::row( 'Luxe Amazon View on Amazon Bridge 1.9.0', 'Amazon CTA', 'Amazon Bridge', 'KEEP', 'One native View on Amazon button. Live product uses luxe-amazon-native-direct + tag luxetrendse0f-20.' ),
+			self::row( 'Luxe Amazon Correct Tag + Green Signals 1.0.0', 'Tag audit', 'Correct Tag', 'KEEP', 'Associates tag luxetrendse0f-20. Live home/product buttons all use this tag.' ),
+			self::row( 'Luxe Amazon + Mobile Recovery 1.7.0', 'Mobile Amazon', 'Mobile Recovery', 'KEEP', 'Mobile menu recovery. Command Center hiders stay OFF so this can own hamburger repair.' ),
+			self::row( 'WZone - WooCommerce Amazon Affiliates 15.2.0', 'Amazon import', 'WZone', 'KEEP', 'Product import. Deletion Shield stays in front of dangerous WZone file ops.' ),
+			self::row( 'Luxe WZone Deletion Shield 1.0.2', 'WZone harden', 'Deletion Shield', 'KEEP', 'Blocks WZone file-deletion/path-traversal. Keep on.' ),
+			self::row( 'WooCommerce 11.0.1', 'Shop', 'WooCommerce', 'KEEP', 'Required. Do not deactivate.' ),
+			self::row( 'YITH WooCommerce Wishlist 4.17.0', 'Wishlist', 'YITH', 'KEEP', 'Requires WooCommerce.' ),
+			self::row( 'LiteSpeed Cache 7.9', 'Cache', 'LiteSpeed', 'KEEP', 'Public cache. Command Center may purge_all after learning only.' ),
+			self::row( 'Wordfence Security 9.0.0', 'Security', 'Wordfence', 'KEEP', 'Leave passkeys optional. Not an SEO conflict.' ),
+			self::row( 'Site Kit by Google 1.185.0', 'Analytics', 'Site Kit', 'KEEP', 'Mission Control traffic snapshot still needs a manual Analytics paste.' ),
+			self::row( 'Snapshot Pro 4.27.0', 'Backups', 'Snapshot', 'KEEP', 'Keep backups. Not a content writer.' ),
+			self::row( 'Classic Editor 1.7.0', 'Editor', 'Classic Editor', 'KEEP', 'Keep for legacy edit screens.' ),
+			self::row( 'Contact Form 7 6.1.7', 'Forms', 'CF7', 'KEEP', 'No blog-body overlap.' ),
+			self::row( 'Hostinger AI 3.0.52', 'Host AI', 'Hostinger', 'PARK', 'Writer risk. Deactivate so it cannot rewrite published buyer guides. Do not delete.' ),
+			self::row( 'Link Whisper Premium 2.9.6', 'Internal links', 'Link Whisper', 'LAYERED', 'Internal linking. Link Guardian is the only extra Luxe public JS (clicks.js). Not a publisher.' ),
+			self::row( 'Luxe AI Readiness Autopilot 100 1.0.0', 'AI files', 'AI Readiness', 'LAYERED', 'robots/agents.json/llms.txt. Header x-luxe-ai-readiness is present. Not a Google ranking file.' ),
+			self::row( 'Luxe Bad Content Eraser 1.0.0', 'One-time cleanup', 'Eraser', 'PARK', 'No cron/front-end. Deactivate after the previewed cleanup. Do not delete.' ),
+			self::row( 'Luxe Category Authority Lock 1.1.0', 'Categories', 'Category Lock', 'LAYERED', 'Remaps products. Does not delete products.' ),
+			self::row( 'Luxe Comment Shield Learning Guard 1.1.0', 'Comments', 'Comment Shield', 'LAYERED', 'Spam quarantine. Not a blog writer.' ),
+			self::row( 'Luxe CRON Mobilizer Pro 1.2.1', 'Cron traffic', 'CRON Mobilizer', 'LAYERED', 'Keeps WP-Cron awake. Protects Woo/LiteSpeed/Rank Math/Action Scheduler hooks.' ),
+			self::row( 'Action Scheduler Healer PRO 2.0.0', 'Queue healer', 'AS Healer', 'LAYERED', 'Orphaned Action Scheduler jobs. Not a publisher.' ),
+			self::row( '24/7 Smart 90-Day Commission Tracker ULTIMATE 4.0.0', 'Commissions', 'Commission Tracker', 'LAYERED', 'Read-only setup until you arm live ledgers.' ),
+			self::row( 'Luxe Duplicate Plugin Cleaner 1.0.0', 'Duplicate scan', 'Duplicate Cleaner', 'LAYERED', 'All 46 plugins are unique folders. Scan only. Never quarantine the keep-set.' ),
+			self::row( 'Luxe Master Plugin Orchestrator 1.0.0', 'Stack map', 'Orchestrator', 'PARK', 'Duplicate of Mission Control + this board. Admin-only. Deactivate; do not delete. Do not use it to turn off keepers.' ),
+			self::row( 'Luxe Performance Core Fusion 1.0.0', 'Perf', 'Core Fusion', 'LAYERED', 'Hostinger-safe replacements for embed/image helpers. LiteSpeed remains the cache owner.' ),
+			self::row( 'Luxe Performance Link Guardian Suite 1.0.1', 'Link/speed', 'Link Guardian', 'LAYERED', 'Only Luxe frontend JS on the public site (clicks.js). Not Blog Master. Not a second Rank Math.' ),
+			self::row( 'Luxe Simple Homepage Mirror Master 2.9.6', 'Homepage + hamburger', 'Mirror Master', 'KEEP', 'Protects Flatsome hamburger/off-canvas. Command Center hiders stay LOCKED OFF.' ),
+			self::row( 'Luxe Site Hardening Guard 1.0.0', 'Harden', 'Hardening Guard', 'LAYERED', 'Headers/XML-RPC. Live HSTS is present. Does not touch Amazon URLs.' ),
+			self::row( 'Luxe Unified Site Guardian 5.1.0', 'Site repair', 'Site Guardian', 'LAYERED', 'Homepage card links / redirects. Status preserved. Not a second Mirror Master copy.' ),
+			self::row( 'Luxe WOW Homepage Rotator 3.2.0', 'Homepage showcase', 'WOW Rotator', 'LAYERED', 'Live home: 16 unique View on Amazon links, one per card, tag luxetrendse0f-20. Not a second Bridge.' ),
+			self::row( 'Transients Manager 2.0.7', 'Diagnostics', 'Transients Manager', 'LAYERED', 'Admin tool. Not a writer.' ),
 		);
 	}
+
+	/**
+	 * @param string $name    Plugin.
+	 * @param string $role    Role.
+	 * @param string $owner   Owner.
+	 * @param string $verdict KEEP|LAYERED|PARK.
+	 * @param string $note    Note.
+	 * @return array<string,string>
+	 */
+	private static function row( $name, $role, $owner, $verdict, $note ) {
+		return array(
+			'name'    => $name,
+			'role'    => $role,
+			'owner'   => $owner,
+			'verdict' => $verdict,
+			'note'    => $note,
+		);
+	}
+
 }
 
 if ( ! class_exists( 'Luxe_Blog_Master_Command_Center', false ) ) {

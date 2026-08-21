@@ -250,7 +250,7 @@ if ( ! function_exists( 'luxe_bmc_action_form' ) ) {
 
 	<div class="luxe-bmc-card">
 		<h2>Mission Control companion handshake</h2>
-		<p class="luxe-bmc-note">Richard Brummer SEO Mission Control 1.8.2 is the evidence dashboard. It does not write blogs. The three reds (“complete Blog Master approval companion was not detected” / hard no-publish incomplete) were a detection miss after 2.9.2 replaced 2.8.1 class names. 2.9.3 arms the complete-build handshake on load. After this zip: Plugins → Replace, then in Mission Control click the complete dashboard refresh. Do not upload this zip over Mission Control or Stay Repair.</p>
+		<p class="luxe-bmc-note">Richard Brummer SEO Mission Control 1.8.2 is the evidence dashboard. It does not write blogs. The three reds (“complete Blog Master approval companion was not detected” / hard no-publish incomplete) were a detection miss after 2.9.2 replaced 2.8.1 class names. 2.9.4 arms the complete-build handshake on load and maps KEEP / LAYERED / PARK for the live 46 plugins. After this zip: Plugins → Replace, then in Mission Control click the complete dashboard refresh. Do not upload this zip over Mission Control or Stay Repair.</p>
 		<table class="widefat striped luxe-bmc-table">
 			<tbody>
 				<tr><th>Complete build</th><td><?php echo ! empty( $companion['complete_build'] ) ? 'ARMED' : 'missing'; ?></td></tr>
@@ -264,14 +264,24 @@ if ( ! function_exists( 'luxe_bmc_action_form' ) ) {
 
 	<div class="luxe-bmc-card">
 		<h2>46-plugin stack harmony</h2>
-		<p class="luxe-bmc-note">Live scan of luxetrendsetters.com: all 23 Keep Live review URLs returned 200. Command Center injects zero frontend JS/CSS. Flatsome hamburger markup stays present. Do not deactivate these plugins to “fix” overlap — Mission Control already marks those rows MANUAL, not conflict. Command Center never deactivates another plugin.</p>
+		<p class="luxe-bmc-note">Live check 2026-08-21: 46 unique plugins, no duplicate folders. Amazon buttons use tag luxetrendse0f-20. Official Associate sentence appears in header + article (counts as one). Homepage rotator has one View on Amazon per card. Do not deactivate KEEP rows. LAYERED means overlap by design. PARK means deactivate only — never delete. Duplicate Plugin Cleaner must never quarantine the keep-set. Command Center never deactivates another plugin.</p>
 		<table class="widefat striped luxe-bmc-table">
 			<thead>
-				<tr><th>Plugin</th><th>Role</th><th>Owner</th><th>Coexistence</th></tr>
+				<tr><th>Verdict</th><th>Plugin</th><th>Role</th><th>Owner</th><th>Coexistence</th></tr>
 			</thead>
 			<tbody>
 			<?php foreach ( $stack as $row ) : ?>
+				<?php
+				$verdict = isset( $row['verdict'] ) ? $row['verdict'] : 'KEEP';
+				$vclass  = 'luxe-bmc-keep';
+				if ( 'LAYERED' === $verdict ) {
+					$vclass = 'luxe-bmc-layered';
+				} elseif ( 'PARK' === $verdict ) {
+					$vclass = 'luxe-bmc-park';
+				}
+				?>
 				<tr>
+					<td><strong class="<?php echo esc_attr( $vclass ); ?>"><?php echo esc_html( $verdict ); ?></strong></td>
 					<td><?php echo esc_html( $row['name'] ); ?></td>
 					<td><?php echo esc_html( $row['role'] ); ?></td>
 					<td><?php echo esc_html( $row['owner'] ); ?></td>

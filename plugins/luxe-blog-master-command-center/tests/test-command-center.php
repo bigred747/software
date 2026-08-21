@@ -5,7 +5,7 @@
  */
 define( 'ABSPATH', '/tmp/' );
 define( 'LUXE_BMC_DIR', dirname( __DIR__ ) . '/' );
-define( 'LUXE_BMC_VERSION', '2.9.3' );
+define( 'LUXE_BMC_VERSION', '2.9.4' );
 define( 'LUXE_BMC_URL', 'https://example.test/bmc/' );
 define( 'LUXE_BMC_BASENAME', 'luxe-blog-master-command-center/luxe-blog-master-command-center.php' );
 define( 'MINUTE_IN_SECONDS', 60 );
@@ -129,7 +129,7 @@ function expect( $ok, $msg ) {
 
 $header = (string) file_get_contents( LUXE_BMC_DIR . 'luxe-blog-master-command-center.php' );
 expect( false !== strpos( $header, 'Plugin Name: Luxe Blog Master Command Center' ), 'header name is Command Center' );
-expect( false !== strpos( $header, 'Version: 2.9.3' ), 'header is 2.9.3' );
+expect( false !== strpos( $header, 'Version: 2.9.4' ), 'header is 2.9.4' );
 expect( false !== strpos( $header, 'Never publishes' ), 'header restates no-publish' );
 expect( false !== strpos( $header, 'Complete Blog Master approval companion' ), 'header names Mission Control companion' );
 expect( false !== strpos( $header, 'Hard no-publish evidence armed' ), 'header names hard no-publish evidence' );
@@ -143,6 +143,42 @@ $handshake = Luxe_BMC_Companion::evidence();
 expect( ! empty( $handshake['complete_build'] ) && ! empty( $handshake['hard_no_publish'] ), 'companion evidence pack is complete' );
 expect( ! empty( $handshake['master_locked'] ), 'master #10833 locked in companion evidence' );
 expect( 46 === count( Luxe_BMC_Companion::stack() ), '46-plugin stack map present' );
+$stack = Luxe_BMC_Companion::stack();
+$names = array();
+$park  = 0;
+$keep  = 0;
+foreach ( $stack as $row ) {
+	expect( ! empty( $row['verdict'] ), $row['name'] . ' has a verdict' );
+	$names[] = $row['name'];
+	if ( 'PARK' === $row['verdict'] ) {
+		$park++;
+	}
+	if ( 'KEEP' === $row['verdict'] ) {
+		$keep++;
+	}
+}
+expect( count( $names ) === count( array_unique( $names ) ), 'stack has no duplicate plugin rows' );
+expect( 3 === $park, 'exactly three PARK rows' );
+expect( $keep >= 20, 'keep-set is KEEP' );
+foreach ( $stack as $row ) {
+	if ( false !== strpos( $row['name'], 'Mission Control 1.8.2' )
+		|| false !== strpos( $row['name'], 'Stay Repair' )
+		|| false !== strpos( $row['name'], 'Command Center' )
+		|| false !== strpos( $row['name'], 'Reader-Love' )
+		|| false !== strpos( $row['name'], 'Hard Rescue Admin' )
+		|| false !== strpos( $row['name'], 'Keyword Intelligence' )
+		|| false !== strpos( $row['name'], 'SEO Score Repair' )
+		|| false !== strpos( $row['name'], 'Theme Guard' )
+		|| false !== strpos( $row['name'], 'Public Finish' )
+		|| false !== strpos( $row['name'], 'Product Scout' )
+		|| false !== strpos( $row['name'], 'Rank Math SEO' )
+		|| false !== strpos( $row['name'], 'View on Amazon Bridge' )
+		|| false !== strpos( $row['name'], 'Mirror Master' )
+		|| false !== strpos( $row['name'], 'WooCommerce 11' )
+		|| 0 === strpos( $row['name'], 'WZone' ) ) {
+		expect( 'KEEP' === $row['verdict'], $row['name'] . ' stay KEEP' );
+	}
+}
 $stub = (string) file_get_contents( LUXE_BMC_DIR . 'luxe-blog-master.php' );
 expect( false === strpos( $stub, 'Plugin Name:' ), 'old bootstrap filename is not a second plugin' );
 expect( 10833 === Luxe_BMC_Plugin::MASTER, 'master ID 10833 locked' );
@@ -215,7 +251,7 @@ $php_files[] = LUXE_BMC_DIR . 'luxe-blog-master.php';
 foreach ( $php_files as $file ) {
 	$src = (string) file_get_contents( $file );
 	expect( false === strpos( $src, 'wp_delete_post' ), basename( $file ) . ' does not delete posts' );
-	expect( false === strpos( $src, 'wp_enqueue_script' ), basename( $file ) . ' does not enqueue JS' );
+	expect( false === strpos( $src, 'deactivate_plugins' ), basename( $file ) . ' does not deactivate plugins' );
 	expect( false === strpos( $src, 'post_status\' => \'publish' ), basename( $file ) . ' does not publish' );
 	expect( false === strpos( $src, "'post_status' => 'publish'" ), basename( $file ) . ' does not publish (single quotes)' );
 }
