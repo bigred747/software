@@ -2,7 +2,30 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe Blog Master Command Center 2.9.3 — THE BLOG PLUGIN (~745KB)
+## 0. Luxe Stack Harmony 1.0.0 — THE CONDUCTOR (~145KB)
+
+Makes the live 46 plugins work together. KEEP stays on. PARK duplicates are **deactivated, never deleted**. 24/7 learning. Zero frontend JavaScript.
+
+**Upload this file from Windows 11 into WordPress as a NEW plugin:**
+
+[luxe-stack-harmony.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/stack-harmony-0935/luxe-stack-harmony.zip)
+
+SHA-256 `8422bb5b7f4450410b435906ad8638795bb9a5fd108c54a4d815e5b234c23c71` · **145KB**
+
+Plugins → Add Plugin → Upload Plugin → Install into folder `luxe-stack-harmony`. Do **not** replace Command Center, Finish, Luxe SEO, Theme Guard, Mission Control, Stay Repair, Reader-Love, Hard Rescue, Product Scout, Amazon Bridge, or Mirror Master.
+
+Then open **Luxe Harmony**. Click **Run harmony learning now**.
+
+What it cancels (deactivate only):
+
+- A **second Blog Master repair engine** (Green Board, or Command Center in the wrong folder). Canonical folder is `luxe-blog-master-command-center`
+- Hostinger AI (writer risk)
+- Luxe Bad Content Eraser (one-time)
+- Luxe Master Plugin Orchestrator (duplicate admin stack map)
+
+What it never touches: Command Center, Finish, Rank Math, WooCommerce, WZone, Amazon Bridge, Mirror Master, Theme Guard, Mission Control, Stay Repair, Keyword Autopilot, Reader-Love, Hard Rescue, Product Scout, LiteSpeed, Wordfence.
+
+## 1. Luxe Blog Master Command Center 2.9.4 — THE BLOG PLUGIN (~745KB)
 
 This is the full Command Center update for **v2.8.1 / 2.9.2**. Admin title stays **ADAPTIVE UNIQUENESS + AUTO DEPTH MASTER SCANNER**. Plugin Name is **Luxe Blog Master Command Center** so WordPress can Replace when the folder slug matches.
 
@@ -12,14 +35,14 @@ Windows 11 / WordPress zip. Size **745KB**. Do **not** upload the 145KB Green Bo
 
 [luxe-blog-master-command-center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/luxe-blog-master-command-center.zip)
 
-SHA-256 `75ab1c45fb93de2f705ebec2ed8359f508f81241dae111702d4608fb0c6f7d3a`
+SHA-256 `0d7177f0a062f26cfad595dfce2a27dc2f5f4dc2a3cf9cc98a12fc3689d9066a`
 
 Also named [Luxe-Blog-Master-Command-Center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/Luxe-Blog-Master-Command-Center.zip)
 
 Plugins → Add Plugin → Upload Plugin.
 
-- If WordPress offers **Replace current with uploaded**, that is 2.8.1. Replace, then Activate.
-- If it installs as a **second** plugin, the old folder slug differed. Keep 2.8.1 until SCAN + BUILD on 2.9.0 is confirmed, then deactivate the old copy. Do not run two repair engines.
+- If WordPress offers **Replace current with uploaded**, that is 2.8.1 / 2.9.2. Replace, then Activate. That is the safe path — one repair engine.
+- If it installs as a **second** plugin, the old folder slug differed. Leave 2.8.1 on until SCAN + BUILD on 2.9.4 is confirmed, then deactivate the old copy. Do not run two repair engines. **Luxe Stack Harmony** will park the extra copy automatically after Command Center is in `luxe-blog-master-command-center`.
 - Do not upload this zip over Reader-Love, Luxe SEO, Theme Guard, Finish, Mission Control, Stay Repair, Keyword Autopilot, Hard Rescue, or Product Scout.
 
 Then open **Blog Master**. Click **SCAN + BUILD 95–100 MASTER LOCK**, then **RUN LEARNING SNAPSHOT NOW**.
