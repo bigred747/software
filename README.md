@@ -2,6 +2,22 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Blog Review Desk 1.0.0 (View + Publish)
+
+Command Center never publishes. This desk is the human step: **View**, then **Publish** only when a draft is Approval Ready or 95–100 with a real product.
+
+**Upload this zip:**
+
+[luxe-blog-review-desk.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-review-desk-e8f3/luxe-blog-review-desk.zip)
+
+SHA-256 `e2a1bf3ca02a80c8827f6308cc754064660def0cad24a183ed8be2a0dd4ce406`
+
+1. Plugins → Add Plugin → Upload Plugin → Install Now → Activate.
+2. Open **Luxe Review Desk** in the left admin menu.
+3. Live guides: click **View**.
+4. Ready drafts: click **View**, then **Publish**.
+5. Product #0 and master **#10833** stay blocked. No cron. No auto-publish.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.
