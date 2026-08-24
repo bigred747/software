@@ -4,7 +4,7 @@ Tags: seo, schema, robots, luxetrendsetters
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,11 +12,17 @@ Safe public-output repair with search focus, process learning, and a green-signa
 
 == Description ==
 
-Luxe Score Repair 1.2.0 heals public HTML and points Google at products and published buyer guides instead of thin product-tag archives.
+Luxe Score Repair 1.2.1 heals public HTML and points Google at products and published buyer guides instead of thin product-tag archives.
 
 It does **not** write `post_content`, change post status, rewrite Amazon URLs, create Rank Math redirect rows, or fake Analytics / Search Console traffic.
 
 == Changelog ==
+
+= 1.2.1 =
+* Top-level Luxe Score Repair menu so the board is not buried on Tools
+* Search-focus status card (setting, robots.txt sitemap line, guide count, sitemap link)
+* Zip-replace upgrade heals robots.txt and drops the leftover 19/22 board
+* Public watchdog rewrites robots.txt when the search sitemap line is missing
 
 = 1.2.0 =
 * Search focus: noindex product tags, attribute archives, and filtered shop URLs

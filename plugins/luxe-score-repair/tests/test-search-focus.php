@@ -38,6 +38,22 @@ expect( false === Luxe_Score_Repair_Search_Focus::is_junk_sitemap_path( '/shop-s
 expect( false === Luxe_Score_Repair_Search_Focus::is_junk_sitemap_path( '/privacy-policy/' ), 'privacy stays in sitemap' );
 expect( false === Luxe_Score_Repair_Search_Focus::is_junk_sitemap_path( '/apple-watch-series-9-gps-cellular-41mm-review-2026/' ), 'published guide stays in sitemap' );
 
+require dirname( __DIR__ ) . '/includes/class-admin.php';
+$stale = array(
+	'signals' => array(
+		array( 'id' => 'home_title' ),
+		array( 'id' => 'noindex_cart' ),
+	),
+);
+$fresh = array(
+	'signals' => array(
+		array( 'id' => 'noindex_product_tag' ),
+		array( 'id' => 'search_sitemap' ),
+	),
+);
+expect( false === Luxe_Score_Repair_Admin::learn_has_search_focus( $stale ), 'old 22-process board is stale' );
+expect( true === Luxe_Score_Repair_Admin::learn_has_search_focus( $fresh ), '1.2 board is current' );
+
 if ( $fail ) {
 	echo "FAILED $fail\n";
 	exit( 1 );

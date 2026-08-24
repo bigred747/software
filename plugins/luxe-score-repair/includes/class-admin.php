@@ -34,10 +34,20 @@ class Luxe_Score_Repair_Admin {
 	}
 
 	/**
-	 * Settings page.
+	 * Top-level menu plus Tools alias. The Tools screen is too crowded to notice 1.2.x.
 	 */
 	public function menu() {
-		add_management_page(
+		add_menu_page(
+			__( 'Luxe Score Repair', 'luxe-score-repair' ),
+			__( 'Luxe Score Repair', 'luxe-score-repair' ),
+			'manage_options',
+			'luxe-score-repair',
+			array( $this, 'render' ),
+			'dashicons-search',
+			58
+		);
+		add_submenu_page(
+			'tools.php',
 			__( 'Luxe Score Repair', 'luxe-score-repair' ),
 			__( 'Luxe Score Repair', 'luxe-score-repair' ),
 			'manage_options',
@@ -50,7 +60,8 @@ class Luxe_Score_Repair_Admin {
 	 * @param string $hook Hook.
 	 */
 	public function assets( $hook ) {
-		if ( 'tools_page_luxe-score-repair' !== $hook ) {
+		$ok = array( 'toplevel_page_luxe-score-repair', 'tools_page_luxe-score-repair' );
+		if ( ! in_array( $hook, $ok, true ) ) {
 			return;
 		}
 		wp_enqueue_style(
@@ -66,7 +77,7 @@ class Luxe_Score_Repair_Admin {
 	 * @return array
 	 */
 	public function action_links( $links ) {
-		$url = admin_url( 'tools.php?page=luxe-score-repair' );
+		$url = admin_url( 'admin.php?page=luxe-score-repair' );
 		array_unshift( $links, '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Open', 'luxe-score-repair' ) . '</a>' );
 		return $links;
 	}
@@ -82,8 +93,11 @@ class Luxe_Score_Repair_Admin {
 		$settings = Luxe_Score_Repair_Plugin::instance()->settings();
 		$last     = Luxe_Score_Repair_Learning::last();
 		$log      = Luxe_Score_Repair_Learning::log();
-		if ( empty( $last['signals'] ) ) {
+		$focus    = self::focus_status();
+		if ( empty( $last['signals'] ) || ! self::learn_has_search_focus( $last ) ) {
 			$last = self::armed_board();
+			$last['seo_band'] = 'run-learning';
+			$last['stale']    = true;
 		}
 		include LUXE_SCORE_REPAIR_DIR . 'templates/admin.php';
 	}
@@ -135,19 +149,64 @@ class Luxe_Score_Repair_Admin {
 	}
 
 	/**
-	 * Compact green notice on dashboard screens.
+	 * Stored learning from an older Score Repair build (22-process boards, etc.).
+	 *
+	 * @param array $last Last learning.
+	 * @return bool
+	 */
+	public static function learn_has_search_focus( $last ) {
+		if ( ! is_array( $last ) || empty( $last['signals'] ) || ! is_array( $last['signals'] ) ) {
+			return false;
+		}
+		$ids = array();
+		foreach ( $last['signals'] as $signal ) {
+			if ( is_array( $signal ) && ! empty( $signal['id'] ) ) {
+				$ids[] = (string) $signal['id'];
+			}
+		}
+		return in_array( 'noindex_product_tag', $ids, true ) && in_array( 'search_sitemap', $ids, true );
+	}
+
+	/**
+	 * Live search-focus facts for the Tools / admin board. No remote fetch.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function focus_status() {
+		$plugin = Luxe_Score_Repair_Plugin::instance();
+		$path   = Luxe_Score_Repair_Robots::file_path();
+		$robots = is_readable( $path ) ? (string) file_get_contents( $path ) : '';
+		$guides = Luxe_Score_Repair_Search_Focus::published_guides( 40 );
+		return array(
+			'on'         => $plugin->enabled( 'search_focus' ),
+			'sitemap'    => home_url( Luxe_Score_Repair_Search_Focus::SITEMAP_PATH ),
+			'guide_n'    => count( $guides ),
+			'robots_ok'  => false !== strpos( $robots, 'luxe-search-sitemap.xml' ),
+			'stale'      => ! self::learn_has_search_focus( Luxe_Score_Repair_Learning::last() ),
+			'version'    => LUXE_SCORE_REPAIR_VERSION,
+		);
+	}
+
+	/**
+	 * Compact notice. Never show a stale 19/22 board from a previous plugin build.
 	 */
 	public function notice() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( $screen && isset( $screen->id ) && 'tools_page_luxe-score-repair' === $screen->id ) {
+		$skip   = array( 'tools_page_luxe-score-repair', 'toplevel_page_luxe-score-repair' );
+		if ( $screen && isset( $screen->id ) && in_array( $screen->id, $skip, true ) ) {
 			return;
 		}
-		$last = Luxe_Score_Repair_Learning::last();
-		if ( empty( $last['total'] ) ) {
-			$last = self::armed_board();
+		$url   = admin_url( 'admin.php?page=luxe-score-repair' );
+		$last  = Luxe_Score_Repair_Learning::last();
+		$fresh = self::learn_has_search_focus( $last );
+		if ( ! $fresh ) {
+			echo '<div class="notice notice-warning is-dismissible"><p><strong>Luxe Score Repair ' . esc_html( LUXE_SCORE_REPAIR_VERSION ) . ':</strong> ';
+			echo esc_html__( 'Search focus is on. The 19/22 board is leftover from the old plugin. Open Luxe Score Repair in the left menu and click Run process learning now.', 'luxe-score-repair' );
+			echo ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open search-focus board', 'luxe-score-repair' ) . '</a></p></div>';
+			return;
 		}
 		$green = isset( $last['green'] ) ? (int) $last['green'] : 0;
 		$total = isset( $last['total'] ) ? (int) $last['total'] : 0;
@@ -155,9 +214,8 @@ class Luxe_Score_Repair_Admin {
 			return;
 		}
 		$class = ( $green === $total ) ? 'notice-success' : 'notice-warning';
-		$url   = admin_url( 'tools.php?page=luxe-score-repair' );
-		echo '<div class="notice ' . esc_attr( $class ) . ' is-dismissible"><p><strong>Luxe Score Repair:</strong> ';
-		echo esc_html( $green . ' / ' . $total . ' processes green.' );
-		echo ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open signal board', 'luxe-score-repair' ) . '</a></p></div>';
+		echo '<div class="notice ' . esc_attr( $class ) . ' is-dismissible"><p><strong>Luxe Score Repair ' . esc_html( LUXE_SCORE_REPAIR_VERSION ) . ':</strong> ';
+		echo esc_html( $green . ' / ' . $total . ' processes green. Search focus on.' );
+		echo ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open search-focus board', 'luxe-score-repair' ) . '</a></p></div>';
 	}
 }

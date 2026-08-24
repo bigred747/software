@@ -126,6 +126,22 @@ class Luxe_Score_Repair_Robots {
 	}
 
 	/**
+	 * Rewrite when bloated or when search-focus sitemap is missing from disk.
+	 *
+	 * @param string $text File body.
+	 * @return bool
+	 */
+	public static function needs_heal( $text ) {
+		if ( self::is_bloated( $text ) ) {
+			return true;
+		}
+		if ( Luxe_Score_Repair_Plugin::instance()->enabled( 'search_focus' ) && false === strpos( (string) $text, 'luxe-search-sitemap.xml' ) ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
 	 * Absolute path of the physical robots.txt Hostinger serves.
 	 *
 	 * @return string
@@ -151,7 +167,7 @@ class Luxe_Score_Repair_Robots {
 				'error'   => '',
 			);
 		}
-		if ( self::is_bloated( $now ) && is_readable( $path ) && ! file_exists( $path . '.lsr-bak' ) ) {
+		if ( self::needs_heal( $now ) && is_readable( $path ) && ! file_exists( $path . '.lsr-bak' ) ) {
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_copy
 			@copy( $path, $path . '.lsr-bak' );
 		}

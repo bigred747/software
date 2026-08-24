@@ -15,7 +15,7 @@ DEST_DIR = ROOT.parents[1]
 OUTPUTS = [
     DEST_DIR / "luxe-score-repair.zip",
     DEST_DIR / "Luxe-Score-Repair.zip",
-    DEST_DIR / "dist" / "Luxe-Score-Repair-v1.2.0.zip",
+    DEST_DIR / "dist" / "Luxe-Score-Repair-v1.2.1.zip",
 ]
 SKIP_PARTS = {"tests", "bin"}
 
@@ -99,8 +99,8 @@ def main() -> None:
             break
     if not header or b"Plugin Name: Luxe Score Repair" not in header:
         raise SystemExit("Plugin header missing")
-    if b"Version: 1.2.0" not in header:
-        raise SystemExit("Version 1.2.0 missing from plugin header")
+    if b"Version: 1.2.1" not in header:
+        raise SystemExit("Version 1.2.1 missing from plugin header")
     blob = build_zip(files)
     digest = hashlib.sha256(blob).hexdigest()
     for dest in OUTPUTS:

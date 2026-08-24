@@ -8,7 +8,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Luxe_Score_Repair_Plugin {
 
-	const OPTION = 'luxe_score_repair_settings';
+	const OPTION         = 'luxe_score_repair_settings';
+	const VERSION_OPTION = 'luxe_score_repair_version';
 
 	/**
 	 * @var self|null
@@ -60,6 +61,7 @@ class Luxe_Score_Repair_Plugin {
 			update_option( self::OPTION, wp_parse_args( $settings, self::defaults() ), false );
 		}
 		add_option( 'luxe_score_repair_activated_at', time(), '', false );
+		update_option( self::VERSION_OPTION, LUXE_SCORE_REPAIR_VERSION, false );
 		Luxe_Score_Repair_Learning::activate();
 	}
 
@@ -78,6 +80,7 @@ class Luxe_Score_Repair_Plugin {
 	 */
 	public function boot() {
 		add_action( 'admin_init', array( $this, 'maybe_save_settings' ) );
+		add_action( 'admin_init', array( $this, 'maybe_upgrade' ), 1 );
 
 		Luxe_Score_Repair_SEO::instance()->boot();
 		Luxe_Score_Repair_Search_Focus::instance()->boot();
@@ -112,6 +115,32 @@ class Luxe_Score_Repair_Plugin {
 	public function enabled( $key ) {
 		$settings = $this->settings();
 		return ! empty( $settings[ $key ] );
+	}
+
+	/**
+	 * Zip replace does not fire activation. Promote settings, heal robots, drop a stale board.
+	 */
+	public function maybe_upgrade() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		$stored = (string) get_option( self::VERSION_OPTION, '' );
+		if ( $stored === LUXE_SCORE_REPAIR_VERSION ) {
+			return;
+		}
+		$settings = get_option( self::OPTION );
+		if ( is_array( $settings ) ) {
+			update_option( self::OPTION, wp_parse_args( $settings, self::defaults() ), false );
+		} else {
+			add_option( self::OPTION, self::defaults(), '', false );
+		}
+		update_option( self::VERSION_OPTION, LUXE_SCORE_REPAIR_VERSION, false );
+		Luxe_Score_Repair_Robots::heal_file();
+		Luxe_Score_Repair_Learning::purge_caches();
+		$last = Luxe_Score_Repair_Learning::last();
+		if ( ! Luxe_Score_Repair_Admin::learn_has_search_focus( $last ) ) {
+			delete_option( Luxe_Score_Repair_Learning::OPTION_LAST );
+		}
 	}
 
 	/**

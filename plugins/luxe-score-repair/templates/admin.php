@@ -81,8 +81,34 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · public output repair</p>
 		<h1>Luxe Score Repair <?php echo esc_html( LUXE_SCORE_REPAIR_VERSION ); ?></h1>
-		<p class="lsr-lead">Each process has a live signal. 1.2.0 points Google at real products and published buyer guides instead of thin product-tag pages. This cannot invent Search Console clicks. Direct 1-second sessions are not search traffic.</p>
+		<p class="lsr-lead">Search focus is the public-site change. Google numbers will not jump on this screen. Open <strong>Luxe Score Repair</strong> in the left admin menu — do not look for it only under Tools.</p>
 	</header>
+
+	<section class="lsr-focus">
+		<p class="lsr-kicker lsr-kicker-dark">Search focus <?php echo esc_html( isset( $focus['version'] ) ? $focus['version'] : LUXE_SCORE_REPAIR_VERSION ); ?></p>
+		<h2>This is what should look different</h2>
+		<ul class="lsr-focus-list">
+			<li class="<?php echo ! empty( $focus['on'] ) ? 'lsr-focus-ok' : 'lsr-focus-bad'; ?>">
+				<strong><?php echo ! empty( $focus['on'] ) ? 'ON' : 'OFF'; ?></strong>
+				Search focus setting — product tags noindex, products and guides stay indexable
+			</li>
+			<li class="<?php echo ! empty( $focus['robots_ok'] ) ? 'lsr-focus-ok' : 'lsr-focus-bad'; ?>">
+				<strong><?php echo ! empty( $focus['robots_ok'] ) ? 'ON' : 'WAITING'; ?></strong>
+				robots.txt lists the search sitemap. Click Run process learning now if this says WAITING.
+			</li>
+			<li class="lsr-focus-ok">
+				<strong><?php echo esc_html( (string) ( isset( $focus['guide_n'] ) ? (int) $focus['guide_n'] : 0 ) ); ?></strong>
+				published buyer guides queued for Google
+			</li>
+		</ul>
+		<p class="lsr-focus-link">
+			<a href="<?php echo esc_url( isset( $focus['sitemap'] ) ? $focus['sitemap'] : home_url( '/luxe-search-sitemap.xml' ) ); ?>" target="_blank" rel="noopener noreferrer">Open /luxe-search-sitemap.xml</a>
+			— should list homepage, /blogs/, published guides, and product categories. Not product tags.
+		</p>
+		<?php if ( ! empty( $last['stale'] ) || ! empty( $focus['stale'] ) ) : ?>
+			<p class="lsr-focus-stale">The 19 / 22 notice on Tools is leftover from the previous Score Repair. Click <strong>Run process learning now</strong> so this board becomes the live 1.2.1 count.</p>
+		<?php endif; ?>
+	</section>
 
 	<section class="lsr-scorebar">
 		<div>

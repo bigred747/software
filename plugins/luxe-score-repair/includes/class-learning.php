@@ -90,7 +90,7 @@ class Luxe_Score_Repair_Learning {
 		set_transient( 'lsr_robots_watchdog', 1, 5 * MINUTE_IN_SECONDS );
 		$path = Luxe_Score_Repair_Robots::file_path();
 		$body = is_readable( $path ) ? (string) file_get_contents( $path ) : '';
-		if ( Luxe_Score_Repair_Robots::is_bloated( $body ) ) {
+		if ( Luxe_Score_Repair_Robots::needs_heal( $body ) ) {
 			Luxe_Score_Repair_Robots::heal_file();
 			self::purge_caches();
 		}

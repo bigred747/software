@@ -167,6 +167,64 @@
 .lsr-signal-red em {
 	color: #b91c1c;
 }
+.lsr-focus {
+	margin: 20px 0 0;
+	padding: 22px 24px;
+	border-radius: 22px;
+	background: #fff7ed;
+	border: 1px solid #fdba74;
+}
+.lsr-focus h2 {
+	margin: 0 0 12px;
+	font-size: 20px;
+	color: #9a3412;
+}
+.lsr-focus-list {
+	list-style: none;
+	margin: 0 0 12px;
+	padding: 0;
+	display: grid;
+	gap: 8px;
+}
+.lsr-focus-list li {
+	padding: 10px 12px;
+	border-radius: 14px;
+	background: #fff;
+	border: 1px solid #fed7aa;
+	color: #9a3412;
+}
+.lsr-focus-list strong {
+	display: inline-block;
+	min-width: 88px;
+	margin-right: 8px;
+	font-size: 12px;
+	letter-spacing: 0.08em;
+}
+.lsr-focus-ok {
+	border-color: #6ee7b7 !important;
+	background: #ecfdf5 !important;
+	color: #065f46 !important;
+}
+.lsr-focus-bad {
+	border-color: #fecaca !important;
+	background: #fef2f2 !important;
+	color: #991b1b !important;
+}
+.lsr-focus-link {
+	margin: 0 0 8px;
+	color: #9a3412;
+	font-size: 14px;
+	line-height: 1.5;
+}
+.lsr-focus-stale {
+	margin: 0;
+	padding: 10px 12px;
+	border-radius: 12px;
+	background: #fef2f2;
+	color: #991b1b;
+	font-size: 14px;
+	line-height: 1.5;
+}
 .lsr-learn-form {
 	margin: 0 0 24px;
 }
