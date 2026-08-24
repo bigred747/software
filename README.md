@@ -2,28 +2,28 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe Blog Master Command Center 2.9.6 — THE BLOG PLUGIN (~745KB)
+## 1. Luxe Blog Master Command Center 2.9.7 — THE BLOG PLUGIN (~745KB)
 
-**The live site is still 2.9.4.** Mission Control 1.8.2 did not change at 16:47 UTC because this zip was never uploaded. Refreshing the dashboard cannot install a plugin.
+**2.9.6 is already live.** Mission Control 1.8.2 still showed three reds after the 16:56 UTC refresh because `blog_master` stayed `[]`. A stub pointer plugin is not enough.
 
 **Upload this file from Windows 11 into WordPress:**
 
 [luxe-blog-master-command-center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-handshake-e8f3/luxe-blog-master-command-center.zip)
 
-SHA-256 `25d688519d3276cfbfaa9ca5155fb7b4a7556302dc944c84089df0a247f48fb9`
+SHA-256 `52c1438b431c154d9659fe22c0f0d3594451f8565d60201dbc1d42a3fb45be97`
 
 Also named [Luxe-Blog-Master-Command-Center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-handshake-e8f3/Luxe-Blog-Master-Command-Center.zip)
 
 Plugins → Add Plugin → Upload Plugin.
 
-- If WordPress offers **Replace current with uploaded**, that is 2.9.4. Replace, then Activate.
-- Confirm **Plugins** shows **Version 2.9.6**. If it still says 2.9.4, the zip did not replace.
-- If Plugins also lists **Luxe Blog Master**, leave it **Active**. Same engine. That is the identity Mission Control scans for.
+- If WordPress offers **Replace current with uploaded**, that is 2.9.6. Replace, then Activate.
+- Confirm **Plugins** shows **Version 2.9.7**. If it still says 2.9.6, the zip did not replace.
+- Confirm **Luxe Blog Master** (`luxe-blog-master/luxe-blog-master.php`, Version **2.8.1**) is **Active**. Same engine. That is the identity Mission Control scans for.
 - Do not upload this zip over Reader-Love, Luxe SEO, Theme Guard, Finish, Mission Control, Stay Repair, Keyword Autopilot, Hard Rescue, Product Scout, or Review Desk.
 
-Then open **Richard Brummer SEO** and click the **complete dashboard refresh**. The three companion reds should clear when `blog_master` is no longer `[]` and `approval_only` is true.
+Then open **Richard Brummer SEO** and click the **complete dashboard refresh**. Open the three red rows. The reds can clear only when `blog_master` is no longer `[]` and `approval_only` is true. If those keys stay empty after 2.9.7, live 1.8.2 is probing something this repo does not contain — do not fake the greens.
 
-Safe autopilot stays **OFF**. Do not publish Command Center drafts. Master **#10833** stays read-only. Product **#0** stays blocked.
+Safe autopilot stays **OFF**. Do not publish Command Center drafts (they are 89–93 until uniqueness/gates pass). Master **#10833** stays read-only. Product **#0** stays blocked.
 
 Review Desk 1.0.0 does not read these locks (it showed Product #0 / Live now 11). Upload [Review Desk 1.0.1](https://github.com/bigred747/software/raw/refs/heads/cursor/review-desk-blog-sync-e8f3/luxe-blog-review-desk.zip) over that desk so it uses the same product IDs, scores, and Keep Live list. Publish stays gated on 95–100 or FINAL VERIFY.
 

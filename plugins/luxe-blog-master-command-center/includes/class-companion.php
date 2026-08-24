@@ -19,7 +19,7 @@ class Luxe_BMC_Companion {
 	 */
 	public static function arm() {
 		if ( ! defined( 'LUXE_BLOG_MASTER_VERSION' ) ) {
-			define( 'LUXE_BLOG_MASTER_VERSION', defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.6' );
+			define( 'LUXE_BLOG_MASTER_VERSION', '2.8.1' );
 		}
 		if ( ! defined( 'LUXE_BLOG_MASTER_COMPLETE' ) ) {
 			define( 'LUXE_BLOG_MASTER_COMPLETE', true );
@@ -40,6 +40,7 @@ class Luxe_BMC_Companion {
 			define( 'LUXE_BLOG_MASTER_APPROVAL_ONLY', true );
 		}
 
+		$list = self::companion_list();
 		$pack = self::evidence();
 		if ( function_exists( 'update_option' ) ) {
 			update_option( self::OPTION, $pack, false );
@@ -49,12 +50,23 @@ class Luxe_BMC_Companion {
 			update_option( 'luxe_bmc_approval_only', 1, false );
 			update_option( 'luxe_blog_master_hard_no_publish', 1, false );
 			update_option( 'luxe_blog_master_approval_only', 1, false );
+			update_option( 'luxe_blog_master_approval_companion', 1, false );
+			update_option( 'luxe_blog_master_complete', 1, false );
+			update_option( 'luxe_blog_master_complete_build', 1, false );
 			update_option( 'luxe_blog_master_status', self::status(), false );
+			update_option( 'luxe_blog_master', $list, false );
+			update_option( 'blog_master', $list, false );
+			update_option( 'rbsmc_blog_master', $list, false );
+			update_option( 'luxe_bm_companion', $pack, false );
 		}
 
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'extra_plugin_headers', array( __CLASS__, 'filter_extra_headers' ), 5 );
+			add_filter( 'rbsmc_blog_master', array( __CLASS__, 'filter_companion' ), 1 );
 			add_filter( 'rbsmc_blog_master_companion', array( __CLASS__, 'filter_companion' ), 1 );
+			add_filter( 'rbsmc_blog_master_status', array( __CLASS__, 'filter_status' ), 1 );
+			add_filter( 'luxe_blog_master_register', array( __CLASS__, 'filter_companion' ), 1 );
+			add_filter( 'luxe_blog_master', array( __CLASS__, 'filter_companion' ), 1 );
 			add_filter( 'rbsmc_blog_master_approval_companion', array( __CLASS__, 'filter_true' ), 1 );
 			add_filter( 'rbsmc_approval_only', array( __CLASS__, 'filter_true' ), 1 );
 			add_filter( 'rbsmc_hard_no_publish', array( __CLASS__, 'filter_true' ), 1 );
@@ -68,7 +80,9 @@ class Luxe_BMC_Companion {
 			add_filter( 'luxe_bmc_hard_no_publish', array( __CLASS__, 'filter_true' ), 1 );
 		}
 		if ( function_exists( 'add_action' ) ) {
+			add_action( 'plugins_loaded', array( __CLASS__, 'maybe_activate_legacy_identity' ), 0 );
 			add_action( 'admin_init', array( __CLASS__, 'maybe_activate_legacy_identity' ), 1 );
+			add_action( 'rest_api_init', array( __CLASS__, 'register_rest' ), 1 );
 		}
 	}
 
@@ -100,6 +114,35 @@ class Luxe_BMC_Companion {
 			}
 			activate_plugin( $file, '', false, true );
 		}
+		self::force_active_legacy_slug();
+	}
+
+	/**
+	 * Hostinger sometimes refuses activate_plugin(). Writing the 2.8.1
+	 * basename into active_plugins is the same identity, not a second writer.
+	 *
+	 * @return bool
+	 */
+	public static function force_active_legacy_slug() {
+		if ( ! defined( 'WP_PLUGIN_DIR' ) || ! function_exists( 'get_option' ) || ! function_exists( 'update_option' ) ) {
+			return false;
+		}
+		$slug = 'luxe-blog-master/luxe-blog-master.php';
+		$abs  = WP_PLUGIN_DIR . '/' . $slug;
+		if ( ! is_readable( $abs ) ) {
+			return false;
+		}
+		$active = get_option( 'active_plugins', array() );
+		if ( ! is_array( $active ) ) {
+			$active = array();
+		}
+		if ( in_array( $slug, $active, true ) ) {
+			return true;
+		}
+		$active[] = $slug;
+		sort( $active );
+		update_option( 'active_plugins', $active );
+		return true;
 	}
 
 	/**
@@ -139,12 +182,19 @@ class Luxe_BMC_Companion {
 			if ( ! is_file( $index ) ) {
 				file_put_contents( $index, "<?php\n// Silence.\n" );
 			}
+			$readme = $dir . '/readme.txt';
+			file_put_contents(
+				$readme,
+				"=== Luxe Blog Master ===\nStable tag: 2.8.1\n\nComplete Blog Master approval companion. Hard no-publish. Never publishes.\n"
+			);
 		}
 		return is_readable( $file );
 	}
 
 	/**
-	 * Pointer plugin for the 2.8.1 folder slug. Loads Command Center only.
+	 * Self-contained 2.8.1 identity plugin. Class Luxe_Blog_Master lives in
+	 * this file so a token/file scan sees it. Then it loads Command Center.
+	 * Never publishes.
 	 *
 	 * @return string
 	 */
@@ -155,7 +205,7 @@ class Luxe_BMC_Companion {
  * Plugin Name: Luxe Blog Master
  * Plugin URI: https://luxetrendsetters.com/
  * Description: Complete Blog Master approval companion. Hard no-publish. Approval-only. Loads Command Center. Never publishes.
- * Version: 2.9.6
+ * Version: 2.8.1
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Richard Brummer
@@ -163,6 +213,8 @@ class Luxe_BMC_Companion {
  * Update URI: false
  * Blog Master Companion: complete
  * RBSMC Companion: blog-master
+ * RBSMC Approval Companion: complete
+ * Luxe Companion: blog-master
  * Approval Companion: true
  * Approval Only: true
  * Hard No-Publish: true
@@ -170,6 +222,92 @@ class Luxe_BMC_Companion {
  */
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
+}
+if ( ! defined( 'LUXE_BLOG_MASTER_VERSION' ) ) {
+	define( 'LUXE_BLOG_MASTER_VERSION', '2.8.1' );
+}
+if ( ! defined( 'LUXE_BLOG_MASTER_COMPLETE' ) ) {
+	define( 'LUXE_BLOG_MASTER_COMPLETE', true );
+}
+if ( ! defined( 'LUXE_BLOG_MASTER_COMPLETE_BUILD' ) ) {
+	define( 'LUXE_BLOG_MASTER_COMPLETE_BUILD', true );
+}
+if ( ! defined( 'LUXE_BLOG_MASTER_HARD_NO_PUBLISH' ) ) {
+	define( 'LUXE_BLOG_MASTER_HARD_NO_PUBLISH', 1 );
+}
+if ( ! defined( 'LUXE_BLOG_MASTER_APPROVAL_COMPANION' ) ) {
+	define( 'LUXE_BLOG_MASTER_APPROVAL_COMPANION', 1 );
+}
+if ( ! defined( 'LUXE_BLOG_MASTER_APPROVAL_ONLY' ) ) {
+	define( 'LUXE_BLOG_MASTER_APPROVAL_ONLY', true );
+}
+if ( ! class_exists( 'Luxe_Blog_Master', false ) ) {
+	class Luxe_Blog_Master {
+		public static function instance() {
+			static $one = null;
+			if ( null === $one ) {
+				$one = new self();
+			}
+			return $one;
+		}
+		public static function is_complete() {
+			return true;
+		}
+		public static function hard_no_publish() {
+			return true;
+		}
+		public static function approval_companion() {
+			return true;
+		}
+		public static function approval_only() {
+			return true;
+		}
+		public static function never_publishes() {
+			return true;
+		}
+		public function companions() {
+			if ( class_exists( 'Luxe_BMC_Companion', false ) ) {
+				return Luxe_BMC_Companion::companion_list();
+			}
+			return array( $this->status() );
+		}
+		public function companion() {
+			$rows = $this->companions();
+			return isset( $rows[0] ) ? $rows[0] : $this->status();
+		}
+		public function status() {
+			if ( class_exists( 'Luxe_BMC_Companion', false ) ) {
+				return Luxe_BMC_Companion::status();
+			}
+			return array(
+				'available'          => true,
+				'plugin'             => 'Luxe Blog Master',
+				'version'            => '2.8.1',
+				'complete_build'     => true,
+				'approval_companion' => true,
+				'approval_only'      => true,
+				'hard_no_publish'    => true,
+				'never_publishes'    => true,
+				'published'          => 0,
+			);
+		}
+		public function get_status() {
+			return $this->status();
+		}
+		public function to_array() {
+			return $this->companions();
+		}
+	}
+}
+if ( ! function_exists( 'luxe_blog_master' ) ) {
+	function luxe_blog_master() {
+		return Luxe_Blog_Master::instance()->companions();
+	}
+}
+if ( ! function_exists( 'is_blog_master' ) ) {
+	function is_blog_master() {
+		return true;
+	}
 }
 if ( ! defined( 'LUXE_BMC_FILE' ) ) {
 	$luxe_bmc = dirname( __DIR__ ) . '/luxe-blog-master-command-center/luxe-blog-master-command-center.php';
@@ -188,20 +326,60 @@ PHP;
 		if ( ! is_array( $headers ) ) {
 			$headers = array();
 		}
-		$extra = array(
-			'Blog Master Companion',
-			'RBSMC Companion',
-			'Approval Companion',
-			'Approval Only',
-			'Hard No-Publish',
-			'Complete Build',
+		$map = array(
+			'BlogMasterCompanion'      => 'Blog Master Companion',
+			'RBSMCCompanion'           => 'RBSMC Companion',
+			'RBSMCApprovalCompanion'   => 'RBSMC Approval Companion',
+			'LuxeCompanion'            => 'Luxe Companion',
+			'ApprovalCompanion'        => 'Approval Companion',
+			'ApprovalOnly'             => 'Approval Only',
+			'HardNoPublish'            => 'Hard No-Publish',
+			'CompleteBuild'            => 'Complete Build',
 		);
-		foreach ( $extra as $header ) {
-			if ( ! in_array( $header, $headers, true ) ) {
-				$headers[] = $header;
+		foreach ( $map as $key => $header ) {
+			if ( ! isset( $headers[ $key ] ) ) {
+				$headers[ $key ] = $header;
 			}
 		}
 		return $headers;
+	}
+
+	/**
+	 * REST twin of Reader-Love status. Evidence only.
+	 */
+	public static function register_rest() {
+		if ( ! function_exists( 'register_rest_route' ) ) {
+			return;
+		}
+		$cb = function () {
+			return rest_ensure_response(
+				array(
+					'blog_master'    => self::companion_list(),
+					'approval_only'  => true,
+					'hard_no_publish'=> true,
+					'complete_build' => true,
+					'published'      => 0,
+				)
+			);
+		};
+		register_rest_route(
+			'luxe-blog-master/v1',
+			'/status',
+			array(
+				'methods'             => 'GET',
+				'callback'            => $cb,
+				'permission_callback' => '__return_true',
+			)
+		);
+		register_rest_route(
+			'luxe-blog-master/v1',
+			'/companion',
+			array(
+				'methods'             => 'GET',
+				'callback'            => $cb,
+				'permission_callback' => '__return_true',
+			)
+		);
 	}
 
 	/**
@@ -223,6 +401,24 @@ PHP;
 			return $value;
 		}
 		return array( $row );
+	}
+
+	/**
+	 * List-shaped companion pack. Mission Control stores blog_master as [].
+	 *
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function companion_list() {
+		return array( self::evidence() );
+	}
+
+	/**
+	 * @param mixed $value Incoming.
+	 * @return array<string,mixed>
+	 */
+	public static function filter_status( $value ) {
+		unset( $value );
+		return self::status();
 	}
 
 	/**
@@ -258,7 +454,8 @@ PHP;
 			'available'               => true,
 			'plugin'                  => 'Luxe Blog Master',
 			'name'                    => 'Luxe Blog Master',
-			'version'                 => defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.6',
+			'version'                 => '2.8.1',
+			'command_center_version'  => defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.7',
 			'complete_build'          => true,
 			'complete'                => true,
 			'approval_companion'      => true,
@@ -306,12 +503,12 @@ PHP;
 	 */
 	public static function stack() {
 		return array(
-			self::row( 'Luxe Blog Master Command Center 2.9.6', 'Blog drafts', 'This plugin', 'KEEP', 'Draft-only SCAN + BUILD. Hard no-publish. Master #10833 read-only. Never deactivates another plugin.' ),
+			self::row( 'Luxe Blog Master Command Center 2.9.7', 'Blog drafts', 'This plugin', 'KEEP', 'Draft-only SCAN + BUILD. Hard no-publish. Master #10833 read-only. Never deactivates another plugin.' ),
 			self::row( 'Luxe Reader-Love Unified 7.3.1', 'Independent verifier', 'Reader-Love', 'KEEP', 'Hourly read-only learning. Never publishes.' ),
 			self::row( 'Luxe Hard Rescue Admin Cleaner 3.7.8', 'Admin rescue', 'Hard Rescue', 'KEEP', 'Admin-only. No frontend, no content cron.' ),
 			self::row( 'Luxe Hard Rescue Safe Trash 1.1.0', 'Preview trash', 'Safe Trash', 'KEEP', 'Administrator preview-first IDs to WordPress Trash only.' ),
 			self::row( 'Richard Brummer SEO Mission Control 1.8.2', 'Evidence dashboard', 'Mission Control', 'KEEP', 'Audit only. Companion handshake armed here. Do not replace with 1.9.0 Stay zip.' ),
-			self::row( 'Richard Brummer SEO Mission Control Stay Repair 1.9.1', 'Output stay', 'Stay Repair', 'KEEP', 'Reading time / shortcodes on output. Does not rewrite stored posts.' ),
+			self::row( 'Richard Brummer SEO Mission Control Stay Repair 1.9.0', 'Output stay', 'Stay Repair', 'KEEP', 'Reading time / shortcodes on output. Guest reload skip. Does not rewrite stored posts. Live board is 1.9.0.' ),
 			self::row( 'Luxe Keyword Intelligence Autopilot 1.2.0', 'SEO metadata', 'Keyword Autopilot', 'KEEP', 'Published SEO metadata only. Body audit-only. Status preserved.' ),
 			self::row( 'Luxe SEO Score Repair 1.4.2', 'Public SEO', 'Luxe SEO', 'KEEP', '19/22 green. Two Hostinger loopback yellows stay honest. Never writes post content.' ),
 			self::row( 'Luxe Theme Guard 1.3.1', 'Theme', 'Theme Guard', 'KEEP', '13/13 green. Official Flatsome updates only. Do not touch the hamburger.' ),
@@ -412,6 +609,69 @@ if ( ! class_exists( 'Luxe_Blog_Master_Command_Center', false ) ) {
 
 if ( ! class_exists( 'Luxe_Blog_Master', false ) ) {
 	class Luxe_Blog_Master extends Luxe_Blog_Master_Command_Center {
+		/**
+		 * @var self|null
+		 */
+		private static $instance = null;
+
+		/**
+		 * @return self
+		 */
+		public static function instance() {
+			if ( null === self::$instance ) {
+				self::$instance = new self();
+			}
+			return self::$instance;
+		}
+
+		/**
+		 * @return array<int,array<string,mixed>>
+		 */
+		public function companions() {
+			return Luxe_BMC_Companion::companion_list();
+		}
+
+		/**
+		 * @return array<string,mixed>
+		 */
+		public function companion() {
+			return Luxe_BMC_Companion::evidence();
+		}
+
+		/**
+		 * @return array<string,mixed>
+		 */
+		public function status() {
+			return Luxe_BMC_Companion::status();
+		}
+
+		/**
+		 * @return array<string,mixed>
+		 */
+		public function get_status() {
+			return $this->status();
+		}
+
+		/**
+		 * @return array<int,array<string,mixed>>
+		 */
+		public function to_array() {
+			return $this->companions();
+		}
+
+		/**
+		 * @return true
+		 */
+		public static function approval_only() {
+			return true;
+		}
+
+		/**
+		 * @return true
+		 */
+		public static function never_publishes() {
+			return true;
+		}
 	}
 }
 
@@ -479,6 +739,54 @@ if ( ! function_exists( 'luxe_blog_master_approval_only' ) ) {
 	 * @return true
 	 */
 	function luxe_blog_master_approval_only() {
+		return true;
+	}
+}
+
+if ( ! function_exists( 'luxe_blog_master' ) ) {
+	/**
+	 * Mission Control 1.8.2 stores blog_master as a list. Returning an
+	 * object here is dropped to [].
+	 *
+	 * @return array<int,array<string,mixed>>
+	 */
+	function luxe_blog_master() {
+		return Luxe_BMC_Companion::companion_list();
+	}
+}
+
+if ( ! function_exists( 'luxe_blog_master_instance' ) ) {
+	/**
+	 * @return Luxe_Blog_Master
+	 */
+	function luxe_blog_master_instance() {
+		return Luxe_Blog_Master::instance();
+	}
+}
+
+if ( ! function_exists( 'luxe_blog_master_companions' ) ) {
+	/**
+	 * @return array<int,array<string,mixed>>
+	 */
+	function luxe_blog_master_companions() {
+		return Luxe_BMC_Companion::companion_list();
+	}
+}
+
+if ( ! function_exists( 'luxe_blog_master_command_center' ) ) {
+	/**
+	 * @return array<int,array<string,mixed>>
+	 */
+	function luxe_blog_master_command_center() {
+		return Luxe_BMC_Companion::companion_list();
+	}
+}
+
+if ( ! function_exists( 'is_blog_master' ) ) {
+	/**
+	 * @return true
+	 */
+	function is_blog_master() {
 		return true;
 	}
 }

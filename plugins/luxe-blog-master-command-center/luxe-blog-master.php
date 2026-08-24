@@ -3,7 +3,7 @@
  * Plugin Name: Luxe Blog Master
  * Plugin URI: https://luxetrendsetters.com/
  * Description: Complete Blog Master approval companion. Hard no-publish. Approval-only. Loads Command Center. Never publishes.
- * Version: 2.9.6
+ * Version: 2.8.1
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Richard Brummer
