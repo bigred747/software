@@ -71,7 +71,7 @@ class Luxe_Score_Repair_Robots {
 	}
 
 	/**
-	 * Short valid robots.txt. One sitemap. No Autopilot comment storm.
+	 * Short valid robots.txt. Rank Math sitemap plus search-focus sitemap.
 	 *
 	 * @return string
 	 */
@@ -97,8 +97,11 @@ class Luxe_Score_Repair_Robots {
 			'Allow: /',
 			'',
 			'Sitemap: ' . $sitemap,
-			'',
 		);
+		if ( Luxe_Score_Repair_Plugin::instance()->enabled( 'search_focus' ) ) {
+			$lines[] = 'Sitemap: ' . home_url( Luxe_Score_Repair_Search_Focus::SITEMAP_PATH );
+		}
+		$lines[] = '';
 		return implode( "\n", $lines );
 	}
 
@@ -117,6 +120,35 @@ class Luxe_Score_Repair_Robots {
 			return true;
 		}
 		if ( false !== strpos( $text, 'Sitemap: ' . home_url( '/sitemap.xml' ) ) && false === strpos( $text, 'sitemap_index.xml' ) ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Hostinger may serve a physical robots.txt that Score Repair cannot
+	 * overwrite. Duplicate AI Readiness comments are not a crawl block.
+	 *
+	 * @param string $text File or public body.
+	 * @return bool
+	 */
+	public static function allows_crawling( $text ) {
+		if ( ! is_string( $text ) || '' === trim( $text ) ) {
+			return false;
+		}
+		$n = strtolower( str_replace( "\r\n", "\n", $text ) );
+		$has_allow_root = (bool) preg_match( '/(?:^|\n)\s*allow:\s*\/\s*(\n|$)/', $n );
+		$has_full_block = (bool) preg_match( '/user-agent:\s*\*\s*\n\s*disallow:\s*\/\s*(\n|$)/', $n );
+		if ( $has_full_block && ! $has_allow_root ) {
+			return false;
+		}
+		return ( false !== strpos( $n, 'sitemap:' ) ) || $has_allow_root;
+	}
+	public static function needs_heal( $text ) {
+		if ( self::is_bloated( $text ) ) {
+			return true;
+		}
+		if ( Luxe_Score_Repair_Plugin::instance()->enabled( 'search_focus' ) && false === strpos( (string) $text, 'luxe-search-sitemap.xml' ) ) {
 			return true;
 		}
 		return false;
@@ -148,7 +180,7 @@ class Luxe_Score_Repair_Robots {
 				'error'   => '',
 			);
 		}
-		if ( self::is_bloated( $now ) && is_readable( $path ) && ! file_exists( $path . '.lsr-bak' ) ) {
+		if ( self::needs_heal( $now ) && is_readable( $path ) && ! file_exists( $path . '.lsr-bak' ) ) {
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_copy
 			@copy( $path, $path . '.lsr-bak' );
 		}

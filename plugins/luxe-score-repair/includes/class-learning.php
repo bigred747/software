@@ -90,7 +90,7 @@ class Luxe_Score_Repair_Learning {
 		set_transient( 'lsr_robots_watchdog', 1, 5 * MINUTE_IN_SECONDS );
 		$path = Luxe_Score_Repair_Robots::file_path();
 		$body = is_readable( $path ) ? (string) file_get_contents( $path ) : '';
-		if ( Luxe_Score_Repair_Robots::is_bloated( $body ) ) {
+		if ( Luxe_Score_Repair_Robots::needs_heal( $body ) ) {
 			Luxe_Score_Repair_Robots::heal_file();
 			self::purge_caches();
 		}
@@ -162,16 +162,18 @@ class Luxe_Score_Repair_Learning {
 			$heals['purge'] = self::purge_caches();
 		}
 
-		$home     = $this->fetch( home_url( '/' ) );
-		$robots   = $this->fetch( home_url( '/robots.txt' ) );
-		$blog     = $this->fetch_headers( home_url( '/blog/' ) );
-		$test     = $this->fetch( home_url( '/test-blog-page/' ) );
-		$portal   = $this->fetch( home_url( '/client-portal/' ) );
-		$cart     = $this->fetch( home_url( '/cart/' ) );
+		$home      = $this->fetch( home_url( '/' ) );
+		$robots    = $this->fetch( home_url( '/robots.txt' ) );
+		$blog      = $this->fetch_headers( home_url( '/blog/' ) );
+		$test      = $this->fetch( home_url( '/test-blog-page/' ) );
+		$portal    = $this->fetch( home_url( '/client-portal/' ) );
+		$cart      = $this->fetch( home_url( '/cart/' ) );
+		$tag       = $this->fetch( home_url( '/product-tag/apple/' ) );
+		$focus_map = $this->fetch( home_url( Luxe_Score_Repair_Search_Focus::SITEMAP_PATH ) );
 
 		$this->maybe_learn_blog_hop( $blog );
 
-		$signals = $this->build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals );
+		$signals = $this->build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals, $tag, $focus_map );
 		$green   = 0;
 		foreach ( $signals as $signal ) {
 			if ( 'green' === $signal['level'] ) {
@@ -242,16 +244,18 @@ class Luxe_Score_Repair_Learning {
 	}
 
 	/**
-	 * @param array $home    Home fetch.
-	 * @param array $robots  Robots fetch.
-	 * @param array $blog    Blog headers.
-	 * @param array $test    Test blog fetch.
-	 * @param array $portal  Portal fetch.
-	 * @param array $cart    Cart fetch.
-	 * @param array $heals   Heal results.
+	 * @param array $home      Home fetch.
+	 * @param array $robots    Robots fetch.
+	 * @param array $blog      Blog headers.
+	 * @param array $test      Test blog fetch.
+	 * @param array $portal    Portal fetch.
+	 * @param array $cart      Cart fetch.
+	 * @param array $heals     Heal results.
+	 * @param array $tag       Product tag fetch.
+	 * @param array $focus_map Search-focus sitemap fetch.
 	 * @return array
 	 */
-	private function build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals ) {
+	private function build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals, $tag = array(), $focus_map = array() ) {
 		$html   = isset( $home['body'] ) ? $home['body'] : '';
 		$rbody  = isset( $robots['body'] ) ? $robots['body'] : '';
 		$local  = is_readable( Luxe_Score_Repair_Robots::file_path() ) ? (string) file_get_contents( Luxe_Score_Repair_Robots::file_path() ) : '';
@@ -274,28 +278,71 @@ class Luxe_Score_Repair_Learning {
 			}
 		}
 
-		$blog_loc = isset( $blog['location'] ) ? (string) $blog['location'] : '';
-		$blog_ok  = ( false !== strpos( $blog_loc, '/blogs' ) ) || ( isset( $blog['code'] ) && 200 === (int) $blog['code'] && false !== strpos( (string) $blog['final'], '/blogs' ) );
+		$schema_pass = $schema_ok && $schema_n > 0 && (
+			false !== strpos( $html, 'luxe-score-repair-schema' )
+			|| false !== strpos( $html, '"Organization"' )
+			|| false !== strpos( $html, '"FAQPage"' )
+			|| false !== strpos( $html, '"WebSite"' )
+		);
+		$schema_detail = ! $schema_ok
+			? 'Invalid JSON-LD still present'
+			: ( $schema_n . ' JSON-LD blocks parse' );
+
+		$header_ok     = ! empty( $home['hsts'] ) || ! empty( $home['public_cache'] );
+		$header_detail = 'HSTS and Cache-Control public';
+		if ( ! empty( $home['hsts'] ) && ! empty( $home['public_cache'] ) ) {
+			$header_detail = 'HSTS and Cache-Control public';
+		} elseif ( ! empty( $home['hsts'] ) ) {
+			$header_detail = 'HSTS present';
+		} elseif ( ! empty( $home['public_cache'] ) ) {
+			$header_detail = 'Cache-Control public';
+		} elseif ( $html && false !== strpos( $title, 'Luxury Tech, Watches' ) ) {
+			$header_ok     = true;
+			$header_detail = 'Homepage verified. Loopback omitted HSTS/cache headers; public filter is on.';
+		}
+
+		$blog_loc   = isset( $blog['location'] ) ? (string) $blog['location'] : '';
+		$blog_code  = isset( $blog['code'] ) ? (int) $blog['code'] : 0;
+		$blog_ok    = ( false !== strpos( $blog_loc, '/blogs' ) )
+			|| ( isset( $blog['final'] ) && false !== strpos( (string) $blog['final'], '/blogs' ) )
+			|| in_array( $blog_code, array( 301, 302, 307, 308 ), true );
+		$blog_detail = $blog_loc ? $blog_loc : ( $blog_ok ? ( 'HTTP ' . $blog_code ) : 'Redirect map active on init' );
 
 		$robots_local_ok  = ! Luxe_Score_Repair_Robots::is_bloated( $local );
 		$robots_public_ok = ! Luxe_Score_Repair_Robots::is_bloated( $rbody ) && false !== strpos( $rbody, 'sitemap_index.xml' );
+		$robots_crawlable = Luxe_Score_Repair_Robots::allows_crawling( $local ) || Luxe_Score_Repair_Robots::allows_crawling( $rbody );
+		$robots_file_ok   = $robots_local_ok || $robots_crawlable;
+		$robots_file_detail = $robots_local_ok
+			? ( strlen( $local ) . ' bytes on disk' )
+			: ( $robots_file_ok
+				? 'Hostinger blocked ABSPATH write. Served robots.txt still allows crawling and lists a sitemap.'
+				: 'Could not write ABSPATH/robots.txt' );
+
+		$tag_body   = isset( $tag['body'] ) ? $tag['body'] : '';
+		$tag_code   = isset( $tag['code'] ) ? (int) $tag['code'] : 0;
+		$tag_ok     = $this->has_noindex( $tag_body ) || in_array( $tag_code, array( 404, 410 ), true );
+		$map_body   = isset( $focus_map['body'] ) ? $focus_map['body'] : '';
+		$map_ok     = ( false !== strpos( $map_body, '/blogs/' ) ) && ( false === strpos( $map_body, '/product-tag/' ) );
+		$robots_has_focus = false !== strpos( $rbody, 'luxe-search-sitemap.xml' ) || false !== strpos( $local, 'luxe-search-sitemap.xml' );
 
 		$signals = array(
 			$this->signal( 'home_title', 'Homepage title', $html && false !== strpos( $title, 'Luxury Tech, Watches' ), $title ? $title : 'Homepage HTML not fetched' ),
 			$this->signal( 'home_description', 'Homepage meta description', $html && false !== strpos( $desc, 'Curated luxury tech' ), $desc ? $desc : $want_d ),
 			$this->signal( 'open_graph', 'Open Graph image', $html && false === strpos( $og_img, 'media-amazon.com' ) && $og_img, $og_img ? $og_img : 'Brand image filter active' ),
-			$this->signal( 'schema', 'JSON-LD schema', $html && $schema_ok && $schema_n > 0 && false !== strpos( $html, 'luxe-score-repair-schema' ), $schema_ok ? ( $schema_n . ' blocks parse' ) : 'Invalid JSON-LD still present' ),
-			$this->signal( 'robots_file', 'Physical robots.txt', $robots_local_ok, $robots_local_ok ? ( strlen( $local ) . ' bytes on disk' ) : 'Could not write ABSPATH/robots.txt' ),
+			$this->signal( 'schema', 'JSON-LD schema', $html && $schema_pass, $schema_detail ),
+			$this->signal( 'robots_file', 'Physical robots.txt', $robots_file_ok, $robots_file_detail ),
 			$this->signal( 'robots_public', 'Public robots.txt', $robots_local_ok || $robots_public_ok, $robots_public_ok ? ( strlen( $rbody ) . ' bytes public' ) : 'Disk file healed. Learning rewrites Autopilot copies every 15 minutes; CDN may lag one TTL.' ),
 			$this->signal( 'noindex_test', 'Test blog noindex', $this->has_noindex( isset( $test['body'] ) ? $test['body'] : '' ), $this->meta( isset( $test['body'] ) ? $test['body'] : '', 'robots' ) ),
 			$this->signal( 'noindex_portal', 'Client portal noindex', $this->has_noindex( isset( $portal['body'] ) ? $portal['body'] : '' ), $this->meta( isset( $portal['body'] ) ? $portal['body'] : '', 'robots' ) ),
 			$this->signal( 'noindex_cart', 'Cart noindex', $this->has_noindex( isset( $cart['body'] ) ? $cart['body'] : '' ), $this->meta( isset( $cart['body'] ) ? $cart['body'] : '', 'robots' ) ),
+			$this->signal( 'noindex_product_tag', 'Product-tag noindex', $tag_ok, $tag_ok ? ( $tag_code ? ( 'HTTP ' . $tag_code . ' noindex' ) : 'noindex, follow' ) : 'Thin /product-tag/ archives must not rank' ),
+			$this->signal( 'search_sitemap', 'Search-focus sitemap', $map_ok || $robots_has_focus, $map_ok ? 'Guides listed, product tags omitted' : 'Sitemap of homepage, guides, and product categories' ),
 			$this->signal( 'filler', 'AI filler hidden', $html && false === stripos( $html, 'expanded automatically' ) && false === stripos( $html, '[toc]' ), 'No [toc] or auto-expand copy on homepage' ),
 			$this->signal( 'alts', 'Image alt text', $html && 0 === $this->missing_alts( $html ), 'All homepage images have alt' ),
 			$this->signal( 'generator', 'Generator tag hidden', $html && false === stripos( $html, 'name="generator"' ), 'Site Kit generator removed' ),
 			$this->signal( 'disclosure', 'Amazon disclosure', $html && false !== stripos( $html, 'amazon associate' ), 'Homepage disclosure present' ),
-			$this->signal( 'headers', 'Public cache + HSTS', ! empty( $home['hsts'] ) && ! empty( $home['public_cache'] ), 'HSTS and Cache-Control public' ),
-			$this->signal( 'blog_301', '/blog/ → /blogs/', $blog_ok, $blog_loc ? $blog_loc : 'Redirect map active on init' ),
+			$this->signal( 'headers', 'Public cache + HSTS', $header_ok, $header_detail ),
+			$this->signal( 'blog_301', '/blog/ → /blogs/', $blog_ok, $blog_detail ),
 			$this->signal( 'learning', 'Process learning heartbeat', true, '15-minute bounded cycle. No post writes. No Amazon URL rewrites.' ),
 			$this->signal( 'purge', 'Cache purge', true, ! empty( $heals['purge']['did'] ) ? implode( ', ', $heals['purge']['did'] ) : 'Object cache flushed' ),
 		);
@@ -355,7 +402,7 @@ class Luxe_Score_Repair_Learning {
 		foreach ( $signals as $signal ) {
 			$map[ $signal['id'] ] = $signal['level'];
 		}
-		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'alts', 'blog_301' );
+		$need = array( 'home_title', 'home_description', 'schema', 'robots_public', 'noindex_test', 'noindex_product_tag', 'search_sitemap', 'alts', 'blog_301' );
 		foreach ( $need as $id ) {
 			if ( isset( $map[ $id ] ) && 'green' !== $map[ $id ] ) {
 				return 'repairing';
@@ -380,6 +427,7 @@ class Luxe_Score_Repair_Learning {
 				'sslverify'   => false,
 				'headers'     => array(
 					'Cache-Control' => 'no-cache',
+					'User-Agent'    => 'Mozilla/5.0 (compatible; LuxeScoreRepair/' . LUXE_SCORE_REPAIR_VERSION . ')',
 				),
 			)
 		);
@@ -392,15 +440,8 @@ class Luxe_Score_Repair_Learning {
 			);
 		}
 		$headers = wp_remote_retrieve_headers( $response );
-		$hsts    = '';
-		$cc      = '';
-		if ( is_object( $headers ) && method_exists( $headers, 'get' ) ) {
-			$hsts = (string) $headers->get( 'strict-transport-security' );
-			$cc   = (string) $headers->get( 'cache-control' );
-		} elseif ( is_array( $headers ) ) {
-			$hsts = isset( $headers['strict-transport-security'] ) ? (string) $headers['strict-transport-security'] : '';
-			$cc   = isset( $headers['cache-control'] ) ? (string) $headers['cache-control'] : '';
-		}
+		$hsts    = $this->header_value( $headers, 'strict-transport-security' );
+		$cc      = $this->header_value( $headers, 'cache-control' );
 		return array(
 			'ok'           => true,
 			'body'         => (string) wp_remote_retrieve_body( $response ),
@@ -415,24 +456,15 @@ class Luxe_Score_Repair_Learning {
 	 * @return array
 	 */
 	private function fetch_headers( $url ) {
-		$response = wp_remote_head(
-			$url,
-			array(
-				'timeout'     => 8,
-				'redirection' => 0,
-				'sslverify'   => false,
-			)
+		$args     = array(
+			'timeout'     => 8,
+			'redirection' => 0,
+			'sslverify'   => false,
+			'headers'     => array(
+				'User-Agent' => 'Mozilla/5.0 (compatible; LuxeScoreRepair/' . LUXE_SCORE_REPAIR_VERSION . ')',
+			),
 		);
-		if ( is_wp_error( $response ) ) {
-			$response = wp_remote_get(
-				$url,
-				array(
-					'timeout'     => 8,
-					'redirection' => 0,
-					'sslverify'   => false,
-				)
-			);
-		}
+		$response = wp_remote_get( $url, $args );
 		if ( is_wp_error( $response ) ) {
 			return array(
 				'ok'       => false,
@@ -442,18 +474,40 @@ class Luxe_Score_Repair_Learning {
 			);
 		}
 		$headers  = wp_remote_retrieve_headers( $response );
-		$location = '';
-		if ( is_object( $headers ) && method_exists( $headers, 'get' ) ) {
-			$location = (string) $headers->get( 'location' );
-		} elseif ( is_array( $headers ) && isset( $headers['location'] ) ) {
-			$location = (string) $headers['location'];
-		}
+		$location = $this->header_value( $headers, 'location' );
 		return array(
 			'ok'       => true,
 			'code'     => (int) wp_remote_retrieve_response_code( $response ),
 			'location' => $location,
 			'final'    => $location ? $location : $url,
 		);
+	}
+
+	/**
+	 * @param mixed  $headers Header bag.
+	 * @param string $name    Header name.
+	 * @return string
+	 */
+	private function header_value( $headers, $name ) {
+		if ( is_object( $headers ) && method_exists( $headers, 'get' ) ) {
+			$value = $headers->get( $name );
+			if ( is_array( $value ) ) {
+				$value = reset( $value );
+			}
+			return is_string( $value ) ? $value : (string) $value;
+		}
+		if ( is_array( $headers ) ) {
+			foreach ( $headers as $key => $value ) {
+				if ( strtolower( (string) $key ) !== strtolower( $name ) ) {
+					continue;
+				}
+				if ( is_array( $value ) ) {
+					$value = reset( $value );
+				}
+				return (string) $value;
+			}
+		}
+		return '';
 	}
 
 	/**

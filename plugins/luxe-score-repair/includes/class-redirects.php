@@ -50,12 +50,16 @@ class Luxe_Score_Repair_Redirects {
 			'/blog/'                            => '/blogs/',
 			'/high-end-blogging-luxury-brands'  => '/blogs/',
 			'/high-end-blogging-luxury-brands/' => '/blogs/',
+			'/date-first-available'             => '/blogs/',
+			'/date-first-available/'            => '/blogs/',
 			'/contact'                          => '/welcome-to-our-contact-us-page/',
 			'/contact/'                         => '/welcome-to-our-contact-us-page/',
 			'/privacy'                          => '/privacy-policy/',
 			'/privacy/'                         => '/privacy-policy/',
 			'/terms'                            => '/terms-and-conditions/',
 			'/terms/'                           => '/terms-and-conditions/',
+			'/wp-sitemap.xml'                   => '/sitemap_index.xml',
+			'/wp-sitemap.xml/'                  => '/sitemap_index.xml',
 		);
 	}
 
@@ -70,6 +74,7 @@ class Luxe_Score_Repair_Redirects {
 			'/privacy-policy/',
 			'/terms-and-conditions/',
 			'/welcome-to-our-contact-us-page/',
+			'/sitemap_index.xml',
 			'/',
 		);
 	}

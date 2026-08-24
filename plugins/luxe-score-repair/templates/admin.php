@@ -24,6 +24,10 @@ $checks = array(
 		'label' => 'Noindex junk and utility URLs',
 		'help'  => 'Cart, checkout, account, wishlist, client portal, test blog, authors, and search stay out of Google.',
 	),
+	'search_focus'         => array(
+		'label' => 'Search focus: products and buyer guides',
+		'help'  => 'Noindex product tags, attribute archives, and filtered shop URLs. Drop them from sitemaps. Publish a small sitemap of homepage, published guides, and product categories. Does not fake Analytics or Search Console clicks.',
+	),
 	'clean_content'        => array(
 		'label' => 'Hide leaked shortcodes and AI filler',
 		'help'  => 'Display-only. Does not write post_content.',
@@ -77,8 +81,34 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · public output repair</p>
 		<h1>Luxe Score Repair <?php echo esc_html( LUXE_SCORE_REPAIR_VERSION ); ?></h1>
-		<p class="lsr-lead">Each process has a live signal. Learning heals robots.txt on disk, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes.</p>
+		<p class="lsr-lead">Search focus is the public-site change. Google numbers will not jump on this screen. Open <strong>Luxe Score Repair</strong> in the left admin menu — do not look for it only under Tools.</p>
 	</header>
+
+	<section class="lsr-focus">
+		<p class="lsr-kicker lsr-kicker-dark">Search focus <?php echo esc_html( isset( $focus['version'] ) ? $focus['version'] : LUXE_SCORE_REPAIR_VERSION ); ?></p>
+		<h2>This is what should look different</h2>
+		<ul class="lsr-focus-list">
+			<li class="<?php echo ! empty( $focus['on'] ) ? 'lsr-focus-ok' : 'lsr-focus-bad'; ?>">
+				<strong><?php echo ! empty( $focus['on'] ) ? 'ON' : 'OFF'; ?></strong>
+				Search focus setting — product tags noindex, products and guides stay indexable
+			</li>
+			<li class="<?php echo ! empty( $focus['robots_ok'] ) ? 'lsr-focus-ok' : 'lsr-focus-bad'; ?>">
+				<strong><?php echo ! empty( $focus['robots_ok'] ) ? 'ON' : 'WAITING'; ?></strong>
+				robots.txt lists the search sitemap. Click Run process learning now if this says WAITING.
+			</li>
+			<li class="lsr-focus-ok">
+				<strong><?php echo esc_html( (string) ( isset( $focus['guide_n'] ) ? (int) $focus['guide_n'] : 0 ) ); ?></strong>
+				published buyer guides queued for Google
+			</li>
+		</ul>
+		<p class="lsr-focus-link">
+			<a href="<?php echo esc_url( isset( $focus['sitemap'] ) ? $focus['sitemap'] : home_url( '/luxe-search-sitemap.xml' ) ); ?>" target="_blank" rel="noopener noreferrer">Open /luxe-search-sitemap.xml</a>
+			— should list homepage, /blogs/, published guides, and product categories. Not product tags.
+		</p>
+		<?php if ( ! empty( $last['stale'] ) || ! empty( $focus['stale'] ) ) : ?>
+			<p class="lsr-focus-stale">The 19 / 22 notice on Tools is leftover from the previous Score Repair. Click <strong>Run process learning now</strong> so this board becomes the live 1.2.1 count.</p>
+		<?php endif; ?>
+	</section>
 
 	<section class="lsr-scorebar">
 		<div>
@@ -157,6 +187,7 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 				<li>Never changes post status</li>
 				<li>Never rewrites Amazon or product permalinks</li>
 				<li>Never creates Rank Math redirect rows</li>
+				<li>Never fakes Analytics or Search Console traffic</li>
 				<li>Learning is heal + verify only</li>
 			</ul>
 		</article>
@@ -165,6 +196,8 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 			<ul>
 				<li>Overwrite bloated <code>robots.txt</code> on disk</li>
 				<li>301 <code>/blog/</code> on <code>init</code> before Rank Math</li>
+				<li>Noindex product tags; keep products and guides indexable</li>
+				<li>Search-focus sitemap of homepage, guides, and product categories</li>
 				<li>LiteSpeed <code>purge_all</code> after each heal</li>
 				<li>Re-learn exact hops if Rank Math still fires first</li>
 			</ul>
