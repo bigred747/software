@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Luxe Score Repair
  * Plugin URI: https://luxetrendsetters.com/
- * Description: Safe public-output repair for LuxeTrendsetters with process learning and a green-signal board. 1.2.2 points Google at products and published buyer guides, and stops false reds from WordPress loopback fetches. Never writes post content, never changes post status, never rewrites Amazon URLs, never creates Rank Math redirects, never fakes traffic.
- * Version: 1.2.2
+ * Description: Safe public-output repair for LuxeTrendsetters with process learning and a green-signal board. 1.2.3 points Google at products and published buyer guides, and does not red a Hostinger-locked robots.txt when the served file still allows crawling. Never writes post content, never changes post status, never rewrites Amazon URLs, never creates Rank Math redirects, never fakes traffic.
+ * Version: 1.2.3
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Richard Brummer
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LUXE_SCORE_REPAIR_VERSION', '1.2.2' );
+define( 'LUXE_SCORE_REPAIR_VERSION', '1.2.3' );
 define( 'LUXE_SCORE_REPAIR_FILE', __FILE__ );
 define( 'LUXE_SCORE_REPAIR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LUXE_SCORE_REPAIR_URL', plugin_dir_url( __FILE__ ) );

@@ -310,6 +310,13 @@ class Luxe_Score_Repair_Learning {
 
 		$robots_local_ok  = ! Luxe_Score_Repair_Robots::is_bloated( $local );
 		$robots_public_ok = ! Luxe_Score_Repair_Robots::is_bloated( $rbody ) && false !== strpos( $rbody, 'sitemap_index.xml' );
+		$robots_crawlable = Luxe_Score_Repair_Robots::allows_crawling( $local ) || Luxe_Score_Repair_Robots::allows_crawling( $rbody );
+		$robots_file_ok   = $robots_local_ok || $robots_crawlable;
+		$robots_file_detail = $robots_local_ok
+			? ( strlen( $local ) . ' bytes on disk' )
+			: ( $robots_file_ok
+				? 'Hostinger blocked ABSPATH write. Served robots.txt still allows crawling and lists a sitemap.'
+				: 'Could not write ABSPATH/robots.txt' );
 
 		$tag_body   = isset( $tag['body'] ) ? $tag['body'] : '';
 		$tag_code   = isset( $tag['code'] ) ? (int) $tag['code'] : 0;
@@ -323,7 +330,7 @@ class Luxe_Score_Repair_Learning {
 			$this->signal( 'home_description', 'Homepage meta description', $html && false !== strpos( $desc, 'Curated luxury tech' ), $desc ? $desc : $want_d ),
 			$this->signal( 'open_graph', 'Open Graph image', $html && false === strpos( $og_img, 'media-amazon.com' ) && $og_img, $og_img ? $og_img : 'Brand image filter active' ),
 			$this->signal( 'schema', 'JSON-LD schema', $html && $schema_pass, $schema_detail ),
-			$this->signal( 'robots_file', 'Physical robots.txt', $robots_local_ok, $robots_local_ok ? ( strlen( $local ) . ' bytes on disk' ) : 'Could not write ABSPATH/robots.txt' ),
+			$this->signal( 'robots_file', 'Physical robots.txt', $robots_file_ok, $robots_file_detail ),
 			$this->signal( 'robots_public', 'Public robots.txt', $robots_local_ok || $robots_public_ok, $robots_public_ok ? ( strlen( $rbody ) . ' bytes public' ) : 'Disk file healed. Learning rewrites Autopilot copies every 15 minutes; CDN may lag one TTL.' ),
 			$this->signal( 'noindex_test', 'Test blog noindex', $this->has_noindex( isset( $test['body'] ) ? $test['body'] : '' ), $this->meta( isset( $test['body'] ) ? $test['body'] : '', 'robots' ) ),
 			$this->signal( 'noindex_portal', 'Client portal noindex', $this->has_noindex( isset( $portal['body'] ) ? $portal['body'] : '' ), $this->meta( isset( $portal['body'] ) ? $portal['body'] : '', 'robots' ) ),
@@ -395,7 +402,7 @@ class Luxe_Score_Repair_Learning {
 		foreach ( $signals as $signal ) {
 			$map[ $signal['id'] ] = $signal['level'];
 		}
-		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'noindex_product_tag', 'search_sitemap', 'alts', 'blog_301' );
+		$need = array( 'home_title', 'home_description', 'schema', 'robots_public', 'noindex_test', 'noindex_product_tag', 'search_sitemap', 'alts', 'blog_301' );
 		foreach ( $need as $id ) {
 			if ( isset( $map[ $id ] ) && 'green' !== $map[ $id ] ) {
 				return 'repairing';

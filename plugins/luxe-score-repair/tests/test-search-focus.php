@@ -54,6 +54,17 @@ $fresh = array(
 expect( false === Luxe_Score_Repair_Admin::learn_has_search_focus( $stale ), 'old 22-process board is stale' );
 expect( true === Luxe_Score_Repair_Admin::learn_has_search_focus( $fresh ), '1.2 board is current' );
 
+require dirname( __DIR__ ) . '/includes/class-robots.php';
+$crawlable = "User-agent: *\nAllow: /\nSitemap: https://luxetrendsetters.com/sitemap_index.xml\n# END Luxe AI Readiness Autopilot 100\n# END Luxe AI Readiness Autopilot 100\n";
+$blocked   = "User-agent: *\nDisallow: /\n";
+expect( true === Luxe_Score_Repair_Robots::allows_crawling( $crawlable ), 'duplicate AI comments still allow crawling' );
+expect( false === Luxe_Score_Repair_Robots::allows_crawling( $blocked ), 'full-site Disallow is not crawlable' );
+expect( true === Luxe_Score_Repair_Robots::is_bloated( $crawlable ), 'duplicate AI END comments stay bloated' );
+
+require dirname( __DIR__ ) . '/includes/class-redirects.php';
+$map = Luxe_Score_Repair_Redirects::base_map();
+expect( '/sitemap_index.xml' === $map['/wp-sitemap.xml'], 'wp-sitemap.xml hops to Rank Math index' );
+
 if ( $fail ) {
 	echo "FAILED $fail\n";
 	exit( 1 );

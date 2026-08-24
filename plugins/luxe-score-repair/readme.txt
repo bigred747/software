@@ -4,7 +4,7 @@ Tags: seo, schema, robots, luxetrendsetters
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,6 +17,10 @@ Luxe Score Repair 1.2.1 heals public HTML and points Google at products and publ
 It does **not** write `post_content`, change post status, rewrite Amazon URLs, create Rank Math redirect rows, or fake Analytics / Search Console traffic.
 
 == Changelog ==
+
+= 1.2.3 =
+* Physical robots.txt is green when Hostinger blocks ABSPATH write but the served file still allows crawling and lists a sitemap
+* Exact 301 `/wp-sitemap.xml` → `/sitemap_index.xml` (Stay Repair 404 log). No Rank Math redirect rows
 
 = 1.2.2 =
 * Stop false reds when learning actually fetches the homepage (schema id, loopback HSTS, HEAD /blog/)

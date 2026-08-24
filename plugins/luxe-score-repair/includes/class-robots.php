@@ -126,11 +126,24 @@ class Luxe_Score_Repair_Robots {
 	}
 
 	/**
-	 * Rewrite when bloated or when search-focus sitemap is missing from disk.
+	 * Hostinger may serve a physical robots.txt that Score Repair cannot
+	 * overwrite. Duplicate AI Readiness comments are not a crawl block.
 	 *
-	 * @param string $text File body.
+	 * @param string $text File or public body.
 	 * @return bool
 	 */
+	public static function allows_crawling( $text ) {
+		if ( ! is_string( $text ) || '' === trim( $text ) ) {
+			return false;
+		}
+		$n = strtolower( str_replace( "\r\n", "\n", $text ) );
+		$has_allow_root = (bool) preg_match( '/(?:^|\n)\s*allow:\s*\/\s*(\n|$)/', $n );
+		$has_full_block = (bool) preg_match( '/user-agent:\s*\*\s*\n\s*disallow:\s*\/\s*(\n|$)/', $n );
+		if ( $has_full_block && ! $has_allow_root ) {
+			return false;
+		}
+		return ( false !== strpos( $n, 'sitemap:' ) ) || $has_allow_root;
+	}
 	public static function needs_heal( $text ) {
 		if ( self::is_bloated( $text ) ) {
 			return true;
