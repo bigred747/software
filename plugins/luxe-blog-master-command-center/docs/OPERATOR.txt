@@ -1,9 +1,11 @@
-Luxe Blog Master Command Center v2.9.4
+Luxe Blog Master Command Center v2.9.5
 ======================================
 
 Upload luxe-blog-master-command-center.zip (~745KB). Plugin Name is
-"Luxe Blog Master Command Center" so WordPress can Replace 2.8.1 when
-the folder slug matches.
+"Luxe Blog Master Command Center" so WordPress can Replace 2.9.4 when
+the folder slug matches. The same folder also contains luxe-blog-master.php
+with Plugin Name "Luxe Blog Master" so Mission Control 1.8.2 can see the
+2.8.1 companion identity. Leave both Active if both appear. Same engine.
 
 Do not upload the 145KB Luxe Blog Master Green Board zip as this plugin.
 
@@ -44,6 +46,6 @@ Hostinger AI (writer risk), Bad Content Eraser (one-time), Master Plugin
 Orchestrator (duplicate admin stack map). Duplicate Plugin Cleaner may
 stay on for scans but must never quarantine the keep-set.
 
-After 2.9.4, open Mission Control and run the complete dashboard refresh
-so the three companion reds can see the hard no-publish handshake.
+After 2.9.5, open Mission Control and run the complete dashboard refresh
+so blog_master is no longer empty and approval_only can turn true.
 Do not upload this zip over Mission Control or Stay Repair.

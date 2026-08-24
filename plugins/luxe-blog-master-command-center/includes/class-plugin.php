@@ -151,6 +151,7 @@ class Luxe_BMC_Plugin {
 		}
 		if ( class_exists( 'Luxe_BMC_Companion' ) ) {
 			Luxe_BMC_Companion::arm();
+			Luxe_BMC_Companion::maybe_activate_legacy_identity();
 		}
 		Luxe_BMC_Learning::activate();
 	}

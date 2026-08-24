@@ -5,7 +5,7 @@
  */
 define( 'ABSPATH', '/tmp/' );
 define( 'LUXE_BMC_DIR', dirname( __DIR__ ) . '/' );
-define( 'LUXE_BMC_VERSION', '2.9.4' );
+define( 'LUXE_BMC_VERSION', '2.9.5' );
 define( 'LUXE_BMC_URL', 'https://example.test/bmc/' );
 define( 'LUXE_BMC_BASENAME', 'luxe-blog-master-command-center/luxe-blog-master-command-center.php' );
 define( 'MINUTE_IN_SECONDS', 60 );
@@ -129,18 +129,28 @@ function expect( $ok, $msg ) {
 
 $header = (string) file_get_contents( LUXE_BMC_DIR . 'luxe-blog-master-command-center.php' );
 expect( false !== strpos( $header, 'Plugin Name: Luxe Blog Master Command Center' ), 'header name is Command Center' );
-expect( false !== strpos( $header, 'Version: 2.9.4' ), 'header is 2.9.4' );
+expect( false !== strpos( $header, 'Version: 2.9.5' ), 'header is 2.9.5' );
 expect( false !== strpos( $header, 'Never publishes' ), 'header restates no-publish' );
 expect( false !== strpos( $header, 'Complete Blog Master approval companion' ), 'header names Mission Control companion' );
 expect( false !== strpos( $header, 'Hard no-publish evidence armed' ), 'header names hard no-publish evidence' );
+expect( false !== strpos( $header, 'Blog Master Companion: complete' ), 'custom companion header present' );
+expect( false !== strpos( $header, 'Approval Only: true' ), 'custom approval-only header present' );
 expect( 25 === count( Luxe_BMC_Plugin::keep_processes() ), '25 keep-processes preserved' );
 expect( 13 === count( Luxe_BMC_Plugin::action_buttons() ), '13 action buttons routed' );
 expect( 13 === count( Luxe_BMC_Admin::routed_actions() ), 'dispatcher lists 13 actions' );
 expect( class_exists( 'Luxe_Blog_Master_Command_Center' ), '2.8.1 class name exists for Mission Control' );
+expect( class_exists( 'BMC_Command_Center' ), 'BMC_Command_Center alias exists' );
 expect( function_exists( 'luxe_blog_master_hard_no_publish' ) && luxe_blog_master_hard_no_publish(), 'hard no-publish function armed' );
 expect( function_exists( 'luxe_blog_master_approval_companion' ) && luxe_blog_master_approval_companion(), 'approval companion function armed' );
+expect( function_exists( 'luxe_blog_master_approval_only' ) && luxe_blog_master_approval_only(), 'approval-only function armed' );
+expect( function_exists( 'luxe_blog_master_status' ) && ! empty( luxe_blog_master_status()['available'] ), 'status probe is available' );
 $handshake = Luxe_BMC_Companion::evidence();
 expect( ! empty( $handshake['complete_build'] ) && ! empty( $handshake['hard_no_publish'] ), 'companion evidence pack is complete' );
+expect( ! empty( $handshake['approval_only'] ) && ! empty( $handshake['available'] ), 'approval_only and available are set' );
+expect( false === $handshake['publishing_enabled'], 'publishing stays disabled' );
+$list = Luxe_BMC_Companion::filter_companion( array() );
+expect( isset( $list[0] ) && ! empty( $list[0]['available'] ), 'companion filter returns a list Mission Control can keep' );
+expect( true === Luxe_BMC_Companion::filter_true( false ), 'approval_only filter is true' );
 expect( ! empty( $handshake['master_locked'] ), 'master #10833 locked in companion evidence' );
 expect( 46 === count( Luxe_BMC_Companion::stack() ), '46-plugin stack map present' );
 $stack = Luxe_BMC_Companion::stack();
@@ -180,7 +190,9 @@ foreach ( $stack as $row ) {
 	}
 }
 $stub = (string) file_get_contents( LUXE_BMC_DIR . 'luxe-blog-master.php' );
-expect( false === strpos( $stub, 'Plugin Name:' ), 'old bootstrap filename is not a second plugin' );
+expect( false !== strpos( $stub, 'Plugin Name: Luxe Blog Master' ), '2.8.1 plugin name is present for Mission Control' );
+expect( false !== strpos( $stub, 'Text Domain: luxe-blog-master' ), '2.8.1 text domain is present' );
+expect( false !== strpos( $stub, 'luxe-blog-master-command-center.php' ), 'stub still loads Command Center' );
 expect( 10833 === Luxe_BMC_Plugin::MASTER, 'master ID 10833 locked' );
 expect( 10833 === Luxe_BMC_Plugin::MASTER_ID, 'MASTER_ID alias locked' );
 expect( 1800 === Luxe_BMC_Plugin::MIN_WORDS, 'min words 1800' );

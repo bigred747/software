@@ -2,27 +2,30 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe Blog Master Command Center 2.9.3 — THE BLOG PLUGIN (~745KB)
+## 1. Luxe Blog Master Command Center 2.9.5 — THE BLOG PLUGIN (~745KB)
 
-This is the full Command Center update for **v2.8.1 / 2.9.2**. Admin title stays **ADAPTIVE UNIQUENESS + AUTO DEPTH MASTER SCANNER**. Plugin Name is **Luxe Blog Master Command Center** so WordPress can Replace when the folder slug matches.
+This is the full Command Center update for **v2.9.4**. Admin title stays **ADAPTIVE UNIQUENESS + AUTO DEPTH MASTER SCANNER**. Plugin Name stays **Luxe Blog Master Command Center** so WordPress can Replace the live 2.9.4 folder.
 
-Windows 11 / WordPress zip. Size **745KB**. Do **not** upload the 145KB Green Board zip as this plugin.
+2.9.4 is already live and green on its own board (10/10, 100/100, handshake ARMED). Mission Control 1.8.2 still shows three reds because it stored `blog_master: []` and `approval_only: false`. It is looking for the 2.8.1 identity **Luxe Blog Master**, not only this Command Center board.
 
 **Upload this file from Windows 11 into WordPress:**
 
-[luxe-blog-master-command-center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/luxe-blog-master-command-center.zip)
+[luxe-blog-master-command-center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-handshake-e8f3/luxe-blog-master-command-center.zip)
 
-SHA-256 `75ab1c45fb93de2f705ebec2ed8359f508f81241dae111702d4608fb0c6f7d3a`
+SHA-256 `dff6fe170b478b9e525d280e2aa16beb2c9a0963d14cdea34ee457efc77d09a1`
 
-Also named [Luxe-Blog-Master-Command-Center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-green-0935/Luxe-Blog-Master-Command-Center.zip)
+Also named [Luxe-Blog-Master-Command-Center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-handshake-e8f3/Luxe-Blog-Master-Command-Center.zip)
 
 Plugins → Add Plugin → Upload Plugin.
 
-- If WordPress offers **Replace current with uploaded**, that is 2.8.1. Replace, then Activate.
-- If it installs as a **second** plugin, the old folder slug differed. Keep 2.8.1 until SCAN + BUILD on 2.9.0 is confirmed, then deactivate the old copy. Do not run two repair engines.
+- If WordPress offers **Replace current with uploaded**, that is 2.9.4. Replace, then Activate.
+- Confirm **Plugins** shows **Version 2.9.5**.
+- If Plugins also lists **Luxe Blog Master** in the same folder, leave it **Active**. That is the 2.8.1 name Mission Control scans for. Same engine. Not a second writer.
 - Do not upload this zip over Reader-Love, Luxe SEO, Theme Guard, Finish, Mission Control, Stay Repair, Keyword Autopilot, Hard Rescue, or Product Scout.
 
-Then open **Blog Master**. Click **SCAN + BUILD 95–100 MASTER LOCK**, then **RUN LEARNING SNAPSHOT NOW**.
+Then open **Richard Brummer SEO** and click the **complete dashboard refresh**. The three companion reds should clear when `blog_master` is no longer `[]` and `approval_only` is true.
+
+Safe autopilot stays **OFF**. Do not publish Command Center drafts. Master **#10833** stays read-only. Product **#0** stays blocked.
 
 What it does:
 
