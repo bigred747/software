@@ -2,26 +2,24 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe Blog Master Command Center 2.9.5 — THE BLOG PLUGIN (~745KB)
+## 1. Luxe Blog Master Command Center 2.9.6 — THE BLOG PLUGIN (~745KB)
 
-This is the full Command Center update for **v2.9.4**. Admin title stays **ADAPTIVE UNIQUENESS + AUTO DEPTH MASTER SCANNER**. Plugin Name stays **Luxe Blog Master Command Center** so WordPress can Replace the live 2.9.4 folder.
-
-2.9.4 is already live and green on its own board (10/10, 100/100, handshake ARMED). Mission Control 1.8.2 still shows three reds because it stored `blog_master: []` and `approval_only: false`. It is looking for the 2.8.1 identity **Luxe Blog Master**, not only this Command Center board.
+**The live site is still 2.9.4.** Mission Control 1.8.2 did not change at 16:47 UTC because this zip was never uploaded. Refreshing the dashboard cannot install a plugin.
 
 **Upload this file from Windows 11 into WordPress:**
 
 [luxe-blog-master-command-center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-handshake-e8f3/luxe-blog-master-command-center.zip)
 
-SHA-256 `dff6fe170b478b9e525d280e2aa16beb2c9a0963d14cdea34ee457efc77d09a1`
+SHA-256 `25d688519d3276cfbfaa9ca5155fb7b4a7556302dc944c84089df0a247f48fb9`
 
 Also named [Luxe-Blog-Master-Command-Center.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-handshake-e8f3/Luxe-Blog-Master-Command-Center.zip)
 
 Plugins → Add Plugin → Upload Plugin.
 
 - If WordPress offers **Replace current with uploaded**, that is 2.9.4. Replace, then Activate.
-- Confirm **Plugins** shows **Version 2.9.5**.
-- If Plugins also lists **Luxe Blog Master** in the same folder, leave it **Active**. That is the 2.8.1 name Mission Control scans for. Same engine. Not a second writer.
-- Do not upload this zip over Reader-Love, Luxe SEO, Theme Guard, Finish, Mission Control, Stay Repair, Keyword Autopilot, Hard Rescue, or Product Scout.
+- Confirm **Plugins** shows **Version 2.9.6**. If it still says 2.9.4, the zip did not replace.
+- If Plugins also lists **Luxe Blog Master**, leave it **Active**. Same engine. That is the identity Mission Control scans for.
+- Do not upload this zip over Reader-Love, Luxe SEO, Theme Guard, Finish, Mission Control, Stay Repair, Keyword Autopilot, Hard Rescue, Product Scout, or Review Desk.
 
 Then open **Richard Brummer SEO** and click the **complete dashboard refresh**. The three companion reds should clear when `blog_master` is no longer `[]` and `approval_only` is true.
 

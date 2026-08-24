@@ -5,7 +5,7 @@
  */
 define( 'ABSPATH', '/tmp/' );
 define( 'LUXE_BMC_DIR', dirname( __DIR__ ) . '/' );
-define( 'LUXE_BMC_VERSION', '2.9.5' );
+define( 'LUXE_BMC_VERSION', '2.9.6' );
 define( 'LUXE_BMC_URL', 'https://example.test/bmc/' );
 define( 'LUXE_BMC_BASENAME', 'luxe-blog-master-command-center/luxe-blog-master-command-center.php' );
 define( 'MINUTE_IN_SECONDS', 60 );
@@ -129,7 +129,7 @@ function expect( $ok, $msg ) {
 
 $header = (string) file_get_contents( LUXE_BMC_DIR . 'luxe-blog-master-command-center.php' );
 expect( false !== strpos( $header, 'Plugin Name: Luxe Blog Master Command Center' ), 'header name is Command Center' );
-expect( false !== strpos( $header, 'Version: 2.9.5' ), 'header is 2.9.5' );
+expect( false !== strpos( $header, 'Version: 2.9.6' ), 'header is 2.9.6' );
 expect( false !== strpos( $header, 'Never publishes' ), 'header restates no-publish' );
 expect( false !== strpos( $header, 'Complete Blog Master approval companion' ), 'header names Mission Control companion' );
 expect( false !== strpos( $header, 'Hard no-publish evidence armed' ), 'header names hard no-publish evidence' );
@@ -151,6 +151,10 @@ expect( false === $handshake['publishing_enabled'], 'publishing stays disabled' 
 $list = Luxe_BMC_Companion::filter_companion( array() );
 expect( isset( $list[0] ) && ! empty( $list[0]['available'] ), 'companion filter returns a list Mission Control can keep' );
 expect( true === Luxe_BMC_Companion::filter_true( false ), 'approval_only filter is true' );
+$pointer = Luxe_BMC_Companion::legacy_slug_plugin_php();
+expect( false !== strpos( $pointer, 'Plugin Name: Luxe Blog Master' ), '2.8.1 folder plugin is named Luxe Blog Master' );
+expect( false !== strpos( $pointer, 'luxe-blog-master-command-center.php' ), '2.8.1 folder plugin loads Command Center' );
+expect( false === strpos( $pointer, 'wp_update_post' ), 'pointer never publishes' );
 expect( ! empty( $handshake['master_locked'] ), 'master #10833 locked in companion evidence' );
 expect( 46 === count( Luxe_BMC_Companion::stack() ), '46-plugin stack map present' );
 $stack = Luxe_BMC_Companion::stack();

@@ -4,7 +4,7 @@ Tags: blog, amazon, woocommerce, command-center
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 2.9.5
+Stable tag: 2.9.6
 License: GPLv2 or later
 
 Full Command Center 2.9.0. Scan, repair drafts, rescan, approval-ready. Keep every blog. Never publishes.
@@ -32,6 +32,9 @@ Full Command Center 2.9.0. Scan, repair drafts, rescan, approval-ready. Keep eve
 5. Open **Blog Master**. Click **SCAN + BUILD** then **RUN LEARNING SNAPSHOT NOW**.
 
 == Changelog ==
+
+= 2.9.6 =
+* Install the 2.8.1 folder identity `luxe-blog-master/luxe-blog-master.php` when the plugins directory is writable so Mission Control 1.8.2 can detect the complete build. Same engine. Never publishes.
 
 = 2.9.5 =
 * Mission Control 1.8.2 handshake: keep the 2.8.1 Plugin Name "Luxe Blog Master" in the same folder, return a list to rbsmc_blog_master_companion, and arm rbsmc_approval_only.

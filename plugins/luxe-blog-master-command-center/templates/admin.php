@@ -250,13 +250,13 @@ if ( ! function_exists( 'luxe_bmc_action_form' ) ) {
 
 	<div class="luxe-bmc-card">
 		<h2>Mission Control companion handshake</h2>
-		<p class="luxe-bmc-note">Richard Brummer SEO Mission Control 1.8.2 is the evidence dashboard. It does not write blogs. 2.9.4 armed this board locally, but Mission Control still stored <code>blog_master: []</code> and <code>approval_only: false</code> because it scans for the 2.8.1 plugin identity (<strong>Luxe Blog Master</strong>) and a list-shaped companion filter. 2.9.5 keeps Command Center for Replace, exposes that 2.8.1 name in the same folder, returns a list to <code>rbsmc_blog_master_companion</code>, and sets <code>rbsmc_approval_only</code>. After this zip: Plugins → Replace → Activate. If Plugins also lists <strong>Luxe Blog Master</strong> in this folder, leave it Active (same engine). Then in Mission Control click the complete dashboard refresh. Do not upload this zip over Mission Control or Stay Repair.</p>
+		<p class="luxe-bmc-note">Richard Brummer SEO Mission Control 1.8.2 is the evidence dashboard. It does not write blogs. 2.9.4 armed this board locally, but Mission Control still stored <code>blog_master: []</code> and <code>approval_only: false</code> because it scans for the 2.8.1 plugin identity (<strong>Luxe Blog Master</strong>) and a list-shaped companion filter. Live Command Center was still 2.9.4 at the 16:47 UTC refresh, so those reds cannot change until this zip is uploaded. 2.9.6 Replace 2.9.4, confirm Plugins shows Version 2.9.6, and it installs <code>luxe-blog-master/luxe-blog-master.php</code> when writable. Then Mission Control complete dashboard refresh. Do not upload this zip over Mission Control or Stay Repair.</p>
 		<table class="widefat striped luxe-bmc-table">
 			<tbody>
 				<tr><th>Complete build</th><td><?php echo ! empty( $companion['complete_build'] ) ? 'ARMED' : 'missing'; ?></td></tr>
 				<tr><th>Approval companion</th><td><?php echo ! empty( $companion['approval_companion'] ) ? 'ARMED' : 'missing'; ?></td></tr>
 				<tr><th>Approval only</th><td><?php echo ! empty( $companion['approval_only'] ) ? 'ARMED' : 'missing'; ?></td></tr>
-				<tr><th>2.8.1 plugin name file</th><td>luxe-blog-master.php in this folder</td></tr>
+				<tr><th>2.8.1 plugin identity</th><td>luxe-blog-master/luxe-blog-master.php</td></tr>
 				<tr><th>Master #10833 locked</th><td><?php echo ! empty( $companion['master_locked'] ) ? 'read-only' : 'check'; ?></td></tr>
 				<tr><th>Published from this plugin</th><td>0</td></tr>
 			</tbody>
