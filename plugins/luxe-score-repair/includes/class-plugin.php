@@ -33,6 +33,7 @@ class Luxe_Score_Repair_Plugin {
 			'fix_titles'            => 1,
 			'fix_robots_txt'        => 1,
 			'noindex_utility'       => 1,
+			'search_focus'          => 1,
 			'fix_schema'            => 1,
 			'fix_open_graph'        => 1,
 			'clean_content'         => 1,
@@ -79,6 +80,7 @@ class Luxe_Score_Repair_Plugin {
 		add_action( 'admin_init', array( $this, 'maybe_save_settings' ) );
 
 		Luxe_Score_Repair_SEO::instance()->boot();
+		Luxe_Score_Repair_Search_Focus::instance()->boot();
 		Luxe_Score_Repair_Schema::instance()->boot();
 		Luxe_Score_Repair_Robots::instance()->boot();
 		Luxe_Score_Repair_Content::instance()->boot();
@@ -247,7 +249,7 @@ class Luxe_Score_Repair_Plugin {
 			return false;
 		}
 		$uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
-		if ( preg_match( '#/(robots\.txt|sitemap[^/]*\.xml|wp-cron\.php|xmlrpc\.php|wp-json/)#i', $uri ) ) {
+		if ( preg_match( '#/(robots\.txt|sitemap[^/]*\.xml|luxe-search-sitemap\.xml|wp-cron\.php|xmlrpc\.php|wp-json/)#i', $uri ) ) {
 			return false;
 		}
 		return true;

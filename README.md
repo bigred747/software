@@ -2,6 +2,24 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Score Repair 1.2.0 (search focus)
+
+Points Google at **products and published buyer guides** instead of thin product-tag archives. Does **not** fake Analytics or Search Console clicks. Direct 1-second sessions are not search traffic.
+
+**Upload this zip over the current Score Repair plugin:**
+
+[luxe-score-repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/score-repair-search-focus-e8f3/luxe-score-repair.zip)
+
+SHA-256 `b1dd7f9a98f81765989072b55800fcc2390747e855f81169ebb102850da8c1e6`
+
+1. Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate.
+2. Confirm **Plugins** shows **Version 1.2.0**.
+3. Open **Tools → Luxe Score Repair**.
+4. Leave **Search focus: products and buyer guides** on.
+5. Click **Run process learning now**.
+
+After it is live: in Google Search Console, request indexing for the homepage, `/blogs/`, and `/luxe-search-sitemap.xml`. Do not upload this zip over Mission Control, Stay Repair, or Product Scout.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.

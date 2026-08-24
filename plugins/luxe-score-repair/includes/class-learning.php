@@ -162,16 +162,18 @@ class Luxe_Score_Repair_Learning {
 			$heals['purge'] = self::purge_caches();
 		}
 
-		$home     = $this->fetch( home_url( '/' ) );
-		$robots   = $this->fetch( home_url( '/robots.txt' ) );
-		$blog     = $this->fetch_headers( home_url( '/blog/' ) );
-		$test     = $this->fetch( home_url( '/test-blog-page/' ) );
-		$portal   = $this->fetch( home_url( '/client-portal/' ) );
-		$cart     = $this->fetch( home_url( '/cart/' ) );
+		$home      = $this->fetch( home_url( '/' ) );
+		$robots    = $this->fetch( home_url( '/robots.txt' ) );
+		$blog      = $this->fetch_headers( home_url( '/blog/' ) );
+		$test      = $this->fetch( home_url( '/test-blog-page/' ) );
+		$portal    = $this->fetch( home_url( '/client-portal/' ) );
+		$cart      = $this->fetch( home_url( '/cart/' ) );
+		$tag       = $this->fetch( home_url( '/product-tag/apple/' ) );
+		$focus_map = $this->fetch( home_url( Luxe_Score_Repair_Search_Focus::SITEMAP_PATH ) );
 
 		$this->maybe_learn_blog_hop( $blog );
 
-		$signals = $this->build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals );
+		$signals = $this->build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals, $tag, $focus_map );
 		$green   = 0;
 		foreach ( $signals as $signal ) {
 			if ( 'green' === $signal['level'] ) {
@@ -242,16 +244,18 @@ class Luxe_Score_Repair_Learning {
 	}
 
 	/**
-	 * @param array $home    Home fetch.
-	 * @param array $robots  Robots fetch.
-	 * @param array $blog    Blog headers.
-	 * @param array $test    Test blog fetch.
-	 * @param array $portal  Portal fetch.
-	 * @param array $cart    Cart fetch.
-	 * @param array $heals   Heal results.
+	 * @param array $home      Home fetch.
+	 * @param array $robots    Robots fetch.
+	 * @param array $blog      Blog headers.
+	 * @param array $test      Test blog fetch.
+	 * @param array $portal    Portal fetch.
+	 * @param array $cart      Cart fetch.
+	 * @param array $heals     Heal results.
+	 * @param array $tag       Product tag fetch.
+	 * @param array $focus_map Search-focus sitemap fetch.
 	 * @return array
 	 */
-	private function build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals ) {
+	private function build_signals( $home, $robots, $blog, $test, $portal, $cart, $heals, $tag = array(), $focus_map = array() ) {
 		$html   = isset( $home['body'] ) ? $home['body'] : '';
 		$rbody  = isset( $robots['body'] ) ? $robots['body'] : '';
 		$local  = is_readable( Luxe_Score_Repair_Robots::file_path() ) ? (string) file_get_contents( Luxe_Score_Repair_Robots::file_path() ) : '';
@@ -280,6 +284,13 @@ class Luxe_Score_Repair_Learning {
 		$robots_local_ok  = ! Luxe_Score_Repair_Robots::is_bloated( $local );
 		$robots_public_ok = ! Luxe_Score_Repair_Robots::is_bloated( $rbody ) && false !== strpos( $rbody, 'sitemap_index.xml' );
 
+		$tag_body   = isset( $tag['body'] ) ? $tag['body'] : '';
+		$tag_code   = isset( $tag['code'] ) ? (int) $tag['code'] : 0;
+		$tag_ok     = $this->has_noindex( $tag_body ) || in_array( $tag_code, array( 404, 410 ), true );
+		$map_body   = isset( $focus_map['body'] ) ? $focus_map['body'] : '';
+		$map_ok     = ( false !== strpos( $map_body, '/blogs/' ) ) && ( false === strpos( $map_body, '/product-tag/' ) );
+		$robots_has_focus = false !== strpos( $rbody, 'luxe-search-sitemap.xml' ) || false !== strpos( $local, 'luxe-search-sitemap.xml' );
+
 		$signals = array(
 			$this->signal( 'home_title', 'Homepage title', $html && false !== strpos( $title, 'Luxury Tech, Watches' ), $title ? $title : 'Homepage HTML not fetched' ),
 			$this->signal( 'home_description', 'Homepage meta description', $html && false !== strpos( $desc, 'Curated luxury tech' ), $desc ? $desc : $want_d ),
@@ -290,6 +301,8 @@ class Luxe_Score_Repair_Learning {
 			$this->signal( 'noindex_test', 'Test blog noindex', $this->has_noindex( isset( $test['body'] ) ? $test['body'] : '' ), $this->meta( isset( $test['body'] ) ? $test['body'] : '', 'robots' ) ),
 			$this->signal( 'noindex_portal', 'Client portal noindex', $this->has_noindex( isset( $portal['body'] ) ? $portal['body'] : '' ), $this->meta( isset( $portal['body'] ) ? $portal['body'] : '', 'robots' ) ),
 			$this->signal( 'noindex_cart', 'Cart noindex', $this->has_noindex( isset( $cart['body'] ) ? $cart['body'] : '' ), $this->meta( isset( $cart['body'] ) ? $cart['body'] : '', 'robots' ) ),
+			$this->signal( 'noindex_product_tag', 'Product-tag noindex', $tag_ok, $tag_ok ? ( $tag_code ? ( 'HTTP ' . $tag_code . ' noindex' ) : 'noindex, follow' ) : 'Thin /product-tag/ archives must not rank' ),
+			$this->signal( 'search_sitemap', 'Search-focus sitemap', $map_ok || $robots_has_focus, $map_ok ? 'Guides listed, product tags omitted' : 'Sitemap of homepage, guides, and product categories' ),
 			$this->signal( 'filler', 'AI filler hidden', $html && false === stripos( $html, 'expanded automatically' ) && false === stripos( $html, '[toc]' ), 'No [toc] or auto-expand copy on homepage' ),
 			$this->signal( 'alts', 'Image alt text', $html && 0 === $this->missing_alts( $html ), 'All homepage images have alt' ),
 			$this->signal( 'generator', 'Generator tag hidden', $html && false === stripos( $html, 'name="generator"' ), 'Site Kit generator removed' ),
@@ -355,7 +368,7 @@ class Luxe_Score_Repair_Learning {
 		foreach ( $signals as $signal ) {
 			$map[ $signal['id'] ] = $signal['level'];
 		}
-		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'alts', 'blog_301' );
+		$need = array( 'home_title', 'home_description', 'schema', 'robots_file', 'noindex_test', 'noindex_product_tag', 'search_sitemap', 'alts', 'blog_301' );
 		foreach ( $need as $id ) {
 			if ( isset( $map[ $id ] ) && 'green' !== $map[ $id ] ) {
 				return 'repairing';

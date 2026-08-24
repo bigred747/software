@@ -105,7 +105,7 @@ class Luxe_Score_Repair_Buffer {
 			}
 		}
 
-		if ( $plugin->enabled( 'noindex_utility' ) && $seo->should_noindex() ) {
+		if ( $seo->should_noindex() ) {
 			$html = $this->upsert_meta( $html, 'name', 'robots', 'noindex, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' );
 		}
 

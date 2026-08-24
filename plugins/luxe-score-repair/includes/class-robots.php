@@ -71,7 +71,7 @@ class Luxe_Score_Repair_Robots {
 	}
 
 	/**
-	 * Short valid robots.txt. One sitemap. No Autopilot comment storm.
+	 * Short valid robots.txt. Rank Math sitemap plus search-focus sitemap.
 	 *
 	 * @return string
 	 */
@@ -97,8 +97,11 @@ class Luxe_Score_Repair_Robots {
 			'Allow: /',
 			'',
 			'Sitemap: ' . $sitemap,
-			'',
 		);
+		if ( Luxe_Score_Repair_Plugin::instance()->enabled( 'search_focus' ) ) {
+			$lines[] = 'Sitemap: ' . home_url( Luxe_Score_Repair_Search_Focus::SITEMAP_PATH );
+		}
+		$lines[] = '';
 		return implode( "\n", $lines );
 	}
 

@@ -50,6 +50,8 @@ class Luxe_Score_Repair_Redirects {
 			'/blog/'                            => '/blogs/',
 			'/high-end-blogging-luxury-brands'  => '/blogs/',
 			'/high-end-blogging-luxury-brands/' => '/blogs/',
+			'/date-first-available'             => '/blogs/',
+			'/date-first-available/'            => '/blogs/',
 			'/contact'                          => '/welcome-to-our-contact-us-page/',
 			'/contact/'                         => '/welcome-to-our-contact-us-page/',
 			'/privacy'                          => '/privacy-policy/',

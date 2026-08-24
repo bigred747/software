@@ -24,6 +24,10 @@ $checks = array(
 		'label' => 'Noindex junk and utility URLs',
 		'help'  => 'Cart, checkout, account, wishlist, client portal, test blog, authors, and search stay out of Google.',
 	),
+	'search_focus'         => array(
+		'label' => 'Search focus: products and buyer guides',
+		'help'  => 'Noindex product tags, attribute archives, and filtered shop URLs. Drop them from sitemaps. Publish a small sitemap of homepage, published guides, and product categories. Does not fake Analytics or Search Console clicks.',
+	),
 	'clean_content'        => array(
 		'label' => 'Hide leaked shortcodes and AI filler',
 		'help'  => 'Display-only. Does not write post_content.',
@@ -77,7 +81,7 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · public output repair</p>
 		<h1>Luxe Score Repair <?php echo esc_html( LUXE_SCORE_REPAIR_VERSION ); ?></h1>
-		<p class="lsr-lead">Each process has a live signal. Learning heals robots.txt on disk, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes.</p>
+		<p class="lsr-lead">Each process has a live signal. 1.2.0 points Google at real products and published buyer guides instead of thin product-tag pages. This cannot invent Search Console clicks. Direct 1-second sessions are not search traffic.</p>
 	</header>
 
 	<section class="lsr-scorebar">
@@ -157,6 +161,7 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 				<li>Never changes post status</li>
 				<li>Never rewrites Amazon or product permalinks</li>
 				<li>Never creates Rank Math redirect rows</li>
+				<li>Never fakes Analytics or Search Console traffic</li>
 				<li>Learning is heal + verify only</li>
 			</ul>
 		</article>
@@ -165,6 +170,8 @@ $signals = isset( $last['signals'] ) && is_array( $last['signals'] ) ? $last['si
 			<ul>
 				<li>Overwrite bloated <code>robots.txt</code> on disk</li>
 				<li>301 <code>/blog/</code> on <code>init</code> before Rank Math</li>
+				<li>Noindex product tags; keep products and guides indexable</li>
+				<li>Search-focus sitemap of homepage, guides, and product categories</li>
 				<li>LiteSpeed <code>purge_all</code> after each heal</li>
 				<li>Re-learn exact hops if Rank Math still fires first</li>
 			</ul>

@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Luxe Score Repair
  * Plugin URI: https://luxetrendsetters.com/
- * Description: Safe public-output repair for LuxeTrendsetters with process learning and a green-signal board. Heals robots.txt on disk, 301s /blog/ before Rank Math, purges LiteSpeed, and rechecks every 15 minutes. Never writes post content, never changes post status, never rewrites Amazon URLs, never creates Rank Math redirects.
- * Version: 1.1.0
+ * Description: Safe public-output repair for LuxeTrendsetters with process learning and a green-signal board. 1.2.0 points Google at products and published buyer guides instead of thin product-tag archives. Never writes post content, never changes post status, never rewrites Amazon URLs, never creates Rank Math redirects, never fakes traffic.
+ * Version: 1.2.0
  * Requires at least: 6.5
  * Requires PHP: 7.4
  * Author: Richard Brummer
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LUXE_SCORE_REPAIR_VERSION', '1.1.0' );
+define( 'LUXE_SCORE_REPAIR_VERSION', '1.2.0' );
 define( 'LUXE_SCORE_REPAIR_FILE', __FILE__ );
 define( 'LUXE_SCORE_REPAIR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LUXE_SCORE_REPAIR_URL', plugin_dir_url( __FILE__ ) );
@@ -28,6 +28,7 @@ define( 'LUXE_SCORE_REPAIR_BASENAME', plugin_basename( __FILE__ ) );
 
 require_once LUXE_SCORE_REPAIR_DIR . 'includes/class-plugin.php';
 require_once LUXE_SCORE_REPAIR_DIR . 'includes/class-seo.php';
+require_once LUXE_SCORE_REPAIR_DIR . 'includes/class-search-focus.php';
 require_once LUXE_SCORE_REPAIR_DIR . 'includes/class-schema.php';
 require_once LUXE_SCORE_REPAIR_DIR . 'includes/class-robots.php';
 require_once LUXE_SCORE_REPAIR_DIR . 'includes/class-content.php';

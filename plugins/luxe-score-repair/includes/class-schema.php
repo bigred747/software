@@ -135,7 +135,7 @@ class Luxe_Score_Repair_Schema {
 				'url'   => $logo,
 			);
 		}
-		return array(
+		$graph = array(
 			'@context' => 'https://schema.org',
 			'@graph'   => array(
 				$org,
@@ -172,6 +172,44 @@ class Luxe_Score_Repair_Schema {
 					'mainEntity' => $this->faq_entities(),
 				),
 			),
+		);
+		$guides = $this->guide_item_list( $home );
+		if ( $guides ) {
+			$graph['@graph'][] = $guides;
+		}
+		return $graph;
+	}
+
+	/**
+	 * Published buyer guides only. Helps Google find indexable posts.
+	 *
+	 * @param string $home Home URL.
+	 * @return array|null
+	 */
+	private function guide_item_list( $home ) {
+		if ( ! Luxe_Score_Repair_Plugin::instance()->enabled( 'search_focus' ) ) {
+			return null;
+		}
+		$guides = Luxe_Score_Repair_Search_Focus::published_guides( 24 );
+		if ( ! $guides ) {
+			return null;
+		}
+		$elements = array();
+		$pos      = 1;
+		foreach ( $guides as $guide ) {
+			$elements[] = array(
+				'@type'    => 'ListItem',
+				'position' => $pos,
+				'url'      => $guide['url'],
+				'name'     => $guide['title'],
+			);
+			$pos++;
+		}
+		return array(
+			'@type'           => 'ItemList',
+			'@id'             => $home . '#luxe-buyer-guides',
+			'name'            => 'Published buyer guides',
+			'itemListElement' => $elements,
 		);
 	}
 

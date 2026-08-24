@@ -104,6 +104,8 @@ class Luxe_Score_Repair_Admin {
 			'noindex_test'      => 'Test blog noindex',
 			'noindex_portal'    => 'Client portal noindex',
 			'noindex_cart'      => 'Cart noindex',
+			'noindex_product_tag' => 'Product-tag noindex',
+			'search_sitemap'    => 'Search-focus sitemap',
 			'filler'            => 'AI filler hidden',
 			'alts'              => 'Image alt text',
 			'generator'         => 'Generator tag hidden',
