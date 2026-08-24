@@ -4,7 +4,7 @@ Tags: seo, schema, robots, luxetrendsetters
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -17,6 +17,11 @@ Luxe Score Repair 1.2.1 heals public HTML and points Google at products and publ
 It does **not** write `post_content`, change post status, rewrite Amazon URLs, create Rank Math redirect rows, or fake Analytics / Search Console traffic.
 
 == Changelog ==
+
+= 1.2.2 =
+* Stop false reds when learning actually fetches the homepage (schema id, loopback HSTS, HEAD /blog/)
+* Count valid JSON-LD as green even if the script id is stripped by cache
+* Verify /blog/ with GET instead of HEAD so Hostinger returns Location
 
 = 1.2.1 =
 * Top-level Luxe Score Repair menu so the board is not buried on Tools

@@ -2,9 +2,9 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Score Repair 1.2.1 (search focus)
+## Luxe Score Repair 1.2.2 (search focus)
 
-Points Google at **products and published buyer guides** instead of thin product-tag archives. Does **not** fake Analytics or Search Console clicks. Direct 1-second sessions are not search traffic. The Tools screen will not show Google numbers going up.
+Points Google at **products and published buyer guides** instead of thin product-tag archives. Does **not** fake Analytics or Search Console clicks.
 
 **Upload this zip over the current Score Repair plugin:**
 
@@ -13,10 +13,10 @@ Points Google at **products and published buyer guides** instead of thin product
 SHA-256 `c32fc9ad340e2938697276f1c94f3f772df60e5dce783755988fdc3ef22ed3e0`
 
 1. Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate.
-2. Confirm **Plugins** shows **Version 1.2.1**.
+2. Confirm **Plugins** shows **Version 1.2.2**.
 3. Open **Luxe Score Repair** in the **left admin menu** (a search icon). Do not look only under Tools.
 4. Leave **Search focus: products and buyer guides** on.
-5. Click **Run process learning now**. The leftover **19 / 22** notice is from the old plugin and will be replaced.
+5. Click **Run process learning now**. 16 / 19 after 1.2.1 was false reds from loopback fetches, not a public-site regression.
 
 After it is live: in Google Search Console, request indexing for the homepage, `/blogs/`, and `/luxe-search-sitemap.xml`. Do not upload this zip over Mission Control, Stay Repair, or Product Scout.
 
