@@ -250,13 +250,13 @@ if ( ! function_exists( 'luxe_bmc_action_form' ) ) {
 
 	<div class="luxe-bmc-card">
 		<h2>Mission Control companion handshake</h2>
-		<p class="luxe-bmc-note">Richard Brummer SEO Mission Control 1.8.2 is the evidence dashboard. It does not write blogs. Live Command Center is still 2.9.6. The 2.9.6 stub at <code>luxe-blog-master/luxe-blog-master.php</code> is Version 2.9.6 and does not define <code>class Luxe_Blog_Master</code> in that file, so Mission Control still stores <code>blog_master: []</code>. Upload <strong>luxe-blog-master.zip</strong> as Replace on that stub (Version 2.8.1, class in file, list-shaped <code>luxe_blog_master()</code>). Leave this Command Center active. Do not upload that zip over Mission Control or Stay Repair.</p>
+		<p class="luxe-bmc-note">Richard Brummer SEO Mission Control 1.8.2 is the evidence dashboard. It does not write blogs. Do <strong>not</strong> upload Luxe Blog Master 2.8.1 over live 2.9.6 — that is an older plugin and WordPress is correct to warn. This 2.9.8 build is no longer a second listed “Luxe Blog Master” plugin, so that downgrade trap cannot happen again. The three Mission Control reds stay honest until live 1.8.2 can see this companion; do not fake those greens. Do not upload this zip over Mission Control or Stay Repair.</p>
 		<table class="widefat striped luxe-bmc-table">
 			<tbody>
 				<tr><th>Complete build</th><td><?php echo ! empty( $companion['complete_build'] ) ? 'ARMED' : 'missing'; ?></td></tr>
 				<tr><th>Approval companion</th><td><?php echo ! empty( $companion['approval_companion'] ) ? 'ARMED' : 'missing'; ?></td></tr>
 				<tr><th>Approval only</th><td><?php echo ! empty( $companion['approval_only'] ) ? 'ARMED' : 'missing'; ?></td></tr>
-				<tr><th>2.8.1 plugin identity</th><td>luxe-blog-master/luxe-blog-master.php (Version 2.8.1)</td></tr>
+				<tr><th>Listed plugin</th><td>Luxe Blog Master Command Center <?php echo esc_html( defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.8' ); ?> only — not a second Luxe Blog Master 2.8.1</td></tr>
 				<tr><th>Master #10833 locked</th><td><?php echo ! empty( $companion['master_locked'] ) ? 'read-only' : 'check'; ?></td></tr>
 				<tr><th>Published from this plugin</th><td>0</td></tr>
 			</tbody>

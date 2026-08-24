@@ -5,7 +5,7 @@
  */
 define( 'ABSPATH', '/tmp/' );
 define( 'LUXE_BMC_DIR', dirname( __DIR__ ) . '/' );
-define( 'LUXE_BMC_VERSION', '2.9.7' );
+define( 'LUXE_BMC_VERSION', '2.9.8' );
 define( 'LUXE_BMC_URL', 'https://example.test/bmc/' );
 define( 'LUXE_BMC_BASENAME', 'luxe-blog-master-command-center/luxe-blog-master-command-center.php' );
 define( 'MINUTE_IN_SECONDS', 60 );
@@ -129,7 +129,8 @@ function expect( $ok, $msg ) {
 
 $header = (string) file_get_contents( LUXE_BMC_DIR . 'luxe-blog-master-command-center.php' );
 expect( false !== strpos( $header, 'Plugin Name: Luxe Blog Master Command Center' ), 'header name is Command Center' );
-expect( false !== strpos( $header, 'Version: 2.9.7' ), 'header is 2.9.7' );
+expect( false !== strpos( $header, 'Version: 2.9.8' ), 'header is 2.9.8' );
+expect( false !== strpos( $header, 'Never writes a 2.8.1 identity plugin over 2.9.6' ), 'header aborts the 2.8.1 downgrade' );
 expect( false !== strpos( $header, 'Never publishes' ), 'header restates no-publish' );
 expect( false !== strpos( $header, 'Complete Blog Master approval companion' ), 'header names Mission Control companion' );
 expect( false !== strpos( $header, 'Hard no-publish evidence armed' ), 'header names hard no-publish evidence' );
@@ -151,13 +152,11 @@ expect( false === $handshake['publishing_enabled'], 'publishing stays disabled' 
 $list = Luxe_BMC_Companion::filter_companion( array() );
 expect( isset( $list[0] ) && ! empty( $list[0]['available'] ), 'companion filter returns a list Mission Control can keep' );
 expect( true === Luxe_BMC_Companion::filter_true( false ), 'approval_only filter is true' );
+expect( false === Luxe_BMC_Companion::install_legacy_slug_plugin(), 'never writes a 2.8.1 plugin over 2.9.6' );
+expect( false === Luxe_BMC_Companion::force_active_legacy_slug(), 'never forces a 2.8.1 slug active' );
 $pointer = Luxe_BMC_Companion::legacy_slug_plugin_php();
-expect( false !== strpos( $pointer, 'Plugin Name: Luxe Blog Master' ), '2.8.1 folder plugin is named Luxe Blog Master' );
-expect( false !== strpos( $pointer, 'Version: 2.8.1' ), '2.8.1 folder plugin reports Version 2.8.1' );
-expect( false !== strpos( $pointer, 'class Luxe_Blog_Master' ), '2.8.1 folder plugin defines class Luxe_Blog_Master' );
-expect( false !== strpos( $pointer, 'function luxe_blog_master' ), '2.8.1 folder plugin defines luxe_blog_master()' );
-expect( false !== strpos( $pointer, 'luxe-blog-master-command-center.php' ), '2.8.1 folder plugin loads Command Center' );
-expect( false === strpos( $pointer, 'wp_update_post' ), 'pointer never publishes' );
+expect( false !== strpos( $pointer, 'class Luxe_Blog_Master' ), 'unused generator still defines class Luxe_Blog_Master' );
+expect( false === strpos( $pointer, 'wp_update_post' ), 'unused generator never publishes' );
 expect( function_exists( 'luxe_blog_master' ), 'luxe_blog_master() exists' );
 $bm_list = luxe_blog_master();
 expect( isset( $bm_list[0] ) && ! empty( $bm_list[0]['available'] ), 'luxe_blog_master() returns a list Mission Control can keep' );
@@ -166,7 +165,7 @@ $stored = get_option( 'luxe_blog_master' );
 expect( isset( $stored[0]['available'] ), 'option luxe_blog_master is a list' );
 $hdrs = Luxe_BMC_Companion::filter_extra_headers( array( 'Name' => 'Plugin Name' ) );
 expect( isset( $hdrs['BlogMasterCompanion'] ) && 'Blog Master Companion' === $hdrs['BlogMasterCompanion'], 'extra plugin headers stay associative' );
-expect( defined( 'LUXE_BLOG_MASTER_VERSION' ) && '2.8.1' === LUXE_BLOG_MASTER_VERSION, 'LUXE_BLOG_MASTER_VERSION fingerprint is 2.8.1' );
+expect( defined( 'LUXE_BLOG_MASTER_VERSION' ) && '2.9.8' === LUXE_BLOG_MASTER_VERSION, 'LUXE_BLOG_MASTER_VERSION follows Command Center 2.9.8' );
 expect( ! empty( $handshake['master_locked'] ), 'master #10833 locked in companion evidence' );
 expect( 46 === count( Luxe_BMC_Companion::stack() ), '46-plugin stack map present' );
 $stack = Luxe_BMC_Companion::stack();
@@ -206,9 +205,8 @@ foreach ( $stack as $row ) {
 	}
 }
 $stub = (string) file_get_contents( LUXE_BMC_DIR . 'luxe-blog-master.php' );
-expect( false !== strpos( $stub, 'Plugin Name: Luxe Blog Master' ), '2.8.1 plugin name is present for Mission Control' );
-expect( false !== strpos( $stub, 'Text Domain: luxe-blog-master' ), '2.8.1 text domain is present' );
-expect( false !== strpos( $stub, 'luxe-blog-master-command-center.php' ), 'stub still loads Command Center' );
+expect( false === strpos( $stub, 'Plugin Name:' ), 'loader is not a second listed Luxe Blog Master plugin' );
+expect( false !== strpos( $stub, 'luxe-blog-master-command-center.php' ), 'loader still loads Command Center' );
 expect( 10833 === Luxe_BMC_Plugin::MASTER, 'master ID 10833 locked' );
 expect( 10833 === Luxe_BMC_Plugin::MASTER_ID, 'MASTER_ID alias locked' );
 expect( 1800 === Luxe_BMC_Plugin::MIN_WORDS, 'min words 1800' );

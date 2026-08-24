@@ -4,7 +4,7 @@ Tags: blog, amazon, woocommerce, command-center
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 2.9.7
+Stable tag: 2.9.8
 License: GPLv2 or later
 
 Full Command Center 2.9.0. Scan, repair drafts, rescan, approval-ready. Keep every blog. Never publishes.
@@ -25,13 +25,16 @@ Full Command Center 2.9.0. Scan, repair drafts, rescan, approval-ready. Keep eve
 
 == Installation ==
 
-1. Upload `luxe-blog-master-command-center.zip` (about **745KB**) from Windows 11.
-2. If WordPress offers **Replace current with uploaded**, that is 2.8.1 — Replace, then activate.
-3. If it installs as a second plugin, the old folder slug differed. Keep 2.8.1 until this board shows SCAN + BUILD working, then deactivate the old copy. Do not run two repair engines.
+1. Do **not** upload `luxe-blog-master.zip` (Version 2.8.1). That is an older plugin than live 2.9.6. Cancel that replace.
+2. Upload `luxe-blog-master-command-center.zip` (about **745KB**) from Windows 11 over Command Center only.
+3. If WordPress offers **Replace current with uploaded**, that must be Command Center 2.9.6 → 2.9.8. Confirm the names match. Then activate.
 4. Do **not** upload the 145KB Green Board zip as this plugin.
 5. Open **Blog Master**. Click **SCAN + BUILD** then **RUN LEARNING SNAPSHOT NOW**.
 
 == Changelog ==
+
+= 2.9.8 =
+* Abort the 2.8.1 identity zip. Live Luxe Blog Master is 2.9.6; 2.8.1 is older and WordPress correctly blocks the replace. This build is no longer a second listed "Luxe Blog Master" plugin and never writes a 2.8.1 downgrade. Same engine. Never publishes. Does not claim Mission Control 1.8.2 reds will clear.
 
 = 2.9.7 =
 * 2.9.6 was live and Mission Control 1.8.2 still stored blog_master: []. This build writes a Version 2.8.1 identity plugin whose main file defines class Luxe_Blog_Master, forces that slug active, and makes luxe_blog_master() return a list. Same engine. Never publishes.

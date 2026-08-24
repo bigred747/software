@@ -19,7 +19,7 @@ class Luxe_BMC_Companion {
 	 */
 	public static function arm() {
 		if ( ! defined( 'LUXE_BLOG_MASTER_VERSION' ) ) {
-			define( 'LUXE_BLOG_MASTER_VERSION', '2.8.1' );
+			define( 'LUXE_BLOG_MASTER_VERSION', defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.8' );
 		}
 		if ( ! defined( 'LUXE_BLOG_MASTER_COMPLETE' ) ) {
 			define( 'LUXE_BLOG_MASTER_COMPLETE', true );
@@ -87,114 +87,35 @@ class Luxe_BMC_Companion {
 	}
 
 	/**
-	 * Keep the 2.8.1 plugin identity active so Mission Control can see
-	 * Luxe Blog Master. Same engine. Never a second writer.
+	 * Do not write a second Luxe Blog Master plugin. 2.9.6 already listed
+	 * one at Version 2.9.6. Installing 2.8.1 is a WordPress downgrade and
+	 * can replace the Command Center folder.
 	 */
 	public static function maybe_activate_legacy_identity() {
-		self::install_legacy_slug_plugin();
-		if ( ! function_exists( 'activate_plugin' ) ) {
-			if ( defined( 'ABSPATH' ) && is_readable( ABSPATH . 'wp-admin/includes/plugin.php' ) ) {
-				require_once ABSPATH . 'wp-admin/includes/plugin.php';
-			}
-		}
-		if ( ! function_exists( 'activate_plugin' ) || ! function_exists( 'is_plugin_active' ) ) {
-			return;
-		}
-		$files = array(
-			'luxe-blog-master-command-center/luxe-blog-master.php',
-			'luxe-blog-master/luxe-blog-master.php',
-		);
-		foreach ( $files as $file ) {
-			if ( is_plugin_active( $file ) ) {
-				continue;
-			}
-			$abs = defined( 'WP_PLUGIN_DIR' ) ? WP_PLUGIN_DIR . '/' . $file : '';
-			if ( $abs && ! is_readable( $abs ) ) {
-				continue;
-			}
-			activate_plugin( $file, '', false, true );
-		}
-		self::force_active_legacy_slug();
+		return;
 	}
 
 	/**
-	 * Hostinger sometimes refuses activate_plugin(). Writing the 2.8.1
-	 * basename into active_plugins is the same identity, not a second writer.
+	 * Disabled. Never write an older plugin over 2.9.6.
 	 *
 	 * @return bool
 	 */
 	public static function force_active_legacy_slug() {
-		if ( ! defined( 'WP_PLUGIN_DIR' ) || ! function_exists( 'get_option' ) || ! function_exists( 'update_option' ) ) {
-			return false;
-		}
-		$slug = 'luxe-blog-master/luxe-blog-master.php';
-		$abs  = WP_PLUGIN_DIR . '/' . $slug;
-		if ( ! is_readable( $abs ) ) {
-			return false;
-		}
-		$active = get_option( 'active_plugins', array() );
-		if ( ! is_array( $active ) ) {
-			$active = array();
-		}
-		if ( in_array( $slug, $active, true ) ) {
-			return true;
-		}
-		$active[] = $slug;
-		sort( $active );
-		update_option( 'active_plugins', $active );
-		return true;
+		return false;
 	}
 
 	/**
-	 * Write wp-content/plugins/luxe-blog-master/luxe-blog-master.php when
-	 * the plugins directory is writable. Mission Control 1.8.2 looks for
-	 * that 2.8.1 basename.
+	 * Disabled. Never write an older Luxe Blog Master plugin over 2.9.6.
 	 *
 	 * @return bool
 	 */
 	public static function install_legacy_slug_plugin() {
-		if ( ! defined( 'WP_PLUGIN_DIR' ) ) {
-			return false;
-		}
-		$dir  = rtrim( str_replace( '\\', '/', WP_PLUGIN_DIR ), '/' ) . '/luxe-blog-master';
-		$file = $dir . '/luxe-blog-master.php';
-		$php  = self::legacy_slug_plugin_php();
-		if ( ! is_dir( $dir ) ) {
-			if ( function_exists( 'wp_mkdir_p' ) ) {
-				wp_mkdir_p( $dir );
-			} elseif ( ! mkdir( $dir, 0755, true ) && ! is_dir( $dir ) ) {
-				return false;
-			}
-		}
-		if ( ! is_dir( $dir ) ) {
-			return false;
-		}
-		$need = ! is_file( $file );
-		if ( ! $need && is_readable( $file ) ) {
-			$need = ( md5( (string) file_get_contents( $file ) ) !== md5( $php ) );
-		}
-		if ( $need ) {
-			if ( ! is_writable( $dir ) && ( is_file( $file ) && ! is_writable( $file ) ) ) {
-				return false;
-			}
-			file_put_contents( $file, $php );
-			$index = $dir . '/index.php';
-			if ( ! is_file( $index ) ) {
-				file_put_contents( $index, "<?php\n// Silence.\n" );
-			}
-			$readme = $dir . '/readme.txt';
-			file_put_contents(
-				$readme,
-				"=== Luxe Blog Master ===\nStable tag: 2.8.1\n\nComplete Blog Master approval companion. Hard no-publish. Never publishes.\n"
-			);
-		}
-		return is_readable( $file );
+		return false;
 	}
 
 	/**
-	 * Self-contained 2.8.1 identity plugin. Class Luxe_Blog_Master lives in
-	 * this file so a token/file scan sees it. Then it loads Command Center.
-	 * Never publishes.
+	 * Unused. Kept so tests can prove the generator never publishes.
+	 * install_legacy_slug_plugin() is a no-op and must stay a no-op.
 	 *
 	 * @return string
 	 */
@@ -454,8 +375,8 @@ PHP;
 			'available'               => true,
 			'plugin'                  => 'Luxe Blog Master',
 			'name'                    => 'Luxe Blog Master',
-			'version'                 => '2.8.1',
-			'command_center_version'  => defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.7',
+			'version'                 => defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.8',
+			'command_center_version'  => defined( 'LUXE_BMC_VERSION' ) ? LUXE_BMC_VERSION : '2.9.8',
 			'complete_build'          => true,
 			'complete'                => true,
 			'approval_companion'      => true,
@@ -503,7 +424,7 @@ PHP;
 	 */
 	public static function stack() {
 		return array(
-			self::row( 'Luxe Blog Master Command Center 2.9.7', 'Blog drafts', 'This plugin', 'KEEP', 'Draft-only SCAN + BUILD. Hard no-publish. Master #10833 read-only. Never deactivates another plugin.' ),
+			self::row( 'Luxe Blog Master Command Center 2.9.8', 'Blog drafts', 'This plugin', 'KEEP', 'Draft-only SCAN + BUILD. Hard no-publish. Master #10833 read-only. Never deactivates another plugin. Never installs a 2.8.1 downgrade.' ),
 			self::row( 'Luxe Reader-Love Unified 7.3.1', 'Independent verifier', 'Reader-Love', 'KEEP', 'Hourly read-only learning. Never publishes.' ),
 			self::row( 'Luxe Hard Rescue Admin Cleaner 3.7.8', 'Admin rescue', 'Hard Rescue', 'KEEP', 'Admin-only. No frontend, no content cron.' ),
 			self::row( 'Luxe Hard Rescue Safe Trash 1.1.0', 'Preview trash', 'Safe Trash', 'KEEP', 'Administrator preview-first IDs to WordPress Trash only.' ),

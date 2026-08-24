@@ -1,20 +1,31 @@
-Luxe Blog Master Command Center v2.9.7
+Luxe Blog Master Command Center v2.9.8
 ======================================
 
-2.9.6 is already on the live site. Mission Control 1.8.2 still showed
-three reds after the 16:56 UTC refresh (blog_master: []). Upload
-luxe-blog-master-command-center.zip (~745KB) over 2.9.6.
+STOP. Do not upload Luxe Blog Master 2.8.1 over live 2.9.6.
+WordPress is correct: that zip is an older plugin. Cancel the
+replace. Keep Command Center 2.9.6 until you choose this 2.9.8
+upgrade.
 
-Plugin Name is "Luxe Blog Master Command Center" so WordPress can
-Replace 2.9.6. After Replace, Plugins must show Version 2.9.7.
+2.9.6 listed a second plugin named "Luxe Blog Master" from
+luxe-blog-master-command-center/luxe-blog-master.php. Uploading
+luxe-blog-master.zip (Version 2.8.1) matches that row and can
+replace the Command Center folder. The identity-zip experiment
+is over. We were going in circles.
 
-This build writes luxe-blog-master/luxe-blog-master.php as Version
-2.8.1 (Plugin Name: Luxe Blog Master) with class Luxe_Blog_Master in
-that file, then forces the slug active. luxe_blog_master() returns a
-list because an object is stored as blog_master: []. Same engine.
-Never a second writer.
+This 2.9.8 zip is an upgrade of Command Center only:
+- Plugin Name stays "Luxe Blog Master Command Center"
+- Version 2.9.8
+- The loader file is no longer a second listed plugin
+- It never writes a 2.8.1 identity plugin
+- Same engine. Never publishes.
 
-Do not upload the 145KB Luxe Blog Master Green Board zip as this plugin.
+It does not claim Mission Control 1.8.2's three reds will clear.
+Those are detection misses in live 1.8.2 (blog_master: []). Do
+not fake the greens. Do not replace live Mission Control 1.8.2
+with the Stay 1.9.0 zip.
+
+Do not upload the 145KB Luxe Blog Master Green Board zip as this
+plugin. Do not upload luxe-blog-master.zip at all.
 
 Safety
 ------
@@ -53,10 +64,6 @@ Hostinger AI (writer risk), Bad Content Eraser (one-time), Master Plugin
 Orchestrator (duplicate admin stack map). Duplicate Plugin Cleaner may
 stay on for scans but must never quarantine the keep-set.
 
-After 2.9.7, confirm Plugins shows Version 2.9.7 and that Luxe Blog
-Master (luxe-blog-master/luxe-blog-master.php) is Active. Then open
-Mission Control and run the complete dashboard refresh. Open the three
-red rows' evidence: blog_master must not be [] and approval_only must
-be true. If those keys stay empty, the live 1.8.2 probe is still not
-in this repo and the reds stay honest.
+After 2.9.8, confirm Plugins shows Command Center Version 2.9.8 and
+that there is no second listed plugin named Luxe Blog Master 2.8.1.
 Do not upload this zip over Mission Control or Stay Repair.

@@ -91,26 +91,10 @@ def build_zip(files: list[tuple[str, bytes, bool]]) -> bytes:
 
 
 def main() -> None:
-    files = collect_files()
-    header = None
-    for name, data, _store in files:
-        if name == f"{SLUG}/{SLUG}.php":
-            header = data
-            break
-    if not header or b"Plugin Name: Luxe Blog Master" not in header:
-        raise SystemExit("Plugin header missing")
-    if b"Version: 2.8.1" not in header:
-        raise SystemExit("Version 2.8.1 missing")
-    if b"class Luxe_Blog_Master" not in header:
-        raise SystemExit("class Luxe_Blog_Master missing from main file")
-    blob = build_zip(files)
-    digest = hashlib.sha256(blob).hexdigest()
-    for dest in OUTPUTS:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(blob)
-        print(f"{dest.name} {dest.stat().st_size} bytes")
-    print(f"SHA-256 {digest}")
-    print(f"Windows 11 WordPress zip OK ({len(blob)} bytes)")
+    raise SystemExit(
+        "Do not pack luxe-blog-master.zip. Live Luxe Blog Master is 2.9.6; "
+        "this identity plugin is 2.8.1 (older). WordPress correctly blocks the replace."
+    )
 
 
 if __name__ == "__main__":
