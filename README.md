@@ -27,6 +27,8 @@ Then open **Richard Brummer SEO** and click the **complete dashboard refresh**. 
 
 Safe autopilot stays **OFF**. Do not publish Command Center drafts. Master **#10833** stays read-only. Product **#0** stays blocked.
 
+Review Desk 1.0.0 does not read these locks (it showed Product #0 / Live now 11). Upload [Review Desk 1.0.1](https://github.com/bigred747/software/raw/refs/heads/cursor/review-desk-blog-sync-e8f3/luxe-blog-review-desk.zip) over that desk so it uses the same product IDs, scores, and Keep Live list. Publish stays gated on 95–100 or FINAL VERIFY.
+
 What it does:
 
 - All original buttons routed: SCAN + BUILD, 95–100 repair, Approval Ready, category FIX/VERIFY, re-link, autopilot, harden, daily draft, public scan, daily cycle
