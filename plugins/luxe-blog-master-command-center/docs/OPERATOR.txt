@@ -1,0 +1,69 @@
+Luxe Blog Master Command Center v2.9.8
+======================================
+
+STOP. Do not upload Luxe Blog Master 2.8.1 over live 2.9.6.
+WordPress is correct: that zip is an older plugin. Cancel the
+replace. Keep Command Center 2.9.6 until you choose this 2.9.8
+upgrade.
+
+2.9.6 listed a second plugin named "Luxe Blog Master" from
+luxe-blog-master-command-center/luxe-blog-master.php. Uploading
+luxe-blog-master.zip (Version 2.8.1) matches that row and can
+replace the Command Center folder. The identity-zip experiment
+is over. We were going in circles.
+
+This 2.9.8 zip is an upgrade of Command Center only:
+- Plugin Name stays "Luxe Blog Master Command Center"
+- Version 2.9.8
+- The loader file is no longer a second listed plugin
+- It never writes a 2.8.1 identity plugin
+- Same engine. Never publishes.
+
+It does not claim Mission Control 1.8.2's three reds will clear.
+Those are detection misses in live 1.8.2 (blog_master: []). Do
+not fake the greens. Do not replace live Mission Control 1.8.2
+with the Stay 1.9.0 zip.
+
+Do not upload the 145KB Luxe Blog Master Green Board zip as this
+plugin. Do not upload luxe-blog-master.zip at all.
+
+Safety
+------
+- Never publish, never delete, never trash
+- Never write post_content on published posts
+- Master #10833 is read-only
+- Product #0 mismatch holds cannot score 95-100
+- Amazon URLs are read-only. Tag luxetrendse0f-20
+- Flatsome hamburger / off-canvas hiders stay OFF
+- Zero frontend JS/CSS
+- One heavy blog per request, backup before draft write
+
+Pipeline
+--------
+SCAN + BUILD -> repair locked-product drafts -> rescan -> Reader-Love
+independent verification stays in Reader-Love 7.3.1 -> APPROVAL READY
+stamp. WordPress status never changes to publish.
+
+Draft rebuild
+-------------
+Unique product-specific HTML, >=1800 words, uniqueness <72% vs other
+posts, excerpt + Rank Math description synced, one TOC, one disclosure,
+no generic Q1-Q5 FAQ, no copied Amazon listing text.
+
+Keep-set (leave activated)
+--------------------------
+Mission Control 1.8.2, Stay Repair 1.9.0, Keyword Autopilot, Hard Rescue,
+Reader-Love, Luxe SEO, Product Scout, Theme Guard, Public Finish, Mirror
+Master (hamburger), Amazon Bridge, Amazon Correct Tag, Amazon + Mobile
+Recovery, WZone + Deletion Shield, Rank Math, WooCommerce, LiteSpeed,
+Wordfence, Snapshot, and this Command Center.
+
+PARK (deactivate, do not delete)
+--------------------------------
+Hostinger AI (writer risk), Bad Content Eraser (one-time), Master Plugin
+Orchestrator (duplicate admin stack map). Duplicate Plugin Cleaner may
+stay on for scans but must never quarantine the keep-set.
+
+After 2.9.8, confirm Plugins shows Command Center Version 2.9.8 and
+that there is no second listed plugin named Luxe Blog Master 2.8.1.
+Do not upload this zip over Mission Control or Stay Repair.

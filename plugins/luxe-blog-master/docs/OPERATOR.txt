@@ -1,0 +1,16 @@
+Luxe Blog Master 2.8.1 identity — DO NOT UPLOAD
+==============================================
+
+STOP. Do not upload this plugin.
+
+Live site already has Luxe Blog Master / Command Center at
+Version 2.9.6. This identity zip is Version 2.8.1. WordPress is
+correct: that is an older plugin. Installing it can replace the
+Command Center folder.
+
+The identity-zip experiment is over. It did not clear Mission
+Control 1.8.2's three reds (blog_master: []). Do not fake those
+greens. Keep 2.9.6. Optional Command Center upgrade is 2.9.8,
+which is no longer a second listed "Luxe Blog Master" plugin.
+
+Never publishes. Never deletes. Never rewrites Amazon URLs.
