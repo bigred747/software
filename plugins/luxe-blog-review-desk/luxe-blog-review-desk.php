@@ -3,7 +3,7 @@
  * Plugin Name: Luxe Blog Review Desk
  * Plugin URI: https://luxetrendsetters.com/
  * Description: View live buyer guides and publish only drafts that already pass Command Center gates. No cron. No auto-publish. Never deletes. Never rewrites Amazon URLs. Master #10833 stays read-only.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Requires at least: 6.4
  * Tested up to: 6.8
  * Requires PHP: 7.4
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'LBRD_VERSION' ) ) {
-	define( 'LBRD_VERSION', '1.0.0' );
+	define( 'LBRD_VERSION', '1.0.1' );
 }
 if ( ! defined( 'LBRD_FILE' ) ) {
 	define( 'LBRD_FILE', __FILE__ );

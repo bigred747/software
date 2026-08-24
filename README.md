@@ -2,21 +2,24 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Blog Review Desk 1.0.0 (View + Publish)
+## Luxe Blog Review Desk 1.0.1 (View + Publish)
 
-Command Center never publishes. This desk is the human step: **View**, then **Publish** only when a draft is Approval Ready or 95–100 with a real product.
+Command Center never publishes. This desk is the human step: **View**, then **Publish** only when a draft is Approval Ready or 95–100 with a real product. 1.0.1 reads the **same product lock and score keys** as Blog Master Command Center, so live guides are not shown as Product #0.
 
-**Upload this zip:**
+**Upload this zip over Review Desk 1.0.0:**
 
-[luxe-blog-review-desk.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-review-desk-e8f3/luxe-blog-review-desk.zip)
+[luxe-blog-review-desk.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/review-desk-blog-sync-e8f3/luxe-blog-review-desk.zip)
 
-SHA-256 `e2a1bf3ca02a80c8827f6308cc754064660def0cad24a183ed8be2a0dd4ce406`
+SHA-256 `28fb4a7632006df78dfed6d2af597502729be136825a4e3252b316322b9e6149`
 
-1. Plugins → Add Plugin → Upload Plugin → Install Now → Activate.
-2. Open **Luxe Review Desk** in the left admin menu.
-3. Live guides: click **View**.
-4. Ready drafts: click **View**, then **Publish**.
-5. Product #0 and master **#10833** stay blocked. No cron. No auto-publish.
+1. Plugins → Add Plugin → Upload Plugin → Replace current with uploaded → Activate.
+2. Confirm **Plugins** shows **Version 1.0.1**.
+3. Open **Luxe Review Desk**.
+4. Live now should list Command Center Keep Live guides (about 23), including master **#10833** as View only.
+5. Drafts Command Center already locked (for example #73530 product 63192 score 89) must show that product, not #0. Publish stays off until 95–100 or FINAL VERIFY.
+6. Do not upload this zip over Command Center, Mission Control, Score Repair, or Product Scout.
+
+Keep [Command Center 2.9.5](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-handshake-e8f3/luxe-blog-master-command-center.zip) active. That is the blog engine. This desk only views and, when gated, publishes.
 
 ## Luxe Affiliate Product Scout 5.6.8
 

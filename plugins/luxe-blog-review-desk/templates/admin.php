@@ -31,7 +31,11 @@ function lbrd_print_table( $rows, $can_pub, $show_pub ) {
 		echo '<td>' . esc_html( isset( $row['title'] ) ? $row['title'] : '' ) . '</td>';
 		echo '<td>' . esc_html( isset( $row['status'] ) ? $row['status'] : '' ) . '</td>';
 		echo '<td>' . esc_html( isset( $row['product'] ) ? (string) (int) $row['product'] : '0' ) . '</td>';
-		echo '<td>' . esc_html( isset( $row['score'] ) ? (string) (int) $row['score'] : '0' ) . '</td>';
+		$score_label = isset( $row['score'] ) ? (string) (int) $row['score'] : '0';
+		if ( 'publish' === ( isset( $row['status'] ) ? $row['status'] : '' ) && (int) $score_label < 1 ) {
+			$score_label = 'live';
+		}
+		echo '<td>' . esc_html( $score_label ) . '</td>';
 		echo '<td>';
 		if ( ! empty( $row['view'] ) ) {
 			echo '<a class="button button-primary" href="' . esc_url( $row['view'] ) . '" target="_blank" rel="noopener noreferrer">View</a>';
@@ -60,7 +64,7 @@ function lbrd_print_table( $rows, $can_pub, $show_pub ) {
 	<header class="lsr-hero">
 		<p class="lsr-kicker">LuxeTrendsetters · review desk</p>
 		<h1>View, then Publish</h1>
-		<p class="lsr-lead">Live guides have View only. Drafts get a Publish button only after Command Center marks them Approval Ready or 95–100 with a real product. This plugin never auto-publishes, never deletes, and never rewrites Amazon URLs.</p>
+		<p class="lsr-lead">Reads the same Command Center product lock, last score, and Approval Ready flags as Blog Master. Live guides have View only. Drafts get a Publish button only after Command Center marks them Approval Ready or 95–100 with a real product. This plugin never auto-publishes, never deletes, and never rewrites Amazon URLs.</p>
 	</header>
 
 	<section class="laps-counters">

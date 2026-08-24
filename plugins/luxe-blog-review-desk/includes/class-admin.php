@@ -146,24 +146,75 @@ class LBRD_Admin {
 	 * @return array[]
 	 */
 	private function rows() {
-		$posts = get_posts(
-			array(
-				'post_type'      => 'post',
-				'post_status'    => array( 'publish', 'draft', 'pending' ),
-				'posts_per_page' => 80,
-				'orderby'        => 'modified',
-				'order'          => 'DESC',
-			)
-		);
-		$out = array();
-		foreach ( $posts as $post ) {
-			$title = $post->post_title;
-			if ( ! $this->looks_like_guide( $title ) && LBRD_Eligibility::MASTER_ID !== (int) $post->ID ) {
+		$out  = array();
+		$seen = array();
+		foreach ( $this->guide_ids() as $id ) {
+			$id = (int) $id;
+			if ( $id < 1 || isset( $seen[ $id ] ) ) {
 				continue;
 			}
-			$out[] = $this->row_from_post( $post );
+			$post = get_post( $id );
+			if ( ! $post || 'post' !== $post->post_type ) {
+				continue;
+			}
+			if ( ! in_array( $post->post_status, array( 'publish', 'draft', 'pending' ), true ) ) {
+				continue;
+			}
+			$seen[ $id ] = true;
+			$out[]       = $this->row_from_post( $post );
 		}
 		return $out;
+	}
+
+	/**
+	 * Command Center Keep Live + Safe Draft IDs, then WordPress guide posts.
+	 *
+	 * @return int[]
+	 */
+	private function guide_ids() {
+		$ids = array( LBRD_Eligibility::MASTER_ID );
+		$cc  = get_option( 'luxe_bmc_audit', array() );
+		if ( is_array( $cc ) ) {
+			foreach ( array( 'keep', 'draft', 'ready', 'mismatch', 'dup' ) as $bucket ) {
+				if ( empty( $cc[ $bucket ] ) || ! is_array( $cc[ $bucket ] ) ) {
+					continue;
+				}
+				foreach ( $cc[ $bucket ] as $row ) {
+					if ( isset( $row['id'] ) ) {
+						$ids[] = (int) $row['id'];
+					}
+				}
+			}
+			foreach ( array( 'published_ids', 'safe_drafts' ) as $list_key ) {
+				if ( empty( $cc[ $list_key ] ) || ! is_array( $cc[ $list_key ] ) ) {
+					continue;
+				}
+				foreach ( $cc[ $list_key ] as $id ) {
+					$ids[] = (int) $id;
+				}
+			}
+		}
+		foreach ( array( 'publish', array( 'draft', 'pending' ) ) as $status ) {
+			$found = get_posts(
+				array(
+					'post_type'      => 'post',
+					'post_status'    => $status,
+					'posts_per_page' => 250,
+					'fields'         => 'ids',
+					'orderby'        => 'date',
+					'order'          => 'DESC',
+				)
+			);
+			foreach ( $found as $id ) {
+				$id    = (int) $id;
+				$post  = get_post( $id );
+				$title = $post ? $post->post_title : '';
+				if ( $this->looks_like_guide( $title ) || LBRD_Eligibility::MASTER_ID === $id ) {
+					$ids[] = $id;
+				}
+			}
+		}
+		return array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
 	}
 
 	/**
@@ -190,10 +241,9 @@ class LBRD_Admin {
 	 */
 	private function row_from_post( $post ) {
 		$id      = (int) $post->ID;
-		$product = (int) LBRD_Eligibility::first_meta( $id, LBRD_Eligibility::product_keys() );
-		$score   = (int) LBRD_Eligibility::first_meta( $id, LBRD_Eligibility::score_keys() );
-		$flag    = LBRD_Eligibility::first_meta( $id, LBRD_Eligibility::approval_keys() );
-		$ready   = in_array( strtolower( (string) $flag ), array( '1', 'yes', 'ready', 'true' ), true );
+		$product = LBRD_Eligibility::product_for( $id );
+		$score   = LBRD_Eligibility::score_for( $id );
+		$ready   = LBRD_Eligibility::approval_for( $id );
 		$row     = array(
 			'id'       => $id,
 			'title'    => $post->post_title,
@@ -224,6 +274,6 @@ class LBRD_Admin {
 	 * @return bool
 	 */
 	private function looks_like_guide( $title ) {
-		return (bool) preg_match( '/review|buyer guide|macbook|watch|drone|earbuds|buds|laptop/i', $title );
+		return (bool) preg_match( '/review|buyer guide|macbook|watch|drone|earbuds|buds|laptop|iphone|ipad|tablet|seiko|samsung|pixel|asus|omen|zenbook/i', $title );
 	}
 }

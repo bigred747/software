@@ -66,8 +66,13 @@ class LBRD_Eligibility {
 	 */
 	public static function product_keys() {
 		return array(
-			'_luxe_locked_product',
+			'_luxe_bmc_product_id',
 			'_luxe_locked_product_id',
+			'_bmc_locked_product',
+			'_locked_product_id',
+			'luxe_product_id',
+			'_product_id',
+			'_luxe_locked_product',
 			'_lbm_locked_product',
 			'_luxe_cc_product',
 			'_luxe_blog_product',
@@ -81,6 +86,7 @@ class LBRD_Eligibility {
 	 */
 	public static function score_keys() {
 		return array(
+			'_luxe_bmc_last_score',
 			'_luxe_cc_score',
 			'_lbm_score',
 			'_luxe_blog_score',
@@ -94,6 +100,7 @@ class LBRD_Eligibility {
 	 */
 	public static function approval_keys() {
 		return array(
+			'_luxe_bmc_approval_ready',
 			'_luxe_approval_ready',
 			'_lbm_approval_ready',
 			'_luxe_cc_approval',
@@ -102,16 +109,75 @@ class LBRD_Eligibility {
 	}
 
 	/**
-	 * @param int    $post_id Post ID.
-	 * @param string[] $keys   Meta keys.
+	 * Command Center is the product lock owner when it is active.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return int
+	 */
+	public static function product_for( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( class_exists( 'Luxe_BMC_Plugin' ) && method_exists( 'Luxe_BMC_Plugin', 'product_id' ) ) {
+			return (int) Luxe_BMC_Plugin::product_id( $post_id );
+		}
+		return self::first_positive_int( $post_id, self::product_keys() );
+	}
+
+	/**
+	 * @param int $post_id Post ID.
+	 * @return int
+	 */
+	public static function score_for( $post_id ) {
+		return self::first_positive_int( $post_id, self::score_keys() );
+	}
+
+	/**
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	public static function approval_for( $post_id ) {
+		$flag = self::first_meta( $post_id, self::approval_keys() );
+		return in_array( strtolower( (string) $flag ), array( '1', 'yes', 'ready', 'true' ), true );
+	}
+
+	/**
+	 * Skip stored 0 so an empty first key cannot hide Command Center's real lock.
+	 *
+	 * @param int      $post_id Post ID.
+	 * @param string[] $keys    Meta keys.
+	 * @return int
+	 */
+	public static function first_positive_int( $post_id, $keys ) {
+		foreach ( $keys as $key ) {
+			$value = get_post_meta( $post_id, $key, true );
+			if ( is_array( $value ) ) {
+				continue;
+			}
+			$n = (int) $value;
+			if ( $n > 0 ) {
+				return $n;
+			}
+		}
+		return 0;
+	}
+
+	/**
+	 * @param int      $post_id Post ID.
+	 * @param string[] $keys    Meta keys.
 	 * @return mixed
 	 */
 	public static function first_meta( $post_id, $keys ) {
 		foreach ( $keys as $key ) {
 			$value = get_post_meta( $post_id, $key, true );
-			if ( '' !== $value && false !== $value && null !== $value ) {
-				return $value;
+			if ( '' === $value || false === $value || null === $value ) {
+				continue;
 			}
+			if ( is_array( $value ) ) {
+				continue;
+			}
+			if ( '0' === (string) $value ) {
+				continue;
+			}
+			return $value;
 		}
 		return '';
 	}
