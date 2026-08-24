@@ -2,7 +2,28 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## 1. Luxe Blog Master Command Center 2.9.7 — THE BLOG PLUGIN (~745KB)
+## 1. Luxe Blog Master 2.8.1 identity — Mission Control’s missing companion
+
+Live Command Center is still **2.9.6**. It wrote a stub at `luxe-blog-master/luxe-blog-master.php` (Version 2.9.6, no `class Luxe_Blog_Master` in that file). Mission Control 1.8.2 still stores `blog_master: []`.
+
+**Upload this zip as its own plugin. Do not upload it over Command Center.**
+
+[luxe-blog-master.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/blog-master-handshake-e8f3/luxe-blog-master.zip)
+
+SHA-256 `308dd851b7cb151275555cdaae8df85ed953317732dbcc0b1829d9d353419035`
+
+1. Plugins → Add Plugin → Upload Plugin.
+2. If WordPress offers **Replace current with uploaded**, that is the 2.9.6 stub. Replace, then Activate.
+3. Confirm **Plugins** shows **Luxe Blog Master Version 2.8.1** Active.
+4. Leave **Luxe Blog Master Command Center** Active. Same engine. This zip never publishes.
+5. Open **Richard Brummer SEO** → complete dashboard refresh.
+6. Open the three red rows. `blog_master` must not be `[]`. `approval_only` must be true.
+
+Do not upload this zip over Mission Control, Stay Repair, Score Repair, Command Center, Reader-Love, or Review Desk.
+
+## 2. Luxe Blog Master Command Center 2.9.7 — THE BLOG PLUGIN (~745KB)
+
+Optional. Only needed if you also want Command Center itself on 2.9.7. The identity zip above is what Mission Control scans.
 
 **2.9.6 is already live.** Mission Control 1.8.2 still showed three reds after the 16:56 UTC refresh because `blog_master` stayed `[]`. A stub pointer plugin is not enough.
 
@@ -41,11 +62,11 @@ What it does:
 
 Live scan 2026-08-20: homepage, `/blogs/`, `/shop/`, master #10833, Watch Series 9, and all **23** sitemap review-2026 blogs returned **200**. No Command Center frontend assets. Flatsome hamburger markup present. Official Associate sentence is in header + article (counted as one disclosure).
 
-## 2. Luxe Blog Master Green Board 2.9.0 — NOT the blog plugin
+## 3. Luxe Blog Master Green Board 2.9.0 — NOT the blog plugin
 
 Thin 145KB process-health overlay. **Do not use this as the Blog Master replacement.** Upload the 745KB Command Center zip above.
 
-## 3. Luxe Affiliate Product Scout 5.6.8
+## 4. Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.
 

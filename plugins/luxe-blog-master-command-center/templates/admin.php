@@ -250,7 +250,7 @@ if ( ! function_exists( 'luxe_bmc_action_form' ) ) {
 
 	<div class="luxe-bmc-card">
 		<h2>Mission Control companion handshake</h2>
-		<p class="luxe-bmc-note">Richard Brummer SEO Mission Control 1.8.2 is the evidence dashboard. It does not write blogs. 2.9.6 is already live and Mission Control still stored <code>blog_master: []</code> after the 16:56 UTC refresh, so a stub pointer is not enough. 2.9.7 writes a Version <strong>2.8.1</strong> identity at <code>luxe-blog-master/luxe-blog-master.php</code> with <code>class Luxe_Blog_Master</code> in that file, forces it active, and makes <code>luxe_blog_master()</code> return a list (an object is stored as <code>[]</code>). Then Mission Control complete dashboard refresh. Do not upload this zip over Mission Control or Stay Repair.</p>
+		<p class="luxe-bmc-note">Richard Brummer SEO Mission Control 1.8.2 is the evidence dashboard. It does not write blogs. Live Command Center is still 2.9.6. The 2.9.6 stub at <code>luxe-blog-master/luxe-blog-master.php</code> is Version 2.9.6 and does not define <code>class Luxe_Blog_Master</code> in that file, so Mission Control still stores <code>blog_master: []</code>. Upload <strong>luxe-blog-master.zip</strong> as Replace on that stub (Version 2.8.1, class in file, list-shaped <code>luxe_blog_master()</code>). Leave this Command Center active. Do not upload that zip over Mission Control or Stay Repair.</p>
 		<table class="widefat striped luxe-bmc-table">
 			<tbody>
 				<tr><th>Complete build</th><td><?php echo ! empty( $companion['complete_build'] ) ? 'ARMED' : 'missing'; ?></td></tr>

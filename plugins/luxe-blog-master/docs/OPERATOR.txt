@@ -1,0 +1,24 @@
+Luxe Blog Master 2.8.1 identity
+==============================
+
+This is the plugin Mission Control 1.8.2 looks for. It is not the
+Command Center writer. Command Center 2.9.6 stays active.
+
+Live site already has a stub at
+luxe-blog-master/luxe-blog-master.php written by Command Center 2.9.6.
+That stub is Version 2.9.6 and does not define class Luxe_Blog_Master
+in the file. Mission Control still stores blog_master: [].
+
+Upload luxe-blog-master.zip from Windows 11. When WordPress offers
+Replace current with uploaded, that is the stub. Replace, then Activate.
+
+Plugins must show:
+- Luxe Blog Master Version 2.8.1 — Active
+- Luxe Blog Master Command Center 2.9.6 (or 2.9.7) — Active
+
+Then Richard Brummer SEO → complete dashboard refresh.
+
+Do not upload this zip over Mission Control, Stay Repair, Score Repair,
+Command Center, Reader-Love, or Review Desk.
+
+Never publishes. Never deletes. Never rewrites Amazon URLs.
