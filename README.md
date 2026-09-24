@@ -2,6 +2,34 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Download Scout 1.1.2
+
+Puts only the 100-score WZone rows into WooCommerce as unpublished drafts, in the matching category. A 95-score row, an unknown brand, a watch band, and a renewed item are not added. Glued titles such as AppleWatch and GooglePixel are read as Apple and Google. Drafts stay off the Product Scout scoreboard until you publish them.
+
+**Upload this file from Windows 11 into WordPress:**
+
+[luxe-download-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/download-scout-8474/luxe-download-scout.zip)
+
+SHA-256 `4e7162c153d6b54282d84b4607af9d98a7b2cd890bfac1e2d39fc0d49ab9e3dc`
+
+Product Scout 5.6.8 must already be active. Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate. Open **Luxe Download Scout**, paste the same WZone list, and click **Add the very best to Products**. Do not unzip the file on the PC.
+
+### Very best from the current drone page
+
+These go in as drafts under **Drones**. Add the ASIN and primary image on each draft before you publish it.
+
+| Product | Price | Category |
+|---|---:|---|
+| Bwine F7GB2 Pro | $441.79 | Drones |
+| Potensic ATOM 2 Fly More Combo | $439.99 | Drones |
+| Autel Robotics EVO 2 Pro V3 | $2,099.00 | Drones |
+| Holy Stone Saturn T60A | $499.99 | Drones |
+| Autel Robotics EVO II Dual 640T V3 | $4,799.00 | Drones |
+| Autel Robotics EVO II Dual 640T Enterprise V3 | $5,299.00 | Drones |
+| Holy Stone HS360S | $179.99 | Drones |
+
+The Ruko 4K / 8K drone can reach 95 only, because the model name is not on the title, so it is not added.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.

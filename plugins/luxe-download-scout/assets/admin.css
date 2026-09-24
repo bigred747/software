@@ -1,0 +1,107 @@
+.lds-wrap {
+	max-width: 1080px;
+	margin: 24px 0 48px;
+	color: #0f172a;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.lds-hero {
+	padding: 28px 32px;
+	border-radius: 28px;
+	background:
+		radial-gradient(circle at 12% 20%, rgba(255, 216, 111, 0.28), transparent 32%),
+		radial-gradient(circle at 88% 0%, rgba(255, 79, 154, 0.22), transparent 34%),
+		linear-gradient(135deg, #050816, #111827 55%, #0f172a);
+	color: #fff;
+	box-shadow: 0 22px 60px rgba(15, 23, 42, 0.28);
+}
+.lds-kicker {
+	margin: 0 0 8px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	font-size: 11px;
+	font-weight: 800;
+	color: #ffe7a3;
+}
+.lds-kicker-dark {
+	color: #64748b;
+}
+.lds-hero h1 {
+	margin: 0 0 10px;
+	font-size: 28px;
+	letter-spacing: -0.03em;
+	color: #fff;
+}
+.lds-lead {
+	margin: 0;
+	max-width: 760px;
+	color: #dbe7ff;
+	font-size: 15px;
+	line-height: 1.55;
+}
+.lds-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 16px;
+	margin: 20px 0;
+}
+.lds-card {
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 20px;
+	padding: 20px 22px;
+	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+	margin: 0 0 16px;
+}
+.lds-card h2 {
+	margin: 0 0 10px;
+	font-size: 16px;
+}
+.lds-card ul,
+.lds-copy {
+	margin: 0 0 16px;
+	padding-left: 18px;
+}
+.lds-card li {
+	margin: 0 0 6px;
+}
+.lds-note {
+	margin: 0 0 12px;
+	color: #475569;
+	font-size: 13px;
+	line-height: 1.5;
+}
+.lds-scorebar {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 12px;
+	margin: 0 0 16px;
+}
+.lds-scorebar div {
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 18px;
+	padding: 14px 16px;
+}
+.lds-big {
+	margin: 0;
+	font-size: 32px;
+	font-weight: 750;
+	letter-spacing: -0.04em;
+}
+.lds-save {
+	background: #111827 !important;
+	border-color: #111827 !important;
+	border-radius: 999px !important;
+	padding: 8px 22px !important;
+	height: auto !important;
+}
+.lds-wrap textarea {
+	width: 100%;
+	margin: 0 0 16px;
+}
+@media (max-width: 800px) {
+	.lds-grid,
+	.lds-scorebar {
+		grid-template-columns: 1fr;
+	}
+}
