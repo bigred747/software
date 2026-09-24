@@ -100,14 +100,14 @@ class LDS_Picker {
 		$reason = '';
 		if ( ! empty( $row['imported'] ) ) {
 			$reason = 'already-imported';
-		} elseif ( '' === $id['brand'] ) {
-			$reason = 'unknown-brand';
 		} elseif ( $hard ) {
 			$reason = 'used-refurbished-or-parts';
-		} elseif ( $price <= 0 ) {
-			$reason = 'missing-price';
 		} elseif ( self::is_primary_accessory( $title ) ) {
 			$reason = 'accessory';
+		} elseif ( '' === $id['brand'] ) {
+			$reason = 'unknown-brand';
+		} elseif ( $price <= 0 ) {
+			$reason = 'missing-price';
 		} elseif ( self::is_covered( $id, $covered ) ) {
 			$reason = 'already-in-catalog';
 		}
@@ -222,6 +222,10 @@ class LDS_Picker {
 	 * @return string
 	 */
 	public static function general_model( $title ) {
+		$watch = self::watch_model( $title );
+		if ( '' !== $watch ) {
+			return $watch;
+		}
 		if ( preg_match( '/\bairpods\s+pro(?:\s+(\d+))?\b/i', $title, $m ) ) {
 			return 'airpods pro' . ( ! empty( $m[1] ) ? ' ' . $m[1] : '' );
 		}
@@ -244,12 +248,77 @@ class LDS_Picker {
 	}
 
 	/**
+	 * Watch size and radio stay in the model so 42mm and 46mm are different products.
+	 *
+	 * @param string $title Title.
+	 * @return string
+	 */
+	public static function watch_model( $title ) {
+		$mm = '';
+		if ( preg_match( '/\b(\d+)\s*mm\b/i', $title, $size ) ) {
+			$mm = ' ' . $size[1] . 'mm';
+		}
+		if ( preg_match( '/\bpixel\s+watch\s+(\d+)\b/i', $title, $m ) ) {
+			$key = 'pixel watch ' . $m[1];
+			if ( preg_match( '/\blte\b/i', $title ) ) {
+				$key .= ' lte';
+			} elseif ( preg_match( '/\bwi-?fi\b/i', $title ) ) {
+				$key .= ' wifi';
+			}
+			return $key . $mm;
+		}
+		if ( preg_match( '/\bultra\s+(\d+)\b/i', $title, $m ) ) {
+			return 'ultra ' . $m[1] . $mm;
+		}
+		if ( preg_match( '/\bse\s+(\d+)\b/i', $title, $m ) ) {
+			return 'se ' . $m[1] . $mm;
+		}
+		if ( preg_match( '/\bseries\s+(\d+)\b/i', $title, $m ) ) {
+			return 'series ' . $m[1] . $mm;
+		}
+		return '';
+	}
+
+	/**
+	 * A strap sold for a watch is an accessory. A watch that includes a band is not.
+	 *
+	 * @param string $title Title.
+	 * @return bool
+	 */
+	public static function is_band_product( $title ) {
+		if ( ! preg_match( '/\b(bands?|straps?)\b/i', $title ) ) {
+			return false;
+		}
+		$watch = preg_match( '/\b(smartwatch|ultra\s+\d|series\s+\d+|se\s+\d+|pixel\s+watch)\b/i', $title );
+		$radio = preg_match( '/\b(gps|cellular)\b/i', $title );
+		if ( $watch && $radio ) {
+			return false;
+		}
+		if ( preg_match( '/\b(band|strap)s?\s+for\b/i', $title ) ) {
+			return true;
+		}
+		if ( preg_match( '/\b(for|compatible|replacement)\b/i', $title ) && preg_match( '/\bbands?\b/i', $title ) ) {
+			return true;
+		}
+		if ( preg_match( '/\bwatch\s+bands?\b/i', $title ) ) {
+			return true;
+		}
+		if ( preg_match( '/\bbands?\b/i', $title ) && ! $radio && ! preg_match( '/\bsmartwatch\b/i', $title ) ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
 	 * A landing pad or case is not a catalog product. A drone bundle that includes a pad still is.
 	 *
 	 * @param string $title Title.
 	 * @return bool
 	 */
 	public static function is_primary_accessory( $title ) {
+		if ( self::is_band_product( $title ) ) {
+			return true;
+		}
 		$kit = preg_match( '/\b(fly more|combo|bundle|with rc)\b/i', $title );
 		if ( preg_match( '/\blanding\s+pad\b/i', $title ) && ! $kit ) {
 			return true;
@@ -257,7 +326,7 @@ class LDS_Picker {
 		if ( preg_match( '/\b(screen protector|keyboard cover|lens cleaning kit)\b/i', $title ) && ! $kit ) {
 			return true;
 		}
-		if ( preg_match( '/\b(drone|quadcopter|earbuds?|headphones?|laptop|macbook|projector|smartwatch|iphone)\b/i', $title ) ) {
+		if ( preg_match( '/\b(drone|quadcopter|earbuds?|headphones?|laptop|macbook|projector|smartwatch|iphone|ultra\s+\d|series\s+\d+)\b/i', $title ) ) {
 			return false;
 		}
 		return LAPS_Catalog::is_accessory( $title );

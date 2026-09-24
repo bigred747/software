@@ -90,7 +90,37 @@ class LDS_Parser {
 			$title = $clean;
 		}
 		$spaced = preg_replace( '/\s+/', ' ', $title );
-		return trim( is_string( $spaced ) ? $spaced : $title );
+		$title  = trim( is_string( $spaced ) ? $spaced : $title );
+		return self::unglue_brand( $title );
+	}
+
+	/**
+	 * “AppleWatch” and “GooglePixel” still carry the brand. Insert the missing space.
+	 *
+	 * @param string $title Title.
+	 * @return string
+	 */
+	public static function unglue_brand( $title ) {
+		if ( ! class_exists( 'LAPS_Catalog' ) || '' === $title ) {
+			return $title;
+		}
+		$brands = LAPS_Catalog::brands();
+		usort(
+			$brands,
+			function ( $a, $b ) {
+				return strlen( (string) $b ) - strlen( (string) $a );
+			}
+		);
+		foreach ( $brands as $brand ) {
+			$brand = (string) $brand;
+			if ( '' === $brand ) {
+				continue;
+			}
+			if ( preg_match( '/^(' . preg_quote( $brand, '/' ) . ')(?=[A-Za-z])/i', $title, $m ) ) {
+				return $m[1] . ' ' . substr( $title, strlen( $m[1] ) );
+			}
+		}
+		return $title;
 	}
 
 	/**

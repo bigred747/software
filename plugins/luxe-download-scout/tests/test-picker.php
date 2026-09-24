@@ -94,7 +94,7 @@ $blocked = array(
 	'DJI Mini 3, 3-Axis'               => 'already-in-catalog',
 	'DJI Neo Fly More Combo'           => 'already-in-catalog',
 	'DJI Neo 2 Fly More Combo With RC-N3' => 'already-in-catalog',
-	'FPVtosky'                         => 'unknown-brand',
+	'FPVtosky'                         => 'accessory',
 	'DJI Mini 4K, Drone'               => 'already-imported',
 	'Potensic ATOM SE'                 => 'already-imported',
 	'GPS Drone with 4K UHD Camera'     => 'unknown-brand',
@@ -145,6 +145,79 @@ expect( 'Apple Watches' === LDS_Placer::category_for( 'Apple Watch Series 9 GPS'
 expect( 'Samsung Watches' === LDS_Placer::category_for( 'Samsung Galaxy Watch Ultra', 'Samsung', array( 'Apple Watches', 'Watches' ) ), 'Samsung watch does not use Apple Watches' );
 expect( 'Fishing Drones' === LDS_Placer::category_for( 'Holy Stone Fishing Drone with Bait Release', 'Holy Stone' ), 'fishing drone has its own category' );
 expect( 'MacBooks' === LDS_Placer::category_for( 'Apple MacBook Air 13', 'Apple' ), 'MacBook files under MacBooks' );
+
+$watches = <<<'PASTE'
+AppleWatch Ultra 4 GPS + Cellular 49mm Smartwatch
+$79900
+Add to import list
+AppleWatch Ultra 4 GPS + Cellular 49mm Smartwatch
+$89900
+Add to import list
+AppleWatch Series 12 GPS 46mm Smartwatch
+$44900
+Add to import list
+AppleWatch Ultra 3 [GPS + Cellular 49mm] Running & Multisport Smartwatch
+$69997
+Add to import list
+GooglePixel Watch 5 (45mm) - Stephen Curry Special Edition - LTE
+$57999
+Add to import list
+GooglePixel Watch 5 (45mm) - Android Smartwatch - Olive - Wi-Fi
+$42999
+Add to import list
+AppleWatch Series 12 GPS 42mm Smartwatch
+$38999
+Add to import list
+AppleWatch Series 12 GPS 42mm Smartwatch
+$39900
+Add to import list
+Amazon RenewedApple Watch Ultra 2 [GPS + Cellular, 49mm] Titanium Case With White Ocean Band (Renewed)
+$41900
+Add to import list
+AppleWatch Series 10 [GPS + Cellular 46mm case] Smartwatch with Gold Titanium Case
+$79900
+Add to import list
+AppleWatch SE 3 [GPS 40mm] Smartwatch with Starlight Aluminum Case
+$23900
+Already Imported
+AppleWatch SE 3 GPS 44mm Smartwatch
+$27900
+Add to import list
+AppleWatch Series 11 [GPS 42mm] Smartwatch with Rose Gold Aluminum Case
+$39900
+Already Imported
+for Apple Watch Bands for Women, Silver Watch for Men
+$1799
+Add to import list
+Ritche Christmas Gift Leather Apple Watch Band For Men Women Compatible with Apple Watch Series 8
+$2709
+Add to import list
+Seven Band Stainless Steel for Apple Watch Bands for Women
+$1999
+Add to import list
+PASTE;
+$watch_result = LDS_Picker::evaluate( $watches, array() );
+$watch_best   = LDS_Placer::very_best( $watch_result['downloads'] );
+echo "WATCH DOWNLOADS " . count( $watch_result['downloads'] ) . " BEST " . count( $watch_best ) . "\n";
+foreach ( $watch_best as $row ) {
+	echo $row['integrity'] . ' ' . $row['brand'] . ' ' . $row['model'] . ' | ' . $row['title'] . "\n";
+}
+expect( 8 === count( $watch_best ), 'eight real watches are the very best' );
+expect( null !== find_row( $watch_best, 'Apple Watch Ultra 4' ), 'glued AppleWatch Ultra 4 is Apple' );
+expect( null !== find_row( $watch_best, 'Apple Watch Series 12 GPS 46mm' ), 'Series 12 46mm is kept' );
+expect( null !== find_row( $watch_best, 'Apple Watch Series 12 GPS 42mm' ), 'Series 12 42mm is a separate product' );
+expect( null !== find_row( $watch_best, 'Google Pixel Watch 5 (45mm) - Stephen Curry' ), 'glued GooglePixel LTE is Google' );
+expect( null !== find_row( $watch_best, 'Google Pixel Watch 5 (45mm) - Android Smartwatch - Olive' ), 'Pixel Watch Wi-Fi is separate' );
+expect( null !== find_row( $watch_best, 'Apple Watch SE 3 GPS 44mm' ), 'SE 3 44mm is new' );
+expect( null === find_row( $watch_best, 'SE 3 [GPS 40mm]' ), 'imported SE 3 40mm is not added again' );
+expect( null === find_row( $watch_result['downloads'], 'for Apple Watch Bands' ), 'a band is not an Apple watch download' );
+expect( null === find_row( $watch_result['downloads'], 'Renewed' ), 'renewed watches are not downloads' );
+$ultra = find_row( $watch_best, 'Apple Watch Ultra 4' );
+expect( null !== $ultra && 'Apple Watches' === LDS_Placer::category_for( $ultra['title'], $ultra['brand'] ), 'Ultra 4 files under Apple Watches' );
+$pixel = find_row( $watch_best, 'Google Pixel Watch 5 (45mm) - Stephen Curry' );
+expect( null !== $pixel && 'Watches' === LDS_Placer::category_for( $pixel['title'], $pixel['brand'] ), 'Pixel Watch files under Watches' );
+$band = find_row( $watch_result['skips'], 'for Apple Watch Bands' );
+expect( null !== $band && 'accessory' === $band['reason'], 'watch band is an accessory' );
 
 if ( $fail ) {
 	echo "FAILED $fail\n";

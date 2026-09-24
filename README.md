@@ -2,15 +2,15 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Download Scout 1.1.0
+## Luxe Download Scout 1.1.1
 
-Puts only the 100-score WZone rows into WooCommerce as unpublished drafts, in the matching category. A 95-score row, an unknown brand, and a renewed item are not added. Drafts stay off the Product Scout scoreboard until you publish them.
+Puts only the 100-score WZone rows into WooCommerce as unpublished drafts, in the matching category. A 95-score row, an unknown brand, a watch band, and a renewed item are not added. Glued titles such as AppleWatch and GooglePixel are read as Apple and Google. Drafts stay off the Product Scout scoreboard until you publish them.
 
 **Upload this file from Windows 11 into WordPress:**
 
 [luxe-download-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/download-scout-8474/luxe-download-scout.zip)
 
-SHA-256 `cc7c3b1efbf3ace1e699b35a9877fd7e5c8a18fdbb9e6a32fe6d90fb9d7eff38`
+SHA-256 `4e7162c153d6b54282d84b4607af9d98a7b2cd890bfac1e2d39fc0d49ab9e3dc`
 
 Product Scout 5.6.8 must already be active. Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate. Open **Luxe Download Scout**, paste the same WZone list, and click **Add the very best to Products**. Do not unzip the file on the PC.
 
