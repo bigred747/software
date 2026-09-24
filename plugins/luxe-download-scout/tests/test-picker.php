@@ -219,6 +219,62 @@ expect( null !== $pixel && 'Watches' === LDS_Placer::category_for( $pixel['title
 $band = find_row( $watch_result['skips'], 'for Apple Watch Bands' );
 expect( null !== $band && 'accessory' === $band['reason'], 'watch band is an accessory' );
 
+$tvs = <<<'PASTE'
+Sony 65 Inch BRAVIA 3 II LED 4K HDR Smart Google TV with Gemini K-65XR30M2
+$89800
+Add to import list
+Sony85 Inch BRAVIA 3 II LED 4K HDR Smart Google TV with Gemini K-85XR30M2
+$159800
+Add to import list
+Sony55 Inch BRAVIA 3 II LED 4K HDR Smart Google TV with Gemini K-55XR30M2
+$79800
+Already Imported
+SonyBRAVIA 7 75 inch 4K Smart QLED Mini-LED TV 2024 K75XR70 Renewed Bundle
+$144999
+Add to import list
+Amazon RenewedSony K85XR50 85 inch Class Bravia 5 Series 4K Mini LED UHD Smart Google TV
+$151303
+Add to import list
+Sony75 Inch BRAVIA 3 II LED 4K HDR Smart Google TV with Gemini K-75XR30M2
+$119800
+Add to import list
+Samsung50-Inch Class U8000H Series Crystal UHD, 4K, Smart TV, 2026 Model
+$24800
+Add to import list
+Sony43 Inch BRAVIA 3 II LED 4K HDR Smart Google TV with Gemini K-43XR30M2
+$59800
+Add to import list
+Samsung 75-Inch Class M70H Series, Mini LED, 4K, Smart TV, 2026 Model
+$54799
+Add to import list
+TCL 85 Inch Class QM7L Series | SQD-Mini-LED QLED Smart TV | 85QM7L, 2026 Model
+$149799
+Add to import list
+32-Inch 4K Smart Portable TV, Android OS with Qualcomm CPU
+$69999
+Add to import list
+Mounting Dream UL Listed Full Motion TV Wall Mount for 32/43/50/55 Inch TVs
+$2399
+Add to import list
+PASTE;
+$tv_result = LDS_Picker::evaluate( $tvs, array() );
+$tv_best   = LDS_Placer::very_best( $tv_result['downloads'] );
+echo "TV BEST " . count( $tv_best ) . "\n";
+foreach ( $tv_best as $row ) {
+	echo $row['integrity'] . ' ' . $row['brand'] . ' ' . $row['model'] . ' | ' . $row['title'] . "\n";
+}
+expect( 7 === count( $tv_best ), 'seven new TVs are the very best in the sample' );
+expect( null !== find_row( $tv_best, 'Sony 65 Inch BRAVIA 3 II' ), 'spaced Sony BRAVIA 3 II is kept' );
+expect( null !== find_row( $tv_best, 'Sony 85 Inch BRAVIA 3 II' ), 'glued Sony85 is Sony' );
+expect( null !== find_row( $tv_best, 'Samsung 50-Inch Class U8000H' ), 'glued Samsung50 is Samsung' );
+expect( null !== find_row( $tv_best, 'TCL 85 Inch Class QM7L' ), 'TCL QM7L is kept' );
+expect( null === find_row( $tv_best, 'K-55XR30M2' ), 'imported 55 inch BRAVIA is not added' );
+expect( null === find_row( $tv_result['downloads'], 'Renewed' ), 'renewed TVs are not downloads' );
+expect( null === find_row( $tv_result['downloads'], 'Qualcomm' ), 'a no-name portable TV is not a Qualcomm product' );
+expect( null === find_row( $tv_result['downloads'], 'Wall Mount' ), 'a wall mount is not a TV' );
+$sony = find_row( $tv_best, 'Sony 65 Inch BRAVIA 3 II' );
+expect( null !== $sony && 'TVs' === LDS_Placer::category_for( $sony['title'], $sony['brand'] ), 'Google TV still files under TVs' );
+
 if ( $fail ) {
 	echo "FAILED $fail\n";
 	exit( 1 );

@@ -116,7 +116,7 @@ class LDS_Parser {
 			if ( '' === $brand ) {
 				continue;
 			}
-			if ( preg_match( '/^(' . preg_quote( $brand, '/' ) . ')(?=[A-Za-z])/i', $title, $m ) ) {
+			if ( preg_match( '/^(' . preg_quote( $brand, '/' ) . ')(?=[A-Za-z0-9])/i', $title, $m ) ) {
 				return $m[1] . ' ' . substr( $title, strlen( $m[1] ) );
 			}
 		}

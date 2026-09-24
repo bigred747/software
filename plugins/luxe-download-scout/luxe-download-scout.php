@@ -3,7 +3,7 @@
  * Plugin Name: Luxe Download Scout
  * Plugin URI: https://luxetrendsetters.com/
  * Description: Puts only 100-score WZone products into WooCommerce as unpublished drafts, in the matching category. Never publishes or invents an ASIN or affiliate URL.
- * Version: 1.1.1
+ * Version: 1.1.2
  * Requires at least: 6.4
  * Tested up to: 6.8
  * Requires PHP: 7.4
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'LDS_VERSION' ) ) {
-	define( 'LDS_VERSION', '1.1.1' );
+	define( 'LDS_VERSION', '1.1.2' );
 }
 if ( ! defined( 'LDS_FILE' ) ) {
 	define( 'LDS_FILE', __FILE__ );

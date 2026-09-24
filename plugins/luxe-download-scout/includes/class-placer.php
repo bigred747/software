@@ -60,6 +60,9 @@ class LDS_Placer {
 		if ( 'general' === $bucket && class_exists( 'LDS_Picker' ) && '' !== LDS_Picker::family_key( $title ) ) {
 			$bucket = preg_match( '/\bfish/i', $title ) ? 'fishing-drone' : 'drone';
 		}
+		if ( 'general' === $bucket && preg_match( '/\b(tv|television)\b/i', $title ) && ! preg_match( '/\b(wall mount|tv mount)\b/i', $title ) ) {
+			$bucket = 'tv';
+		}
 		if ( LAPS_Catalog::is_mac( $title, $brand ) ) {
 			$bucket = 'macbook';
 		}

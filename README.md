@@ -2,7 +2,7 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Download Scout 1.1.1
+## Luxe Download Scout 1.1.2
 
 Puts only the 100-score WZone rows into WooCommerce as unpublished drafts, in the matching category. A 95-score row, an unknown brand, a watch band, and a renewed item are not added. Glued titles such as AppleWatch and GooglePixel are read as Apple and Google. Drafts stay off the Product Scout scoreboard until you publish them.
 

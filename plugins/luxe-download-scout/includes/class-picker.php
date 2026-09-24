@@ -96,7 +96,7 @@ class LDS_Picker {
 		$title = isset( $row['title'] ) ? (string) $row['title'] : '';
 		$price = isset( $row['price'] ) ? (float) $row['price'] : 0.0;
 		$id    = self::identity( $title );
-		$hard  = LAPS_Catalog::is_hard_risk( $title );
+		$hard  = self::is_risky( $title );
 		$reason = '';
 		if ( ! empty( $row['imported'] ) ) {
 			$reason = 'already-imported';
@@ -158,6 +158,9 @@ class LDS_Picker {
 	public static function identity( $title ) {
 		$title = LAPS_Catalog::plain( $title );
 		$brand = LAPS_Catalog::title_brand( $title );
+		if ( $brand && self::brand_is_component( $brand, $title ) ) {
+			$brand = '';
+		}
 		$model = self::family_key( $title );
 		$family = '' !== $model;
 		if ( ! $family ) {
@@ -222,6 +225,10 @@ class LDS_Picker {
 	 * @return string
 	 */
 	public static function general_model( $title ) {
+		$tv = self::tv_model( $title );
+		if ( '' !== $tv ) {
+			return $tv;
+		}
 		$watch = self::watch_model( $title );
 		if ( '' !== $watch ) {
 			return $watch;
@@ -245,6 +252,60 @@ class LDS_Picker {
 			return strtolower( $m[0] );
 		}
 		return '';
+	}
+
+	/**
+	 * Glued “RenewedSony” is still a renewed set.
+	 *
+	 * @param string $title Title.
+	 * @return bool
+	 */
+	public static function is_risky( $title ) {
+		if ( LAPS_Catalog::is_hard_risk( $title ) ) {
+			return true;
+		}
+		return (bool) preg_match( '/\b(renewed|refurbished|pre-?owned)(?=[a-z])/i', $title );
+	}
+
+	/**
+	 * “with Qualcomm CPU” is a part, not the product brand.
+	 *
+	 * @param string $brand Brand.
+	 * @param string $title Title.
+	 * @return bool
+	 */
+	public static function brand_is_component( $brand, $title ) {
+		if ( LAPS_Catalog::is_feature_not_brand( $brand, $title ) ) {
+			return true;
+		}
+		if ( preg_match( '/^' . preg_quote( $brand, '/' ) . '\b/i', $title ) ) {
+			return false;
+		}
+		return (bool) preg_match( '/\bwith\s+' . preg_quote( $brand, '/' ) . '\b/i', $title );
+	}
+
+	/**
+	 * Sony K- codes and Samsung / TCL series codes. Size stays on the key.
+	 *
+	 * @param string $title Title.
+	 * @return string
+	 */
+	public static function tv_model( $title ) {
+		$key = '';
+		if ( preg_match( '/\b\d{2}qm\d+l\b/i', $title, $m ) ) {
+			$key = strtolower( $m[0] );
+		} elseif ( preg_match( '/\bk-?\d{2}[a-z]{1,4}\d{0,4}[a-z]?\d?\b/i', $title, $m ) ) {
+			$key = strtolower( str_replace( '-', '', $m[0] ) );
+		} elseif ( preg_match( '/\b(u\d{4}[a-z]?|f\d{4}|m\d{2}h|qm\d+l|w\d{3}k)\b/i', $title, $m ) ) {
+			$key = strtolower( $m[1] );
+		}
+		if ( '' === $key ) {
+			return '';
+		}
+		if ( preg_match( '/\b(\d{2})\s*-?\s*inch\b/i', $title, $inch ) && 0 !== strpos( $key, $inch[1] ) ) {
+			$key .= ' ' . $inch[1];
+		}
+		return $key;
 	}
 
 	/**
@@ -317,6 +378,9 @@ class LDS_Picker {
 	 */
 	public static function is_primary_accessory( $title ) {
 		if ( self::is_band_product( $title ) ) {
+			return true;
+		}
+		if ( preg_match( '/\b(wall mount|tv mount)\b/i', $title ) ) {
 			return true;
 		}
 		$kit = preg_match( '/\b(fly more|combo|bundle|with rc)\b/i', $title );

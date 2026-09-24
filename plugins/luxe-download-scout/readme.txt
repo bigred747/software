@@ -4,7 +4,7 @@ Tags: woocommerce, affiliate products, wzone, catalog
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.1
+Stable tag: 1.1.2
 License: GPLv2 or later
 
 Shows which WZone products are safe to download using the same 95-100 catalog gates as Product Scout. Never imports.
@@ -22,6 +22,9 @@ Version 1.1.0 can add the 100-score rows to Products as unpublished drafts in th
 3. Open Luxe Download Scout and paste the WZone list.
 
 == Changelog ==
+
+= 1.1.2 =
+* Read Sony85 and Samsung50 titles. Recognize TV model codes. Keep renewed sets and wall mounts out. Google TV still files under TVs.
 
 = 1.1.1 =
 * Read glued AppleWatch and GooglePixel titles as Apple and Google. Keep watch bands and renewed watches out. 42mm and 46mm stay separate.
