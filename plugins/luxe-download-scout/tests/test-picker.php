@@ -13,6 +13,7 @@ function wp_strip_all_tags( $text ) {
 require LAPS_DIR . 'includes/class-catalog.php';
 require dirname( __DIR__ ) . '/includes/class-parser.php';
 require dirname( __DIR__ ) . '/includes/class-picker.php';
+require dirname( __DIR__ ) . '/includes/class-placer.php';
 
 $fail = 0;
 function expect( $ok, $msg ) {
@@ -131,6 +132,19 @@ expect( 'already-in-catalog' === $dup['skips'][0]['reason'], 'second AirPods row
 
 $money = LDS_Parser::money( '$1,82995' );
 expect( abs( 1829.95 - $money ) < 0.001, 'WZone bundled cents parse to 1829.95' );
+
+$best = LDS_Placer::very_best( $downloads );
+expect( 9 === count( $best ), 'very best keeps the nine 100-score rows' );
+expect( null === find_row( $best, 'Ruko Drone with Camera for Adults' ), '95-score Ruko is not added to Products' );
+foreach ( $best as $row ) {
+	expect( 'Drones' === LDS_Placer::category_for( $row['title'], $row['brand'] ), 'best drone files under Drones: ' . $row['brand'] );
+}
+expect( 'Drone' === LDS_Placer::category_for( 'Holy Stone Saturn T60A Drone', 'Holy Stone', array( 'Drone', 'Apple Watches' ) ), 'uses the live Drone category' );
+expect( 'Earbuds' === LDS_Placer::category_for( 'Apple AirPods Pro 3 Wireless Earbuds', 'Apple' ), 'AirPods file under Earbuds' );
+expect( 'Apple Watches' === LDS_Placer::category_for( 'Apple Watch Series 9 GPS', 'Apple' ), 'Apple Watch files under Apple Watches' );
+expect( 'Samsung Watches' === LDS_Placer::category_for( 'Samsung Galaxy Watch Ultra', 'Samsung', array( 'Apple Watches', 'Watches' ) ), 'Samsung watch does not use Apple Watches' );
+expect( 'Fishing Drones' === LDS_Placer::category_for( 'Holy Stone Fishing Drone with Bait Release', 'Holy Stone' ), 'fishing drone has its own category' );
+expect( 'MacBooks' === LDS_Placer::category_for( 'Apple MacBook Air 13', 'Apple' ), 'MacBook files under MacBooks' );
 
 if ( $fail ) {
 	echo "FAILED $fail\n";

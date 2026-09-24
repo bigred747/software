@@ -2,36 +2,33 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Download Scout 1.0.0
+## Luxe Download Scout 1.1.0
 
-Tells you which WZone rows are safe to download. Same 95–100 gates as Product Scout: supported brand, real price, ASIN, primary image, and no renewed / used / unknown-brand hold. It never imports.
+Puts only the 100-score WZone rows into WooCommerce as unpublished drafts, in the matching category. A 95-score row, an unknown brand, and a renewed item are not added. Drafts stay off the Product Scout scoreboard until you publish them.
 
 **Upload this file from Windows 11 into WordPress:**
 
 [luxe-download-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/download-scout-8474/luxe-download-scout.zip)
 
-SHA-256 `70966d0c4ea42bc816e17f9f125a9cc66bc80484c942e321834264d6dec48357`
+SHA-256 `cc7c3b1efbf3ace1e699b35a9877fd7e5c8a18fdbb9e6a32fe6d90fb9d7eff38`
 
-Product Scout 5.6.8 must already be active. Plugins → Add Plugin → Upload Plugin → Install Now → Activate. Open **Luxe Download Scout**, paste the WZone list, and click **Show products to download**. Do not unzip the file on the PC.
+Product Scout 5.6.8 must already be active. Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate. Open **Luxe Download Scout**, paste the same WZone list, and click **Add the very best to Products**. Do not unzip the file on the PC.
 
-### Download these from the current drone page
+### Very best from the current drone page
 
-Confirm an ASIN and a primary image on the WZone card before you add each row.
+These go in as drafts under **Drones**. Add the ASIN and primary image on each draft before you publish it.
 
-| Product | Price | Can reach |
-|---|---:|---:|
-| Ruko Drone with Camera for Adults 4K Video & 8K Photo, 96 Mins Flight Time | $239.97 | 95 |
-| Holy Stone Saturn T60A 3-Axis Gimbal Drone | $499.99 | 100 |
-| 2026 Autel Robotics EVO Lite 6K Enterprise Basic Combo | $1,579.00 | 100 |
-| Bwine F7GB2 Pro Drones with Camera for Adults 4K UHD | $339.88 | 100 |
-| Potensic ATOM 2 Drone with Camera for Adults 4K, Fly More Combo | $439.99 | 100 |
-| Autel Robotics EVO 2 Pro V3 | $2,099.00 | 100 |
-| Autel Robotics EVO II Dual 640T V3 | $4,799.00 | 100 |
-| Autel Robotics EVO II Dual 640T Enterprise V3 | $5,299.00 | 100 |
-| Holy Stone HS360S GPS Drone with 4K UHD Camera | $179.99 | 100 |
-| DJI Air 3 Fly More Combo with RC-N2 | $1,449.00 | 100 |
+| Product | Price | Category |
+|---|---:|---|
+| Bwine F7GB2 Pro | $441.79 | Drones |
+| Potensic ATOM 2 Fly More Combo | $439.99 | Drones |
+| Autel Robotics EVO 2 Pro V3 | $2,099.00 | Drones |
+| Holy Stone Saturn T60A | $499.99 | Drones |
+| Autel Robotics EVO II Dual 640T V3 | $4,799.00 | Drones |
+| Autel Robotics EVO II Dual 640T Enterprise V3 | $5,299.00 | Drones |
+| Holy Stone HS360S | $179.99 | Drones |
 
-Leave the rest. Unknown brands (Bingchat, SKYROVER, generic GPS drones, the FPVtosky landing pad) would stay HOLD. Renewed items stay HOLD. Air 3S, Mini 3, Mini 4K, Mini 5 Pro, Neo, Neo 2, Avata 2, Mavic 4 Pro, Ruko U11MINI, Ruko F11PRO 2, Bwine F7MINI, and Potensic ATOM SE are already imported or already stored.
+The Ruko 4K / 8K drone can reach 95 only, because the model name is not on the title, so it is not added.
 
 ## Luxe Affiliate Product Scout 5.6.8
 

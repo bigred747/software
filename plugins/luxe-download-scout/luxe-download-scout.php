@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Luxe Download Scout
  * Plugin URI: https://luxetrendsetters.com/
- * Description: Shows which WZone products are safe to download. Uses the same 95–100 catalog gates as Product Scout. Never imports, publishes, or rewrites affiliate URLs.
- * Version: 1.0.0
+ * Description: Puts only 100-score WZone products into WooCommerce as unpublished drafts, in the matching category. Never publishes or invents an ASIN or affiliate URL.
+ * Version: 1.1.0
  * Requires at least: 6.4
  * Tested up to: 6.8
  * Requires PHP: 7.4
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'LDS_VERSION' ) ) {
-	define( 'LDS_VERSION', '1.0.0' );
+	define( 'LDS_VERSION', '1.1.0' );
 }
 if ( ! defined( 'LDS_FILE' ) ) {
 	define( 'LDS_FILE', __FILE__ );
@@ -74,6 +74,7 @@ if ( ! function_exists( 'lds_require_catalog' ) ) {
 $lds_includes = array(
 	'includes/class-parser.php',
 	'includes/class-picker.php',
+	'includes/class-placer.php',
 	'includes/class-plugin.php',
 	'includes/class-admin.php',
 );

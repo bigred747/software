@@ -12,7 +12,7 @@ $compared  = ( is_array( $result ) && isset( $result['catalog_compared'] ) ) ? (
 	<header class="lds-hero">
 		<p class="lds-kicker">LuxeTrendsetters · catalog integrity</p>
 		<h1>Luxe Download Scout <?php echo esc_html( LDS_VERSION ); ?></h1>
-		<p class="lds-lead">Paste a WZone result page. This screen lists the products that can reach 95–100: supported brand, real price, and no renewed, used, or unknown-brand hold. It does not import, publish, or rewrite Amazon URLs.</p>
+		<p class="lds-lead">Paste a WZone result page. The very best rows — supported brand, traceable model, and a real price — can be added to Products as unpublished drafts in the matching category. A 95 row, an unknown brand, and a renewed item stay off that list.</p>
 	</header>
 
 	<?php if ( ! $catalog_ready ) : ?>
@@ -37,12 +37,12 @@ $compared  = ( is_array( $result ) && isset( $result['catalog_compared'] ) ) ? (
 		<article class="lds-card">
 			<h2>Safety lock</h2>
 			<ul>
-				<li>Never imports products</li>
-				<li>Never publishes drafts</li>
+				<li>Adds only 100-score rows, as drafts</li>
+				<li>Never publishes those drafts</li>
 				<li>Never changes post status</li>
 				<li>Never deletes products</li>
 				<li>Never rewrites Amazon or affiliate URLs</li>
-				<li>Never invents ratings, seller, warranty, or unknown brands</li>
+				<li>Never invents an ASIN, image, rating, seller, warranty, or affiliate URL</li>
 			</ul>
 		</article>
 	</section>
@@ -57,7 +57,11 @@ $compared  = ( is_array( $result ) && isset( $result['catalog_compared'] ) ) ? (
 		<h2>Extra catalog titles</h2>
 		<p class="lds-note">Optional. One stored product name per line. Use this when a HOLD product is missing from the live read.</p>
 		<textarea name="lds_catalog" rows="5" class="large-text code"><?php echo esc_textarea( $extra ); ?></textarea>
-		<p><button type="submit" name="lds_pick" value="1" class="button button-primary lds-save">Show products to download</button></p>
+		<p>
+			<button type="submit" name="lds_pick" value="1" class="button button-primary lds-save">Show products to download</button>
+			<button type="submit" name="lds_place" value="1" class="button lds-save">Add the very best to Products</button>
+		</p>
+		<p class="lds-note">Add the very best creates one unpublished draft per 100-score row and files it in the matching category, such as Drones. It leaves the 95-score rows, unknown brands, and anything already stored. Publish a draft only after its ASIN and primary image are saved.</p>
 	</form>
 
 	<?php if ( is_array( $result ) ) : ?>
@@ -78,6 +82,67 @@ $compared  = ( is_array( $result ) && isset( $result['catalog_compared'] ) ) ? (
 				<p class="lds-kicker lds-kicker-dark">Catalog compared</p>
 				<p class="lds-big"><?php echo esc_html( (string) $compared ); ?></p>
 			</div>
+		</section>
+
+		<?php if ( is_array( $placed ) ) : ?>
+			<section class="lds-card">
+				<h2>Added to Products</h2>
+				<?php if ( ! empty( $placed['error'] ) ) : ?>
+					<p>WooCommerce categories are required before a draft can be created.</p>
+				<?php elseif ( empty( $placed['created'] ) ) : ?>
+					<p>No new draft was created. The very best rows are already in Products, or this paste has none.</p>
+				<?php else : ?>
+					<p><?php echo esc_html( (string) count( $placed['created'] ) ); ?> unpublished draft<?php echo 1 === count( $placed['created'] ) ? '' : 's'; ?> added. They are hidden from the store and from the Product Scout scoreboard until you publish them.</p>
+					<table class="widefat striped">
+						<thead>
+							<tr>
+								<th>ID</th>
+								<th>Category</th>
+								<th>Brand</th>
+								<th>Product</th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach ( $placed['created'] as $row ) : ?>
+								<tr>
+									<td><?php echo esc_html( (string) (int) $row['id'] ); ?></td>
+									<td><?php echo esc_html( $row['category'] ); ?></td>
+									<td><?php echo esc_html( $row['brand'] ); ?></td>
+									<td><?php echo esc_html( $row['title'] ); ?></td>
+								</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				<?php endif; ?>
+			</section>
+		<?php endif; ?>
+
+		<section class="lds-card">
+			<h2>Very best — add these</h2>
+			<?php if ( empty( $best ) ) : ?>
+				<p>No 100-score row is waiting. A supported brand without a model name stays on the wider download list and is not added.</p>
+			<?php else : ?>
+				<table class="widefat striped">
+					<thead>
+						<tr>
+							<th>Category</th>
+							<th>Brand</th>
+							<th>Price</th>
+							<th>Product</th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $best as $row ) : ?>
+							<tr>
+								<td><?php echo esc_html( LDS_Placer::category_for( $row['title'], $row['brand'] ) ); ?></td>
+								<td><?php echo esc_html( $row['brand'] ); ?></td>
+								<td><?php echo esc_html( $row['price_label'] ); ?></td>
+								<td><?php echo esc_html( $row['title'] ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			<?php endif; ?>
 		</section>
 
 		<section class="lds-card">

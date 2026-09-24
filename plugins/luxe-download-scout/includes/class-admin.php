@@ -90,10 +90,11 @@ class LDS_Admin {
 		while ( $page <= 20 ) {
 			$products = wc_get_products(
 				array(
-					'status' => array( 'publish', 'draft', 'pending', 'private' ),
-					'limit'  => 100,
-					'page'   => $page,
-					'return' => 'objects',
+					'status'                 => array( 'publish', 'draft', 'pending', 'private' ),
+					'limit'                  => 100,
+					'page'                   => $page,
+					'return'                 => 'objects',
+					'lds_include_candidates' => true,
 				)
 			);
 			if ( empty( $products ) || ! is_array( $products ) ) {
@@ -124,7 +125,9 @@ class LDS_Admin {
 		$extra         = '';
 		$result        = null;
 		$notice        = '';
-		if ( isset( $_POST['lds_pick'] ) ) {
+		$best          = array();
+		$placed        = null;
+		if ( isset( $_POST['lds_pick'] ) || isset( $_POST['lds_place'] ) ) {
 			check_admin_referer( 'lds_pick' );
 			$paste = isset( $_POST['lds_paste'] ) ? wp_unslash( $_POST['lds_paste'] ) : '';
 			$extra = isset( $_POST['lds_catalog'] ) ? wp_unslash( $_POST['lds_catalog'] ) : '';
@@ -145,6 +148,23 @@ class LDS_Admin {
 			}
 			if ( $catalog_ready && class_exists( 'LDS_Picker' ) ) {
 				$result = LDS_Picker::evaluate( $paste, $titles );
+			}
+			if ( is_array( $result ) && class_exists( 'LDS_Placer' ) ) {
+				$best = LDS_Placer::very_best( $result['downloads'] );
+			}
+			if ( isset( $_POST['lds_place'] ) && class_exists( 'LDS_Placer' ) ) {
+				$placed = LDS_Placer::place( $best );
+				$titles = self::catalog_titles();
+				foreach ( preg_split( '/\r\n|\r|\n/', $extra ) as $line ) {
+					$line = trim( (string) $line );
+					if ( '' !== $line ) {
+						$titles[] = $line;
+					}
+				}
+				if ( $catalog_ready && class_exists( 'LDS_Picker' ) ) {
+					$result = LDS_Picker::evaluate( $paste, $titles );
+					$best   = is_array( $result ) ? LDS_Placer::very_best( $result['downloads'] ) : array();
+				}
 			}
 		} else {
 			$stored_paste = get_option( 'lds_last_paste', '' );

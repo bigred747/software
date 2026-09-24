@@ -13,7 +13,7 @@ SLUG = "luxe-download-scout"
 DEST_DIR = ROOT.parents[1]
 OUTPUTS = [
     DEST_DIR / "luxe-download-scout.zip",
-    DEST_DIR / "dist" / "Luxe-Download-Scout-v1.0.0.zip",
+    DEST_DIR / "dist" / "Luxe-Download-Scout-v1.1.0.zip",
 ]
 SKIP_PARTS = {"tests", "bin"}
 
