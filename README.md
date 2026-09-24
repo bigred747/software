@@ -2,6 +2,37 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Download Scout 1.0.0
+
+Tells you which WZone rows are safe to download. Same 95–100 gates as Product Scout: supported brand, real price, ASIN, primary image, and no renewed / used / unknown-brand hold. It never imports.
+
+**Upload this file from Windows 11 into WordPress:**
+
+[luxe-download-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/download-scout-8474/luxe-download-scout.zip)
+
+SHA-256 `70966d0c4ea42bc816e17f9f125a9cc66bc80484c942e321834264d6dec48357`
+
+Product Scout 5.6.8 must already be active. Plugins → Add Plugin → Upload Plugin → Install Now → Activate. Open **Luxe Download Scout**, paste the WZone list, and click **Show products to download**. Do not unzip the file on the PC.
+
+### Download these from the current drone page
+
+Confirm an ASIN and a primary image on the WZone card before you add each row.
+
+| Product | Price | Can reach |
+|---|---:|---:|
+| Ruko Drone with Camera for Adults 4K Video & 8K Photo, 96 Mins Flight Time | $239.97 | 95 |
+| Holy Stone Saturn T60A 3-Axis Gimbal Drone | $499.99 | 100 |
+| 2026 Autel Robotics EVO Lite 6K Enterprise Basic Combo | $1,579.00 | 100 |
+| Bwine F7GB2 Pro Drones with Camera for Adults 4K UHD | $339.88 | 100 |
+| Potensic ATOM 2 Drone with Camera for Adults 4K, Fly More Combo | $439.99 | 100 |
+| Autel Robotics EVO 2 Pro V3 | $2,099.00 | 100 |
+| Autel Robotics EVO II Dual 640T V3 | $4,799.00 | 100 |
+| Autel Robotics EVO II Dual 640T Enterprise V3 | $5,299.00 | 100 |
+| Holy Stone HS360S GPS Drone with 4K UHD Camera | $179.99 | 100 |
+| DJI Air 3 Fly More Combo with RC-N2 | $1,449.00 | 100 |
+
+Leave the rest. Unknown brands (Bingchat, SKYROVER, generic GPS drones, the FPVtosky landing pad) would stay HOLD. Renewed items stay HOLD. Air 3S, Mini 3, Mini 4K, Mini 5 Pro, Neo, Neo 2, Avata 2, Mavic 4 Pro, Ruko U11MINI, Ruko F11PRO 2, Bwine F7MINI, and Potensic ATOM SE are already imported or already stored.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.
