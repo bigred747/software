@@ -27,7 +27,9 @@ How to run it
 -------------
 1. Plug the 65W cord into the wall and fully into the laptop.
 2. Leave it plugged in. Do not run this on battery only.
-3. Double-click Run-Battery-Connection-Check.cmd.
+3. Open the zip and double-click Run-Battery-Connection-Check.cmd.
+   Windows can run that one file directly. You do not have to copy the
+   other files out first.
 4. Approve the administrator prompt.
 5. Read the green and red lines. The same board opens in your browser
    and is saved on your Desktop in a folder named
