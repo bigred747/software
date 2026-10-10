@@ -79,7 +79,7 @@ function Get-AcOnline {
         foreach ($row in $rows) {
             if ($null -eq $row) { continue }
             $prop = $row.PSObject.Properties['PowerOnline']
-            if ($null -eq $prop) { continue }
+            if ($null -eq $prop -or $null -eq $prop.Value) { continue }
             $saw = $true
             if ($prop.Value) { return $true }
         }
@@ -88,26 +88,14 @@ function Get-AcOnline {
     }
 
     try {
-        if (-not ('Win32.BatteryNative' -as [type])) {
-            Add-Type -Namespace Win32 -Name BatteryNative -UsingNamespace System.Runtime.InteropServices -MemberDefinition @'
-[StructLayout(LayoutKind.Sequential)]
-public struct SYSTEM_POWER_STATUS {
-    public byte ACLineStatus;
-    public byte BatteryFlag;
-    public byte BatteryLifePercent;
-    public byte SystemStatusFlag;
-    public uint BatteryLifeTime;
-    public uint BatteryFullLifeTime;
-}
-[DllImport("kernel32.dll", SetLastError = true)]
-public static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS sps);
-'@
-        }
-        $sps = New-Object Win32.BatteryNative+SYSTEM_POWER_STATUS
-        $ok = [Win32.BatteryNative]::GetSystemPowerStatus([ref]$sps)
-        if ($ok) {
-            if ($sps.ACLineStatus -eq 1) { return $true }
-            if ($sps.ACLineStatus -eq 0) { return $false }
+        $bats = @(Get-CimInstance -ClassName Win32_Battery -ErrorAction Stop)
+        foreach ($bat in $bats) {
+            if ($null -eq $bat -or $null -eq $bat.BatteryStatus) { continue }
+            $codeText = [string]$bat.BatteryStatus
+            if ($codeText -notmatch '^\d+$') { continue }
+            $code = [int]$codeText
+            if ($code -eq 3 -or ($code -ge 6 -and $code -le 9)) { return $true }
+            if ($code -eq 1 -or $code -eq 4 -or $code -eq 5) { return $false }
         }
     } catch {
     }
@@ -133,8 +121,9 @@ function Get-AcSamples {
 function Convert-CapacityMwh {
     param($Raw)
     if ($null -eq $Raw) { return $null }
-    $value = 0.0
-    if (-not [double]::TryParse([string]$Raw, [ref]$value)) { return $null }
+    $text = ([string]$Raw).Trim()
+    if ($text -notmatch '^\d+(\.\d+)?$') { return $null }
+    $value = [double]$text
     if ($value -le 0) { return $null }
     if ($value -lt 200) { $value = $value * 1000 }
     return [int][math]::Round($value)
@@ -245,10 +234,13 @@ function Get-BatteryReading {
     } catch {
     }
 
-    if ($result.DesignMwh -and $result.FullMwh -and $result.DesignMwh -gt 0) {
-        $result.HealthPct = [int][math]::Round(100.0 * $result.FullMwh / $result.DesignMwh)
+    try {
+        if ($result.DesignMwh -and $result.FullMwh -and $result.DesignMwh -gt 0) {
+            $result.HealthPct = [int][math]::Round(100.0 * $result.FullMwh / $result.DesignMwh)
+        }
+    } catch {
     }
-    if ($result.Status -ge 6 -and $result.Status -le 9) { $result.Charging = $true }
+    if ($null -ne $result.Status -and $result.Status -ge 6 -and $result.Status -le 9) { $result.Charging = $true }
     if ($result.ChargeRateMw -and $result.ChargeRateMw -gt 0) { $result.Charging = $true }
     return $result
 }
@@ -270,6 +262,7 @@ function Find-AdapterWatts {
         }
         foreach ($row in $rows) {
             if ($null -eq $row) { continue }
+            try {
             $caption = ''
             foreach ($labelName in @('Caption', 'Description', 'Name', 'ElementName', 'DeviceID')) {
                 $label = $row.PSObject.Properties[$labelName]
@@ -293,29 +286,40 @@ function Find-AdapterWatts {
                     }
                 }
             }
+            } catch {
+                continue
+            }
         }
     }
     return $null
 }
 
 function Get-WattageUnknown {
+    $result = @{ Hit = $false; Detail = '' }
     try {
         $events = @(Get-WinEvent -FilterHashtable @{
             LogName   = 'System'
             StartTime = (Get-Date).AddDays(-7)
-        } -MaxEvents 500 -ErrorAction Stop)
+        } -MaxEvents 80 -ErrorAction Stop)
     } catch {
-        return @{ Hit = $false; Detail = '' }
+        return $result
     }
     foreach ($logEvent in $events) {
-        $message = [string]$logEvent.Message
+        $message = ''
+        try {
+            $message = [string]$logEvent.Message
+        } catch {
+            continue
+        }
         if ($message -match 'wattage cannot be determined|cannot determine the AC adapter|AC adapter type cannot be determined') {
             $clip = $message.Trim()
             if ($clip.Length -gt 220) { $clip = $clip.Substring(0, 220) }
-            return @{ Hit = $true; Detail = $clip }
+            $result.Hit = $true
+            $result.Detail = $clip
+            return $result
         }
     }
-    return @{ Hit = $false; Detail = '' }
+    return $result
 }
 
 function Get-ChargeDevices {
@@ -465,9 +469,51 @@ function New-Signal {
 }
 
 function Get-HtmlSafe {
-    param([string]$Text)
+    param($Text)
     if ($null -eq $Text) { return '' }
-    return [System.Net.WebUtility]::HtmlEncode($Text)
+    $safe = [string]$Text
+    $safe = $safe.Replace('&', '&amp;')
+    $safe = $safe.Replace('<', '&lt;')
+    $safe = $safe.Replace('>', '&gt;')
+    $safe = $safe.Replace('"', '&quot;')
+    return $safe
+}
+
+function New-EmptyBattery {
+    return @{
+        Present         = $false
+        Percent         = $null
+        Status          = $null
+        StatusText      = ''
+        Charging        = $false
+        Discharging     = $false
+        PowerOnline     = $null
+        ChargeRateMw    = $null
+        DischargeRateMw = $null
+        VoltageMv       = $null
+        DesignMwh       = $null
+        FullMwh         = $null
+        HealthPct       = $null
+        Name            = ''
+    }
+}
+
+function Invoke-Step {
+    param(
+        [scriptblock]$Action,
+        $Fallback
+    )
+    try {
+        $value = & $Action
+        return ,$value
+    } catch {
+        $line = ''
+        if ($_.InvocationInfo -and $_.InvocationInfo.ScriptLineNumber) {
+            $line = ' line ' + $_.InvocationInfo.ScriptLineNumber
+        }
+        Write-Host ('Skipped a read' + $line + ': ' + $_.Exception.Message)
+        return ,$Fallback
+    }
 }
 
 function Get-ConnectionBand {
@@ -631,14 +677,16 @@ try {
     Write-Host 'Leave the 65W cord plugged in. Reading the charge path...'
     Write-Host ''
 
-    $os = Get-OsInfo
-    $machine = Get-MachineInfo
-    $admin = Test-IsAdmin
-    $samples = @(Get-AcSamples)
-    $before = Get-BatteryReading
-    $wattsInfo = Find-AdapterWatts
-    $wattEvent = Get-WattageUnknown
-    $devicesBefore = @(Get-ChargeDevices)
+    $os = Invoke-Step -Action { Get-OsInfo } -Fallback @{ Build = 0; Display = ''; Name = 'Windows'; IsWin11 = $false; Ok = $false }
+    $machine = Invoke-Step -Action { Get-MachineInfo } -Fallback @{ Manufacturer = ''; Model = ''; Sku = ''; Family = ''; Board = ''; Bios = ''; ServiceTag = ''; Is7779 = $false }
+    $admin = Invoke-Step -Action { Test-IsAdmin } -Fallback $false
+    $samples = Invoke-Step -Action { ,@(Get-AcSamples) } -Fallback @('unknown', 'unknown', 'unknown', 'unknown', 'unknown')
+    if ($null -eq $samples) { $samples = @('unknown', 'unknown', 'unknown', 'unknown', 'unknown') }
+    $before = Invoke-Step -Action { Get-BatteryReading } -Fallback (New-EmptyBattery)
+    $wattsInfo = Invoke-Step -Action { Find-AdapterWatts } -Fallback $null
+    $wattEvent = Invoke-Step -Action { Get-WattageUnknown } -Fallback @{ Hit = $false; Detail = '' }
+    $devicesBefore = Invoke-Step -Action { ,@(Get-ChargeDevices) } -Fallback @()
+    if ($null -eq $devicesBefore) { $devicesBefore = @() }
 
     $onCount = @($samples | Where-Object { $_ -eq 'on' }).Count
     $offCount = @($samples | Where-Object { $_ -eq 'off' }).Count
@@ -652,13 +700,14 @@ try {
         $refresh.Detail = 'The 65W cord is not held steady, so the battery driver was left alone. Plug the cord in firmly and run this again.'
     } else {
         Write-Host 'AC is steady. Refreshing the ACPI battery driver...' -ForegroundColor Cyan
-        $refresh = Reset-BatteryDriver -Devices $devicesBefore
+        $refresh = Invoke-Step -Action { Reset-BatteryDriver -Devices $devicesBefore } -Fallback @{ Ran = $true; Ok = $false; Detail = 'The driver refresh did not finish.' }
     }
 
     Start-Sleep -Seconds 2
-    $after = Get-BatteryReading
-    $devicesAfter = @(Get-ChargeDevices)
-    $scheme = Update-ActiveScheme
+    $after = Invoke-Step -Action { Get-BatteryReading } -Fallback (New-EmptyBattery)
+    $devicesAfter = Invoke-Step -Action { ,@(Get-ChargeDevices) } -Fallback @()
+    if ($null -eq $devicesAfter) { $devicesAfter = @() }
+    $scheme = Invoke-Step -Action { Update-ActiveScheme } -Fallback @{ Guid = $null; Text = '' }
 
     $reportPath = Join-Path $outDir 'battery-report.html'
     & powercfg.exe /batteryreport /output $reportPath /duration 7 | Out-Null
@@ -863,7 +912,13 @@ try {
     try { Start-Process -FilePath $htmlPath } catch { }
 } catch {
     Write-Host ''
-    Write-Host ('The check stopped: {0}' -f $_) -ForegroundColor Red
+    Write-Host ('The check stopped: {0}' -f $_.Exception.Message) -ForegroundColor Red
+    if ($_.InvocationInfo -and $_.InvocationInfo.PositionMessage) {
+        Write-Host $_.InvocationInfo.PositionMessage
+    }
+    if ($_.ScriptStackTrace) {
+        Write-Host $_.ScriptStackTrace
+    }
 } finally {
     if ($transcriptOn) {
         try { Stop-Transcript | Out-Null } catch { }
