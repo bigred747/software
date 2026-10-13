@@ -1,0 +1,341 @@
+<?php
+/**
+ * CLI checks for Flatsome version gates and upgrade refusals.
+ * php tests/test-guard.php
+ */
+define( 'ABSPATH', '/tmp/' );
+define( 'LUXE_THEME_GUARD_DIR', dirname( __DIR__ ) . '/' );
+
+require LUXE_THEME_GUARD_DIR . 'includes/class-signals.php';
+
+$fail = 0;
+function expect( $ok, $msg ) {
+	global $fail;
+	if ( $ok ) {
+		echo "OK  $msg\n";
+		return;
+	}
+	$fail++;
+	echo "FAIL $msg\n";
+}
+
+expect( Luxe_Theme_Guard_Signals::xss_patched( '3.20.6' ), '3.20.6 is XSS patched' );
+expect( Luxe_Theme_Guard_Signals::xss_patched( '3.20.9' ), '3.20.9 is XSS patched' );
+expect( ! Luxe_Theme_Guard_Signals::xss_patched( '3.20.5' ), '3.20.5 is not XSS patched' );
+expect( Luxe_Theme_Guard_Signals::at_recommended( '3.20.9' ), '3.20.9 meets the 3.20.9 floor' );
+expect( ! Luxe_Theme_Guard_Signals::at_recommended( '3.20.6' ), '3.20.6 is below the 3.20.9 floor' );
+expect( '3.20.11' === Luxe_Theme_Guard_Signals::parse_style_version( "/*\nTheme Name: Flatsome\nVersion: 3.20.11\n*/" ), 'official stylesheet version is parsed' );
+expect( '' === Luxe_Theme_Guard_Signals::parse_style_version( "Version: 9.9.9\n" ), 'implausible major version is ignored' );
+expect( '' === Luxe_Theme_Guard_Signals::parse_style_version( 'no version here' ), 'missing version header is ignored' );
+expect( '3.20.11' === Luxe_Theme_Guard_Signals::target_version( '3.20.11', '' ), 'watched 3.20.11 raises the target' );
+expect( '3.20.11' === Luxe_Theme_Guard_Signals::target_version( '3.20.9', '3.20.11' ), 'WordPress offered version raises the target' );
+expect( '3.20.9' === Luxe_Theme_Guard_Signals::target_version( '3.20.8', '1.0.0' ), 'older or junk versions cannot lower the floor' );
+expect( '3.20.9' === Luxe_Theme_Guard_Signals::target_version( '', '' ), 'no watch stays on the 3.20.9 floor' );
+expect( Luxe_Theme_Guard_Signals::meets_target( '3.20.11', '3.20.11' ), 'installed watched release meets target' );
+expect( ! Luxe_Theme_Guard_Signals::meets_target( '3.20.9', '3.20.11' ), '3.20.9 is behind a newer official release' );
+expect( Luxe_Theme_Guard_Signals::watch_url_allowed( Luxe_Theme_Guard_Signals::official_watch_url() ), 'official demo stylesheet is the only watch URL' );
+expect( ! Luxe_Theme_Guard_Signals::watch_url_allowed( 'https://demos.flatsome.com/flatsome.zip' ), 'watch URL refuses a theme zip' );
+expect( ! Luxe_Theme_Guard_Signals::watch_url_allowed( 'https://gplpagebuilder.com/flatsome/style.css' ), 'watch URL refuses an unofficial host' );
+expect( Luxe_Theme_Guard_Signals::purchase_check_url_allowed( Luxe_Theme_Guard_Signals::official_purchase_check_url() ), 'official purchase check URL is allowed' );
+expect( ! Luxe_Theme_Guard_Signals::purchase_check_url_allowed( 'https://wupdates.com/flatsome.zip' ), 'purchase check refuses a zip URL' );
+expect( ! Luxe_Theme_Guard_Signals::purchase_check_url_allowed( 'http://wupdates.com/wp-json/wup/v1/front/check_envato_purchase_code/JQ9eJ' ), 'purchase check refuses plain HTTP' );
+$valid = Luxe_Theme_Guard_Signals::interpret_purchase_check( '{"purchase_code":"valid"}' );
+expect( ! empty( $valid['ok'] ), 'a valid official purchase response is accepted' );
+$support = Luxe_Theme_Guard_Signals::interpret_purchase_check( '{"purchase_code":"invalid","reason":"out_of_support"}' );
+expect( empty( $support['ok'] ) && false !== strpos( $support['detail'], 'support' ), 'ended support is explained' );
+$nomatch = Luxe_Theme_Guard_Signals::interpret_purchase_check( '{"purchase_code":"invalid"}' );
+expect( empty( $nomatch['ok'] ) && false !== strpos( $nomatch['detail'], 'could not match' ), 'an unmatched purchase code is explained' );
+$pkg = Luxe_Theme_Guard_Signals::package_from_update_transient(
+	(object) array(
+		'response' => array(
+			'flatsome' => array(
+				'new_version' => '3.20.11',
+				'package'     => 'https://wupdates.com/flatsome.zip',
+			),
+		),
+	)
+);
+expect( '3.20.11' === $pkg['version'] && 'https://wupdates.com/flatsome.zip' === $pkg['package'], 'official package is read from the update transient' );
+expect(
+	Luxe_Theme_Guard_Signals::may_upgrade( 'flatsome', 'https://api.uxthemes.com/flatsome.zip', '3.20.9', '3.20.11' ),
+	'newer official package after 3.20.9 may upgrade'
+);
+
+expect(
+	Luxe_Theme_Guard_Signals::may_upgrade( 'flatsome', 'https://api.uxthemes.com/flatsome.zip', '3.20.6', '3.20.9' ),
+	'official HTTPS package may upgrade'
+);
+expect(
+	! Luxe_Theme_Guard_Signals::may_upgrade( 'flatsome-child', 'https://api.uxthemes.com/flatsome.zip', '3.20.6', '3.20.9' ),
+	'child theme is never upgraded'
+);
+expect(
+	! Luxe_Theme_Guard_Signals::may_upgrade( 'luxe-affiliate-product-scout', 'https://example.com/x.zip', '1.0', '2.0' ),
+	'plugins are never treated as Flatsome'
+);
+expect(
+	! Luxe_Theme_Guard_Signals::may_upgrade( 'flatsome', '', '3.20.6', '3.20.9' ),
+	'empty package is refused'
+);
+expect(
+	! Luxe_Theme_Guard_Signals::may_upgrade( 'flatsome', 'http://nulled-theme.example/flatsome.zip', '3.20.6', '3.20.9' ),
+	'http nulled URL is refused'
+);
+expect(
+	! Luxe_Theme_Guard_Signals::may_upgrade( 'flatsome', 'https://weadown.com/flatsome.zip', '3.20.6', '3.20.9' ),
+	'pirate host is refused'
+);
+expect(
+	! Luxe_Theme_Guard_Signals::may_upgrade( 'flatsome', 'https://api.uxthemes.com/flatsome.zip', '3.20.9', '3.20.9' ),
+	'already current is not upgraded'
+);
+
+$board = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'   => true,
+		'version'     => '3.20.9',
+		'available'   => '',
+		'package'     => '',
+		'stylesheet'  => 'flatsome-child',
+		'child'       => 'flatsome-child',
+		'license'     => true,
+		'xss_ok'      => true,
+		'recommended' => true,
+		'can_upgrade' => false,
+	)
+);
+expect( (int) $board['green'] === (int) $board['total'], 'current licensed 3.20.9 is all green' );
+expect( $board['total'] >= 12, 'at least 12 green signals' );
+
+$parent_only = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'   => true,
+		'version'     => '3.20.6',
+		'available'   => '',
+		'package'     => '',
+		'stylesheet'  => 'flatsome',
+		'child'       => 'flatsome',
+		'license'     => false,
+		'xss_ok'      => true,
+		'recommended' => false,
+		'can_upgrade' => false,
+	)
+);
+$child_row = null;
+$red_ids   = array();
+foreach ( $parent_only['signals'] as $signal ) {
+	if ( 'child' === $signal['id'] ) {
+		$child_row = $signal;
+	}
+	if ( 'red' === $signal['level'] ) {
+		$red_ids[] = $signal['id'];
+	}
+}
+expect( $child_row && 'green' === $child_row['level'], 'parent-only is green, not a failure' );
+expect( array( 'recommended', 'license' ) === $red_ids, 'only license and 3.20.9 stay red without a purchase code' );
+expect( 11 === (int) $parent_only['green'], '3.20.6 without license is 11 / 13 green' );
+
+require LUXE_THEME_GUARD_DIR . 'includes/class-learning.php';
+expect( Luxe_Theme_Guard_Learning::needs_reschedule( 'ltg_twelve' ), 'old 12-hour timer must be rescheduled' );
+expect( ! Luxe_Theme_Guard_Learning::needs_reschedule( 'ltg_five' ), '5-minute timer stays' );
+
+$stale = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'     => true,
+		'version'       => '3.20.9',
+		'available'     => '',
+		'package'       => '',
+		'stylesheet'    => 'flatsome-child',
+		'child'         => 'flatsome-child',
+		'license'       => true,
+		'xss_ok'        => true,
+		'recommended'   => true,
+		'can_upgrade'   => false,
+		'learning_on'   => true,
+		'cron_next'     => time() + 43200,
+		'cron_schedule' => 'ltg_twelve',
+	)
+);
+$stale_cron = null;
+foreach ( $stale['signals'] as $signal ) {
+	if ( 'cron' === $signal['id'] ) {
+		$stale_cron = $signal;
+	}
+}
+expect( $stale_cron && 'red' === $stale_cron['level'], 'leftover 12-hour cron is red until migrated' );
+expect( 3600 === Luxe_Theme_Guard_Learning::SNAPSHOT_EVERY, 'snapshot is hourly' );
+expect( 43200 === Luxe_Theme_Guard_Learning::UPGRADE_EVERY, 'official upgrade at most every 12 hours' );
+expect( 0 === Luxe_Theme_Guard_Learning::next_cursor( 12, 13 ), 'cursor wraps after the last process' );
+expect( 1 === Luxe_Theme_Guard_Learning::next_cursor( 0, 13 ), 'cursor advances one process' );
+expect( Luxe_Theme_Guard_Learning::should_snapshot( 0, 100 ), 'first snapshot is due' );
+expect( ! Luxe_Theme_Guard_Learning::should_snapshot( 90, 100 ), 'snapshot is not due inside an hour' );
+expect( Luxe_Theme_Guard_Learning::should_snapshot( 1, 3602 ), 'snapshot is due after an hour' );
+expect( 'bg91c1z0-bdcf-457f-a3e5-4e0762896c2d' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( 'BG91C1Z0-BDCF-457F-A3E5-4E0762896C2D' ), 'Envato UUID purchase code is accepted' );
+expect( 'a1b2c3d4-e5f6-4789-abcd-ef1234567890' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( 'A1B2C3D4-E5F6-4789-ABCD-EF1234567890' ), 'hex UUID purchase code is accepted' );
+expect( 'a1b2c3d4-e5f6-4789-abcd-ef1234567890' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( "Item Purchase Code:\nA1B2C3D4-E5F6-4789-ABCD-EF1234567890\n" ), 'license certificate paste is accepted' );
+expect( 'a1b2c3d4-e5f6-4789-abcd-ef1234567890' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( "a1b2c3d4-e5f6-4789-\nabcd-ef1234567890" ), 'wrapped purchase code is accepted' );
+expect( 'a1b2c3d4-e5f6-4789-abcd-ef1234567890' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( 'a1b2c3d4–e5f6–4789–abcd–ef1234567890' ), 'unicode dashes are accepted' );
+expect( '' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( 'not-a-purchase-code' ), 'garbage purchase code is refused' );
+expect( Luxe_Theme_Guard_Learning::should_refresh_updates( true, 90, 100 ), 'behind Flatsome refreshes every cycle' );
+expect( Luxe_Theme_Guard_Learning::should_apply_upgrade( true ), 'official package is applied immediately' );
+expect( ! Luxe_Theme_Guard_Learning::should_apply_upgrade( false ), 'no package means no upgrade' );
+expect( ! Luxe_Theme_Guard_Learning::should_upgrade_check( 10, 100 ), 'upgrade is not due inside 12 hours' );
+expect( Luxe_Theme_Guard_Learning::should_upgrade_check( 1, 43202 ), 'upgrade check is due after 12 hours' );
+
+$focus = Luxe_Theme_Guard_Learning::focus_row( $parent_only['signals'], 2 );
+expect( isset( $focus['id'] ) && 'recommended' === $focus['id'], 'cycle 2 learns the recommended-version process' );
+
+$off = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'   => true,
+		'version'     => '3.20.9',
+		'available'   => '',
+		'package'     => '',
+		'stylesheet'  => 'flatsome-child',
+		'child'       => 'flatsome-child',
+		'license'     => true,
+		'xss_ok'      => true,
+		'recommended' => true,
+		'can_upgrade' => false,
+		'learning_on' => false,
+		'cron_next'   => 0,
+	)
+);
+$cron_row = null;
+foreach ( $off['signals'] as $signal ) {
+	if ( 'cron' === $signal['id'] ) {
+		$cron_row = $signal;
+	}
+}
+expect( $cron_row && 'red' === $cron_row['level'], '24/7 off is a red process-learning signal' );
+
+$behind_watch = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'   => true,
+		'version'     => '3.20.6',
+		'available'   => '',
+		'package'     => '',
+		'watched'     => '3.20.11',
+		'target'      => '3.20.11',
+		'stylesheet'  => 'flatsome',
+		'child'       => 'flatsome',
+		'license'     => false,
+		'xss_ok'      => true,
+		'recommended' => true,
+		'can_upgrade' => false,
+	)
+);
+$behind_rec = null;
+foreach ( $behind_watch['signals'] as $signal ) {
+	if ( 'recommended' === $signal['id'] ) {
+		$behind_rec = $signal;
+	}
+}
+expect( $behind_rec && 'red' === $behind_rec['level'], '3.20.6 stays red when the watch sees 3.20.11' );
+expect( $behind_rec && false !== strpos( $behind_rec['label'], '3.20.11' ), 'recommended label names the watched release' );
+expect( $behind_rec && false !== strpos( $behind_rec['detail'], '3.20.11' ), 'recommended detail names the watched release' );
+
+$waiting = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'   => true,
+		'version'     => '3.20.6',
+		'available'   => '',
+		'package'     => '',
+		'watched'     => '3.20.11',
+		'target'      => '3.20.11',
+		'stylesheet'  => 'flatsome',
+		'child'       => 'flatsome',
+		'license'     => true,
+		'xss_ok'      => true,
+		'recommended' => false,
+		'can_upgrade' => false,
+		'update_note' => 'UX Themes accepted the purchase code, but did not return a download.',
+	)
+);
+$waiting_rec = null;
+foreach ( $waiting['signals'] as $signal ) {
+	if ( 'recommended' === $signal['id'] ) {
+		$waiting_rec = $signal;
+	}
+}
+expect( $waiting_rec && 'red' === $waiting_rec['level'], 'saved license stays red until the package installs' );
+expect( $waiting_rec && false !== strpos( $waiting_rec['detail'], 'did not return a download' ), 'saved license shows the official server result' );
+
+$caught_up = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'   => true,
+		'version'     => '3.20.11',
+		'available'   => '',
+		'package'     => '',
+		'watched'     => '3.20.11',
+		'target'      => '3.20.11',
+		'stylesheet'  => 'flatsome-child',
+		'child'       => 'flatsome-child',
+		'license'     => true,
+		'xss_ok'      => true,
+		'recommended' => false,
+		'can_upgrade' => false,
+	)
+);
+expect( (int) $caught_up['green'] === (int) $caught_up['total'], 'installed watched release is all green' );
+
+$retired = Luxe_Theme_Guard_Signals::interpret_purchase_check( '"This product doesn\'t exists"' );
+expect( empty( $retired['ok'] ) && false !== strpos( $retired['detail'], 'retired' ), 'retired updater product is a readable error' );
+expect( Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'https://api.uxthemes.com/v1/latest-version' ), 'latest-version API URL is allowed' );
+expect( Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'https://api.uxthemes.com/v1/license/a1b2c3d4-e5f6-4789-abcd-ef1234567890' ), 'license API URL is allowed' );
+expect( Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'https://api.uxthemes.com/v1/token/download' ), 'token download API URL is allowed' );
+expect( ! Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'https://api.uxthemes.com/v1/license/not-a-code' ), 'license API URL refuses a non-code' );
+expect( ! Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'http://api.uxthemes.com/v1/latest-version' ), 'UX Themes API refuses plain HTTP' );
+expect( ! Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'https://wupdates.com/wp-json/wup/v1/front/check_envato_purchase_code/JQ9eJ' ), 'old updater host is not the UX Themes API' );
+expect( '' === Luxe_Theme_Guard_Signals::uxthemes_request_url( '/flatsome.zip' ), 'request URL refuses a zip path' );
+
+$latest = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 200, '{"version":"3.20.11","new_version":"3.20.11","requires":"6.4","requires_php":"7.4"}' );
+expect( ! empty( $latest['ok'] ) && '3.20.11' === $latest['version'] && '' === $latest['package'], 'public latest-version has a version and no zip' );
+
+$missing = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 404, 'Not Found' );
+expect( empty( $missing['ok'] ) && false !== strpos( $missing['detail'], 'does not belong' ), 'unknown purchase code is explained' );
+
+$nodomain = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 417, 'Expectation Failed' );
+expect( empty( $nodomain['ok'] ) && false !== strpos( $nodomain['detail'], 'No domain' ), 'missing site domain is explained' );
+
+$registered = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 409, '{"code":"already-registered"}' );
+expect( empty( $registered['ok'] ) && false !== strpos( $registered['detail'], 'already registered' ), 'already registered is explained' );
+
+$ready = Luxe_Theme_Guard_Signals::interpret_uxthemes_response(
+	200,
+	'{"version":"3.20.11","download_url":"https://uxthemes-downloads.s3.amazonaws.com/releases/flatsome-3.20.11.zip","token":"theme-download-token-value"}'
+);
+expect( ! empty( $ready['ok'] ) && '3.20.11' === $ready['version'], 'official package version is ready' );
+expect( false !== strpos( $ready['package'], 'flatsome-3.20.11.zip' ), 'official zip URL is kept' );
+expect( 'theme-download-token-value' === $ready['token'], 'download token is kept' );
+
+$pirate = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 200, '{"version":"3.20.11","package":"https://weadown.com/flatsome.zip"}' );
+expect( '' === $pirate['package'], 'pirate package URL is dropped' );
+
+$homepage = Luxe_Theme_Guard_Signals::package_url_from_payload( array( 'url' => 'https://luxetrendsetters.com/' ) );
+expect( '' === $homepage, 'the site homepage is not a theme package' );
+
+$authed = Luxe_Theme_Guard_Signals::acceptable_package_url( 'https://api.uxthemes.com/v1/token/download' );
+expect( 'https://api.uxthemes.com/v1/token/download' === $authed, 'token download URL can be installed with the bearer token' );
+
+$record = Luxe_Theme_Guard_Signals::interpret_uxthemes_response(
+	200,
+	'{"id":"reg-12345678901234567890","purchaseCode":"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee","type":"PUBLIC","errors":[]}'
+);
+expect( empty( $record['ok'] ) && false === strpos( $record['detail'], 'unreadable' ), 'a license record is not an unreadable response' );
+expect( false !== strpos( $record['detail'], 'did not return a download' ), 'a license record without a zip says so' );
+
+$already = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 200, '{"errors":["This purchase code is already registered."]}' );
+expect( false !== strpos( $already['detail'], 'already registered' ), 'registration errors are shown' );
+
+$signed = Luxe_Theme_Guard_Signals::trusted_download_url( 'https://api.uxthemes.com/v1/download?expires=1&sig=abc' );
+expect( false !== strpos( $signed, 'expires=1' ), 'Flatsome temporary download URLs are kept' );
+expect( '' === Luxe_Theme_Guard_Signals::trusted_download_url( 'https://weadown.com/flatsome.zip' ), 'a temporary URL on a pirate host is refused' );
+expect( '' === Luxe_Theme_Guard_Signals::trusted_download_url( 'http://api.uxthemes.com/flatsome.zip' ), 'a temporary URL must be HTTPS' );
+
+if ( $fail ) {
+	echo "FAILED $fail\n";
+	exit( 1 );
+}
+echo "ALL PASSED\n";
+exit( 0 );
