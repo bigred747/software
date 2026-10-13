@@ -2,7 +2,7 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Theme Guard 1.4.3 — install the official Flatsome release
+## Luxe Theme Guard 1.4.4 — install the official Flatsome release
 
 Visible in WordPress as **Luxe Theme**. Watches the current official Flatsome version and installs it when WordPress has a licensed package. Does not stop at 3.20.9. Amazon AI stays on this screen. Never downloads nulled zips. Never rewrites Amazon URLs.
 
@@ -14,7 +14,7 @@ Windows 11 / WordPress zip. Size **145KB**.
 
 SHA-256 `817dd84aa800aa145fe0077ba53213c6a5ff260d1e18695b4dcdd344909c1464`
 
-Plugins → Add Plugin → Upload Plugin → Install Now → Activate (replace 1.4.2). Open **Luxe Theme**.
+Plugins → Add Plugin → Upload Plugin → Install Now → Activate (replace 1.4.3). Open **Luxe Theme**.
 
 Paste your ThemeForest purchase code (Downloads → License certificate) and click **Save settings**. Leave **Auto-update Flatsome** On. Guard reads the official release every hour and installs that version every 5 minutes when WordPress has the licensed package. Do not upload this zip over Flatsome or any other plugin.
 

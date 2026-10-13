@@ -153,6 +153,20 @@ class Luxe_Theme_Guard_Updater {
 		}
 
 		if ( $code ) {
+			$from_theme = $this->package_from_theme_client( $code );
+			if ( ! empty( $from_theme['package'] ) ) {
+				$package = $from_theme['package'];
+			}
+			if ( ! empty( $from_theme['version'] ) && ( '' === $available || Luxe_Theme_Guard_Signals::compare( $from_theme['version'], $available ) > 0 ) ) {
+				$available = $from_theme['version'];
+				$this->remember_watched( $available );
+			}
+			if ( ! $package && ! empty( $from_theme['detail'] ) ) {
+				$note = $from_theme['detail'];
+			}
+		}
+
+		if ( $code && ! $package ) {
 			$license_note = '';
 			$domain       = function_exists( 'home_url' ) ? (string) wp_parse_url( home_url(), PHP_URL_HOST ) : '';
 			$body         = array(
@@ -214,21 +228,8 @@ class Luxe_Theme_Guard_Updater {
 			if ( ! $package && $token && $available && ! $token_download_denied ) {
 				$package = Luxe_Theme_Guard_Signals::uxthemes_request_url( '/v1/token/download' );
 			}
-			if ( ! $package && $license_note ) {
+			if ( ! $package && $license_note && ( '' === $note || false !== strpos( $note, 'unreadable' ) || false !== strpos( $note, 'without a Flatsome download' ) ) ) {
 				$note = $license_note;
-			}
-			if ( ! $package ) {
-				$from_theme = $this->package_from_theme_client( $code );
-				if ( ! empty( $from_theme['package'] ) ) {
-					$package = $from_theme['package'];
-				}
-				if ( ! empty( $from_theme['version'] ) && ( '' === $available || Luxe_Theme_Guard_Signals::compare( $from_theme['version'], $available ) > 0 ) ) {
-					$available = $from_theme['version'];
-					$this->remember_watched( $available );
-				}
-				if ( ! $package && ! empty( $from_theme['detail'] ) && ( '' === $note || false !== strpos( $note, 'does not belong' ) ) ) {
-					$note = $from_theme['detail'];
-				}
 			}
 		}
 
@@ -372,77 +373,69 @@ class Luxe_Theme_Guard_Updater {
 	}
 
 	/**
-	 * Use Flatsome's own registration class when it is loaded beside this plugin.
+	 * Ask the Flatsome copy already installed on this site for the temporary download URL.
 	 *
 	 * @param string $code Purchase code.
 	 * @return array{version?:string,package?:string,detail?:string}
 	 */
 	private function package_from_theme_client( $code ) {
-		if ( ! class_exists( 'Flatsome_Registration' ) ) {
-			return array();
-		}
-		try {
-			$ref = new ReflectionClass( 'Flatsome_Registration' );
-		} catch ( Exception $e ) {
-			return array();
-		}
-		$instance = null;
-		if ( $ref->hasMethod( 'get_instance' ) ) {
-			$factory = $ref->getMethod( 'get_instance' );
-			if ( $factory->isPublic() && $factory->isStatic() && 0 === $factory->getNumberOfRequiredParameters() ) {
-				$instance = $factory->invoke( null );
-			}
-		}
+		$instance = $this->theme_registration();
 		if ( ! is_object( $instance ) ) {
 			return array();
 		}
-		$out = array();
-		if ( $code && $ref->hasMethod( 'register' ) ) {
-			$method = $ref->getMethod( 'register' );
-			if ( $method->isPublic() && $method->getNumberOfRequiredParameters() <= 1 ) {
-				$args = array( $code );
-				if ( $method->getNumberOfParameters() >= 2 ) {
-					$args[] = true;
-				}
-				$out = $this->normalize_theme_result( $this->invoke_theme_method( $method, $instance, $args ) );
+		$out            = array();
+		$version_result = $this->call_theme( array( $instance, 'get_latest_version' ), array() );
+		$version_norm   = $this->normalize_theme_result( $version_result );
+		if ( empty( $version_norm['version'] ) && $code ) {
+			$registered = $this->normalize_theme_result( $this->call_theme( array( $instance, 'register' ), array( $code ) ) );
+			if ( ! empty( $registered['detail'] ) ) {
+				$out['detail'] = $registered['detail'];
 			}
+			$version_result = $this->call_theme( array( $instance, 'get_latest_version' ), array() );
+			$version_norm   = $this->normalize_theme_result( $version_result );
 		}
-		foreach ( array( 'get_latest_version', 'get_version' ) as $name ) {
-			if ( ! empty( $out['version'] ) || ! $ref->hasMethod( $name ) ) {
-				continue;
-			}
-			$method = $ref->getMethod( $name );
-			if ( $method->isPublic() && 0 === $method->getNumberOfRequiredParameters() ) {
-				$norm = $this->normalize_theme_result( $this->invoke_theme_method( $method, $instance, array() ) );
-				$out  = array_merge( $out, array_filter( $norm ) );
-			}
+		if ( ! empty( $version_norm['version'] ) ) {
+			$out['version'] = $version_norm['version'];
+			unset( $out['detail'] );
+		} elseif ( ! empty( $version_norm['detail'] ) ) {
+			$out['detail'] = $version_norm['detail'];
 		}
-		foreach ( array( 'get_download_url', 'get_download_link', 'get_theme_download_url' ) as $name ) {
-			if ( ! empty( $out['package'] ) || ! $ref->hasMethod( $name ) ) {
-				continue;
-			}
-			$method = $ref->getMethod( $name );
-			if ( $method->isPublic() && $method->getNumberOfRequiredParameters() <= 1 ) {
-				$args = array();
-				if ( $method->getNumberOfRequiredParameters() === 1 && ! empty( $out['version'] ) ) {
-					$args[] = $out['version'];
-				}
-				$norm = $this->normalize_theme_result( $this->invoke_theme_method( $method, $instance, $args ) );
-				$out  = array_merge( $out, array_filter( $norm ) );
+		if ( ! empty( $out['version'] ) ) {
+			$url_norm = $this->normalize_theme_result( $this->call_theme( array( $instance, 'get_download_url' ), array( $out['version'] ) ) );
+			if ( ! empty( $url_norm['package'] ) ) {
+				$out['package'] = $url_norm['package'];
+				unset( $out['detail'] );
+			} elseif ( ! empty( $url_norm['detail'] ) ) {
+				$out['detail'] = $url_norm['detail'];
 			}
 		}
 		return $out;
 	}
 
 	/**
-	 * @param ReflectionMethod $method   Method.
-	 * @param object           $instance Instance.
-	 * @param array            $args     Arguments.
+	 * @return object|null
+	 */
+	private function theme_registration() {
+		if ( ! class_exists( 'Flatsome_Registration' ) || ! class_exists( 'UxThemes_API' ) ) {
+			return null;
+		}
+		try {
+			return new Flatsome_Registration( new UxThemes_API() );
+		} catch ( Exception $e ) {
+			return null;
+		} catch ( Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * @param callable $callback Callback.
+	 * @param array    $args     Arguments.
 	 * @return mixed
 	 */
-	private function invoke_theme_method( $method, $instance, $args ) {
+	private function call_theme( $callback, $args ) {
 		try {
-			return $method->invokeArgs( $instance, $args );
+			return call_user_func_array( $callback, $args );
 		} catch ( Exception $e ) {
 			return null;
 		} catch ( Throwable $e ) {
@@ -461,11 +454,12 @@ class Luxe_Theme_Guard_Updater {
 			);
 		}
 		if ( is_string( $result ) ) {
-			$version = Luxe_Theme_Guard_Signals::plain_version( $result );
-			if ( Luxe_Theme_Guard_Signals::plausible_flatsome_version( $version ) && $version === Luxe_Theme_Guard_Signals::plain_version( $result ) ) {
+			$trim    = trim( $result );
+			$version = Luxe_Theme_Guard_Signals::plain_version( $trim );
+			if ( strlen( $trim ) <= 20 && Luxe_Theme_Guard_Signals::plausible_flatsome_version( $version ) ) {
 				return array( 'version' => $version );
 			}
-			$url = Luxe_Theme_Guard_Signals::acceptable_package_url( $result );
+			$url = Luxe_Theme_Guard_Signals::trusted_download_url( $trim );
 			return $url ? array( 'package' => $url ) : array();
 		}
 		if ( is_array( $result ) ) {

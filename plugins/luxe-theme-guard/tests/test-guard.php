@@ -318,6 +318,21 @@ expect( '' === $homepage, 'the site homepage is not a theme package' );
 $authed = Luxe_Theme_Guard_Signals::acceptable_package_url( 'https://api.uxthemes.com/v1/token/download' );
 expect( 'https://api.uxthemes.com/v1/token/download' === $authed, 'token download URL can be installed with the bearer token' );
 
+$record = Luxe_Theme_Guard_Signals::interpret_uxthemes_response(
+	200,
+	'{"id":"reg-12345678901234567890","purchaseCode":"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee","type":"PUBLIC","errors":[]}'
+);
+expect( empty( $record['ok'] ) && false === strpos( $record['detail'], 'unreadable' ), 'a license record is not an unreadable response' );
+expect( false !== strpos( $record['detail'], 'did not return a download' ), 'a license record without a zip says so' );
+
+$already = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 200, '{"errors":["This purchase code is already registered."]}' );
+expect( false !== strpos( $already['detail'], 'already registered' ), 'registration errors are shown' );
+
+$signed = Luxe_Theme_Guard_Signals::trusted_download_url( 'https://api.uxthemes.com/v1/download?expires=1&sig=abc' );
+expect( false !== strpos( $signed, 'expires=1' ), 'Flatsome temporary download URLs are kept' );
+expect( '' === Luxe_Theme_Guard_Signals::trusted_download_url( 'https://weadown.com/flatsome.zip' ), 'a temporary URL on a pirate host is refused' );
+expect( '' === Luxe_Theme_Guard_Signals::trusted_download_url( 'http://api.uxthemes.com/flatsome.zip' ), 'a temporary URL must be HTTPS' );
+
 if ( $fail ) {
 	echo "FAILED $fail\n";
 	exit( 1 );

@@ -266,6 +266,11 @@ class Luxe_Theme_Guard_Signals {
 				$out['detail'] = $error;
 				return $out;
 			}
+			$record = self::registration_record_detail( $decoded, $http_code );
+			if ( $record ) {
+				$out['detail'] = $record;
+				return $out;
+			}
 		}
 		if ( 404 === $http_code ) {
 			$out['detail'] = 'The purchase code does not belong to a Flatsome sale.';
@@ -287,8 +292,64 @@ class Luxe_Theme_Guard_Signals {
 			$out['detail'] = 'Sorry, the API is unavailable at the moment.';
 			return $out;
 		}
+		if ( $http_code > 0 ) {
+			$out['detail'] = 'UX Themes returned HTTP ' . $http_code . ' without a Flatsome download.';
+			return $out;
+		}
 		$out['detail'] = 'The official Flatsome update server returned an unreadable response.';
 		return $out;
+	}
+
+	/**
+	 * A license record is not a theme zip. Surface its error, or say the download was missing.
+	 *
+	 * @param array $data Payload.
+	 * @param int   $http HTTP status.
+	 * @return string
+	 */
+	public static function registration_record_detail( $data, $http ) {
+		if ( isset( $data['errors'] ) && is_array( $data['errors'] ) ) {
+			foreach ( $data['errors'] as $err ) {
+				$text = '';
+				if ( is_string( $err ) ) {
+					$text = self::plain_api_text( $err );
+				} elseif ( is_array( $err ) && ! empty( $err['message'] ) && is_string( $err['message'] ) ) {
+					$text = self::plain_api_text( $err['message'] );
+				}
+				if ( $text ) {
+					return $text;
+				}
+			}
+		}
+		$has_record = ! empty( $data['id'] ) || ! empty( $data['purchaseCode'] ) || ! empty( $data['purchase_code'] );
+		if ( $has_record && (int) $http >= 200 && (int) $http < 300 ) {
+			return 'UX Themes has this purchase code but did not return a download URL.';
+		}
+		return '';
+	}
+
+	/**
+	 * HTTPS URL returned by Flatsome's own updater. Signed links often have no .zip suffix.
+	 *
+	 * @param string $url URL.
+	 * @return string
+	 */
+	public static function trusted_download_url( $url ) {
+		$url = trim( (string) $url );
+		if ( ! preg_match( '#^https://#i', $url ) ) {
+			return '';
+		}
+		if ( preg_match( '/nulled|null-?theme|gpldl|weadown|themelock|pirate/i', $url ) ) {
+			return '';
+		}
+		$host = strtolower( (string) parse_url( $url, PHP_URL_HOST ) );
+		if ( '' === $host ) {
+			return '';
+		}
+		if ( in_array( $host, array( 'themeforest.net', 'account.uxthemes.com', 'docs.uxthemes.com', 'demos.flatsome.com' ), true ) ) {
+			return '';
+		}
+		return $url;
 	}
 
 	/**
