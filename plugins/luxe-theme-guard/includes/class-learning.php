@@ -312,9 +312,8 @@ class Luxe_Theme_Guard_Learning {
 		$behind  = ! empty( $snap['installed'] ) && empty( $snap['recommended'] );
 		$refresh = self::should_refresh_updates( $behind, (int) get_option( self::OPTION_SNAP, 0 ), $now );
 
-		if ( $refresh && function_exists( 'wp_update_themes' ) ) {
-			wp_update_themes();
-			$heals['refresh'] = 'wp_update_themes';
+		if ( $refresh ) {
+			$heals['fetch'] = Luxe_Theme_Guard_Updater::instance()->fetch_official_package();
 			update_option( self::OPTION_SNAP, $now, false );
 			$snap = Luxe_Theme_Guard_Signals::snapshot( $watched );
 		}
@@ -323,7 +322,7 @@ class Luxe_Theme_Guard_Learning {
 			update_option( self::OPTION_UPGRADE, $now, false );
 			$heals['upgrade'] = Luxe_Theme_Guard_Updater::instance()->attempt_upgrade();
 			$snap             = Luxe_Theme_Guard_Signals::snapshot( $watched );
-			if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_purge' ) ) {
+			if ( ! empty( $heals['upgrade']['ok'] ) && Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_purge' ) ) {
 				$heals['purge'] = Luxe_Theme_Guard_Updater::instance()->purge_caches();
 			}
 		}

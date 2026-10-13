@@ -11,6 +11,7 @@ delete_option( 'luxe_theme_guard_snapshot_at' );
 delete_option( 'luxe_theme_guard_upgrade_at' );
 delete_option( 'luxe_theme_guard_watched_version' );
 delete_option( 'luxe_theme_guard_watched_at' );
+delete_option( 'luxe_theme_guard_update_note' );
 delete_option( 'luxe_theme_guard_amazon_last' );
 delete_option( 'luxe_theme_guard_amazon_log' );
 delete_option( 'luxe_theme_guard_amazon_cursor' );

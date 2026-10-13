@@ -14,6 +14,7 @@ class Luxe_Theme_Guard_Signals {
 	const OPTION_LAST     = 'luxe_theme_guard_last';
 	const OPTION_LOG      = 'luxe_theme_guard_log';
 	const WATCH_URL       = 'https://demos.flatsome.com/wp-content/themes/flatsome/style.css';
+	const PURCHASE_URL    = 'https://wupdates.com/wp-json/wup/v1/front/check_envato_purchase_code/JQ9eJ';
 
 	/**
 	 * @param string $a Version.
@@ -104,6 +105,77 @@ class Luxe_Theme_Guard_Signals {
 		}
 		$path = parse_url( $url, PHP_URL_PATH );
 		return '/wp-content/themes/flatsome/style.css' === $path;
+	}
+
+	/**
+	 * Official purchase-code check used by Flatsome's own updater.
+	 *
+	 * @return string
+	 */
+	public static function official_purchase_check_url() {
+		return self::PURCHASE_URL;
+	}
+
+	/**
+	 * @param string $url URL.
+	 * @return bool
+	 */
+	public static function purchase_check_url_allowed( $url ) {
+		$url = (string) $url;
+		if ( 0 !== stripos( $url, 'https://wupdates.com/' ) ) {
+			return false;
+		}
+		$path = parse_url( $url, PHP_URL_PATH );
+		return '/wp-json/wup/v1/front/check_envato_purchase_code/JQ9eJ' === $path;
+	}
+
+	/**
+	 * Read the official purchase-code response. Does not keep the code.
+	 *
+	 * @param string $body JSON body.
+	 * @return array{ok:bool,detail:string}
+	 */
+	public static function interpret_purchase_check( $body ) {
+		$data = json_decode( (string) $body, true );
+		if ( ! is_array( $data ) ) {
+			return array(
+				'ok'     => false,
+				'detail' => 'The official Flatsome update server returned an unreadable response.',
+			);
+		}
+		if ( isset( $data['purchase_code'] ) && 'valid' === $data['purchase_code'] ) {
+			return array(
+				'ok'     => true,
+				'detail' => 'UX Themes accepted the purchase code.',
+			);
+		}
+		if ( isset( $data['reason'] ) && 'out_of_support' === $data['reason'] ) {
+			return array(
+				'ok'     => false,
+				'detail' => 'ThemeForest support for this purchase has ended, so UX Themes will not send the update.',
+			);
+		}
+		return array(
+			'ok'     => false,
+			'detail' => 'UX Themes could not match this purchase code to a Flatsome sale.',
+		);
+	}
+
+	/**
+	 * @param mixed $transient Update transient.
+	 * @return array{version:string,package:string}
+	 */
+	public static function package_from_update_transient( $transient ) {
+		$item = array();
+		if ( is_object( $transient ) && ! empty( $transient->response[ self::THEME ] ) ) {
+			$item = (array) $transient->response[ self::THEME ];
+		} elseif ( is_array( $transient ) && ! empty( $transient['response'][ self::THEME ] ) ) {
+			$item = (array) $transient['response'][ self::THEME ];
+		}
+		return array(
+			'version' => isset( $item['new_version'] ) ? (string) $item['new_version'] : '',
+			'package' => isset( $item['package'] ) ? (string) $item['package'] : '',
+		);
 	}
 
 	/**
@@ -277,6 +349,7 @@ class Luxe_Theme_Guard_Signals {
 			'learning_on'  => class_exists( 'Luxe_Theme_Guard_Plugin' ) ? Luxe_Theme_Guard_Plugin::instance()->enabled( 'learning_24_7' ) : true,
 			'cron_next'     => ( class_exists( 'Luxe_Theme_Guard_Learning' ) && function_exists( 'wp_next_scheduled' ) ) ? (int) wp_next_scheduled( Luxe_Theme_Guard_Learning::CRON ) : 0,
 			'cron_schedule' => class_exists( 'Luxe_Theme_Guard_Learning' ) ? Luxe_Theme_Guard_Learning::cron_schedule_name() : 'ltg_five',
+			'update_note'   => function_exists( 'get_option' ) ? (string) get_option( 'luxe_theme_guard_update_note', '' ) : '',
 		);
 	}
 
@@ -298,12 +371,17 @@ class Luxe_Theme_Guard_Signals {
 			$recommended_ok = self::meets_target( $ver, $target );
 		}
 		$watch_note = $watched ? ( ' Watching official ' . $watched . '.' ) : ' Official release watch has not reported a newer version yet.';
+		$note       = isset( $snap['update_note'] ) ? trim( (string) $snap['update_note'] ) : '';
 		if ( $recommended_ok ) {
 			$recommended_detail = 'Current ' . $ver . '.' . $watch_note;
 		} else {
 			$recommended_detail = 'Need ' . $target . '.' . $watch_note;
 			if ( $avail ) {
 				$recommended_detail .= ' WordPress offers ' . $avail . '.';
+			} elseif ( $note ) {
+				$recommended_detail .= ' ' . $note;
+			} elseif ( ! empty( $snap['license'] ) ) {
+				$recommended_detail .= ' The purchase code is saved. Guard is asking UX Themes for the official download.';
 			} else {
 				$recommended_detail .= ' Paste the ThemeForest purchase code so Guard can install the official package.';
 			}

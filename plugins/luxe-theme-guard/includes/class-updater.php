@@ -12,6 +12,7 @@ class Luxe_Theme_Guard_Updater {
 	const AUTO_SITE      = 'auto_update_themes';
 	const OPTION_WATCHED = 'luxe_theme_guard_watched_version';
 	const OPTION_WATCHED_AT = 'luxe_theme_guard_watched_at';
+	const OPTION_NOTE    = 'luxe_theme_guard_update_note';
 	const WATCH_EVERY    = 3600;
 
 	/**
@@ -115,6 +116,116 @@ class Luxe_Theme_Guard_Updater {
 	}
 
 	/**
+	 * Ask Flatsome's official updater for a package and store why if it does not send one.
+	 *
+	 * @return string
+	 */
+	public function fetch_official_package() {
+		self::sync_saved_license();
+		if ( function_exists( 'delete_site_transient' ) ) {
+			delete_site_transient( 'update_themes' );
+		}
+		$code = '';
+		if ( class_exists( 'Luxe_Theme_Guard_Plugin' ) ) {
+			$settings = Luxe_Theme_Guard_Plugin::instance()->settings();
+			$code     = isset( $settings['flatsome_purchase_code'] ) ? Luxe_Theme_Guard_Signals::sanitize_purchase_code( $settings['flatsome_purchase_code'] ) : '';
+		}
+		$verified = array(
+			'ok'     => false,
+			'detail' => $code ? '' : 'Paste the ThemeForest purchase code and save.',
+		);
+		if ( $code ) {
+			$verified = $this->verify_purchase_code( $code );
+		}
+		if ( function_exists( 'wp_update_themes' ) ) {
+			wp_update_themes();
+		}
+		$note    = $verified['detail'];
+		$version = '';
+		if ( function_exists( 'wp_get_theme' ) ) {
+			$theme   = wp_get_theme( Luxe_Theme_Guard_Signals::THEME );
+			$version = ( $theme && ! is_wp_error( $theme ) && $theme->exists() ) ? (string) $theme->get( 'Version' ) : '';
+		}
+		if ( function_exists( 'wupdates_check_JQ9eJ' ) ) {
+			$transient           = new stdClass();
+			$transient->checked  = array( Luxe_Theme_Guard_Signals::THEME => $version );
+			$transient->response = array();
+			$checked             = wupdates_check_JQ9eJ( $transient );
+			$pkg                 = Luxe_Theme_Guard_Signals::package_from_update_transient( $checked );
+			if ( $pkg['package'] && Luxe_Theme_Guard_Signals::may_upgrade( Luxe_Theme_Guard_Signals::THEME, $pkg['package'], $version, $pkg['version'] ? $pkg['version'] : '0' ) ) {
+				$this->store_theme_package( $version, $checked );
+				$note = 'Official package ' . $pkg['version'] . ' is ready.';
+			}
+		}
+		if ( $verified['ok'] && false === strpos( $note, 'Official package' ) ) {
+			$note = 'UX Themes accepted the purchase code, but did not return a download. Guard will ask again on the next cycle.';
+		} elseif ( '' === $note ) {
+			$note = 'The official updater did not return a Flatsome package.';
+		}
+		if ( function_exists( 'update_option' ) ) {
+			update_option( self::OPTION_NOTE, $note, false );
+		}
+		return $note;
+	}
+
+	/**
+	 * @param string $code Purchase code.
+	 * @return array{ok:bool,detail:string}
+	 */
+	private function verify_purchase_code( $code ) {
+		$url = Luxe_Theme_Guard_Signals::official_purchase_check_url();
+		if ( ! Luxe_Theme_Guard_Signals::purchase_check_url_allowed( $url ) || ! function_exists( 'wp_remote_post' ) || ! function_exists( 'home_url' ) ) {
+			return array(
+				'ok'     => false,
+				'detail' => 'The official purchase check could not run.',
+			);
+		}
+		$response = wp_remote_post(
+			$url,
+			array(
+				'timeout'    => 15,
+				'body'       => array(
+					'slug'          => Luxe_Theme_Guard_Signals::THEME,
+					'url'           => home_url(),
+					'purchase_code' => $code,
+				),
+				'user-agent' => 'WordPress/' . ( isset( $GLOBALS['wp_version'] ) ? $GLOBALS['wp_version'] : '6.8' ) . '; ' . home_url(),
+			)
+		);
+		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return array(
+				'ok'     => false,
+				'detail' => 'Could not reach the official Flatsome update server.',
+			);
+		}
+		return Luxe_Theme_Guard_Signals::interpret_purchase_check( wp_remote_retrieve_body( $response ) );
+	}
+
+	/**
+	 * @param string $version   Installed version.
+	 * @param object $checked   Transient returned by Flatsome's updater.
+	 */
+	private function store_theme_package( $version, $checked ) {
+		if ( ! function_exists( 'get_site_transient' ) || ! function_exists( 'set_site_transient' ) ) {
+			return;
+		}
+		$stored = get_site_transient( 'update_themes' );
+		if ( ! is_object( $stored ) ) {
+			$stored = new stdClass();
+		}
+		if ( empty( $stored->checked ) || ! is_array( $stored->checked ) ) {
+			$stored->checked = array();
+		}
+		if ( empty( $stored->response ) || ! is_array( $stored->response ) ) {
+			$stored->response = array();
+		}
+		$stored->checked[ Luxe_Theme_Guard_Signals::THEME ]  = $version;
+		$stored->response[ Luxe_Theme_Guard_Signals::THEME ] = (array) $checked->response[ Luxe_Theme_Guard_Signals::THEME ];
+		$stored->last_checked                                = time();
+		set_site_transient( 'update_themes', $stored );
+	}
+
+	/**
 	 * Cron upgrades need a writable themes directory.
 	 *
 	 * @param string $method Method.
@@ -211,14 +322,16 @@ class Luxe_Theme_Guard_Updater {
 		$result = $this->run( true );
 		$green  = isset( $result['green'] ) ? (int) $result['green'] : 0;
 		$total  = isset( $result['total'] ) ? (int) $result['total'] : 0;
+		$note   = ( ! empty( $result['snap']['update_note'] ) && $green !== $total ) ? ' ' . $result['snap']['update_note'] : '';
 		add_settings_error(
 			'luxe_theme_guard',
 			'ran',
 			sprintf(
-				/* translators: 1: green, 2: total */
-				__( 'Theme Guard finished. %1$d / %2$d signals green.', 'luxe-theme-guard' ),
+				/* translators: 1: green, 2: total, 3: update note */
+				__( 'Theme Guard finished. %1$d / %2$d signals green.%3$s', 'luxe-theme-guard' ),
 				$green,
-				$total
+				$total,
+				$note
 			),
 			$green === $total && $total > 0 ? 'updated' : 'notice-warning'
 		);
@@ -239,22 +352,17 @@ class Luxe_Theme_Guard_Updater {
 
 		$heals = array();
 		self::sync_saved_license();
-		$watched = $this->watch_official_version( true );
+		$watched        = $this->watch_official_version( true );
 		$heals['watch'] = $watched ? $watched : 'cached-or-unavailable';
-		if ( function_exists( 'wp_update_themes' ) ) {
-			wp_update_themes();
-			$heals['refresh'] = 'wp_update_themes';
-		}
+		$heals['fetch'] = $this->fetch_official_package();
 
 		$snap = Luxe_Theme_Guard_Signals::snapshot( $watched );
 		if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_update' ) && ! empty( $snap['can_upgrade'] ) ) {
 			$heals['upgrade'] = $this->upgrade_flatsome();
 			$snap             = Luxe_Theme_Guard_Signals::snapshot( $watched );
-			if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_purge' ) ) {
+			if ( ! empty( $heals['upgrade']['ok'] ) && Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_purge' ) ) {
 				$heals['purge'] = $this->purge();
 			}
-		} elseif ( $manual && Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_purge' ) ) {
-			$heals['purge'] = $this->purge();
 		}
 
 		$board = Luxe_Theme_Guard_Signals::build( $snap, $heals );

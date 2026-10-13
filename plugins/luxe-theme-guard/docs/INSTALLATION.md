@@ -1,11 +1,11 @@
-# Luxe Theme Guard 1.4.1
+# Luxe Theme Guard 1.4.2
 
 24/7 process learning, Amazon AI, and official Flatsome auto-update. WordPress admin menu: **Luxe Theme**.
 
 ## Install
 
 1. Download `luxe-theme-guard.zip` (145KB Windows 11 / WordPress zip).
-2. Plugins → Add Plugin → Upload Plugin → Install Now → Activate (replace 1.4.0 if asked).
+2. Plugins → Add Plugin → Upload Plugin → Install Now → Activate (replace 1.4.1 if asked).
 3. Open the left menu **Luxe Theme**.
 4. Paste your ThemeForest purchase code and click **Save settings**.
 5. Leave **Auto-update Flatsome** On. Guard watches the official release and installs it when WordPress has the package. It does not stop at 3.20.9.
