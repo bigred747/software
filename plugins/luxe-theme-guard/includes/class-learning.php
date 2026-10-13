@@ -315,7 +315,8 @@ class Luxe_Theme_Guard_Learning {
 		if ( $refresh ) {
 			$heals['fetch'] = Luxe_Theme_Guard_Updater::instance()->fetch_official_package();
 			update_option( self::OPTION_SNAP, $now, false );
-			$snap = Luxe_Theme_Guard_Signals::snapshot( $watched );
+			$watched = Luxe_Theme_Guard_Updater::instance()->highest_watched( $watched );
+			$snap    = Luxe_Theme_Guard_Signals::snapshot( $watched );
 		}
 
 		if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_update' ) && self::should_apply_upgrade( ! empty( $snap['can_upgrade'] ) ) ) {

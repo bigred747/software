@@ -15,6 +15,7 @@ class Luxe_Theme_Guard_Signals {
 	const OPTION_LOG      = 'luxe_theme_guard_log';
 	const WATCH_URL       = 'https://demos.flatsome.com/wp-content/themes/flatsome/style.css';
 	const PURCHASE_URL    = 'https://wupdates.com/wp-json/wup/v1/front/check_envato_purchase_code/JQ9eJ';
+	const UX_API          = 'https://api.uxthemes.com';
 
 	/**
 	 * @param string $a Version.
@@ -137,6 +138,20 @@ class Luxe_Theme_Guard_Signals {
 	 */
 	public static function interpret_purchase_check( $body ) {
 		$data = json_decode( (string) $body, true );
+		if ( is_string( $data ) ) {
+			$text = strtolower( $data );
+			if ( false !== strpos( $text, 'doesn' ) && false !== strpos( $text, 'exist' ) ) {
+				return array(
+					'ok'     => false,
+					'detail' => 'The old Flatsome updater product is retired. Guard is using the UX Themes API instead.',
+				);
+			}
+			$plain = self::plain_api_text( $data );
+			return array(
+				'ok'     => false,
+				'detail' => $plain ? $plain : 'The official Flatsome update server returned an unreadable response.',
+			);
+		}
 		if ( ! is_array( $data ) ) {
 			return array(
 				'ok'     => false,
@@ -176,6 +191,288 @@ class Luxe_Theme_Guard_Signals {
 			'version' => isset( $item['new_version'] ) ? (string) $item['new_version'] : '',
 			'package' => isset( $item['package'] ) ? (string) $item['package'] : '',
 		);
+	}
+
+	/**
+	 * Official UX Themes API path. Purchase codes are only placed in /v1/license/{code}.
+	 *
+	 * @param string $path Path beginning with /v1/.
+	 * @return string Empty when the path is not an allowlisted API call.
+	 */
+	public static function uxthemes_request_url( $path ) {
+		$path = '/' . ltrim( (string) $path, '/' );
+		$url  = self::UX_API . $path;
+		return self::uxthemes_url_allowed( $url ) ? $url : '';
+	}
+
+	/**
+	 * @param string $url URL.
+	 * @return bool
+	 */
+	public static function uxthemes_url_allowed( $url ) {
+		$parts = parse_url( (string) $url );
+		if ( empty( $parts['scheme'] ) || 'https' !== strtolower( $parts['scheme'] ) ) {
+			return false;
+		}
+		if ( empty( $parts['host'] ) || 'api.uxthemes.com' !== strtolower( $parts['host'] ) ) {
+			return false;
+		}
+		if ( ! empty( $parts['user'] ) || ! empty( $parts['pass'] ) ) {
+			return false;
+		}
+		$path = isset( $parts['path'] ) ? $parts['path'] : '';
+		if ( '/v1/latest-version' === $path ) {
+			return true;
+		}
+		if ( preg_match( '#^/v1/license/[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$#', $path ) ) {
+			return true;
+		}
+		return in_array( $path, array( '/v1/token', '/v1/token/download', '/v1/token/version', '/v1/token/latest' ), true );
+	}
+
+	/**
+	 * Read a UX Themes API response. Does not keep the purchase code.
+	 *
+	 * @param int    $http_code HTTP status.
+	 * @param string $body      Body.
+	 * @return array{ok:bool,detail:string,version:string,package:string,token:string}
+	 */
+	public static function interpret_uxthemes_response( $http_code, $body ) {
+		$http_code = (int) $http_code;
+		$out       = array(
+			'ok'      => false,
+			'detail'  => '',
+			'version' => '',
+			'package' => '',
+			'token'   => '',
+		);
+		$decoded = json_decode( (string) $body, true );
+		if ( is_array( $decoded ) ) {
+			$out['version'] = self::version_from_payload( $decoded );
+			$out['package'] = self::package_url_from_payload( $decoded );
+			$out['token']   = self::token_from_payload( $decoded );
+			$error          = self::uxthemes_error_detail( $decoded, $http_code );
+			if ( $out['package'] && $out['version'] && $http_code >= 200 && $http_code < 300 && ! $error ) {
+				$out['ok']     = true;
+				$out['detail'] = 'Official package ' . $out['version'] . ' is ready.';
+				return $out;
+			}
+			if ( $out['version'] && $http_code >= 200 && $http_code < 300 && ! $error ) {
+				$out['ok']     = true;
+				$out['detail'] = 'Official release ' . $out['version'] . '.';
+				return $out;
+			}
+			if ( $error ) {
+				$out['detail'] = $error;
+				return $out;
+			}
+		}
+		if ( 404 === $http_code ) {
+			$out['detail'] = 'The purchase code does not belong to a Flatsome sale.';
+			return $out;
+		}
+		if ( 417 === $http_code ) {
+			$out['detail'] = 'No domain was sent with the request.';
+			return $out;
+		}
+		if ( 401 === $http_code || 403 === $http_code ) {
+			$out['detail'] = 'Flatsome was unable to get the latest version because the purchase code has not been verified yet. Please re-register it in order to receive updates.';
+			return $out;
+		}
+		if ( 429 === $http_code ) {
+			$out['detail'] = 'Sorry, the API is overloaded.';
+			return $out;
+		}
+		if ( $http_code >= 500 && $http_code < 600 ) {
+			$out['detail'] = 'Sorry, the API is unavailable at the moment.';
+			return $out;
+		}
+		$out['detail'] = 'The official Flatsome update server returned an unreadable response.';
+		return $out;
+	}
+
+	/**
+	 * @param string $url URL.
+	 * @return string
+	 */
+	public static function acceptable_package_url( $url ) {
+		$url = trim( (string) $url );
+		if ( ! preg_match( '#^https://#i', $url ) ) {
+			return '';
+		}
+		if ( preg_match( '/nulled|null-?theme|gpldl|weadown|themelock|pirate/i', $url ) ) {
+			return '';
+		}
+		$host = strtolower( (string) parse_url( $url, PHP_URL_HOST ) );
+		$path = (string) parse_url( $url, PHP_URL_PATH );
+		if ( '' === $host || '' === $path || '/' === $path ) {
+			return '';
+		}
+		if ( 'api.uxthemes.com' === $host && '/v1/token/download' === $path ) {
+			return $url;
+		}
+		if ( preg_match( '/\.zip$/i', $path ) ) {
+			return $url;
+		}
+		$cdn = (bool) preg_match( '/(^|\.)((uxthemes\.com)|(amazonaws\.com)|(cloudfront\.net))$/i', $host );
+		if ( $cdn && preg_match( '#/(download|package|releases?)/#i', $path ) ) {
+			return $url;
+		}
+		return '';
+	}
+
+	/**
+	 * @param mixed $data Payload.
+	 * @param int   $depth Depth.
+	 * @return string
+	 */
+	public static function package_url_from_payload( $data, $depth = 0 ) {
+		if ( $depth > 4 || ! is_array( $data ) ) {
+			return '';
+		}
+		foreach ( array( 'package', 'download_url', 'downloadUrl', 'download', 'zip', 'file' ) as $key ) {
+			if ( empty( $data[ $key ] ) || ! is_string( $data[ $key ] ) ) {
+				continue;
+			}
+			$url = self::acceptable_package_url( $data[ $key ] );
+			if ( $url ) {
+				return $url;
+			}
+		}
+		foreach ( $data as $value ) {
+			if ( is_array( $value ) ) {
+				$found = self::package_url_from_payload( $value, $depth + 1 );
+				if ( $found ) {
+					return $found;
+				}
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * @param mixed $data Payload.
+	 * @param int   $depth Depth.
+	 * @return string
+	 */
+	public static function version_from_payload( $data, $depth = 0 ) {
+		if ( $depth > 4 || ! is_array( $data ) ) {
+			return '';
+		}
+		foreach ( array( 'new_version', 'version', 'latest' ) as $key ) {
+			if ( empty( $data[ $key ] ) || ! is_string( $data[ $key ] ) ) {
+				continue;
+			}
+			$version = self::plain_version( $data[ $key ] );
+			if ( self::plausible_flatsome_version( $version ) ) {
+				return $version;
+			}
+		}
+		foreach ( $data as $value ) {
+			if ( is_array( $value ) ) {
+				$found = self::version_from_payload( $value, $depth + 1 );
+				if ( $found ) {
+					return $found;
+				}
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * @param mixed $data Payload.
+	 * @return string
+	 */
+	public static function token_from_payload( $data ) {
+		if ( ! is_array( $data ) ) {
+			return '';
+		}
+		foreach ( array( 'token', 'access_token', 'accessToken' ) as $key ) {
+			if ( empty( $data[ $key ] ) || ! is_string( $data[ $key ] ) ) {
+				continue;
+			}
+			$token = trim( $data[ $key ] );
+			if ( strlen( $token ) >= 20 && strlen( $token ) <= 200 && ! preg_match( '#^https?://#i', $token ) ) {
+				return $token;
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * @param array $data Payload.
+	 * @param int   $http HTTP status.
+	 * @return string
+	 */
+	public static function uxthemes_error_detail( $data, $http ) {
+		$code = '';
+		if ( isset( $data['code'] ) && is_string( $data['code'] ) ) {
+			$code = strtolower( $data['code'] );
+		} elseif ( isset( $data['error'] ) && is_string( $data['error'] ) ) {
+			$code = strtolower( $data['error'] );
+		}
+		$map      = array(
+			'malformed'                => 'Your purchase code is malformed.',
+			'malformed-code'           => 'Your purchase code is malformed.',
+			'malformed-purchase-code'  => 'Your purchase code is malformed.',
+			'malformed_code'           => 'Your purchase code is malformed.',
+			'invalid-code'             => 'The purchase code is malformed or does not belong to a Flatsome sale.',
+			'invalid_code'             => 'The purchase code is malformed or does not belong to a Flatsome sale.',
+			'invalid-purchase-code'    => 'Invalid purchase code.',
+			'already-registered'       => 'This purchase code is already registered. Remove the old domain at account.uxthemes.com, then Guard will register this site on the next cycle.',
+			'already_registered'       => 'This purchase code is already registered. Remove the old domain at account.uxthemes.com, then Guard will register this site on the next cycle.',
+			'too-many-sites'           => 'Your purchase code has been used on too many sites. Manage licenses at account.uxthemes.com.',
+			'too_many_sites'           => 'Your purchase code has been used on too many sites. Manage licenses at account.uxthemes.com.',
+			'sites-limit'              => 'Your purchase code has been used on too many sites. Manage licenses at account.uxthemes.com.',
+			'blocked'                  => 'Your purchase code has been blocked. Please contact support to resolve the issue.',
+			'locked'                   => 'Your purchase code has been locked. Please contact support to resolve the issue.',
+			'no-domain'                => 'No domain was sent with the request.',
+			'no_domain'                => 'No domain was sent with the request.',
+			'invalid-domain'           => 'Unable to parse the domain for your site.',
+			'invalid_domain'           => 'Unable to parse the domain for your site.',
+			'domain-changed'           => 'Flatsome was unable to get the latest version. Your site might have changed domain after you registered it.',
+			'domain_changed'           => 'Flatsome was unable to get the latest version. Your site might have changed domain after you registered it.',
+			'unverified'               => 'Flatsome was unable to get the latest version because the purchase code has not been verified yet. Please re-register it in order to receive updates.',
+			'not-found'                => 'The requested resource no longer exists.',
+			'out_of_support'           => 'ThemeForest support for this purchase has ended, so UX Themes will not send the update.',
+			'out-of-support'           => 'ThemeForest support for this purchase has ended, so UX Themes will not send the update.',
+			'overloaded'               => 'Sorry, the API is overloaded.',
+			'unavailable'              => 'Sorry, the API is unavailable at the moment.',
+		);
+		if ( $code && isset( $map[ $code ] ) ) {
+			return $map[ $code ];
+		}
+		if ( (int) $http >= 400 ) {
+			foreach ( array( 'message', 'detail', 'error_description' ) as $key ) {
+				if ( ! empty( $data[ $key ] ) && is_string( $data[ $key ] ) ) {
+					$text = self::plain_api_text( $data[ $key ] );
+					if ( $text ) {
+						return $text;
+					}
+				}
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * @param string $text API text.
+	 * @return string
+	 */
+	public static function plain_api_text( $text ) {
+		$text = (string) $text;
+		$text = function_exists( 'wp_strip_all_tags' ) ? wp_strip_all_tags( $text ) : strip_tags( $text );
+		$text = trim( preg_replace( '/\s+/', ' ', $text ) );
+		$text = preg_replace( '/[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}/i', '[purchase code]', $text );
+		if ( function_exists( 'mb_substr' ) ) {
+			$text = mb_substr( $text, 0, 220 );
+		} else {
+			$text = substr( $text, 0, 220 );
+		}
+		if ( '' === $text || false !== stripos( $text, '<html' ) || false !== stripos( $text, 'Cannot GET' ) || false !== stripos( $text, 'Cannot POST' ) ) {
+			return '';
+		}
+		return $text;
 	}
 
 	/**

@@ -279,6 +279,45 @@ $caught_up = Luxe_Theme_Guard_Signals::build(
 );
 expect( (int) $caught_up['green'] === (int) $caught_up['total'], 'installed watched release is all green' );
 
+$retired = Luxe_Theme_Guard_Signals::interpret_purchase_check( '"This product doesn\'t exists"' );
+expect( empty( $retired['ok'] ) && false !== strpos( $retired['detail'], 'retired' ), 'retired updater product is a readable error' );
+expect( Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'https://api.uxthemes.com/v1/latest-version' ), 'latest-version API URL is allowed' );
+expect( Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'https://api.uxthemes.com/v1/license/a1b2c3d4-e5f6-4789-abcd-ef1234567890' ), 'license API URL is allowed' );
+expect( Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'https://api.uxthemes.com/v1/token/download' ), 'token download API URL is allowed' );
+expect( ! Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'https://api.uxthemes.com/v1/license/not-a-code' ), 'license API URL refuses a non-code' );
+expect( ! Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'http://api.uxthemes.com/v1/latest-version' ), 'UX Themes API refuses plain HTTP' );
+expect( ! Luxe_Theme_Guard_Signals::uxthemes_url_allowed( 'https://wupdates.com/wp-json/wup/v1/front/check_envato_purchase_code/JQ9eJ' ), 'old updater host is not the UX Themes API' );
+expect( '' === Luxe_Theme_Guard_Signals::uxthemes_request_url( '/flatsome.zip' ), 'request URL refuses a zip path' );
+
+$latest = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 200, '{"version":"3.20.11","new_version":"3.20.11","requires":"6.4","requires_php":"7.4"}' );
+expect( ! empty( $latest['ok'] ) && '3.20.11' === $latest['version'] && '' === $latest['package'], 'public latest-version has a version and no zip' );
+
+$missing = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 404, 'Not Found' );
+expect( empty( $missing['ok'] ) && false !== strpos( $missing['detail'], 'does not belong' ), 'unknown purchase code is explained' );
+
+$nodomain = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 417, 'Expectation Failed' );
+expect( empty( $nodomain['ok'] ) && false !== strpos( $nodomain['detail'], 'No domain' ), 'missing site domain is explained' );
+
+$registered = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 409, '{"code":"already-registered"}' );
+expect( empty( $registered['ok'] ) && false !== strpos( $registered['detail'], 'already registered' ), 'already registered is explained' );
+
+$ready = Luxe_Theme_Guard_Signals::interpret_uxthemes_response(
+	200,
+	'{"version":"3.20.11","download_url":"https://uxthemes-downloads.s3.amazonaws.com/releases/flatsome-3.20.11.zip","token":"theme-download-token-value"}'
+);
+expect( ! empty( $ready['ok'] ) && '3.20.11' === $ready['version'], 'official package version is ready' );
+expect( false !== strpos( $ready['package'], 'flatsome-3.20.11.zip' ), 'official zip URL is kept' );
+expect( 'theme-download-token-value' === $ready['token'], 'download token is kept' );
+
+$pirate = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 200, '{"version":"3.20.11","package":"https://weadown.com/flatsome.zip"}' );
+expect( '' === $pirate['package'], 'pirate package URL is dropped' );
+
+$homepage = Luxe_Theme_Guard_Signals::package_url_from_payload( array( 'url' => 'https://luxetrendsetters.com/' ) );
+expect( '' === $homepage, 'the site homepage is not a theme package' );
+
+$authed = Luxe_Theme_Guard_Signals::acceptable_package_url( 'https://api.uxthemes.com/v1/token/download' );
+expect( 'https://api.uxthemes.com/v1/token/download' === $authed, 'token download URL can be installed with the bearer token' );
+
 if ( $fail ) {
 	echo "FAILED $fail\n";
 	exit( 1 );

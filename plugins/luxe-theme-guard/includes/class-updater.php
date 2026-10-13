@@ -13,6 +13,7 @@ class Luxe_Theme_Guard_Updater {
 	const OPTION_WATCHED = 'luxe_theme_guard_watched_version';
 	const OPTION_WATCHED_AT = 'luxe_theme_guard_watched_at';
 	const OPTION_NOTE    = 'luxe_theme_guard_update_note';
+	const OPTION_TOKEN   = 'luxe_theme_guard_ux_token';
 	const WATCH_EVERY    = 3600;
 
 	/**
@@ -116,7 +117,7 @@ class Luxe_Theme_Guard_Updater {
 	}
 
 	/**
-	 * Ask Flatsome's official updater for a package and store why if it does not send one.
+	 * Ask the UX Themes API for the official package and store why if it does not send one.
 	 *
 	 * @return string
 	 */
@@ -130,37 +131,141 @@ class Luxe_Theme_Guard_Updater {
 			$settings = Luxe_Theme_Guard_Plugin::instance()->settings();
 			$code     = isset( $settings['flatsome_purchase_code'] ) ? Luxe_Theme_Guard_Signals::sanitize_purchase_code( $settings['flatsome_purchase_code'] ) : '';
 		}
-		$verified = array(
-			'ok'     => false,
-			'detail' => $code ? '' : 'Paste the ThemeForest purchase code and save.',
-		);
-		if ( $code ) {
-			$verified = $this->verify_purchase_code( $code );
+		$installed = '';
+		if ( function_exists( 'wp_get_theme' ) ) {
+			$theme     = wp_get_theme( Luxe_Theme_Guard_Signals::THEME );
+			$installed = ( $theme && ! is_wp_error( $theme ) && $theme->exists() ) ? (string) $theme->get( 'Version' ) : '';
 		}
+		$note      = $code ? '' : 'Paste the ThemeForest purchase code and save.';
+		$available = '';
+		$package   = '';
+		$token     = '';
+
+		$latest = $this->uxthemes_request( 'GET', '/v1/latest-version' );
+		if ( is_array( $latest ) ) {
+			$parsed = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( $latest['code'], $latest['body'] );
+			if ( $parsed['version'] ) {
+				$available = $parsed['version'];
+				$this->remember_watched( $available );
+			}
+		} elseif ( '' === $note ) {
+			$note = 'Could not reach the official Flatsome update server.';
+		}
+
+		if ( $code ) {
+			$license_note = '';
+			$domain       = function_exists( 'home_url' ) ? (string) wp_parse_url( home_url(), PHP_URL_HOST ) : '';
+			$body         = array(
+				'domain'        => $domain,
+				'url'           => function_exists( 'home_url' ) ? home_url() : '',
+				'purchase_code' => $code,
+			);
+			foreach ( array( 'POST', 'GET' ) as $method ) {
+				$res = $this->uxthemes_request( $method, '/v1/license/' . $code, $body );
+				if ( ! is_array( $res ) ) {
+					$license_note = 'Could not reach the official Flatsome update server.';
+					continue;
+				}
+				$parsed = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( $res['code'], $res['body'] );
+				if ( $parsed['version'] && ( '' === $available || Luxe_Theme_Guard_Signals::compare( $parsed['version'], $available ) > 0 ) ) {
+					$available = $parsed['version'];
+					$this->remember_watched( $available );
+				}
+				if ( $parsed['token'] ) {
+					$token = $parsed['token'];
+				}
+				if ( $parsed['package'] ) {
+					$package      = $parsed['package'];
+					$license_note = '';
+					break;
+				}
+				if ( ! $parsed['ok'] && $parsed['detail'] ) {
+					$generic = 'The purchase code does not belong to a Flatsome sale.';
+					if ( '' === $license_note || ( $generic === $license_note && $parsed['detail'] !== $generic ) ) {
+						$license_note = $parsed['detail'];
+					}
+				}
+			}
+			$token_download_denied = false;
+			if ( $token && ! $package ) {
+				foreach ( array( '/v1/token/download', '/v1/token/version', '/v1/token/latest' ) as $path ) {
+					$res = $this->uxthemes_request( 'GET', $path, array(), $token );
+					if ( ! is_array( $res ) ) {
+						continue;
+					}
+					if ( '/v1/token/download' === $path && (int) $res['code'] >= 400 ) {
+						$token_download_denied = true;
+					}
+					$parsed = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( $res['code'], $res['body'] );
+					if ( $parsed['version'] && ( '' === $available || Luxe_Theme_Guard_Signals::compare( $parsed['version'], $available ) > 0 ) ) {
+						$available = $parsed['version'];
+						$this->remember_watched( $available );
+					}
+					if ( $parsed['package'] ) {
+						$package      = $parsed['package'];
+						$license_note = '';
+						break;
+					}
+					if ( ! $parsed['ok'] && $parsed['detail'] && '' === $license_note ) {
+						$license_note = $parsed['detail'];
+					}
+				}
+			}
+			if ( ! $package && $token && $available && ! $token_download_denied ) {
+				$package = Luxe_Theme_Guard_Signals::uxthemes_request_url( '/v1/token/download' );
+			}
+			if ( ! $package && $license_note ) {
+				$note = $license_note;
+			}
+			if ( ! $package ) {
+				$from_theme = $this->package_from_theme_client( $code );
+				if ( ! empty( $from_theme['package'] ) ) {
+					$package = $from_theme['package'];
+				}
+				if ( ! empty( $from_theme['version'] ) && ( '' === $available || Luxe_Theme_Guard_Signals::compare( $from_theme['version'], $available ) > 0 ) ) {
+					$available = $from_theme['version'];
+					$this->remember_watched( $available );
+				}
+				if ( ! $package && ! empty( $from_theme['detail'] ) && ( '' === $note || false !== strpos( $note, 'does not belong' ) ) ) {
+					$note = $from_theme['detail'];
+				}
+			}
+		}
+
 		if ( function_exists( 'wp_update_themes' ) ) {
 			wp_update_themes();
 		}
-		$note    = $verified['detail'];
-		$version = '';
-		if ( function_exists( 'wp_get_theme' ) ) {
-			$theme   = wp_get_theme( Luxe_Theme_Guard_Signals::THEME );
-			$version = ( $theme && ! is_wp_error( $theme ) && $theme->exists() ) ? (string) $theme->get( 'Version' ) : '';
-		}
-		if ( function_exists( 'wupdates_check_JQ9eJ' ) ) {
+		if ( function_exists( 'wupdates_check_JQ9eJ' ) && ! $package ) {
 			$transient           = new stdClass();
-			$transient->checked  = array( Luxe_Theme_Guard_Signals::THEME => $version );
+			$transient->checked  = array( Luxe_Theme_Guard_Signals::THEME => $installed );
 			$transient->response = array();
 			$checked             = wupdates_check_JQ9eJ( $transient );
 			$pkg                 = Luxe_Theme_Guard_Signals::package_from_update_transient( $checked );
-			if ( $pkg['package'] && Luxe_Theme_Guard_Signals::may_upgrade( Luxe_Theme_Guard_Signals::THEME, $pkg['package'], $version, $pkg['version'] ? $pkg['version'] : '0' ) ) {
-				$this->store_theme_package( $version, $checked );
-				$note = 'Official package ' . $pkg['version'] . ' is ready.';
+			if ( $pkg['package'] && Luxe_Theme_Guard_Signals::may_upgrade( Luxe_Theme_Guard_Signals::THEME, $pkg['package'], $installed, $pkg['version'] ? $pkg['version'] : '0' ) ) {
+				$package   = $pkg['package'];
+				$available = $pkg['version'] ? $pkg['version'] : $available;
 			}
 		}
-		if ( $verified['ok'] && false === strpos( $note, 'Official package' ) ) {
-			$note = 'UX Themes accepted the purchase code, but did not return a download. Guard will ask again on the next cycle.';
-		} elseif ( '' === $note ) {
-			$note = 'The official updater did not return a Flatsome package.';
+
+		$ready = $package && $available && Luxe_Theme_Guard_Signals::may_upgrade( Luxe_Theme_Guard_Signals::THEME, $package, $installed, $available );
+		if ( $ready ) {
+			$checked             = new stdClass();
+			$checked->response   = array(
+				Luxe_Theme_Guard_Signals::THEME => array(
+					'theme'       => Luxe_Theme_Guard_Signals::THEME,
+					'new_version' => $available,
+					'package'     => $package,
+					'url'         => 'https://themeforest.net/item/flatsome-multipurpose-responsive-woocommerce-theme/5484319',
+				),
+			);
+			$this->store_theme_package( $installed, $checked );
+			$note = 'Official package ' . $available . ' is ready.';
+			$this->store_download_token( $token, $package );
+		} else {
+			$this->store_download_token( '', '' );
+			if ( '' === $note ) {
+				$note = 'UX Themes did not return a Flatsome download. Guard will ask again on the next cycle.';
+			}
 		}
 		if ( function_exists( 'update_option' ) ) {
 			update_option( self::OPTION_NOTE, $note, false );
@@ -169,36 +274,215 @@ class Luxe_Theme_Guard_Updater {
 	}
 
 	/**
-	 * @param string $code Purchase code.
-	 * @return array{ok:bool,detail:string}
+	 * The higher of the demo watch and the UX Themes API version.
+	 *
+	 * @param string $watched Watched version.
+	 * @return string
 	 */
-	private function verify_purchase_code( $code ) {
-		$url = Luxe_Theme_Guard_Signals::official_purchase_check_url();
-		if ( ! Luxe_Theme_Guard_Signals::purchase_check_url_allowed( $url ) || ! function_exists( 'wp_remote_post' ) || ! function_exists( 'home_url' ) ) {
-			return array(
-				'ok'     => false,
-				'detail' => 'The official purchase check could not run.',
-			);
+	public function highest_watched( $watched ) {
+		$watched = Luxe_Theme_Guard_Signals::plain_version( (string) $watched );
+		$best    = Luxe_Theme_Guard_Signals::plausible_flatsome_version( $watched ) ? $watched : '';
+		$stored  = function_exists( 'get_option' ) ? Luxe_Theme_Guard_Signals::plain_version( (string) get_option( self::OPTION_WATCHED, '' ) ) : '';
+		if ( Luxe_Theme_Guard_Signals::plausible_flatsome_version( $stored ) && ( '' === $best || Luxe_Theme_Guard_Signals::compare( $stored, $best ) > 0 ) ) {
+			$best = $stored;
 		}
-		$response = wp_remote_post(
-			$url,
-			array(
-				'timeout'    => 15,
-				'body'       => array(
-					'slug'          => Luxe_Theme_Guard_Signals::THEME,
-					'url'           => home_url(),
-					'purchase_code' => $code,
-				),
-				'user-agent' => 'WordPress/' . ( isset( $GLOBALS['wp_version'] ) ? $GLOBALS['wp_version'] : '6.8' ) . '; ' . home_url(),
-			)
+		return $best;
+	}
+
+	/**
+	 * @param string $version Version.
+	 */
+	private function remember_watched( $version ) {
+		$version = Luxe_Theme_Guard_Signals::plain_version( $version );
+		if ( ! Luxe_Theme_Guard_Signals::plausible_flatsome_version( $version ) ) {
+			return;
+		}
+		if ( Luxe_Theme_Guard_Signals::compare( $version, Luxe_Theme_Guard_Signals::RECOMMENDED ) < 0 ) {
+			return;
+		}
+		if ( function_exists( 'update_option' ) ) {
+			update_option( self::OPTION_WATCHED, $version, false );
+			update_option( self::OPTION_WATCHED_AT, time(), false );
+		}
+	}
+
+	/**
+	 * @param string $token   Download token.
+	 * @param string $package Package URL.
+	 */
+	private function store_download_token( $token, $package ) {
+		if ( ! function_exists( 'update_option' ) ) {
+			return;
+		}
+		$path = (string) parse_url( (string) $package, PHP_URL_PATH );
+		if ( $token && '/v1/token/download' === $path ) {
+			update_option( self::OPTION_TOKEN, $token, false );
+			return;
+		}
+		delete_option( self::OPTION_TOKEN );
+	}
+
+	/**
+	 * @param string $method Method.
+	 * @param string $path   Allowlisted path.
+	 * @param array  $body   Form body for POST.
+	 * @param string $token  Bearer token for a download call.
+	 * @return array{code:int,body:string}|null
+	 */
+	private function uxthemes_request( $method, $path, $body = array(), $token = '' ) {
+		$url = Luxe_Theme_Guard_Signals::uxthemes_request_url( $path );
+		if ( ! $url || ! function_exists( 'home_url' ) ) {
+			return null;
+		}
+		$home    = home_url( '/' );
+		$headers = array(
+			'Accept'    => 'application/json',
+			'Referer'   => $home,
+			'X-Referer' => $home,
 		);
-		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+		if ( $token ) {
+			$headers['Authorization'] = 'Bearer ' . $token;
+		}
+		$args = array(
+			'method'      => $method,
+			'timeout'     => 20,
+			'redirection' => 2,
+			'headers'     => $headers,
+			'user-agent'  => 'WordPress/' . ( isset( $GLOBALS['wp_version'] ) ? $GLOBALS['wp_version'] : '6.8' ) . '; ' . $home,
+		);
+		if ( 'POST' === $method ) {
+			$args['body'] = $body;
+		}
+		if ( function_exists( 'wp_remote_request' ) ) {
+			$response = wp_remote_request( $url, $args );
+		} elseif ( 'POST' === $method && function_exists( 'wp_remote_post' ) ) {
+			$response = wp_remote_post( $url, $args );
+		} elseif ( function_exists( 'wp_remote_get' ) ) {
+			$response = wp_remote_get( $url, $args );
+		} else {
+			return null;
+		}
+		if ( is_wp_error( $response ) ) {
+			return null;
+		}
+		return array(
+			'code' => (int) wp_remote_retrieve_response_code( $response ),
+			'body' => (string) wp_remote_retrieve_body( $response ),
+		);
+	}
+
+	/**
+	 * Use Flatsome's own registration class when it is loaded beside this plugin.
+	 *
+	 * @param string $code Purchase code.
+	 * @return array{version?:string,package?:string,detail?:string}
+	 */
+	private function package_from_theme_client( $code ) {
+		if ( ! class_exists( 'Flatsome_Registration' ) ) {
+			return array();
+		}
+		try {
+			$ref = new ReflectionClass( 'Flatsome_Registration' );
+		} catch ( Exception $e ) {
+			return array();
+		}
+		$instance = null;
+		if ( $ref->hasMethod( 'get_instance' ) ) {
+			$factory = $ref->getMethod( 'get_instance' );
+			if ( $factory->isPublic() && $factory->isStatic() && 0 === $factory->getNumberOfRequiredParameters() ) {
+				$instance = $factory->invoke( null );
+			}
+		}
+		if ( ! is_object( $instance ) ) {
+			return array();
+		}
+		$out = array();
+		if ( $code && $ref->hasMethod( 'register' ) ) {
+			$method = $ref->getMethod( 'register' );
+			if ( $method->isPublic() && $method->getNumberOfRequiredParameters() <= 1 ) {
+				$args = array( $code );
+				if ( $method->getNumberOfParameters() >= 2 ) {
+					$args[] = true;
+				}
+				$out = $this->normalize_theme_result( $this->invoke_theme_method( $method, $instance, $args ) );
+			}
+		}
+		foreach ( array( 'get_latest_version', 'get_version' ) as $name ) {
+			if ( ! empty( $out['version'] ) || ! $ref->hasMethod( $name ) ) {
+				continue;
+			}
+			$method = $ref->getMethod( $name );
+			if ( $method->isPublic() && 0 === $method->getNumberOfRequiredParameters() ) {
+				$norm = $this->normalize_theme_result( $this->invoke_theme_method( $method, $instance, array() ) );
+				$out  = array_merge( $out, array_filter( $norm ) );
+			}
+		}
+		foreach ( array( 'get_download_url', 'get_download_link', 'get_theme_download_url' ) as $name ) {
+			if ( ! empty( $out['package'] ) || ! $ref->hasMethod( $name ) ) {
+				continue;
+			}
+			$method = $ref->getMethod( $name );
+			if ( $method->isPublic() && $method->getNumberOfRequiredParameters() <= 1 ) {
+				$args = array();
+				if ( $method->getNumberOfRequiredParameters() === 1 && ! empty( $out['version'] ) ) {
+					$args[] = $out['version'];
+				}
+				$norm = $this->normalize_theme_result( $this->invoke_theme_method( $method, $instance, $args ) );
+				$out  = array_merge( $out, array_filter( $norm ) );
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * @param ReflectionMethod $method   Method.
+	 * @param object           $instance Instance.
+	 * @param array            $args     Arguments.
+	 * @return mixed
+	 */
+	private function invoke_theme_method( $method, $instance, $args ) {
+		try {
+			return $method->invokeArgs( $instance, $args );
+		} catch ( Exception $e ) {
+			return null;
+		} catch ( Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * @param mixed $result Theme client result.
+	 * @return array{version?:string,package?:string,detail?:string}
+	 */
+	private function normalize_theme_result( $result ) {
+		if ( is_wp_error( $result ) ) {
 			return array(
-				'ok'     => false,
-				'detail' => 'Could not reach the official Flatsome update server.',
+				'detail' => Luxe_Theme_Guard_Signals::plain_api_text( $result->get_error_message() ),
 			);
 		}
-		return Luxe_Theme_Guard_Signals::interpret_purchase_check( wp_remote_retrieve_body( $response ) );
+		if ( is_string( $result ) ) {
+			$version = Luxe_Theme_Guard_Signals::plain_version( $result );
+			if ( Luxe_Theme_Guard_Signals::plausible_flatsome_version( $version ) && $version === Luxe_Theme_Guard_Signals::plain_version( $result ) ) {
+				return array( 'version' => $version );
+			}
+			$url = Luxe_Theme_Guard_Signals::acceptable_package_url( $result );
+			return $url ? array( 'package' => $url ) : array();
+		}
+		if ( is_array( $result ) ) {
+			$parsed = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( 200, wp_json_encode( $result ) );
+			$out    = array();
+			if ( $parsed['version'] ) {
+				$out['version'] = $parsed['version'];
+			}
+			if ( $parsed['package'] ) {
+				$out['package'] = $parsed['package'];
+			}
+			if ( ! $parsed['ok'] && $parsed['detail'] ) {
+				$out['detail'] = $parsed['detail'];
+			}
+			return $out;
+		}
+		return array();
 	}
 
 	/**
@@ -355,6 +639,7 @@ class Luxe_Theme_Guard_Updater {
 		$watched        = $this->watch_official_version( true );
 		$heals['watch'] = $watched ? $watched : 'cached-or-unavailable';
 		$heals['fetch'] = $this->fetch_official_package();
+		$watched        = $this->highest_watched( $watched );
 
 		$snap = Luxe_Theme_Guard_Signals::snapshot( $watched );
 		if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_update' ) && ! empty( $snap['can_upgrade'] ) ) {
@@ -403,9 +688,11 @@ class Luxe_Theme_Guard_Updater {
 			return array( 'ok' => false, 'detail' => 'upgrader-missing' );
 		}
 		add_filter( 'filesystem_method', array( $this, 'force_direct' ), 99 );
+		add_filter( 'upgrader_pre_download', array( $this, 'download_official_package' ), 10, 4 );
 		$skin     = class_exists( 'Automatic_Upgrader_Skin' ) ? new Automatic_Upgrader_Skin() : new WP_Upgrader_Skin();
 		$upgrader = new Theme_Upgrader( $skin );
 		$result   = $upgrader->upgrade( Luxe_Theme_Guard_Signals::THEME );
+		remove_filter( 'upgrader_pre_download', array( $this, 'download_official_package' ), 10 );
 		remove_filter( 'filesystem_method', array( $this, 'force_direct' ), 99 );
 		if ( is_wp_error( $result ) ) {
 			return array(
@@ -417,6 +704,91 @@ class Luxe_Theme_Guard_Updater {
 			'ok'     => ( false !== $result ),
 			'detail' => $result ? 'flatsome-updated' : 'no-package-or-already-current',
 		);
+	}
+
+	/**
+	 * Download the UX Themes package with the saved bearer token.
+	 * WordPress core would request that URL without the token.
+	 *
+	 * @param mixed  $reply      Existing reply.
+	 * @param string $package    Package URL.
+	 * @param object $upgrader   Upgrader.
+	 * @param array  $hook_extra Extra.
+	 * @return mixed
+	 */
+	public function download_official_package( $reply, $package, $upgrader = null, $hook_extra = array() ) {
+		unset( $upgrader, $hook_extra );
+		if ( false !== $reply ) {
+			return $reply;
+		}
+		$path = (string) parse_url( (string) $package, PHP_URL_PATH );
+		if ( '/v1/token/download' !== $path || ! Luxe_Theme_Guard_Signals::uxthemes_url_allowed( $package ) ) {
+			return $reply;
+		}
+		$token = function_exists( 'get_option' ) ? (string) get_option( self::OPTION_TOKEN, '' ) : '';
+		if ( strlen( $token ) < 20 || ! function_exists( 'wp_remote_get' ) || ! function_exists( 'wp_tempnam' ) ) {
+			return new WP_Error( 'ltg_token', 'UX Themes did not return a download token.' );
+		}
+		$home     = home_url( '/' );
+		$response = wp_remote_get(
+			$package,
+			array(
+				'timeout'     => 60,
+				'redirection' => 3,
+				'headers'     => array(
+					'Authorization' => 'Bearer ' . $token,
+					'Referer'       => $home,
+					'X-Referer'     => $home,
+					'Accept'        => 'application/zip',
+				),
+			)
+		);
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		$body = (string) wp_remote_retrieve_body( $response );
+		if ( 200 !== $code || strlen( $body ) < 100000 || 'PK' !== substr( $body, 0, 2 ) ) {
+			$parsed = Luxe_Theme_Guard_Signals::interpret_uxthemes_response( $code, $body );
+			return new WP_Error( 'ltg_download', $parsed['detail'] ? $parsed['detail'] : 'UX Themes did not return a Flatsome zip.' );
+		}
+		$tmp = wp_tempnam( 'flatsome.zip' );
+		if ( ! $tmp || false === file_put_contents( $tmp, $body ) ) {
+			return new WP_Error( 'ltg_download', 'Could not store the official Flatsome zip.' );
+		}
+		if ( ! $this->zip_is_flatsome( $tmp ) ) {
+			if ( function_exists( 'wp_delete_file' ) ) {
+				wp_delete_file( $tmp );
+			} else {
+				unlink( $tmp );
+			}
+			return new WP_Error( 'ltg_download', 'UX Themes returned a zip that is not the Flatsome parent theme.' );
+		}
+		return $tmp;
+	}
+
+	/**
+	 * @param string $file Zip path.
+	 * @return bool
+	 */
+	private function zip_is_flatsome( $file ) {
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			return true;
+		}
+		$zip = new ZipArchive();
+		if ( true !== $zip->open( $file ) ) {
+			return false;
+		}
+		$css = $zip->getFromName( 'flatsome/style.css' );
+		if ( false === $css ) {
+			$css = $zip->getFromName( 'style.css' );
+		}
+		$zip->close();
+		if ( ! is_string( $css ) || '' === $css ) {
+			return false;
+		}
+		$version = Luxe_Theme_Guard_Signals::parse_style_version( $css );
+		return '' !== $version && false !== stripos( substr( $css, 0, 800 ), 'Flatsome' );
 	}
 
 	/**
