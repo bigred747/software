@@ -12,7 +12,7 @@ Windows 11 / WordPress zip. Size **145KB**.
 
 [luxe-theme-guard.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/theme-guard-watch-versions-4afe/luxe-theme-guard.zip)
 
-SHA-256 `817dd84aa800aa145fe0077ba53213c6a5ff260d1e18695b4dcdd344909c1464`
+SHA-256 `b25ed259d836cffa7780de8a47d418dbbf1a5dd38a354af11d27d7f9cf466eac`
 
 Plugins → Add Plugin → Upload Plugin → Install Now → Activate (replace 1.4.3). Open **Luxe Theme**.
 
