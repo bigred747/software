@@ -4,7 +4,7 @@ Tags: flatsome, theme update, security, luxetrendsetters
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 == Description ==
 
-Luxe Theme Guard 1.4.0 is the Flatsome auto-update plugin for luxetrendsetters.com. WordPress admin menu: **Luxe Theme**. Amazon AI stays on this screen.
+Luxe Theme Guard 1.4.1 is the Flatsome auto-update plugin for luxetrendsetters.com. WordPress admin menu: **Luxe Theme**. Amazon AI stays on this screen.
 
 It:
 
@@ -28,6 +28,10 @@ It does **not** download pirate/nulled Flatsome zips, overwrite plugins, write p
 A ThemeForest purchase code can be pasted on **Luxe Theme** settings (or Flatsome → Theme Registration). WordPress cannot fetch the official package without it.
 
 == Changelog ==
+
+= 1.4.1 =
+* Accept a ThemeForest purchase code pasted with the license certificate text, line breaks, or unicode dashes
+* A rejected code no longer shows a success notice
 
 = 1.4.0 =
 * Watch the official Flatsome release instead of stopping at 3.20.9

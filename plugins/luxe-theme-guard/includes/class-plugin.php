@@ -127,17 +127,19 @@ class Luxe_Theme_Guard_Plugin {
 		$next['amazon_client_id']     = isset( $_POST['amazon_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['amazon_client_id'] ) ) : ( isset( $prev['amazon_client_id'] ) ? $prev['amazon_client_id'] : '' );
 		$secret = isset( $_POST['amazon_client_secret'] ) ? trim( (string) wp_unslash( $_POST['amazon_client_secret'] ) ) : '';
 		$next['amazon_client_secret'] = ( '' !== $secret ) ? $secret : ( isset( $prev['amazon_client_secret'] ) ? $prev['amazon_client_secret'] : '' );
-		$code = isset( $_POST['flatsome_purchase_code'] ) ? sanitize_text_field( wp_unslash( $_POST['flatsome_purchase_code'] ) ) : '';
+		$code = isset( $_POST['flatsome_purchase_code'] ) ? (string) wp_unslash( $_POST['flatsome_purchase_code'] ) : '';
 		$next['flatsome_purchase_code'] = isset( $prev['flatsome_purchase_code'] ) ? $prev['flatsome_purchase_code'] : '';
-		if ( '' !== $code ) {
+		$code_rejected = false;
+		if ( '' !== trim( $code ) ) {
 			$clean = Luxe_Theme_Guard_Signals::sanitize_purchase_code( $code );
 			if ( $clean ) {
 				$next['flatsome_purchase_code'] = $clean;
 			} else {
+				$code_rejected = true;
 				add_settings_error(
 					'luxe_theme_guard',
 					'bad-code',
-					__( 'That purchase code is not a ThemeForest UUID. Example: bg91c1z0-bdcf-457f-a3e5-4e0762896c2d. Official Flatsome was not changed.', 'luxe-theme-guard' ),
+					__( 'Guard could not find a purchase code in that paste. On ThemeForest open Downloads, then License certificate, and copy the code with five groups (8-4-4-4-12). Flatsome was not changed.', 'luxe-theme-guard' ),
 					'error'
 				);
 			}
@@ -160,11 +162,20 @@ class Luxe_Theme_Guard_Plugin {
 			delete_transient( Luxe_Theme_Guard_Updater::LOCK );
 			Luxe_Theme_Guard_Updater::instance()->run( true );
 		}
-		add_settings_error(
-			'luxe_theme_guard',
-			'saved',
-			__( 'Theme Guard settings saved. Guard watches the official Flatsome release and installs it every 5 minutes when WordPress has a licensed package.', 'luxe-theme-guard' ),
-			'updated'
-		);
+		if ( $code_rejected ) {
+			add_settings_error(
+				'luxe_theme_guard',
+				'saved',
+				__( 'Other Theme Guard settings were saved. The purchase code was not stored, so Flatsome was not updated.', 'luxe-theme-guard' ),
+				'error'
+			);
+		} else {
+			add_settings_error(
+				'luxe_theme_guard',
+				'saved',
+				__( 'Theme Guard settings saved. Guard watches the official Flatsome release and installs it every 5 minutes when WordPress has a licensed package.', 'luxe-theme-guard' ),
+				'updated'
+			);
+		}
 	}
 }

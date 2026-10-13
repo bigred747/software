@@ -152,6 +152,9 @@ expect( ! Luxe_Theme_Guard_Learning::should_snapshot( 90, 100 ), 'snapshot is no
 expect( Luxe_Theme_Guard_Learning::should_snapshot( 1, 3602 ), 'snapshot is due after an hour' );
 expect( 'bg91c1z0-bdcf-457f-a3e5-4e0762896c2d' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( 'BG91C1Z0-BDCF-457F-A3E5-4E0762896C2D' ), 'Envato UUID purchase code is accepted' );
 expect( 'a1b2c3d4-e5f6-4789-abcd-ef1234567890' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( 'A1B2C3D4-E5F6-4789-ABCD-EF1234567890' ), 'hex UUID purchase code is accepted' );
+expect( 'a1b2c3d4-e5f6-4789-abcd-ef1234567890' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( "Item Purchase Code:\nA1B2C3D4-E5F6-4789-ABCD-EF1234567890\n" ), 'license certificate paste is accepted' );
+expect( 'a1b2c3d4-e5f6-4789-abcd-ef1234567890' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( "a1b2c3d4-e5f6-4789-\nabcd-ef1234567890" ), 'wrapped purchase code is accepted' );
+expect( 'a1b2c3d4-e5f6-4789-abcd-ef1234567890' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( 'a1b2c3d4–e5f6–4789–abcd–ef1234567890' ), 'unicode dashes are accepted' );
 expect( '' === Luxe_Theme_Guard_Signals::sanitize_purchase_code( 'not-a-purchase-code' ), 'garbage purchase code is refused' );
 expect( Luxe_Theme_Guard_Learning::should_refresh_updates( true, 90, 100 ), 'behind Flatsome refreshes every cycle' );
 expect( Luxe_Theme_Guard_Learning::should_apply_upgrade( true ), 'official package is applied immediately' );

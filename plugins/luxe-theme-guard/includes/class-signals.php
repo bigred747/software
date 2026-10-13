@@ -169,9 +169,12 @@ class Luxe_Theme_Guard_Signals {
 	 * @return string
 	 */
 	public static function sanitize_purchase_code( $code ) {
-		$code = strtolower( trim( (string) $code ) );
-		if ( preg_match( '/^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/', $code ) ) {
-			return $code;
+		$code = strtolower( (string) $code );
+		$code = preg_replace( '/[\x{200B}-\x{200D}\x{FEFF}\x{00A0}]/u', '', $code );
+		$code = str_replace( array( '–', '—', '−', '‐', '‑' ), '-', $code );
+		$code = preg_replace( '/\s+/', '', $code );
+		if ( preg_match( '/[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}/', $code, $m ) ) {
+			return $m[0];
 		}
 		return '';
 	}

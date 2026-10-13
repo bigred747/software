@@ -283,7 +283,7 @@ $amazon_on  = ! empty( $amazon_on );
 					<td><strong>ThemeForest purchase code</strong></td>
 					<td>
 						<input type="password" name="flatsome_purchase_code" class="regular-text" autocomplete="new-password" value="" placeholder="<?php echo ! empty( $settings['flatsome_purchase_code'] ) ? 'saved — paste to replace' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'; ?>" />
-						<p class="description">ThemeForest → Downloads → License certificate &amp; purchase code. Guard writes it to Flatsome’s official updater and installs the watched release (3.20.9 or newer). Leave blank to keep a saved code.</p>
+						<p class="description">ThemeForest → Downloads → License certificate &amp; purchase code. Paste the code or the whole certificate line. Guard keeps the 8-4-4-4-12 code, writes it to Flatsome’s official updater, and installs the watched release. Leave blank to keep a saved code.</p>
 					</td>
 				</tr>
 			</tbody>
