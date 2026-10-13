@@ -13,6 +13,7 @@ class Luxe_Theme_Guard_Signals {
 	const RECOMMENDED     = '3.20.9';
 	const OPTION_LAST     = 'luxe_theme_guard_last';
 	const OPTION_LOG      = 'luxe_theme_guard_log';
+	const WATCH_URL       = 'https://demos.flatsome.com/wp-content/themes/flatsome/style.css';
 
 	/**
 	 * @param string $a Version.
@@ -49,6 +50,87 @@ class Luxe_Theme_Guard_Signals {
 	 */
 	public static function at_recommended( $version ) {
 		return self::compare( $version, self::RECOMMENDED ) >= 0;
+	}
+
+	/**
+	 * Flatsome 3.x / 4.x version. Rejects junk that could raise the target.
+	 *
+	 * @param string $version Version.
+	 * @return bool
+	 */
+	public static function plausible_flatsome_version( $version ) {
+		$version = self::plain_version( $version );
+		if ( ! preg_match( '/^(\d+)\.(\d+)\.(\d+)$/', $version, $m ) ) {
+			return false;
+		}
+		$major = (int) $m[1];
+		$minor = (int) $m[2];
+		$patch = (int) $m[3];
+		return $major >= 3 && $major <= 4 && $minor <= 99 && $patch <= 99;
+	}
+
+	/**
+	 * Version header from the official demo stylesheet. Nothing else is kept.
+	 *
+	 * @param string $css CSS.
+	 * @return string
+	 */
+	public static function parse_style_version( $css ) {
+		$css = substr( (string) $css, 0, 4000 );
+		if ( preg_match( '/^[ \t]*Version:\s*([0-9]+\.[0-9]+\.[0-9]+)/mi', $css, $m ) ) {
+			$version = self::plain_version( $m[1] );
+			return self::plausible_flatsome_version( $version ) ? $version : '';
+		}
+		return '';
+	}
+
+	/**
+	 * Official demo stylesheet only. Never a zip, never another host.
+	 *
+	 * @return string
+	 */
+	public static function official_watch_url() {
+		return self::WATCH_URL;
+	}
+
+	/**
+	 * @param string $url URL.
+	 * @return bool
+	 */
+	public static function watch_url_allowed( $url ) {
+		$url = (string) $url;
+		if ( 0 !== stripos( $url, 'https://demos.flatsome.com/' ) ) {
+			return false;
+		}
+		$path = parse_url( $url, PHP_URL_PATH );
+		return '/wp-content/themes/flatsome/style.css' === $path;
+	}
+
+	/**
+	 * Floor is 3.20.9. A watched or WordPress-offered release can only raise it.
+	 *
+	 * @param string $watched Watched version.
+	 * @param string $offered WordPress offered version.
+	 * @return string
+	 */
+	public static function target_version( $watched, $offered = '' ) {
+		$target = self::RECOMMENDED;
+		foreach ( array( $watched, $offered ) as $candidate ) {
+			$candidate = self::plain_version( $candidate );
+			if ( self::plausible_flatsome_version( $candidate ) && self::compare( $candidate, $target ) > 0 ) {
+				$target = $candidate;
+			}
+		}
+		return $target;
+	}
+
+	/**
+	 * @param string $installed Installed.
+	 * @param string $target    Target.
+	 * @return bool
+	 */
+	public static function meets_target( $installed, $target ) {
+		return self::compare( $installed, $target ) >= 0;
 	}
 
 	/**
@@ -138,9 +220,10 @@ class Luxe_Theme_Guard_Signals {
 	}
 
 	/**
+	 * @param string|null $watched Official version from the demo stylesheet. Null reads the stored watch.
 	 * @return array<string,mixed>
 	 */
-	public static function snapshot() {
+	public static function snapshot( $watched = null ) {
 		$stylesheet = function_exists( 'get_template' ) ? (string) get_template() : '';
 		$child      = function_exists( 'get_stylesheet' ) ? (string) get_stylesheet() : '';
 		$version    = '';
@@ -150,6 +233,12 @@ class Luxe_Theme_Guard_Signals {
 			if ( $parent && ! is_wp_error( $parent ) && $parent->exists() ) {
 				$installed = true;
 				$version   = (string) $parent->get( 'Version' );
+			}
+		}
+		if ( null === $watched ) {
+			$watched = '';
+			if ( function_exists( 'get_option' ) ) {
+				$watched = (string) get_option( 'luxe_theme_guard_watched_version', '' );
 			}
 		}
 		$available = '';
@@ -167,16 +256,20 @@ class Luxe_Theme_Guard_Signals {
 				$package = (string) $item['package'];
 			}
 		}
+		$target = self::target_version( (string) $watched, $available );
+		$watched_ok = self::plausible_flatsome_version( $watched ) ? self::plain_version( $watched ) : '';
 		return array(
 			'installed'    => $installed,
 			'version'      => $version,
 			'available'    => $available,
 			'package'      => $package,
+			'watched'      => $watched_ok,
+			'target'       => $target,
 			'stylesheet'   => $stylesheet,
 			'child'        => $child,
 			'license'      => self::license_registered(),
 			'xss_ok'       => $installed && self::xss_patched( $version ),
-			'recommended'  => $installed && self::at_recommended( $version ),
+			'recommended'  => $installed && self::meets_target( $version, $target ),
 			'can_upgrade'  => self::may_upgrade( self::THEME, $package, $version, $available ? $available : '0' ),
 			'learning_on'  => class_exists( 'Luxe_Theme_Guard_Plugin' ) ? Luxe_Theme_Guard_Plugin::instance()->enabled( 'learning_24_7' ) : true,
 			'cron_next'     => ( class_exists( 'Luxe_Theme_Guard_Learning' ) && function_exists( 'wp_next_scheduled' ) ) ? (int) wp_next_scheduled( Luxe_Theme_Guard_Learning::CRON ) : 0,
@@ -192,6 +285,26 @@ class Luxe_Theme_Guard_Signals {
 	public static function build( $snap, $heals = array() ) {
 		$ver     = isset( $snap['version'] ) ? (string) $snap['version'] : '';
 		$avail   = isset( $snap['available'] ) ? (string) $snap['available'] : '';
+		$target  = ! empty( $snap['target'] ) ? self::plain_version( $snap['target'] ) : self::RECOMMENDED;
+		if ( ! self::plausible_flatsome_version( $target ) || self::compare( $target, self::RECOMMENDED ) < 0 ) {
+			$target = self::RECOMMENDED;
+		}
+		$watched = ! empty( $snap['watched'] ) ? self::plain_version( $snap['watched'] ) : '';
+		$recommended_ok = ! empty( $snap['recommended'] );
+		if ( '' !== $ver && ! empty( $snap['target'] ) ) {
+			$recommended_ok = self::meets_target( $ver, $target );
+		}
+		$watch_note = $watched ? ( ' Watching official ' . $watched . '.' ) : ' Official release watch has not reported a newer version yet.';
+		if ( $recommended_ok ) {
+			$recommended_detail = 'Current ' . $ver . '.' . $watch_note;
+		} else {
+			$recommended_detail = 'Need ' . $target . '.' . $watch_note;
+			if ( $avail ) {
+				$recommended_detail .= ' WordPress offers ' . $avail . '.';
+			} else {
+				$recommended_detail .= ' Paste the ThemeForest purchase code so Guard can install the official package.';
+			}
+		}
 		$auto    = class_exists( 'Luxe_Theme_Guard_Plugin' ) ? Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_update' ) : true;
 		$learn_on = true;
 		if ( isset( $snap['learning_on'] ) ) {
@@ -208,7 +321,7 @@ class Luxe_Theme_Guard_Signals {
 			$cron_ok = false;
 		}
 		$cron_detail = $learn_on
-			? '24/7: one process every 5 minutes. When Flatsome is behind, Guard refreshes official packages and auto-upgrades. Never on a shopper page.'
+			? '24/7: one process every 5 minutes. Guard watches the official Flatsome release and auto-upgrades when WordPress has the licensed package. Never on a shopper page.'
 			: '24/7 process learning is off.';
 		if ( $learn_on && ! $cron_ok && ! empty( $snap['cron_schedule'] ) ) {
 			$cron_detail = 'Old 12-hour timer is still registered. Open Luxe Theme so Theme Guard migrates it to every 5 minutes.';
@@ -218,13 +331,13 @@ class Luxe_Theme_Guard_Signals {
 		$signals = array(
 			self::row( 'installed', 'Flatsome parent installed', ! empty( $snap['installed'] ), $ver ? ( 'Installed ' . $ver ) : 'Flatsome folder not found in wp-content/themes/flatsome' ),
 			self::row( 'xss', 'XSS patch 3.20.6+', ! empty( $snap['xss_ok'] ), ! empty( $snap['xss_ok'] ) ? 'CVE-2026-28083 is patched.' : 'Update past 3.20.5. 3.20.6+ is required.' ),
-			self::row( 'recommended', 'Recommended 3.20.9+', ! empty( $snap['recommended'] ), ! empty( $snap['recommended'] ) ? ( 'Current ' . $ver ) : ( 'Need ' . self::RECOMMENDED . ( $avail ? ( '; WordPress offers ' . $avail ) : '. Register the theme so WordPress can download it.' ) ) ),
-			self::row( 'license', 'Official license registered', ! empty( $snap['license'] ) || ! empty( $snap['recommended'] ), ! empty( $snap['license'] ) || ! empty( $snap['recommended'] ) ? 'UX Themes / Envato registration present or already current.' : 'Paste your ThemeForest purchase code on this page, or open Flatsome → Theme Registration.' ),
+			self::row( 'recommended', 'Official Flatsome ' . $target . '+', $recommended_ok, $recommended_detail ),
+			self::row( 'license', 'Official license registered', ! empty( $snap['license'] ) || $recommended_ok, ! empty( $snap['license'] ) || $recommended_ok ? 'UX Themes / Envato registration present or already on the watched release.' : 'Paste your ThemeForest purchase code on this page, or open Flatsome → Theme Registration.' ),
 			self::row( 'auto', 'Auto-update armed for Flatsome only', $auto, $auto ? 'WordPress may apply official Flatsome packages. Child theme is never overwritten.' : 'Auto-update is off.' ),
 			self::row( 'package', 'No nulled download', true, 'Guard refuses unofficial zip URLs. Official HTTPS package only.' ),
 			self::row( 'child', 'Child theme never overwritten', true, $has_child ? ( 'Active child theme ' . $child . '. Guard never replaces it.' ) : 'Parent only is OK. Guard never replaces a child theme if you add one later.' ),
 			self::row( 'plugins', 'Plugins left alone', true, 'Never replaces Product Scout, Luxe SEO, Mission Control, or Stay Repair.' ),
-			self::row( 'amazon', 'Amazon URLs untouched', true, 'Theme Guard never rewrites affiliate links. Amazon AI lives on Luxe SEO. tag=luxetrendse0f-20 stays as stored.' ),
+			self::row( 'amazon', 'Amazon URLs untouched', true, 'Amazon AI never rewrites affiliate links. tag=luxetrendse0f-20 stays as stored.' ),
 			self::row( 'publish', 'Never publishes content', true, 'No post status changes. Theme files only.' ),
 			self::row( 'public', 'No public-page upgrader', true, 'Updates run from cron or the admin button, never on a shopper page view.' ),
 			self::row( 'purge', 'Cache purge ready', true, ! empty( $heals['purge'] ) ? implode( ', ', (array) $heals['purge'] ) : 'LiteSpeed purge after a successful theme update.' ),

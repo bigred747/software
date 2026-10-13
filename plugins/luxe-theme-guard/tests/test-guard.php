@@ -22,8 +22,24 @@ function expect( $ok, $msg ) {
 expect( Luxe_Theme_Guard_Signals::xss_patched( '3.20.6' ), '3.20.6 is XSS patched' );
 expect( Luxe_Theme_Guard_Signals::xss_patched( '3.20.9' ), '3.20.9 is XSS patched' );
 expect( ! Luxe_Theme_Guard_Signals::xss_patched( '3.20.5' ), '3.20.5 is not XSS patched' );
-expect( Luxe_Theme_Guard_Signals::at_recommended( '3.20.9' ), '3.20.9 meets recommended' );
-expect( ! Luxe_Theme_Guard_Signals::at_recommended( '3.20.6' ), '3.20.6 is below recommended 3.20.9' );
+expect( Luxe_Theme_Guard_Signals::at_recommended( '3.20.9' ), '3.20.9 meets the 3.20.9 floor' );
+expect( ! Luxe_Theme_Guard_Signals::at_recommended( '3.20.6' ), '3.20.6 is below the 3.20.9 floor' );
+expect( '3.20.11' === Luxe_Theme_Guard_Signals::parse_style_version( "/*\nTheme Name: Flatsome\nVersion: 3.20.11\n*/" ), 'official stylesheet version is parsed' );
+expect( '' === Luxe_Theme_Guard_Signals::parse_style_version( "Version: 9.9.9\n" ), 'implausible major version is ignored' );
+expect( '' === Luxe_Theme_Guard_Signals::parse_style_version( 'no version here' ), 'missing version header is ignored' );
+expect( '3.20.11' === Luxe_Theme_Guard_Signals::target_version( '3.20.11', '' ), 'watched 3.20.11 raises the target' );
+expect( '3.20.11' === Luxe_Theme_Guard_Signals::target_version( '3.20.9', '3.20.11' ), 'WordPress offered version raises the target' );
+expect( '3.20.9' === Luxe_Theme_Guard_Signals::target_version( '3.20.8', '1.0.0' ), 'older or junk versions cannot lower the floor' );
+expect( '3.20.9' === Luxe_Theme_Guard_Signals::target_version( '', '' ), 'no watch stays on the 3.20.9 floor' );
+expect( Luxe_Theme_Guard_Signals::meets_target( '3.20.11', '3.20.11' ), 'installed watched release meets target' );
+expect( ! Luxe_Theme_Guard_Signals::meets_target( '3.20.9', '3.20.11' ), '3.20.9 is behind a newer official release' );
+expect( Luxe_Theme_Guard_Signals::watch_url_allowed( Luxe_Theme_Guard_Signals::official_watch_url() ), 'official demo stylesheet is the only watch URL' );
+expect( ! Luxe_Theme_Guard_Signals::watch_url_allowed( 'https://demos.flatsome.com/flatsome.zip' ), 'watch URL refuses a theme zip' );
+expect( ! Luxe_Theme_Guard_Signals::watch_url_allowed( 'https://gplpagebuilder.com/flatsome/style.css' ), 'watch URL refuses an unofficial host' );
+expect(
+	Luxe_Theme_Guard_Signals::may_upgrade( 'flatsome', 'https://api.uxthemes.com/flatsome.zip', '3.20.9', '3.20.11' ),
+	'newer official package after 3.20.9 may upgrade'
+);
 
 expect(
 	Luxe_Theme_Guard_Signals::may_upgrade( 'flatsome', 'https://api.uxthemes.com/flatsome.zip', '3.20.6', '3.20.9' ),
@@ -169,6 +185,50 @@ foreach ( $off['signals'] as $signal ) {
 	}
 }
 expect( $cron_row && 'red' === $cron_row['level'], '24/7 off is a red process-learning signal' );
+
+$behind_watch = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'   => true,
+		'version'     => '3.20.6',
+		'available'   => '',
+		'package'     => '',
+		'watched'     => '3.20.11',
+		'target'      => '3.20.11',
+		'stylesheet'  => 'flatsome',
+		'child'       => 'flatsome',
+		'license'     => false,
+		'xss_ok'      => true,
+		'recommended' => true,
+		'can_upgrade' => false,
+	)
+);
+$behind_rec = null;
+foreach ( $behind_watch['signals'] as $signal ) {
+	if ( 'recommended' === $signal['id'] ) {
+		$behind_rec = $signal;
+	}
+}
+expect( $behind_rec && 'red' === $behind_rec['level'], '3.20.6 stays red when the watch sees 3.20.11' );
+expect( $behind_rec && false !== strpos( $behind_rec['label'], '3.20.11' ), 'recommended label names the watched release' );
+expect( $behind_rec && false !== strpos( $behind_rec['detail'], '3.20.11' ), 'recommended detail names the watched release' );
+
+$caught_up = Luxe_Theme_Guard_Signals::build(
+	array(
+		'installed'   => true,
+		'version'     => '3.20.11',
+		'available'   => '',
+		'package'     => '',
+		'watched'     => '3.20.11',
+		'target'      => '3.20.11',
+		'stylesheet'  => 'flatsome-child',
+		'child'       => 'flatsome-child',
+		'license'     => true,
+		'xss_ok'      => true,
+		'recommended' => false,
+		'can_upgrade' => false,
+	)
+);
+expect( (int) $caught_up['green'] === (int) $caught_up['total'], 'installed watched release is all green' );
 
 if ( $fail ) {
 	echo "FAILED $fail\n";

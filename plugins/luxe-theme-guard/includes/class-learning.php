@@ -5,7 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * 24/7 process learning for Flatsome. One signal per 5-minute cycle,
- * hourly licensed-package snapshot, one official upgrade at a time.
+ * hourly official-version watch, immediate licensed upgrade when behind.
  * Never runs the upgrader on a shopper page view.
  */
 class Luxe_Theme_Guard_Learning {
@@ -305,7 +305,10 @@ class Luxe_Theme_Guard_Learning {
 		$heals = array(
 			'source' => $source,
 		);
-		$snap    = Luxe_Theme_Guard_Signals::snapshot();
+		Luxe_Theme_Guard_Updater::sync_saved_license();
+		$watched = Luxe_Theme_Guard_Updater::instance()->watch_official_version( 'manual' === $source );
+		$heals['watch'] = $watched ? $watched : 'cached-or-unavailable';
+		$snap    = Luxe_Theme_Guard_Signals::snapshot( $watched );
 		$behind  = ! empty( $snap['installed'] ) && empty( $snap['recommended'] );
 		$refresh = self::should_refresh_updates( $behind, (int) get_option( self::OPTION_SNAP, 0 ), $now );
 
@@ -313,13 +316,13 @@ class Luxe_Theme_Guard_Learning {
 			wp_update_themes();
 			$heals['refresh'] = 'wp_update_themes';
 			update_option( self::OPTION_SNAP, $now, false );
-			$snap = Luxe_Theme_Guard_Signals::snapshot();
+			$snap = Luxe_Theme_Guard_Signals::snapshot( $watched );
 		}
 
 		if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_update' ) && self::should_apply_upgrade( ! empty( $snap['can_upgrade'] ) ) ) {
 			update_option( self::OPTION_UPGRADE, $now, false );
 			$heals['upgrade'] = Luxe_Theme_Guard_Updater::instance()->attempt_upgrade();
-			$snap             = Luxe_Theme_Guard_Signals::snapshot();
+			$snap             = Luxe_Theme_Guard_Signals::snapshot( $watched );
 			if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_purge' ) ) {
 				$heals['purge'] = Luxe_Theme_Guard_Updater::instance()->purge_caches();
 			}
@@ -340,6 +343,15 @@ class Luxe_Theme_Guard_Learning {
 		$board['upgrade_due'] = ! empty( $heals['upgrade'] ) ? 1 : 0;
 		update_option( Luxe_Theme_Guard_Signals::OPTION_LAST, $board, false );
 		$this->push_log( $board );
+		if ( class_exists( 'Luxe_Theme_Guard_Amazon' ) && Luxe_Theme_Guard_Plugin::instance()->enabled( 'amazon_ai' ) ) {
+			try {
+				Luxe_Theme_Guard_Amazon::instance()->cycle_one( $source, true );
+			} catch ( Exception $e ) {
+				error_log( 'Luxe Theme Guard Amazon AI: ' . $e->getMessage() );
+			} catch ( Throwable $e ) {
+				error_log( 'Luxe Theme Guard Amazon AI: ' . $e->getMessage() );
+			}
+		}
 		delete_transient( self::LOCK );
 		return $board;
 	}

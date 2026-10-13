@@ -1,14 +1,14 @@
-# Luxe Theme Guard 1.3.1
+# Luxe Theme Guard 1.4.0
 
-24/7 process learning and official Flatsome auto-update. WordPress admin menu: **Luxe Theme**. Amazon AI lives on **Luxe SEO**.
+24/7 process learning, Amazon AI, and official Flatsome auto-update. WordPress admin menu: **Luxe Theme**.
 
 ## Install
 
 1. Download `luxe-theme-guard.zip` (145KB Windows 11 / WordPress zip).
-2. Plugins → Add Plugin → Upload Plugin → Install Now → Activate (replace 1.3.0 if asked).
+2. Plugins → Add Plugin → Upload Plugin → Install Now → Activate (replace 1.2.0 or 1.3.1 if asked).
 3. Open the left menu **Luxe Theme**.
 4. Paste your ThemeForest purchase code and click **Save settings**.
-5. Leave **Auto-update Flatsome** On. Guard installs official 3.20.9+ when WordPress has the package.
+5. Leave **Auto-update Flatsome** On. Guard watches the official release and installs it when WordPress has the package. It does not stop at 3.20.9.
 
 Do **not** upload this zip over Flatsome, Product Scout, Luxe SEO, Mission Control, or Stay Repair.
 
@@ -16,7 +16,8 @@ Do **not** upload this zip over Flatsome, Product Scout, Luxe SEO, Mission Contr
 
 | Cycle | What it does |
 |---|---|
-| Every 5 minutes | Learn **one** theme signal. If Flatsome is behind, refresh official updates and upgrade. |
+| Every 5 minutes | Learn **one** theme signal and **one** Amazon item. If Flatsome is behind the watched official release, refresh and upgrade. |
+| Every hour | Re-read the official Flatsome version. A newer release becomes the new target. |
 | Shopper page view | Only pings `wp-cron.php` in the background. Never writes theme files on the public request. |
 
 ## License
@@ -25,7 +26,7 @@ Flatsome is a paid ThemeForest theme. Paste the purchase code from ThemeForest �
 
 ## Amazon AI
 
-Moved to **Luxe SEO** 1.3.0. Open the left menu Luxe SEO.
+Stays on **Luxe Theme**. One catalog item per 5-minute cycle. Audit-only. Never rewrites Amazon URLs.
 
 ## Safety
 

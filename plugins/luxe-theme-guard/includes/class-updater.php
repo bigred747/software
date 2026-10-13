@@ -8,8 +8,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Luxe_Theme_Guard_Updater {
 
-	const LOCK      = 'luxe_theme_guard_lock';
-	const AUTO_SITE = 'auto_update_themes';
+	const LOCK           = 'luxe_theme_guard_lock';
+	const AUTO_SITE      = 'auto_update_themes';
+	const OPTION_WATCHED = 'luxe_theme_guard_watched_version';
+	const OPTION_WATCHED_AT = 'luxe_theme_guard_watched_at';
+	const WATCH_EVERY    = 3600;
 
 	/**
 	 * @var self|null
@@ -48,6 +51,67 @@ class Luxe_Theme_Guard_Updater {
 			delete_site_transient( 'update_themes' );
 		}
 		return true;
+	}
+
+	/**
+	 * Write a saved purchase code into Flatsome's updater before a version check.
+	 */
+	public static function sync_saved_license() {
+		if ( ! class_exists( 'Luxe_Theme_Guard_Plugin' ) ) {
+			return;
+		}
+		$settings = Luxe_Theme_Guard_Plugin::instance()->settings();
+		if ( ! empty( $settings['flatsome_purchase_code'] ) ) {
+			self::apply_purchase_code( $settings['flatsome_purchase_code'] );
+		}
+	}
+
+	/**
+	 * Read the official demo stylesheet version. Cached for one hour.
+	 * Does not download a theme zip.
+	 *
+	 * @param bool $force Skip the cache.
+	 * @return string
+	 */
+	public function watch_official_version( $force = false ) {
+		$cached = function_exists( 'get_option' ) ? (string) get_option( self::OPTION_WATCHED, '' ) : '';
+		$at     = function_exists( 'get_option' ) ? (int) get_option( self::OPTION_WATCHED_AT, 0 ) : 0;
+		if ( Luxe_Theme_Guard_Signals::plausible_flatsome_version( $cached ) ) {
+			$cached = Luxe_Theme_Guard_Signals::plain_version( $cached );
+		} else {
+			$cached = '';
+		}
+		if ( ! $force && $cached && ( time() - $at ) < self::WATCH_EVERY ) {
+			return $cached;
+		}
+		if ( ! function_exists( 'wp_remote_get' ) ) {
+			return $cached;
+		}
+		$url = Luxe_Theme_Guard_Signals::official_watch_url();
+		if ( ! Luxe_Theme_Guard_Signals::watch_url_allowed( $url ) ) {
+			return $cached;
+		}
+		$response = wp_remote_get(
+			$url,
+			array(
+				'timeout'     => 8,
+				'redirection' => 0,
+				'user-agent'  => 'LuxeThemeGuard/' . ( defined( 'LUXE_THEME_GUARD_VERSION' ) ? LUXE_THEME_GUARD_VERSION : '1.4.0' ),
+			)
+		);
+		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return $cached;
+		}
+		$body = substr( (string) wp_remote_retrieve_body( $response ), 0, 4000 );
+		$ver  = Luxe_Theme_Guard_Signals::parse_style_version( $body );
+		if ( ! $ver || Luxe_Theme_Guard_Signals::compare( $ver, Luxe_Theme_Guard_Signals::RECOMMENDED ) < 0 ) {
+			return $cached;
+		}
+		if ( function_exists( 'update_option' ) ) {
+			update_option( self::OPTION_WATCHED, $ver, false );
+			update_option( self::OPTION_WATCHED_AT, time(), false );
+		}
+		return $ver;
 	}
 
 	/**
@@ -174,15 +238,18 @@ class Luxe_Theme_Guard_Updater {
 		set_transient( self::LOCK, 1, 120 );
 
 		$heals = array();
+		self::sync_saved_license();
+		$watched = $this->watch_official_version( true );
+		$heals['watch'] = $watched ? $watched : 'cached-or-unavailable';
 		if ( function_exists( 'wp_update_themes' ) ) {
 			wp_update_themes();
 			$heals['refresh'] = 'wp_update_themes';
 		}
 
-		$snap = Luxe_Theme_Guard_Signals::snapshot();
+		$snap = Luxe_Theme_Guard_Signals::snapshot( $watched );
 		if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_update' ) && ! empty( $snap['can_upgrade'] ) ) {
 			$heals['upgrade'] = $this->upgrade_flatsome();
-			$snap             = Luxe_Theme_Guard_Signals::snapshot();
+			$snap             = Luxe_Theme_Guard_Signals::snapshot( $watched );
 			if ( Luxe_Theme_Guard_Plugin::instance()->enabled( 'auto_purge' ) ) {
 				$heals['purge'] = $this->purge();
 			}

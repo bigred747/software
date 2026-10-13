@@ -4,22 +4,22 @@ Tags: flatsome, theme update, security, luxetrendsetters
 Requires at least: 6.5
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-24/7 process learning and official Flatsome auto-update. Amazon AI lives on Luxe SEO. Never downloads nulled zips.
+24/7 process learning, Amazon AI, and official Flatsome auto-update. Watches the current official release. Never downloads nulled zips.
 
 == Description ==
 
-Luxe Theme Guard 1.3.1 is the Flatsome auto-update plugin for luxetrendsetters.com. WordPress admin menu: **Luxe Theme**. Amazon AI lives on **Luxe SEO**.
+Luxe Theme Guard 1.4.0 is the Flatsome auto-update plugin for luxetrendsetters.com. WordPress admin menu: **Luxe Theme**. Amazon AI stays on this screen.
 
 It:
 
-* Runs 24/7 process learning: one theme signal every 5 minutes
-* Takes an hourly read-only snapshot of the licensed Flatsome package
+* Runs 24/7 process learning: one theme signal and one Amazon catalog item every 5 minutes
+* Watches the official Flatsome demo stylesheet for the current release, so the target moves past 3.20.9
 * Applies an official Flatsome parent upgrade as soon as WordPress has a licensed package
-* Shows GREEN / RED for XSS patch 3.20.6+, recommended 3.20.9+, license, 24/7 cron, and cache purge
+* Shows GREEN / RED for XSS patch 3.20.6+, the watched official release, license, 24/7 cron, and cache purge
 * Purges LiteSpeed after a successful theme update
 * Never upgrades during a shopper page view (WP-Cron / admin button only)
 
@@ -28,6 +28,11 @@ It does **not** download pirate/nulled Flatsome zips, overwrite plugins, write p
 A ThemeForest purchase code can be pasted on **Luxe Theme** settings (or Flatsome → Theme Registration). WordPress cannot fetch the official package without it.
 
 == Changelog ==
+
+= 1.4.0 =
+* Watch the official Flatsome release instead of stopping at 3.20.9
+* Auto-install that watched release when WordPress has a licensed package
+* Amazon AI stays on Luxe Theme
 
 = 1.3.1 =
 * Amazon AI moved to Luxe SEO. Theme Guard is Flatsome auto-update only.

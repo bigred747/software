@@ -86,8 +86,24 @@ class Luxe_Theme_Guard_Admin {
 		$log      = Luxe_Theme_Guard_Signals::log();
 		$learn_on = Luxe_Theme_Guard_Plugin::instance()->enabled( 'learning_24_7' );
 		$learn_next = Luxe_Theme_Guard_Learning::next_ts();
+		$amazon     = class_exists( 'Luxe_Theme_Guard_Amazon' ) ? Luxe_Theme_Guard_Amazon::last() : array();
+		$amazon_log = class_exists( 'Luxe_Theme_Guard_Amazon' ) ? Luxe_Theme_Guard_Amazon::log() : array();
+		$amazon_on  = Luxe_Theme_Guard_Plugin::instance()->enabled( 'amazon_ai' );
 		if ( empty( $last['signals'] ) ) {
 			$last = Luxe_Theme_Guard_Signals::build( Luxe_Theme_Guard_Signals::snapshot() );
+		}
+		if ( class_exists( 'Luxe_Theme_Guard_Amazon' ) && empty( $amazon['signals'] ) ) {
+			$amazon = Luxe_Theme_Guard_Amazon::build(
+				array(
+					'armed'     => $amazon_on,
+					'tag'       => Luxe_Theme_Guard_Amazon::wanted_tag(),
+					'waiting'   => true,
+					'preserved' => true,
+					'api_mode'  => 'local',
+					'has_creds' => class_exists( 'Luxe_Theme_Guard_Amazon_API' ) && Luxe_Theme_Guard_Amazon_API::has_credentials(),
+					'source'    => 'board',
+				)
+			);
 		}
 		include LUXE_THEME_GUARD_DIR . 'templates/admin.php';
 	}
