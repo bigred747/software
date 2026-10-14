@@ -2,6 +2,20 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Ultimate Authority & Revenue Engine 1.0.0
+
+One signal board for guide quality, revenue gaps, and index recommendations. Size **36KB**.
+
+**Upload this file from Windows 11 into WordPress:**
+
+[luxe-ultimate-authority.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/ultimate-authority-engine-9272/luxe-ultimate-authority.zip)
+
+SHA-256 `061488e9618e37c883e7d5e022bfe479a5632e76ea15b631995506ffa4b53616`
+
+Do not unzip it on the PC. Plugins → Add Plugin → Upload Plugin → Install Now → Activate. Open **Tools → Ultimate Authority**.
+
+It does not publish, change post status, rewrite articles, or rewrite Amazon URLs. Rank Math, LiteSpeed, Wordfence, WooCommerce, WZone, Link Whisper, Amazon Bridge, and Product Scout stay active.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.

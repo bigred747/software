@@ -1,0 +1,8 @@
+.luae-authority {
+	margin: 32px 0;
+	padding: 8px 0 0;
+	border-top: 1px solid rgba(15, 23, 42, 0.12);
+}
+.luae-scorecard { list-style: none; margin: 0 0 16px; padding: 0; max-width: 420px; }
+.luae-scorecard li { display: flex; gap: 8px; align-items: baseline; margin: 0 0 6px; }
+.luae-dots { flex: 1; border-bottom: 1px dotted #94a3b8; transform: translateY(-3px); }
