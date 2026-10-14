@@ -2,6 +2,22 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Keyword Intelligence Autopilot 1.4.0
+
+The plugin name in WordPress is **Luxe Keyword Intelligence Autopilot**. Upload this over 1.3.0. Do not unzip it.
+
+On an iPhone, download it in Safari to Files, then install it from the site admin in the browser: Plugins → Add New → Upload Plugin.
+
+[luxe-keyword-intelligence-autopilot.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/keyword-autopilot-fast-6699/luxe-keyword-intelligence-autopilot.zip)
+
+WordPress PclZip package. Size **145KB**.
+
+Plugins → Add Plugin → Upload Plugin → choose `luxe-keyword-intelligence-autopilot.zip` → Install Now → Replace current with uploaded → Activate.
+
+Open **Keyword Autopilot** and click **Repair attention items**. At the current server load that repairs up to 48 items per click. The engine then keeps going every 5 minutes, 6 items at a time, and stops for the day at 960 scans. It never publishes, never changes a post status, and never rewrites article bodies or Amazon URLs.
+
+A keyword score of 95–100 means the Rank Math phrase, title, and description pass. It is not a Google ranking. A title that is only an Amazon image ID stays in attention.
+
 ## Luxe Google Presence 1.1.0
 
 The plugin name in WordPress is **Luxe Google Presence**.
