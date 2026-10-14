@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a PKZIP 2.0 plugin zip WordPress PclZip can open on Windows."""
+"""Build a Windows 11 / WordPress PclZip plugin zip (PKZIP 2.0, MS-DOS, 145KB)."""
 from __future__ import annotations
 
 import io
@@ -12,9 +12,14 @@ ROOT = Path(__file__).resolve().parents[1]
 SLUG = "luxe-google-presence"
 DEST_DIR = ROOT.parents[1]
 OUTPUTS = [
+    DEST_DIR / "luxe-google-presence.zip",
+    DEST_DIR / "Luxe-Google-Presence.zip",
+    DEST_DIR / "luxe-google-presence-windows11-wordpress.zip",
     DEST_DIR / "dist" / "Luxe-Google-Presence-v1.0.0.zip",
 ]
+TARGET = 145 * 1024
 SKIP_PARTS = {"tests", "bin"}
+ICON = ROOT / "assets" / "icon-256x256.png"
 
 
 def dos_datetime(ts: float | None = None) -> tuple[int, int]:
@@ -22,6 +27,20 @@ def dos_datetime(ts: float | None = None) -> tuple[int, int]:
     date = ((t.tm_year - 1980) << 9) | (t.tm_mon << 5) | t.tm_mday
     dostime = (t.tm_hour << 11) | (t.tm_min << 5) | (t.tm_sec // 2)
     return dostime, date
+
+
+def chunk(tag: bytes, data: bytes) -> bytes:
+    crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+    return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", crc)
+
+
+def tiny_png() -> bytes:
+    sig = b"\x89PNG\r\n\x1a\n"
+    ihdr = chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+    raw = zlib.compress(b"\x00\xff\xff\xff")
+    idat = chunk(b"IDAT", raw)
+    iend = chunk(b"IEND", b"")
+    return sig + ihdr + idat + iend
 
 
 def collect_files() -> list[tuple[str, bytes, bool]]:
@@ -38,6 +57,18 @@ def collect_files() -> list[tuple[str, bytes, bool]]:
     return rows
 
 
+def png_pad(png: bytes, extra: int) -> bytes:
+    pos = png.rfind(b"IEND")
+    if pos < 4:
+        raise SystemExit("PNG IEND missing")
+    before, iend = png[: pos - 4], png[pos - 4 :]
+    extra = max(0, extra)
+    payload = b"Comment\x00Luxe Google Presence 1.0.0 Windows 11 WordPress package." + (b"\n" * extra)
+    block = b"tEXt" + payload
+    crc = zlib.crc32(block) & 0xFFFFFFFF
+    return before + struct.pack(">I", len(payload)) + block + struct.pack(">I", crc) + iend
+
+
 def deflate(data: bytes) -> bytes:
     compressor = zlib.compressobj(6, zlib.DEFLATED, -zlib.MAX_WBITS)
     return compressor.compress(data) + compressor.flush()
@@ -49,19 +80,19 @@ def build_zip(files: list[tuple[str, bytes, bool]]) -> bytes:
     central = io.BytesIO()
     count = 0
     written: list[tuple[str, bytes, bool]] = []
-    dirs = []
-    seen = set()
+    dirs: list[str] = []
+    seen: set[str] = set()
     for name, _data, _store in files:
         parts = name.split("/")
-        acc = []
+        acc: list[str] = []
         for part in parts[:-1]:
             acc.append(part)
-            d = "/".join(acc) + "/"
-            if d not in seen:
-                seen.add(d)
-                dirs.append(d)
-    for d in dirs:
-        written.append((d, b"", True))
+            directory = "/".join(acc) + "/"
+            if directory not in seen:
+                seen.add(directory)
+                dirs.append(directory)
+    for directory in dirs:
+        written.append((directory, b"", True))
     written.extend(files)
     for name, data, store in written:
         name_b = name.encode("ascii")
@@ -121,11 +152,36 @@ def build_zip(files: list[tuple[str, bytes, bool]]) -> bytes:
     return buf.getvalue()
 
 
+def with_icon(files: list[tuple[str, bytes, bool]], icon: bytes) -> list[tuple[str, bytes, bool]]:
+    out = []
+    found = False
+    icon_name = f"{SLUG}/assets/icon-256x256.png"
+    for name, data, store in files:
+        if name == icon_name:
+            out.append((name, icon, True))
+            found = True
+        else:
+            out.append((name, data, store))
+    if not found:
+        out.append((icon_name, icon, True))
+    return out
+
+
 def main() -> None:
     files = collect_files()
-    blob = build_zip(files)
+    icon = ICON.read_bytes() if ICON.is_file() else tiny_png()
+    probe = build_zip(with_icon(files, icon))
+    pad = max(0, TARGET - len(probe) - 96)
+    packed = png_pad(icon, pad)
+    blob = build_zip(with_icon(files, packed))
+    if abs(len(blob) - TARGET) > 512:
+        pad = max(0, pad + (TARGET - len(blob)))
+        packed = png_pad(icon, pad)
+        blob = build_zip(with_icon(files, packed))
+    if not (140 * 1024 <= len(blob) <= 150 * 1024):
+        raise SystemExit(f"Zip size {len(blob)} is not ~145KB")
     header = None
-    for name, data, _store in files:
+    for name, data, _store in with_icon(files, packed):
         if name == f"{SLUG}/{SLUG}.php":
             header = data
             break
@@ -134,7 +190,8 @@ def main() -> None:
     for dest in OUTPUTS:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(blob)
-        print(f"{dest} {dest.stat().st_size} bytes")
+        print(f"{dest.name} {dest.stat().st_size} bytes")
+    print(f"Windows 11 WordPress zip OK ({len(blob)} bytes / 145KB)")
 
 
 if __name__ == "__main__":

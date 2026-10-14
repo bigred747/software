@@ -4,13 +4,19 @@ WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
 ## Luxe Google Presence 1.0.0
 
-Computer and mobile crawl readiness, on-site compare links, then the existing Amazon button. Contract score **100**. The live homepage already scores **95**. It reaches **100** once this plugin’s full Amazon price disclaimer is on the page.
+The plugin name in WordPress is **Luxe Google Presence**.
 
-Upload [dist/Luxe-Google-Presence-v1.0.0.zip](dist/Luxe-Google-Presence-v1.0.0.zip) beside Score Repair, Product Scout, and Product Integrity. Do not replace those folders.
+**Upload this file from Windows 11. Do not unzip it:**
 
-Tools → Luxe Google Presence → confirm every contract row is green → Scan homepage on computer and mobile.
+[luxe-google-presence.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/google-presence-6699/luxe-google-presence.zip)
 
-In Google Search Console, submit `https://luxetrendsetters.com/sitemap_index.xml`. This plugin does not buy traffic or redirect shoppers to Amazon without a click.
+Windows 11 / WordPress PclZip package. Size **145KB**.
+
+Plugins → Add Plugin → Upload Plugin → choose `luxe-google-presence.zip` → Install Now → Activate.
+
+If WordPress refuses the upload, delete any half-installed `luxe-google-presence` folder under `wp-content/plugins/`, then upload this same zip again. Do not upload the `dist` copy, and do not unzip the file on the PC.
+
+Then open **Tools → Luxe Google Presence**.
 
 ## Luxe Affiliate Product Scout 5.6.8
 
