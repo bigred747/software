@@ -3,7 +3,7 @@
  * Plugin Name: Luxe Overlap Remover
  * Plugin URI: https://luxetrendsetters.com/
  * Description: Deactivates and deletes 18 named overlap plugins after a backup confirmation. Does not hook the public site and cannot match WooCommerce, WZone, Rank Math, LiteSpeed, Wordfence, Amazon Bridge, Product Scout, or Ultimate Authority.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Requires at least: 6.4
  * Tested up to: 6.8
  * Requires PHP: 7.4
@@ -21,7 +21,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LUOR_VERSION', '1.0.0' );
+define( 'LUOR_VERSION', '1.0.1' );
 define( 'LUOR_FILE', __FILE__ );
 define( 'LUOR_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LUOR_URL', plugin_dir_url( __FILE__ ) );

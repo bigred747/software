@@ -109,89 +109,15 @@ class LUOR_Plugin {
 	}
 
 	/**
-	 * Deactivate and delete the installed matches. The list is read again from disk.
+	 * Scan only. Delete stays off after the live site returned HTTP 500.
 	 *
 	 * @return array<string,mixed>
 	 */
 	public function delete_installed() {
-		$report  = $this->scan();
-		$present = $report['present'];
-		$deleted = isset( $report['deleted'] ) && is_array( $report['deleted'] ) ? $report['deleted'] : array();
-		$failed  = array();
-		if ( ! $present ) {
-			$report['deleted'] = $deleted;
-			$report['failed']  = $failed;
-			update_option( self::REPORT, $report, false );
-			return $report;
-		}
-		$this->load_admin_includes();
-		foreach ( $present as $folder => $basename ) {
-			$result = $this->delete_one( $basename );
-			if ( true === $result ) {
-				$deleted[ $folder ] = 'Deactivated and deleted.';
-				unset( $present[ $folder ] );
-				continue;
-			}
-			$failed[ $folder ] = $result;
-		}
-		if ( function_exists( 'wp_clean_plugins_cache' ) ) {
-			wp_clean_plugins_cache( false );
-		}
-		$report['present'] = $this->find_installed();
-		$report['deleted'] = $deleted;
-		$report['failed']  = $failed;
+		$report = $this->scan();
+		$report['failed']  = array();
 		$report['scanned'] = true;
 		update_option( self::REPORT, $report, false );
 		return $report;
-	}
-
-	/**
-	 * @param string $basename Plugin basename.
-	 * @return true|string
-	 */
-	private function delete_one( $basename ) {
-		if ( 'delete' !== LUOR_Targets::decision( $basename ) ) {
-			return 'Skipped. This file is not one of the 18 folders.';
-		}
-		$folder = LUOR_Targets::folder_of( $basename );
-		if ( ! LUOR_Targets::is_inside_plugins( WP_PLUGIN_DIR, $folder ) ) {
-			return 'Skipped. The folder is not inside the plugins directory.';
-		}
-		if ( ! function_exists( 'WP_Filesystem' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/file.php';
-		}
-		if ( ! WP_Filesystem() ) {
-			return 'WordPress could not open the plugins directory.';
-		}
-		try {
-			deactivate_plugins( $basename, false );
-			if ( is_plugin_active( $basename ) ) {
-				return 'Deactivation failed, so the folder was left in place.';
-			}
-			$result = delete_plugins( array( $basename ) );
-		} catch ( Exception $e ) {
-			return $e->getMessage();
-		} catch ( Throwable $e ) {
-			return $e->getMessage();
-		}
-		if ( is_wp_error( $result ) ) {
-			return $result->get_error_message();
-		}
-		if ( true !== $result ) {
-			return 'Delete did not finish.';
-		}
-		if ( LUOR_Targets::is_inside_plugins( WP_PLUGIN_DIR, $folder ) ) {
-			return 'The folder is still on disk.';
-		}
-		return true;
-	}
-
-	/**
-	 * Load the WordPress delete API.
-	 */
-	private function load_admin_includes() {
-		require_once ABSPATH . 'wp-admin/includes/plugin.php';
-		require_once ABSPATH . 'wp-admin/includes/file.php';
-		require_once ABSPATH . 'wp-admin/includes/misc.php';
 	}
 }

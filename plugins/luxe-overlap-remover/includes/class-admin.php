@@ -95,12 +95,7 @@ class LUOR_Admin {
 	 */
 	public function handle_delete() {
 		$this->guard( 'luor_delete' );
-		if ( empty( $_POST['luor_confirm_backup'] ) ) {
-			$this->back( 'backup-required' );
-		}
-		$report = LUOR_Plugin::instance()->delete_installed();
-		$failed = isset( $report['failed'] ) && is_array( $report['failed'] ) ? $report['failed'] : array();
-		$this->back( $failed ? 'delete-partial' : 'deleted' );
+		$this->back( 'delete-locked' );
 	}
 
 	/**

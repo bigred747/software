@@ -7,6 +7,7 @@ $notices = array(
 	'deleted'         => 'The installed matches were deactivated and deleted.',
 	'delete-partial'  => 'Some folders could not be deleted. The red rows say why. The others were removed.',
 	'backup-required' => 'Nothing was deleted. Confirm the Snapshot backup first.',
+	'delete-locked'   => 'Delete is locked. Removing these plugins took the site down. Leave them installed.',
 );
 ?>
 <div class="wrap luor-wrap">
@@ -48,8 +49,8 @@ $notices = array(
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="luor-actions">
 			<?php wp_nonce_field( 'luor_delete' ); ?>
 			<input type="hidden" name="action" value="luor_delete" />
-			<label><input type="checkbox" name="luor_confirm_backup" value="1" /> <?php esc_html_e( 'I have a current Snapshot Pro backup.', 'luxe-overlap-remover' ); ?></label>
-			<button class="button button-primary" type="submit"><?php esc_html_e( 'Deactivate and delete the 18 folders', 'luxe-overlap-remover' ); ?></button>
+			<button class="button" type="submit" disabled="disabled"><?php esc_html_e( 'Delete is locked', 'luxe-overlap-remover' ); ?></button>
+			<p><?php esc_html_e( 'Delete is locked. Those folders stay on the site.', 'luxe-overlap-remover' ); ?></p>
 		</form>
 	</section>
 </div>

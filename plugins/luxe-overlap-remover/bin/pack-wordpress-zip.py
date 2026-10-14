@@ -13,7 +13,7 @@ SLUG = "luxe-overlap-remover"
 DEST_DIR = ROOT.parents[1]
 OUTPUTS = [
     DEST_DIR / "luxe-overlap-remover.zip",
-    DEST_DIR / "dist" / "Luxe-Overlap-Remover-v1.0.0.zip",
+    DEST_DIR / "dist" / "Luxe-Overlap-Remover-v1.0.1.zip",
 ]
 SKIP_PARTS = {"tests", "bin"}
 

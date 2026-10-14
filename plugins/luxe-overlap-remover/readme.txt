@@ -4,7 +4,7 @@ Tags: plugins, cleanup
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 
 Deactivates and deletes 18 named overlap plugins. Each safety lock and each folder has its own green, yellow, or red signal.

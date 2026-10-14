@@ -2,57 +2,11 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Overlap Remover 1.0.0
+## Luxe Overlap Remover 1.0.1
 
-Deletes 18 named overlap plugins after a Snapshot backup checkbox. It does not hook the public site, does not delete on activation, and cannot match WooCommerce, WZone, Rank Math, LiteSpeed, Wordfence, Amazon Bridge, Product Scout, Ultimate Authority, or the homepage keeper.
+Delete is locked. Version 1.0.0 removed 18 overlap plugins and the live site then returned an empty HTTP 500 on every uncached request. LiteSpeed kept serving the old homepage from cache. Do not upload the 1.0.0 zip. Leave those 18 plugins installed.
 
-**Upload this file into WordPress:**
-
-[luxe-overlap-remover.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/overlap-remover-9272/luxe-overlap-remover.zip)
-
-Size **12KB**. SHA-256 `8986a17b008b5d1e3092f82a5553fa64f90f2dd8f3039b07ff94905e870956c3`
-
-Plugins → Add Plugin → Upload Plugin → Install Now → Activate. Open **Tools → Overlap Remover**.
-
-Before any scan the board reads **8 / 26 processes green**. Those 8 are the safety locks. The 18 plugin rows stay yellow until each folder is gone. After a successful delete the board reads **26 / 26**.
-
-### Safety signals (green as soon as you open the page)
-
-| Signal | What it locks |
-|---|---|
-| Backup gate | Delete stays off until the Snapshot backup box is checked. |
-| Exact folder lock | Only the 18 named folders can match. |
-| Protected stack | WooCommerce, WZone, Rank Math, LiteSpeed, Wordfence, Amazon Bridge, Product Scout, Ultimate Authority, and Mirror Master cannot match. |
-| Self lock | This remover cannot delete itself. |
-| No delete on activate | Activation only stores the board. |
-| Deactivate first | Each match is deactivated before its folder is removed. |
-| Plugins directory jail | A folder is removed only when its real path stays inside the plugins directory. |
-| Public site lock | No public, content, cron, or Amazon URL hooks. |
-
-### Plugin signals
-
-Yellow means still installed. Green means that folder is gone. Red means that one delete failed and the folder was left in place.
-
-1. Luxe Reader-Love Unified
-2. Luxe Keyword Intelligence Autopilot
-3. Luxe Blog Master Command Center
-4. Richard Brummer SEO Mission Control
-5. Luxe AI Readiness Autopilot 100
-6. Luxe Performance Core Fusion
-7. Luxe Performance Link Guardian Suite
-8. Luxe Unified Site Guardian
-9. Luxe Index Recovery Guard
-10. Luxe Rank Math Schema Guard
-11. Amazon Affiliate Autopilot
-12. Luxe Amazon Correct Tag + Green Signals
-13. Luxe Amazon + Mobile Recovery
-14. Luxe CRON Mobilizer Pro
-15. Action Scheduler Healer PRO
-16. Luxe Master Plugin Orchestrator
-17. Luxe WOW Homepage Rotator
-18. Luxe Category Authority Lock
-
-Hard Rescue, the Optimizer, the Duplicate Cleaner, Safe Trash, WZone Stats, and Luxe Theme are not in this list. Their notices stay until you handle those plugins yourself.
+Version 1.0.1 can scan. It cannot delete.
 
 ## Luxe Affiliate Product Scout 5.6.8
 

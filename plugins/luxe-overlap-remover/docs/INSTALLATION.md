@@ -1,14 +1,8 @@
-# Luxe Overlap Remover 1.0.0
+# Luxe Overlap Remover 1.0.1
 
-Upload `dist/Luxe-Overlap-Remover-v1.0.0.zip` in Plugins → Add Plugin.
+Delete is locked. Do not install 1.0.0. That version removed the 18 overlap plugins and the live site then returned an empty HTTP 500 on every uncached request.
 
-1. Activate **Luxe Overlap Remover**.
-2. Open **Tools → Overlap Remover**.
-3. The 8 safety rows are green. The 18 plugin rows stay yellow until those folders are gone.
-4. Click **Scan the 18 folders**.
-5. Check **I have a current Snapshot Pro backup.**
-6. Click **Deactivate and delete the 18 folders**.
-7. A plugin row turns green when that folder is gone. A red row means that one was left in place.
+1.0.1 can scan. The delete button does nothing.
 
 WooCommerce, WZone, Rank Math, LiteSpeed, Wordfence, Site Kit, Link Whisper, Snapshot, YITH, Amazon Bridge, Product Scout, Ultimate Authority, Theme Guard, Mirror Master, Comment Shield, Site Hardening, WZone Stats, WZone Deletion Shield, Hard Rescue, Safe Trash, the Duplicate Cleaner, and the Optimizer are not on the list.
 
