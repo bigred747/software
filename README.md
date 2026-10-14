@@ -2,6 +2,16 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Google Presence 1.0.0
+
+Computer and mobile crawl readiness, on-site compare links, then the existing Amazon button. Contract score **100**. The live homepage already scores **95**. It reaches **100** once this plugin’s full Amazon price disclaimer is on the page.
+
+Upload [dist/Luxe-Google-Presence-v1.0.0.zip](dist/Luxe-Google-Presence-v1.0.0.zip) beside Score Repair, Product Scout, and Product Integrity. Do not replace those folders.
+
+Tools → Luxe Google Presence → confirm every contract row is green → Scan homepage on computer and mobile.
+
+In Google Search Console, submit `https://luxetrendsetters.com/sitemap_index.xml`. This plugin does not buy traffic or redirect shoppers to Amazon without a click.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.
