@@ -31,7 +31,7 @@ class Luxe_Google_Presence_Copy {
 		$html .= '<h2>Compare on LuxeTrendsetters, then buy on Amazon</h2>';
 		$html .= '<p>Stay here and open another guide. The Amazon button on this page is a paid link. ' . self::esc( self::PAID ) . '</p>';
 		$html .= '<ul class="lgp-stay-links">' . $items . '</ul>';
-		$html .= '<p class="lgp-stay-note">' . self::esc( self::DISCLOSURE ) . ' ' . self::esc( self::PRICE ) . ' When you are ready, use the Amazon button on this page to buy on Amazon.</p>';
+		$html .= '<p class="lgp-associate">' . self::esc( self::DISCLOSURE ) . ' ' . self::esc( self::PRICE ) . ' When you are ready, use the Amazon button on this page to buy on Amazon.</p>';
 		$html .= '</aside>';
 		return $html;
 	}

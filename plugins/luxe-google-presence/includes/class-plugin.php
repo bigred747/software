@@ -30,10 +30,12 @@ class Luxe_Google_Presence_Plugin {
 	 */
 	public static function defaults() {
 		return array(
-			'device_css'     => 1,
-			'qualify_links'  => 1,
-			'onsite_compare' => 1,
-			'verification'   => '',
+			'device_css'      => 1,
+			'qualify_links'   => 1,
+			'onsite_compare'  => 1,
+			'visitor_repair'  => 1,
+			'junk_redirect'   => 1,
+			'verification'    => '',
 		);
 	}
 

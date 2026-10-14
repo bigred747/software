@@ -1,4 +1,4 @@
-# Luxe Google Presence 1.0.0
+# Luxe Google Presence 1.1.0
 
 Install beside Luxe Score Repair, Luxe Affiliate Product Scout, and Luxe Product Integrity Repair.
 
@@ -6,11 +6,12 @@ Install beside Luxe Score Repair, Luxe Affiliate Product Scout, and Luxe Product
 
 The WordPress plugin name is **Luxe Google Presence**.
 
-1. Download `luxe-google-presence.zip` from the top of the repository. It is the 145KB Windows 11 package. Do not unzip it on the PC.
-2. Plugins → Add Plugin → Upload Plugin → choose that zip → Install Now → Activate.
+1. Download `luxe-google-presence.zip` from the top of the repository. It is the 145KB package WordPress can unpack. Do not unzip it.
+2. On an iPhone, open the zip link in Safari and save the file to Files. Do not unzip it. Then open the site’s browser admin (the WordPress app’s plugin screen often has no zip upload): Plugins → Add New → Upload Plugin → choose that zip → Install Now → Activate.
 3. Open **Tools → Luxe Google Presence**.
 4. Confirm every plugin-contract row is green and the contract score is 100.
-5. Click **Scan homepage on computer and mobile**. Required rows should be green. The full price disclaimer turns green after the compare block is on the public page, and the live score moves from 95 to 100.
+5. Purge the LiteSpeed cache once so `/item-weight/` pages pick up the redirect.
+6. Click **Scan homepage on computer and mobile**. Required rows should be green. The full price disclaimer turns green after the compare block is on the public page, and the live score moves from 95 to 100.
 
 If the upload is refused, delete a leftover `wp-content/plugins/luxe-google-presence` folder and upload `luxe-google-presence.zip` again.
 

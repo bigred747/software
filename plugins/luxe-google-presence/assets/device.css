@@ -67,9 +67,27 @@ textarea {
 	color: #0f172a;
 }
 
-.lgp-stay-note {
+.lgp-stay-note,
+.lgp-associate,
+.luxe-affiliate-disclosure {
 	margin: 0;
 	color: #334155;
+	font-size: 16px;
+	line-height: 1.5;
+	font-weight: 400;
+}
+
+.luxe-affiliate-disclosure strong {
+	font-weight: 700;
+}
+
+.lgp-variant {
+	display: block;
+	margin: 4px 0 0;
+	font-size: 15px;
+	font-weight: 700;
+	line-height: 1.4;
+	color: #0f172a;
 }
 
 @media (max-width: 782px) {
@@ -87,6 +105,16 @@ textarea {
 		display: inline-flex;
 		align-items: center;
 		touch-action: manipulation;
+	}
+
+	.product-small .box-text .name,
+	.product-small .woocommerce-loop-product__title,
+	.product-small .product-title a {
+		overflow: visible;
+		height: auto;
+		max-height: none;
+		white-space: normal;
+		text-overflow: unset;
 	}
 
 	body {

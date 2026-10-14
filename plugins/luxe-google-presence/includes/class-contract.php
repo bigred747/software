@@ -45,6 +45,42 @@ class Luxe_Google_Presence_Contract {
 			)
 		);
 
+		$sample  = '<html><body>'
+			. '<p class="luxe-affiliate-disclosure"><strong>Affiliate disclosure: This guide may contain affiliate links. We may earn a commission at no extra cost to you when you buy through qualifying links.</strong></p>'
+			. '<a href="https://luxetrendsetters.com/item-weight/2-71-pounds/">Weight</a>'
+			. '<div class="product-small col product"><a href="https://luxetrendsetters.com/product/apple-2026-macbook-neo-512gb-blush/"><img src="https://m.media-amazon.com/images/I/31JknBT2iiL._SS247_.jpg" alt="31JknBT2iiL"></a>'
+			. '<p class="name product-title woocommerce-loop-product__title"><a href="https://luxetrendsetters.com/product/apple-2026-macbook-neo-512gb-blush/" class="woocommerce-loop-product__link">Apple 2026 MacBook Neo&#8230;</a></p>'
+			. '<a href="https://www.amazon.com/dp/B0ABCDEF12?tag=luxetrendsetters-20&amp;linkCode=ll1">VIEW ON AMAZON</a></div>'
+			. '<div class="product-small col product"><img src="https://m.media-amazon.com/images/I/31CN5P6.jpg" alt="Apple Watch Series 11 cut smartwatche">'
+			. '<p class="name product-title woocommerce-loop-product__title"><a href="https://luxetrendsetters.com/product/apple-watch-series-11/" class="woocommerce-loop-product__link">Apple Watch Series 11 GPS 42mm</a></p></div>'
+			. '<aside class="lgp-stay"><p class="lgp-stay-note"></p></aside>'
+			. '</body></html>';
+		$repaired = Luxe_Google_Presence_Visitor::repair( $sample );
+		$dept     = Luxe_Google_Presence_Visitor::redirect_url(
+			'/item-weight/2-71-pounds/',
+			array(
+				array(
+					'url'   => 'https://luxetrendsetters.com/product-category/electronics/',
+					'name'  => 'Electronics',
+					'depth' => 0,
+					'hits'  => 7,
+				),
+				array(
+					'url'   => 'https://luxetrendsetters.com/product-category/electronics/computers-laptops/macbooks/',
+					'name'  => 'MacBooks',
+					'depth' => 2,
+					'hits'  => 7,
+				),
+				array(
+					'url'   => 'https://www.amazon.com/dp/B0ABCDEF12?tag=luxetrendsetters-20',
+					'name'  => 'Amazon',
+					'depth' => 9,
+					'hits'  => 99,
+				),
+			),
+			'https://luxetrendsetters.com/shop/'
+		);
+
 		$signals = array(
 			Luxe_Google_Presence_Score::signal( 'href_intact', 'Amazon URL is unchanged', false !== strpos( $qualified, 'href="' . $href . '"' ), 'Associate tag and query stay on the existing button' ),
 			Luxe_Google_Presence_Score::signal( 'sponsored', 'Affiliate links use rel sponsored', false !== strpos( $qualified, 'rel="noopener sponsored"' ) && false === strpos( $qualified, 'noreferrer' ), 'Google paid-link qualification without a new noreferrer' ),
@@ -76,6 +112,15 @@ class Luxe_Google_Presence_Contract {
 			Luxe_Google_Presence_Score::signal( 'related', 'Scout related products stay in place', ! Luxe_Google_Presence_Compat::we_write( 'related_products' ), 'WooCommerce related IDs are not filtered' ),
 			Luxe_Google_Presence_Score::signal( 'indexing_api', 'Google Indexing API is not used', ! Luxe_Google_Presence_Compat::we_write( 'indexing_api' ), 'That API is for jobs and livestreams, not this shop' ),
 			Luxe_Google_Presence_Score::signal( 'no_purge', 'Front-end views do not flush cache', ! Luxe_Google_Presence_Compat::we_write( 'frontend_purge' ), 'LiteSpeed is not purged on public page views' ),
+			Luxe_Google_Presence_Score::signal( 'visitor_disclosure', 'Generic affiliate line is replaced', false === stripos( $repaired, 'may contain affiliate links' ) && false !== strpos( $repaired, Luxe_Google_Presence_Copy::DISCLOSURE ), 'The guide uses the official Associate sentence' ),
+			Luxe_Google_Presence_Score::signal( 'visitor_price', 'Official price line is restored', false !== strpos( $repaired, Luxe_Google_Presence_Copy::PRICE ), 'Shown when the compare note was emptied' ),
+			Luxe_Google_Presence_Score::signal( 'visitor_image', 'Amazon file names are not image labels', false === strpos( $repaired, 'alt="31JknBT2iiL"' ) && false === stripos( $repaired, 'alt="Apple Watch Series 11 cut smartwatche"' ), 'The product name is the label' ),
+			Luxe_Google_Presence_Score::signal( 'visitor_href', 'Repair leaves Amazon buttons untouched', false !== strpos( $repaired, 'href="https://www.amazon.com/dp/B0ABCDEF12?tag=luxetrendsetters-20&amp;linkCode=ll1"' ), 'tag and linkCode stay on the existing button' ),
+			Luxe_Google_Presence_Score::signal( 'visitor_product', 'Repair leaves product links untouched', false !== strpos( $repaired, 'href="https://luxetrendsetters.com/product/apple-2026-macbook-neo-512gb-blush/"' ), 'Color variants stay in the catalog' ),
+			Luxe_Google_Presence_Score::signal( 'visitor_variant', 'Truncated cards show the differing detail', false !== strpos( $repaired, 'class="lgp-variant">512GB · Blush' ), 'Storage and color stay visible' ),
+			Luxe_Google_Presence_Score::signal( 'visitor_junk', 'Weight filters are not departments', '' === Luxe_Google_Presence_Visitor::redirect_url( '/shop/', array(), 'https://luxetrendsetters.com/shop/' ) && false !== strpos( $dept, '/macbooks/' ) && false === strpos( $dept, 'amazon.' ), $dept ),
+			Luxe_Google_Presence_Score::signal( 'visitor_stable', 'A second pass does not change the page', $repaired === Luxe_Google_Presence_Visitor::repair( $repaired ), 'Labels and links are repaired once' ),
+			Luxe_Google_Presence_Score::signal( 'visitor_mobile', 'Phone layout can show the full product name', false !== strpos( $css, 'white-space: normal' ) && false !== strpos( $css, '.lgp-variant' ), 'Titles wrap instead of clipping the last word' ),
 		);
 
 		return Luxe_Google_Presence_Score::decide(
@@ -93,6 +138,8 @@ class Luxe_Google_Presence_Contract {
 				'no_new_amazon_href',
 				'indexing_api',
 				'href_policy',
+				'visitor_href',
+				'visitor_disclosure',
 			)
 		);
 	}

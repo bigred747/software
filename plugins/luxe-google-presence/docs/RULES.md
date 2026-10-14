@@ -16,6 +16,9 @@ The contract board fails closed. A hard miss scores 70, not 95.
 - The page says the official price and availability disclaimer for Amazon.com.
 - The compare block is labeled "(paid link)" and sits in the page, not a pop-up.
 - Shoppers open on-site guides first, then click the Amazon button already on the page.
+- Item weight, package weight, and similar attribute archives redirect to a product department on this site, or to `/shop/`.
+- The generic “may contain affiliate links” line is replaced with the official Associate sentence. Amazon file-name image labels are replaced with the product name.
+- AdSense is not connected, and add-to-cart events are not sent.
 - This plugin does not create Amazon sessions by itself, buy impressions, or offer a reward for clicking.
 
 ## Sibling plugins
