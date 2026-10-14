@@ -2,6 +2,12 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Overlap Remover 1.0.1
+
+Delete is locked. Version 1.0.0 removed 18 overlap plugins and the live site then returned an empty HTTP 500 on every uncached request. LiteSpeed kept serving the old homepage from cache. Do not upload the 1.0.0 zip. Leave those 18 plugins installed.
+
+Version 1.0.1 can scan. It cannot delete.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.
