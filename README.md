@@ -2,6 +2,22 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Associates Hub 1.0.0
+
+Admin checklist for the Amazon Associates starter guide, wired to the Luxe master set: Product Scout, Score Repair, and Product Integrity Repair.
+
+**Upload this file:**
+
+[dist/Luxe-Associates-Hub-v1.0.0.zip](dist/Luxe-Associates-Hub-v1.0.0.zip)
+
+Plugins → Add Plugin → Upload Plugin → Install Now → Activate → open **Associates Hub**.
+
+Paste the tracking ID from Associates Central (`storename-20`). Submit payment and tax info on Amazon’s site, then mark that step done in the hub. Build a tagged product link from a Product Scout ASIN, and place the associate disclosure next to it.
+
+The hub does not log into Amazon and does not store an Amazon password, bank account, or tax ID. It does not rewrite catalog URLs.
+
+In a post, `[luxe_amazon asin="B0ABCDEF12"]` prints a direct tagged Amazon link with the required disclosure and `rel="sponsored"`. Score Repair 1.2.0 drops product review markup and `priceValidUntil` dates from public structured data. Amazon URLs stay as they are.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.

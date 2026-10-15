@@ -240,6 +240,9 @@ class Luxe_Score_Repair_Schema {
 					return '<!-- luxe-score-repair quarantined invalid json-ld -->';
 				}
 				$decoded = $this->scrub_node( $decoded );
+				if ( null === $decoded || ! is_array( $decoded ) ) {
+					return '';
+				}
 				if ( $this->contains_type( $decoded, 'FAQPage' ) ) {
 					$saw_faq = true;
 					if ( $this->faq_is_incomplete( $decoded ) ) {
@@ -271,9 +274,26 @@ class Luxe_Score_Repair_Schema {
 	 * @param mixed $node Node.
 	 * @return mixed
 	 */
-	private function scrub_node( $node ) {
+	public function scrub_node( $node ) {
 		if ( ! is_array( $node ) ) {
 			return $node;
+		}
+		if ( $this->is_list( $node ) ) {
+			$clean = array();
+			foreach ( $node as $item ) {
+				$next = is_array( $item ) ? $this->scrub_node( $item ) : $item;
+				if ( null !== $next ) {
+					$clean[] = $next;
+				}
+			}
+			return $clean;
+		}
+		if ( $this->type_is( $node, 'AggregateRating' ) || $this->type_is( $node, 'Review' ) ) {
+			return null;
+		}
+		unset( $node['aggregateRating'], $node['review'], $node['reviews'], $node['priceValidUntil'] );
+		if ( $this->type_is( $node, 'BlogPosting' ) && $this->is_utility_url( $this->node_url( $node ) ) ) {
+			$node['@type'] = 'WebPage';
 		}
 		if ( isset( $node['name'] ) && is_string( $node['name'] ) && 'HOME: Features, Use Cases and Buyer Fit' === $node['name'] ) {
 			$node['name'] = Luxe_Score_Repair_Plugin::home_title();
@@ -283,10 +303,67 @@ class Luxe_Score_Repair_Schema {
 		}
 		foreach ( $node as $k => $v ) {
 			if ( is_array( $v ) ) {
-				$node[ $k ] = $this->scrub_node( $v );
+				$next = $this->scrub_node( $v );
+				if ( null === $next ) {
+					unset( $node[ $k ] );
+				} else {
+					$node[ $k ] = $next;
+				}
 			}
 		}
 		return $node;
+	}
+
+	/**
+	 * @param array $node Node.
+	 * @return bool
+	 */
+	private function is_list( $node ) {
+		if ( array() === $node ) {
+			return true;
+		}
+		return array_keys( $node ) === range( 0, count( $node ) - 1 );
+	}
+
+	/**
+	 * @param array  $node Node.
+	 * @param string $type Type.
+	 * @return bool
+	 */
+	private function type_is( $node, $type ) {
+		if ( ! isset( $node['@type'] ) ) {
+			return false;
+		}
+		$found = $node['@type'];
+		if ( is_string( $found ) ) {
+			return $found === $type;
+		}
+		return is_array( $found ) && in_array( $type, $found, true );
+	}
+
+	/**
+	 * @param array $node Node.
+	 * @return string
+	 */
+	private function node_url( $node ) {
+		if ( isset( $node['url'] ) && is_string( $node['url'] ) ) {
+			return $node['url'];
+		}
+		if ( isset( $node['@id'] ) && is_string( $node['@id'] ) ) {
+			return $node['@id'];
+		}
+		if ( isset( $node['mainEntityOfPage']['@id'] ) && is_string( $node['mainEntityOfPage']['@id'] ) ) {
+			return $node['mainEntityOfPage']['@id'];
+		}
+		return '';
+	}
+
+	/**
+	 * @param string $url URL.
+	 * @return bool
+	 */
+	private function is_utility_url( $url ) {
+		return (bool) preg_match( '~/(privacy-policy|terms-and-conditions|contact|about)/?([#?]|$)~i', $url );
 	}
 
 	/**
