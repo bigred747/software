@@ -60,13 +60,13 @@ class LAH_Admin {
 		}
 		wp_enqueue_style(
 			'lah-admin',
-			LAH_URL . 'assets/admin.css',
+			LAH_URL . 'assets/associates-admin.css',
 			array(),
 			LAH_VERSION
 		);
 		wp_enqueue_script(
 			'lah-admin',
-			LAH_URL . 'assets/admin.js',
+			LAH_URL . 'assets/associates-admin.js',
 			array(),
 			LAH_VERSION,
 			true
@@ -79,7 +79,7 @@ class LAH_Admin {
 	 */
 	public function action_links( $links ) {
 		$url = admin_url( 'admin.php?page=luxe-associates-hub' );
-		array_unshift( $links, '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Open', 'luxe-associates-hub' ) . '</a>' );
+		array_unshift( $links, '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Associates', 'luxe-score-repair' ) . '</a>' );
 		return $links;
 	}
 
@@ -124,6 +124,6 @@ class LAH_Admin {
 			$title_in = substr( $title_in, 0, 180 );
 		}
 		$bestsellers = LAH_Links::tagged_page( '/gp/bestsellers', $settings['tracking_id'] );
-		include LAH_DIR . 'templates/admin.php';
+		include LAH_DIR . 'templates/associates-admin.php';
 	}
 }

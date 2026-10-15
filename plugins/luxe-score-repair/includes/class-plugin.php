@@ -60,6 +60,9 @@ class Luxe_Score_Repair_Plugin {
 		}
 		add_option( 'luxe_score_repair_activated_at', time(), '', false );
 		Luxe_Score_Repair_Learning::activate();
+		if ( class_exists( 'LAH_Plugin' ) ) {
+			LAH_Plugin::activate();
+		}
 	}
 
 	/**
@@ -86,6 +89,9 @@ class Luxe_Score_Repair_Plugin {
 		Luxe_Score_Repair_Redirects::instance()->boot();
 		Luxe_Score_Repair_Buffer::instance()->boot();
 		Luxe_Score_Repair_Learning::instance()->boot();
+		if ( class_exists( 'LAH_Plugin' ) ) {
+			LAH_Plugin::instance()->boot();
+		}
 
 		if ( is_admin() ) {
 			Luxe_Score_Repair_Admin::instance()->boot();

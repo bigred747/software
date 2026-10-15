@@ -166,7 +166,7 @@ $title_in = 'Sample watch';
 $bestsellers = LAH_Links::tagged_page( '/gp/bestsellers', 'storename-20' );
 
 ob_start();
-include dirname( __DIR__ ) . '/templates/admin.php';
+include dirname( __DIR__ ) . '/templates/associates-admin.php';
 $html = ob_get_clean();
 expect( false !== strpos( $html, 'Associates Hub 1.0.0' ), 'admin screen renders' );
 expect( false !== strpos( $html, 'storename-20' ), 'tracking id is shown' );

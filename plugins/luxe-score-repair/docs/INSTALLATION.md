@@ -1,11 +1,11 @@
-# Luxe Score Repair 1.2.0
+# Luxe Score Repair 1.3.0
 
 Safe public-output plugin for https://luxetrendsetters.com/ with process learning and a green-signal board.
 
 ## Install
 
-1. Download `dist/Luxe-Score-Repair-v1.2.0.zip`.
-2. Plugins → Add Plugin → Upload Plugin. Upload **over** 1.0.0 (same folder `luxe-score-repair`).
+1. Download `luxe-score-repair.zip` from the repo root. Do not unzip it on your computer.
+2. Plugins → Add Plugin → Upload Plugin. Upload **over** the current Score Repair (same folder `luxe-score-repair`). If an Associates Hub plugin is installed, delete that plugin. It is now inside this one.
 3. Open **Tools → Luxe Score Repair**.
 4. Click **Run process learning now**.
 

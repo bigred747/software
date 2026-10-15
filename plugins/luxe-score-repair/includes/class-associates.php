@@ -24,6 +24,11 @@ class LAH_Plugin {
 	private static $instance = null;
 
 	/**
+	 * @var bool
+	 */
+	private $booted = false;
+
+	/**
 	 * @return self
 	 */
 	public static function instance() {
@@ -76,6 +81,10 @@ class LAH_Plugin {
 	 * Register admin modules.
 	 */
 	public function boot() {
+		if ( $this->booted ) {
+			return;
+		}
+		$this->booted = true;
 		if ( class_exists( 'LAH_Public' ) ) {
 			LAH_Public::instance()->boot();
 		}

@@ -2,21 +2,23 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Associates Hub 1.0.0
+## One plugin: Luxe Score Repair 1.3.0
 
-Admin checklist for the Amazon Associates starter guide, wired to the Luxe master set: Product Scout, Score Repair, and Product Integrity Repair.
+Score Repair and the Associates Hub are the same plugin. Upload this one file. Do not unzip it on your computer.
 
-**Upload this file:**
+**Download:**
 
-[dist/Luxe-Associates-Hub-v1.0.0.zip](dist/Luxe-Associates-Hub-v1.0.0.zip)
+[luxe-score-repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/associates-hub-1084/luxe-score-repair.zip)
 
-Plugins → Add Plugin → Upload Plugin → Install Now → Activate → open **Associates Hub**.
+SHA-256 `eddbbae7012ea070bcae4799e57c449deb8e282305d1a3742879d09f3b3fe8c3`
 
-Paste the tracking ID from Associates Central (`storename-20`). Submit payment and tax info on Amazon’s site, then mark that step done in the hub. Build a tagged product link from a Product Scout ASIN, and place the associate disclosure next to it.
+Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate.
 
-The hub does not log into Amazon and does not store an Amazon password, bank account, or tax ID. It does not rewrite catalog URLs.
+If a plugin named **Luxe Associates Hub** is in the list, delete it. That screen is now inside Score Repair. Open **Associates Hub** in the left menu.
 
-In a post, `[luxe_amazon asin="B0ABCDEF12"]` prints a direct tagged Amazon link with the required disclosure and `rel="sponsored"`. Score Repair 1.2.0 drops product review markup and `priceValidUntil` dates from public structured data. Amazon URLs stay as they are.
+In a post: `[luxe_amazon asin="B0ABCDEF12"]`
+
+The link is a direct tagged Amazon address, with the required disclosure and `rel="sponsored"`. This plugin does not log into Amazon and does not store your password.
 
 ## Luxe Affiliate Product Scout 5.6.8
 

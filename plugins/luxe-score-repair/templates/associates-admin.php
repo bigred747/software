@@ -17,7 +17,7 @@ $ends        = $started_at > 0 ? wp_date( 'M j, Y', $started_at + 604800 ) : '';
 	<header class="lah-hero">
 		<p class="lah-kicker">LuxeTrendsetters · Luxe master set</p>
 		<h1>Associates Hub <?php echo esc_html( LAH_VERSION ); ?></h1>
-		<p class="lah-lead">The starter guide from Associates Central, wired to Product Scout, Score Repair, and Product Integrity Repair. Payment, tax, and your Amazon password stay on Amazon.</p>
+		<p class="lah-lead">This screen is inside Luxe Score Repair. There is no second plugin to install. Payment, tax, and your Amazon password stay on Amazon.</p>
 	</header>
 
 	<?php if ( '' !== $notice ) : ?>
