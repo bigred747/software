@@ -91,7 +91,7 @@ $installed = array(
 	array( 'name' => 'LiteSpeed Cache', 'version' => '7.9.1', 'active' => true ),
 	array( 'name' => 'WZone - WooCommerce Amazon Affiliates', 'version' => '15.3.0', 'active' => true ),
 	array( 'name' => 'Luxe Affiliate Product Scout', 'version' => '5.6.8', 'active' => true ),
-	array( 'name' => 'Luxe Stack Conductor', 'version' => '1.0.0', 'active' => true ),
+	array( 'name' => 'Luxe Stack Conductor', 'version' => '1.0.1', 'active' => true ),
 	array( 'name' => 'Luxe WZone Stats Guardian', 'version' => '1.2.0', 'active' => true ),
 	array( 'name' => 'Richard Brummer SEO Mission Control', 'version' => '1.8.0', 'active' => true ),
 	array( 'name' => 'Luxe Score Repair', 'version' => '1.1.0', 'active' => false ),
@@ -137,7 +137,7 @@ $late = Luxe_Conductor_Signals::board(
 		array( 'name' => 'Rank Math SEO', 'version' => '1.0.280', 'active' => true ),
 		array( 'name' => 'LiteSpeed Cache', 'version' => '7.9.1', 'active' => true ),
 		array( 'name' => 'WZone - WooCommerce Amazon Affiliates', 'version' => '15.3.0', 'active' => true ),
-		array( 'name' => 'Luxe Stack Conductor', 'version' => '1.0.0', 'active' => true ),
+		array( 'name' => 'Luxe Stack Conductor', 'version' => '1.0.1', 'active' => true ),
 	),
 	array(
 		array( 'hook' => 'laps_learn', 'next' => $now - 50 * 60, 'interval' => 300 ),
@@ -154,7 +154,7 @@ $late_by = array();
 foreach ( $late['rows'] as $row ) {
 	$late_by[ $row['name'] ] = $row;
 }
-expect( 'green' !== $late_by['Luxe Affiliate Product Scout']['level'], 'overdue learning is not forced green' );
+expect( 'yellow' === $late_by['Luxe Affiliate Product Scout']['level'], 'a 50 minute late cycle stays yellow until a future run exists' );
 expect( 'green' === $late_by['Luxe Stack Conductor']['level'], 'a scheduled conductor tick is green' );
 
 $missing = Luxe_Conductor_Signals::board( array(), array(), array(), $now, array() );
@@ -213,6 +213,31 @@ foreach ( $older['rows'] as $row ) {
 	$older_by[ $row['name'] ] = $row;
 }
 expect( 'yellow' === $older_by['Luxe Keyword Intelligence Autopilot']['level'], 'an older known plugin is yellow' );
+
+$now = 100000;
+$caught = Luxe_Conductor_Dispatcher::catch_up(
+	array(
+		array( 'hook' => 'luxe_wz_stats', 'timestamp' => $now - 14 * 86400, 'schedule' => 'hourly', 'protected' => false ),
+		array( 'hook' => 'woocommerce_cleanup', 'timestamp' => $now - 46 * 60, 'schedule' => 'hourly', 'protected' => true ),
+		array( 'hook' => 'laps_learn', 'timestamp' => $now - 120, 'schedule' => 'laps_five', 'protected' => false ),
+		array( 'hook' => 'rank_math_ping', 'timestamp' => $now - 86400, 'schedule' => 'daily', 'protected' => true ),
+		array( 'hook' => 'rank_math_ping', 'timestamp' => $now + 3600, 'schedule' => 'daily', 'protected' => true ),
+	),
+	$now
+);
+$moved_hooks = array();
+foreach ( $caught['move'] as $event ) {
+	$moved_hooks[ $event['hook'] ] = $event['new_timestamp'];
+}
+expect( isset( $moved_hooks['luxe_wz_stats'] ) && $moved_hooks['luxe_wz_stats'] > $now, 'a 14 day stall gets a real future run' );
+expect( isset( $moved_hooks['woocommerce_cleanup'] ) && $moved_hooks['woocommerce_cleanup'] > $now, 'a late WooCommerce hook is scheduled again' );
+expect( ! isset( $moved_hooks['laps_learn'] ), 'a hook due inside 15 minutes is left for cron' );
+$dropped = array();
+foreach ( $caught['drop'] as $event ) {
+	$dropped[] = $event['hook'] . '@' . $event['timestamp'];
+}
+expect( in_array( 'rank_math_ping@' . ( $now - 86400 ), $dropped, true ), 'a stale Rank Math timestamp behind a future run is removed' );
+expect( ! isset( $moved_hooks['rank_math_ping'] ), 'Rank Math keeps the future run it already has' );
 
 if ( $fail ) {
 	echo "\n$fail failed\n";

@@ -2,15 +2,19 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Stack Conductor 1.0.0
+## Luxe Stack Conductor 1.0.1
 
-One queue for every 24/7 learner, with a real green, yellow, or red signal on each process. It does not publish, does not rewrite Amazon URLs, and does not deactivate the other plugins.
+One queue for every 24/7 learner. A green signal is stored only when the check is true. Opening the screen gives each stalled hook a real next run, then reads that run. It does not publish, does not rewrite Amazon URLs, and does not deactivate the other plugins.
 
 Upload this zip:
 
-[dist/Luxe-Stack-Conductor-v1.0.0.zip](dist/Luxe-Stack-Conductor-v1.0.0.zip)
+[dist/Luxe-Stack-Conductor-v1.0.1.zip](dist/Luxe-Stack-Conductor-v1.0.1.zip)
 
-SHA-256 `210562a4e3ef5142bb068f356b38a9f5c663e9ae6d5af1a36e8dbf3da6dc04c6`
+SHA-256 `e55de8cca3bf38e37faf979b9804fb07d39a9173cefdf6e30e58fd8be8451c66`
+
+Direct download:
+
+https://github.com/bigred747/software/raw/cursor/stack-conductor-0963/dist/Luxe-Stack-Conductor-v1.0.1.zip
 
 Then activate it and open **Luxe Conductor**. Leave the rest of the stack active. Point Hostinger cron at `wp-cron.php` every 5 minutes.
 

@@ -197,7 +197,7 @@ class Luxe_Conductor_Registry {
 			self::row( 'Luxe Score Repair', 'public', true, false, '1.1.0', 'Fifteen-minute public-output learning. Post content and Amazon URLs stay put.', false, array( 'luxe_score_repair_learn' => 900 ), 'tools.php?page=luxe-score-repair' ),
 			self::row( 'Luxe Product Integrity Repair', 'catalog', true, false, '1.1.0', 'Taxonomy heal shares the catalog lane with Product Scout.', false, array( 'luxe_pir_heal' => 21600 ), 'tools.php?page=luxe-product-integrity-repair' ),
 			self::row( 'Luxe Mission Score Repair', 'public', true, false, '1.0.0', 'Daily template sync. Amazon retail hosts are never rewritten.', false, array( 'luxe_msr_template_sync' => 86400 ), 'tools.php?page=luxe-mission-score-repair' ),
-			self::row( 'Luxe Stack Conductor', 'coordination', true, false, '1.0.0', 'Read-only 5-minute learning snapshot. Never publishes and never writes another plugin\'s content.', false, array( 'luxe_conductor_tick' => 300 ), 'admin.php?page=luxe-stack-conductor', false ),
+			self::row( 'Luxe Stack Conductor', 'coordination', true, false, '1.0.1', 'Read-only 5-minute learning snapshot. Never publishes and never writes another plugin\'s content.', false, array( 'luxe_conductor_tick' => 300 ), 'admin.php?page=luxe-stack-conductor', false ),
 		);
 	}
 

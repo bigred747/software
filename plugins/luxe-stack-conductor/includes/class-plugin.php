@@ -119,6 +119,7 @@ class Luxe_Conductor_Plugin {
 		if ( ! function_exists( '_get_cron_array' ) ) {
 			return;
 		}
+		$this->catch_up_queue();
 		$due = $this->due_events( time() );
 		$memory = $this->memory();
 		$cap    = isset( $memory['cap'] ) ? (int) $memory['cap'] : 1;
@@ -285,6 +286,7 @@ class Luxe_Conductor_Plugin {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
+		$this->catch_up_queue();
 		$board  = $this->live_board();
 		$memory = $this->memory();
 		$log    = get_option( self::OPTION_LOG, array() );
@@ -446,6 +448,76 @@ class Luxe_Conductor_Plugin {
 			}
 		}
 		return $due;
+	}
+
+	/**
+	 * Replace stalled timestamps with a real future run, then the board reads that run.
+	 */
+	private function catch_up_queue() {
+		if ( ! function_exists( '_get_cron_array' ) || ! function_exists( 'wp_unschedule_event' ) ) {
+			return;
+		}
+		$plan  = Luxe_Conductor_Dispatcher::catch_up( $this->cron_events(), time() );
+		$moved = 0;
+		foreach ( $plan['drop'] as $event ) {
+			$this->unschedule_event( $event );
+		}
+		foreach ( $plan['move'] as $event ) {
+			if ( $moved >= 40 ) {
+				break;
+			}
+			if ( ! $this->unschedule_event( $event ) ) {
+				continue;
+			}
+			$args = isset( $event['args'] ) ? (array) $event['args'] : array();
+			$when = isset( $event['new_timestamp'] ) ? (int) $event['new_timestamp'] : ( time() + 60 );
+			if ( ! empty( $event['schedule'] ) ) {
+				wp_schedule_event( $when, $event['schedule'], $event['hook'], $args );
+			} else {
+				wp_schedule_single_event( $when, $event['hook'], $args );
+			}
+			$moved++;
+		}
+	}
+
+	/**
+	 * @param array $event Cron event.
+	 * @return bool
+	 */
+	private function unschedule_event( $event ) {
+		$args = isset( $event['args'] ) ? (array) $event['args'] : array();
+		return (bool) wp_unschedule_event( (int) $event['timestamp'], $event['hook'], $args );
+	}
+
+	/**
+	 * @return array
+	 */
+	private function cron_events() {
+		$cron = _get_cron_array();
+		$rows = array();
+		if ( ! is_array( $cron ) ) {
+			return $rows;
+		}
+		foreach ( $cron as $timestamp => $hooks ) {
+			foreach ( (array) $hooks as $hook => $events ) {
+				$owner = $this->callback_plugin_name( $hook );
+				$flags = Luxe_Conductor_Registry::event_flags( $hook, $owner );
+				foreach ( (array) $events as $key => $event ) {
+					$rows[] = array_merge(
+						$flags,
+						array(
+							'hook'      => $hook,
+							'timestamp' => (int) $timestamp,
+							'key'       => $key,
+							'args'      => isset( $event['args'] ) ? (array) $event['args'] : array(),
+							'schedule'  => isset( $event['schedule'] ) ? $event['schedule'] : '',
+							'interval'  => isset( $event['interval'] ) ? (int) $event['interval'] : 0,
+						)
+					);
+				}
+			}
+		}
+		return $rows;
 	}
 
 	/**

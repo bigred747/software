@@ -92,8 +92,8 @@ class Luxe_Conductor_Dispatcher {
 	 * @return array{0:int,1:int}
 	 */
 	public static function next_cap( $duration, $previous_cap, $fast_streak ) {
-		$cap    = max( 1, min( 3, (int) $previous_cap ) );
-		$streak = max( 0, (int) $fast_streak );
+		$cap      = max( 1, min( 3, (int) $previous_cap ) );
+		$streak   = max( 0, (int) $fast_streak );
 		$duration = (float) $duration;
 		if ( $duration <= 0 ) {
 			return array( 1, 0 );
@@ -110,4 +110,70 @@ class Luxe_Conductor_Dispatcher {
 		}
 		return array( $cap, 0 );
 	}
+
+	/**
+	 * Give a stalled hook a real future timestamp.
+	 * A past duplicate behind an upcoming run is removed.
+	 * Protected plugins get the same repair, so a late store hook is scheduled again instead of left red.
+	 *
+	 * @param array $events Events with hook, timestamp, protected.
+	 * @param int   $now    Unix time.
+	 * @return array
+	 */
+	public static function catch_up( $events, $now ) {
+		$now    = (int) $now;
+		$grace  = 900;
+		$groups = array();
+		foreach ( (array) $events as $event ) {
+			if ( ! is_array( $event ) || empty( $event['hook'] ) ) {
+				continue;
+			}
+			$groups[ $event['hook'] ][] = $event;
+		}
+		$drop = array();
+		$move = array();
+		$slot = 1;
+		foreach ( $groups as $group ) {
+			$future = array();
+			$soon   = array();
+			$stale  = array();
+			foreach ( $group as $event ) {
+				$ts = isset( $event['timestamp'] ) ? (int) $event['timestamp'] : 0;
+				if ( $ts > $now ) {
+					$future[] = $event;
+				} elseif ( ( $now - $ts ) <= $grace ) {
+					$soon[] = $event;
+				} else {
+					$stale[] = $event;
+				}
+			}
+			if ( ! $stale ) {
+				continue;
+			}
+			if ( $future || $soon ) {
+				foreach ( $stale as $event ) {
+					$drop[] = $event;
+				}
+				continue;
+			}
+			usort(
+				$stale,
+				function ( $a, $b ) {
+					return (int) $a['timestamp'] - (int) $b['timestamp'];
+				}
+			);
+			$keep = array_shift( $stale );
+			foreach ( $stale as $event ) {
+				$drop[] = $event;
+			}
+			$keep['new_timestamp'] = $now + ( 60 * $slot );
+			$move[]                = $keep;
+			$slot++;
+		}
+		return array(
+			'drop' => $drop,
+			'move' => $move,
+		);
+	}
+
 }

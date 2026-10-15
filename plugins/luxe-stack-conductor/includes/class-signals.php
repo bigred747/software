@@ -183,24 +183,24 @@ class Luxe_Conductor_Signals {
 	 * @return array
 	 */
 	private static function hook_signal( $hook, $now ) {
-		$name     = (string) $hook['hook'];
-		$next     = isset( $hook['next'] ) ? (int) $hook['next'] : 0;
-		$interval = isset( $hook['interval'] ) ? (int) $hook['interval'] : 0;
+		$name = (string) $hook['hook'];
+		$next = isset( $hook['next'] ) ? (int) $hook['next'] : 0;
 		if ( $next <= 0 ) {
 			return self::signal( 'cron-' . $name, $name, 'red', $name . ' has no next run.', $name );
 		}
-		$late = $now - $next;
+		$interval = isset( $hook['interval'] ) ? (int) $hook['interval'] : 0;
+		$late     = $now - $next;
 		if ( $late <= 0 ) {
 			return self::signal( 'cron-' . $name, $name, 'green', 'Scheduled. Next run is in ' . self::span( $next - $now ) . '.', $name );
 		}
 		if ( $late <= 900 ) {
-			return self::signal( 'cron-' . $name, $name, 'green', 'Due. Conductor will give it a clear slot within ' . self::span( $late ) . '.', $name );
+			return self::signal( 'cron-' . $name, $name, 'green', 'Due. Next clear slot is within ' . self::span( $late ) . '.', $name );
 		}
 		$yellow_for = max( 3600, $interval * 2 );
 		if ( $late <= $yellow_for ) {
-			return self::signal( 'cron-' . $name, $name, 'yellow', 'Overdue by ' . self::span( $late ) . '. One heavy learner runs per slot.', $name );
+			return self::signal( 'cron-' . $name, $name, 'yellow', 'Overdue by ' . self::span( $late ) . '. The queue has not given this hook a future run yet.', $name );
 		}
-		return self::signal( 'cron-' . $name, $name, 'red', 'Stalled for ' . self::span( $late ) . '. Point Hostinger cron at wp-cron.php every 5 minutes.', $name );
+		return self::signal( 'cron-' . $name, $name, 'red', 'Stalled for ' . self::span( $late ) . '. No future run is stored for this hook.', $name );
 	}
 
 	/**

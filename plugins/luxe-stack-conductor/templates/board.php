@@ -68,7 +68,7 @@ $log    = ( isset( $log ) && is_array( $log ) ) ? $log : array();
 		<div>
 			<p class="lxc-kicker">LuxeTrendsetters · stack conductor</p>
 			<h1>Luxe Stack Conductor <?php echo esc_html( LUXE_CONDUCTOR_VERSION ); ?></h1>
-			<p class="lxc-lead">Every installed plugin has a process signal. Green means that process passed. Heavy 24/7 learners take turns, one lane at a time, so cron finishes instead of stacking forty jobs on the same second.</p>
+			<p class="lxc-lead">Every installed plugin has a process signal. Green means that check is true right now: the plugin is active, and a learning hook is green only when a next run is actually stored. Opening this screen gives each stalled hook a real future run, then reads the queue again.</p>
 		</div>
 		<form method="post">
 			<?php wp_nonce_field( 'luxe_conductor_snapshot' ); ?>
