@@ -4,7 +4,7 @@ Tags: cron, woocommerce, luxetrendsetters
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -28,6 +28,9 @@ Every 5 minutes the conductor stores a read-only snapshot and learns which hooks
 4. Point Hostinger cron at wp-cron.php every 5 minutes so learning does not wait for a visitor.
 
 == Changelog ==
+
+= 1.0.2 =
+* `luxe_wzs_watchdog_tick` and any other stalled hook are rewritten in the cron queue. The old timestamp is removed and a future run is stored before the board is read.
 
 = 1.0.1 =
 * A stalled cron hook gets a real future run before the board is read. Green means that next run is stored, or the check passed. An overdue hook with no future run stays yellow or red.

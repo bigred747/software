@@ -1,8 +1,8 @@
-# Luxe Stack Conductor 1.0.1
+# Luxe Stack Conductor 1.0.2
 
 Upload the zip from the repository `dist/` folder:
 
-`dist/Luxe-Stack-Conductor-v1.0.1.zip`
+`dist/Luxe-Stack-Conductor-v1.0.2.zip`
 
 Plugins → Add Plugin → Upload Plugin → Install Now → Activate.
 

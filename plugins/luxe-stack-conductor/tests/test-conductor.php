@@ -91,7 +91,7 @@ $installed = array(
 	array( 'name' => 'LiteSpeed Cache', 'version' => '7.9.1', 'active' => true ),
 	array( 'name' => 'WZone - WooCommerce Amazon Affiliates', 'version' => '15.3.0', 'active' => true ),
 	array( 'name' => 'Luxe Affiliate Product Scout', 'version' => '5.6.8', 'active' => true ),
-	array( 'name' => 'Luxe Stack Conductor', 'version' => '1.0.1', 'active' => true ),
+	array( 'name' => 'Luxe Stack Conductor', 'version' => '1.0.2', 'active' => true ),
 	array( 'name' => 'Luxe WZone Stats Guardian', 'version' => '1.2.0', 'active' => true ),
 	array( 'name' => 'Richard Brummer SEO Mission Control', 'version' => '1.8.0', 'active' => true ),
 	array( 'name' => 'Luxe Score Repair', 'version' => '1.1.0', 'active' => false ),
@@ -137,7 +137,7 @@ $late = Luxe_Conductor_Signals::board(
 		array( 'name' => 'Rank Math SEO', 'version' => '1.0.280', 'active' => true ),
 		array( 'name' => 'LiteSpeed Cache', 'version' => '7.9.1', 'active' => true ),
 		array( 'name' => 'WZone - WooCommerce Amazon Affiliates', 'version' => '15.3.0', 'active' => true ),
-		array( 'name' => 'Luxe Stack Conductor', 'version' => '1.0.1', 'active' => true ),
+		array( 'name' => 'Luxe Stack Conductor', 'version' => '1.0.2', 'active' => true ),
 	),
 	array(
 		array( 'hook' => 'laps_learn', 'next' => $now - 50 * 60, 'interval' => 300 ),
@@ -237,7 +237,38 @@ foreach ( $caught['drop'] as $event ) {
 	$dropped[] = $event['hook'] . '@' . $event['timestamp'];
 }
 expect( in_array( 'rank_math_ping@' . ( $now - 86400 ), $dropped, true ), 'a stale Rank Math timestamp behind a future run is removed' );
-expect( ! isset( $moved_hooks['rank_math_ping'] ), 'Rank Math keeps the future run it already has' );
+expect( Luxe_Conductor_Dispatcher::display_next( array( $now - 86400, $now + 3600 ), $now ) === ( $now + 3600 ), 'a future run is shown ahead of a stalled copy' );
+
+$stale = $now - ( 14 * 86400 );
+$watch_key = md5( serialize( array() ) );
+$watch_cron = array(
+	$stale => array(
+		'luxe_wzs_watchdog_tick' => array(
+			$watch_key => array(
+				'schedule' => 'hourly',
+				'args'     => array(),
+				'interval' => 3600,
+			),
+		),
+	),
+);
+$watch_plan = Luxe_Conductor_Dispatcher::catch_up(
+	array(
+		array(
+			'hook'      => 'luxe_wzs_watchdog_tick',
+			'timestamp' => $stale,
+			'key'       => $watch_key,
+			'args'      => array(),
+			'schedule'  => 'hourly',
+			'interval'  => 3600,
+		),
+	),
+	$now
+);
+$watch_cron = Luxe_Conductor_Dispatcher::apply_cron( $watch_cron, $watch_plan );
+$watch_times = array_keys( $watch_cron );
+expect( 1 === count( $watch_times ) && $watch_times[0] > $now, 'the 14 day WZone watchdog time is replaced' );
+expect( isset( $watch_cron[ $watch_times[0] ]['luxe_wzs_watchdog_tick'] ), 'luxe_wzs_watchdog_tick has that new run' );
 
 if ( $fail ) {
 	echo "\n$fail failed\n";

@@ -390,24 +390,28 @@ class Luxe_Conductor_Plugin {
 		if ( ! is_array( $cron ) ) {
 			return array();
 		}
+		$stamps = array();
+		$intervals = array();
 		foreach ( $cron as $timestamp => $hooks ) {
 			foreach ( (array) $hooks as $hook => $events ) {
-				$next = (int) $timestamp;
-				if ( ! isset( $best[ $hook ] ) || $next < $best[ $hook ]['next'] ) {
-					$interval = 0;
+				$stamps[ $hook ][] = (int) $timestamp;
+				if ( ! isset( $intervals[ $hook ] ) ) {
 					foreach ( (array) $events as $event ) {
 						if ( isset( $event['interval'] ) ) {
-							$interval = (int) $event['interval'];
+							$intervals[ $hook ] = (int) $event['interval'];
 							break;
 						}
 					}
-					$best[ $hook ] = array(
-						'hook'     => $hook,
-						'next'     => $next,
-						'interval' => $interval,
-					);
 				}
 			}
+		}
+		$now = time();
+		foreach ( $stamps as $hook => $times ) {
+			$best[ $hook ] = array(
+				'hook'     => $hook,
+				'next'     => Luxe_Conductor_Dispatcher::display_next( $times, $now ),
+				'interval' => isset( $intervals[ $hook ] ) ? (int) $intervals[ $hook ] : 0,
+			);
 		}
 		return array_values( $best );
 	}
@@ -454,39 +458,22 @@ class Luxe_Conductor_Plugin {
 	 * Replace stalled timestamps with a real future run, then the board reads that run.
 	 */
 	private function catch_up_queue() {
-		if ( ! function_exists( '_get_cron_array' ) || ! function_exists( 'wp_unschedule_event' ) ) {
+		if ( ! function_exists( '_get_cron_array' ) || ! function_exists( '_set_cron_array' ) ) {
 			return;
 		}
-		$plan  = Luxe_Conductor_Dispatcher::catch_up( $this->cron_events(), time() );
-		$moved = 0;
-		foreach ( $plan['drop'] as $event ) {
-			$this->unschedule_event( $event );
+		$cron = _get_cron_array();
+		if ( ! is_array( $cron ) ) {
+			return;
 		}
-		foreach ( $plan['move'] as $event ) {
-			if ( $moved >= 40 ) {
-				break;
-			}
-			if ( ! $this->unschedule_event( $event ) ) {
-				continue;
-			}
-			$args = isset( $event['args'] ) ? (array) $event['args'] : array();
-			$when = isset( $event['new_timestamp'] ) ? (int) $event['new_timestamp'] : ( time() + 60 );
-			if ( ! empty( $event['schedule'] ) ) {
-				wp_schedule_event( $when, $event['schedule'], $event['hook'], $args );
-			} else {
-				wp_schedule_single_event( $when, $event['hook'], $args );
-			}
-			$moved++;
+		$plan = Luxe_Conductor_Dispatcher::catch_up( $this->cron_events(), time() );
+		if ( empty( $plan['drop'] ) && empty( $plan['move'] ) ) {
+			return;
 		}
-	}
-
-	/**
-	 * @param array $event Cron event.
-	 * @return bool
-	 */
-	private function unschedule_event( $event ) {
-		$args = isset( $event['args'] ) ? (array) $event['args'] : array();
-		return (bool) wp_unschedule_event( (int) $event['timestamp'], $event['hook'], $args );
+		if ( count( $plan['move'] ) > 40 ) {
+			$plan['move'] = array_slice( $plan['move'], 0, 40 );
+		}
+		$updated = Luxe_Conductor_Dispatcher::apply_cron( $cron, $plan );
+		_set_cron_array( $updated );
 	}
 
 	/**

@@ -176,4 +176,95 @@ class Luxe_Conductor_Dispatcher {
 		);
 	}
 
+	/**
+	 * Write the catch-up plan into a WordPress cron array.
+	 * Edits the array directly so a failed wp_unschedule_event cannot leave the stale time in place.
+	 *
+	 * @param array $cron Cron option value.
+	 * @param array $plan Catch-up plan.
+	 * @return array
+	 */
+	public static function apply_cron( $cron, $plan ) {
+		if ( ! is_array( $cron ) ) {
+			$cron = array();
+		}
+		$touched = array();
+		if ( ! empty( $plan['drop'] ) ) {
+			$touched = array_merge( $touched, $plan['drop'] );
+		}
+		if ( ! empty( $plan['move'] ) ) {
+			$touched = array_merge( $touched, $plan['move'] );
+		}
+		foreach ( $touched as $event ) {
+			if ( empty( $event['hook'] ) ) {
+				continue;
+			}
+			$ts   = (int) $event['timestamp'];
+			$hook = (string) $event['hook'];
+			if ( ! isset( $cron[ $ts ][ $hook ] ) ) {
+				continue;
+			}
+			if ( isset( $event['key'] ) && isset( $cron[ $ts ][ $hook ][ $event['key'] ] ) ) {
+				unset( $cron[ $ts ][ $hook ][ $event['key'] ] );
+			} else {
+				unset( $cron[ $ts ][ $hook ] );
+			}
+			if ( empty( $cron[ $ts ][ $hook ] ) ) {
+				unset( $cron[ $ts ][ $hook ] );
+			}
+			if ( empty( $cron[ $ts ] ) ) {
+				unset( $cron[ $ts ] );
+			}
+		}
+		foreach ( (array) $plan['move'] as $event ) {
+			if ( empty( $event['hook'] ) || empty( $event['new_timestamp'] ) ) {
+				continue;
+			}
+			$when = (int) $event['new_timestamp'];
+			$hook = (string) $event['hook'];
+			$args = isset( $event['args'] ) ? (array) $event['args'] : array();
+			$schedule = ! empty( $event['schedule'] ) ? $event['schedule'] : false;
+			$stored   = array(
+				'schedule' => $schedule,
+				'args'     => $args,
+			);
+			if ( $schedule && ! empty( $event['interval'] ) ) {
+				$stored['interval'] = (int) $event['interval'];
+			}
+			$key = md5( serialize( $args ) );
+			if ( ! isset( $cron[ $when ] ) || ! is_array( $cron[ $when ] ) ) {
+				$cron[ $when ] = array();
+			}
+			$cron[ $when ][ $hook ][ $key ] = $stored;
+		}
+		ksort( $cron );
+		return $cron;
+	}
+
+	/**
+	 * The next run the board should show. A future timestamp wins over an older stalled one.
+	 *
+	 * @param array $timestamps Timestamps.
+	 * @param int   $now        Unix time.
+	 * @return int
+	 */
+	public static function display_next( $timestamps, $now ) {
+		$now    = (int) $now;
+		$future = array();
+		$all    = array();
+		foreach ( (array) $timestamps as $ts ) {
+			$ts    = (int) $ts;
+			$all[] = $ts;
+			if ( $ts > $now ) {
+				$future[] = $ts;
+			}
+		}
+		if ( $future ) {
+			return min( $future );
+		}
+		if ( $all ) {
+			return min( $all );
+		}
+		return 0;
+	}
 }
