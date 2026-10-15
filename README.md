@@ -2,6 +2,22 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Stack Conductor 1.0.2
+
+One queue for every 24/7 learner. A green signal is stored only when the check is true. Opening the screen replaces a stalled hook, including `luxe_wzs_watchdog_tick`, with a real next run, then reads that run.
+
+Upload this zip:
+
+[dist/Luxe-Stack-Conductor-v1.0.2.zip](dist/Luxe-Stack-Conductor-v1.0.2.zip)
+
+SHA-256 `063f345a8f4068c1eed4e9019f6892d074a96f47ff0f7d33dfcf4fc1a34f616d`
+
+Direct download:
+
+https://github.com/bigred747/software/raw/cursor/stack-conductor-0963/dist/Luxe-Stack-Conductor-v1.0.2.zip
+
+Then activate it and open **Luxe Conductor**. Leave the rest of the stack active. Point Hostinger cron at `wp-cron.php` every 5 minutes.
+
 ## Luxe Mission Score Repair 1.0.0
 
 Repairs the four Mission Control 1.8.0 checks that hold the verified score at 93. It does not publish and does not rewrite Amazon retail URLs.
