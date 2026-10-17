@@ -56,6 +56,17 @@ class Luxe_Google_Presence_Contract {
 			. '<aside class="lgp-stay"><p class="lgp-stay-note"></p></aside>'
 			. '</body></html>';
 		$repaired = Luxe_Google_Presence_Visitor::repair( $sample );
+		$cache_headers = Luxe_Google_Presence_Cache::public_headers(
+			array(
+				'Expires: Thu, 19 Nov 1981 08:52:00 GMT',
+				'Pragma: no-cache',
+				'Cache-Control: public, max-age=600, s-maxage=600',
+				'Set-Cookie: PHPSESSID=abc; path=/; secure; HttpOnly',
+				'Set-Cookie: wp_woocommerce_session_1=keep; path=/',
+				'X-Frame-Options: SAMEORIGIN',
+			)
+		);
+		$cache_joined = implode( "\n", $cache_headers );
 		$dept     = Luxe_Google_Presence_Visitor::redirect_url(
 			'/item-weight/2-71-pounds/',
 			array(
@@ -121,6 +132,21 @@ class Luxe_Google_Presence_Contract {
 			Luxe_Google_Presence_Score::signal( 'visitor_junk', 'Weight filters are not departments', '' === Luxe_Google_Presence_Visitor::redirect_url( '/shop/', array(), 'https://luxetrendsetters.com/shop/' ) && false !== strpos( $dept, '/macbooks/' ) && false === strpos( $dept, 'amazon.' ), $dept ),
 			Luxe_Google_Presence_Score::signal( 'visitor_stable', 'A second pass does not change the page', $repaired === Luxe_Google_Presence_Visitor::repair( $repaired ), 'Labels and links are repaired once' ),
 			Luxe_Google_Presence_Score::signal( 'visitor_mobile', 'Phone layout can show the full product name', false !== strpos( $css, 'white-space: normal' ) && false !== strpos( $css, '.lgp-variant' ), 'Titles wrap instead of clipping the last word' ),
+			Luxe_Google_Presence_Score::signal(
+				'public_cache',
+				'Anonymous catalog pages can be cached',
+				Luxe_Google_Presence_Cache::can_release( 'GET', '/', false, '', array() )
+					&& ! Luxe_Google_Presence_Cache::can_release( 'GET', '/cart/', false, '', array() )
+					&& ! Luxe_Google_Presence_Cache::can_release( 'GET', '/checkout/', false, '', array() )
+					&& ! Luxe_Google_Presence_Cache::can_release( 'GET', '/?add-to-cart=5', false, '', array() )
+					&& ! Luxe_Google_Presence_Cache::can_release( 'POST', '/', false, '', array() )
+					&& ! Luxe_Google_Presence_Cache::can_release( 'GET', '/', false, 'PHPSESSID=shopper', array( 'cart' => array( 'item' ) ) )
+					&& false === stripos( $cache_joined, 'PHPSESSID' )
+					&& false !== strpos( $cache_joined, 'wp_woocommerce_session_1=keep' )
+					&& false === strpos( $cache_joined, '1981' )
+					&& false === stripos( $cache_joined, 'no-cache' ),
+				'An empty PHP session is dropped. Cart cookies and a real shopper session stay.'
+			),
 		);
 
 		return Luxe_Google_Presence_Score::decide(

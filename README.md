@@ -2,13 +2,13 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Google Presence 1.1.0
+## Luxe Google Presence 1.2.0
 
 The plugin name in WordPress is **Luxe Google Presence**.
 
 **Upload this file. Do not unzip it.** On an iPhone, download it in Safari to Files, then install it from the site admin in the browser: Plugins → Add New → Upload Plugin.
 
-[luxe-google-presence.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/google-presence-6699/luxe-google-presence.zip)
+[luxe-google-presence.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/presence-session-cache-6699/luxe-google-presence.zip)
 
 WordPress PclZip package. Size **145KB**.
 

@@ -15,7 +15,7 @@ OUTPUTS = [
     DEST_DIR / "luxe-google-presence.zip",
     DEST_DIR / "Luxe-Google-Presence.zip",
     DEST_DIR / "luxe-google-presence-windows11-wordpress.zip",
-    DEST_DIR / "dist" / "Luxe-Google-Presence-v1.1.0.zip",
+    DEST_DIR / "dist" / "Luxe-Google-Presence-v1.2.0.zip",
 ]
 TARGET = 145 * 1024
 SKIP_PARTS = {"tests", "bin"}
@@ -63,7 +63,7 @@ def png_pad(png: bytes, extra: int) -> bytes:
         raise SystemExit("PNG IEND missing")
     before, iend = png[: pos - 4], png[pos - 4 :]
     extra = max(0, extra)
-    payload = b"Comment\x00Luxe Google Presence 1.1.0 Windows 11 WordPress package." + (b"\n" * extra)
+    payload = b"Comment\x00Luxe Google Presence 1.2.0 Windows 11 WordPress package." + (b"\n" * extra)
     block = b"tEXt" + payload
     crc = zlib.crc32(block) & 0xFFFFFFFF
     return before + struct.pack(">I", len(payload)) + block + struct.pack(">I", crc) + iend
@@ -185,7 +185,7 @@ def main() -> None:
         if name == f"{SLUG}/{SLUG}.php":
             header = data
             break
-    if not header or b"Plugin Name: Luxe Google Presence" not in header:
+    if not header or b"Plugin Name: Luxe Google Presence" not in header or b"Version: 1.2.0" not in header:
         raise SystemExit("Plugin header missing")
     for dest in OUTPUTS:
         dest.parent.mkdir(parents=True, exist_ok=True)

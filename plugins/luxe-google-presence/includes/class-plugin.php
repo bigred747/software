@@ -35,6 +35,7 @@ class Luxe_Google_Presence_Plugin {
 			'onsite_compare'  => 1,
 			'visitor_repair'  => 1,
 			'junk_redirect'   => 1,
+			'public_cache'    => 1,
 			'verification'    => '',
 		);
 	}
@@ -61,6 +62,7 @@ class Luxe_Google_Presence_Plugin {
 	 * Register modules.
 	 */
 	public function boot() {
+		Luxe_Google_Presence_Cache::instance()->boot();
 		Luxe_Google_Presence_Device::instance()->boot();
 		Luxe_Google_Presence_Engage::instance()->boot();
 		if ( is_admin() ) {

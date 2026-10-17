@@ -12,7 +12,7 @@ $token            = isset( $settings['verification'] ) ? (string) $settings['ver
 	<header class="lgp-hero">
 		<p class="lgp-kicker">LuxeTrendsetters · computer and mobile</p>
 		<h1>Luxe Google Presence <?php echo esc_html( LUXE_GOOGLE_PRESENCE_VERSION ); ?></h1>
-		<p class="lgp-lead">Google can read one page on a computer and on a phone. Shoppers compare guides here, then use the Amazon button already on the page. Weight and size filters go to the matching department. The generic affiliate line is replaced with Amazon’s required sentence. This plugin does not buy traffic, invent rankings, connect AdSense, or send people to Amazon without a click.</p>
+		<p class="lgp-lead">Google can read one page on a computer and on a phone. Shoppers compare guides here, then use the Amazon button already on the page. Weight and size filters go to the matching department. Anonymous catalog pages drop an empty PHP session so LiteSpeed can cache them. Cart, checkout, and a shopper who already has a session are left alone. This plugin does not buy traffic, invent rankings, connect AdSense, or send people to Amazon without a click.</p>
 	</header>
 
 	<section class="lgp-scorebar">
@@ -100,6 +100,10 @@ $token            = isset( $settings['verification'] ) ? (string) $settings['ver
 				<tr>
 					<th scope="row">Filter archives</th>
 					<td><label><input type="checkbox" name="junk_redirect" value="1" <?php checked( ! empty( $settings['junk_redirect'] ) ); ?> /> 301 from item weight and similar filters to the shared department, or the shop</label></td>
+				</tr>
+				<tr>
+					<th scope="row">Cache anonymous pages</th>
+					<td><label><input type="checkbox" name="public_cache" value="1" <?php checked( ! empty( $settings['public_cache'] ) ); ?> /> Drop a brand-new empty PHP session on public reads so the page can be cached. Cart, checkout, account, and an existing shopper session stay.</label></td>
 				</tr>
 				<tr>
 					<th scope="row"><label for="lgp-verification">Search Console token</label></th>
