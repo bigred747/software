@@ -1,0 +1,55 @@
+const fs = require("fs");
+const vm = require("vm");
+const assert = require("assert");
+const path = require("path");
+const root = path.join(__dirname, "..");
+const context = {};
+vm.createContext(context);
+vm.runInContext(fs.readFileSync(path.join(root, "book.js"), "utf8"), context);
+vm.runInContext(fs.readFileSync(path.join(root, "engine.js"), "utf8"), context);
+vm.runInContext(fs.readFileSync(path.join(root, "diagrams.js"), "utf8"), context);
+const E = context.CougarEngine;
+const B = context.COUGAR_BOOK;
+const D = context.CougarDiagrams;
+
+const audit = E.dataAudit(B);
+assert.strictEqual(audit.ok, true, audit.problems.join("; "));
+assert.strictEqual(E.trickAudit(B).ok, true);
+assert.strictEqual(D.audit(B, E.TRICKS).ok, true);
+assert.strictEqual(B.games.length, 119);
+assert.strictEqual(E.tenYearSeasons ? null : null, null);
+assert.strictEqual(B.seasons.filter(function (s) { return !s.live; }).length, 10);
+
+assert.strictEqual(E.bestDefense(B, { season: 2016, down: 1, distance: 10, zone: "mid" }).call.id, "odd-cover3");
+assert.strictEqual(E.bestDefense(B, { season: 2026, down: 1, distance: 10, zone: "mid" }).call.id, "nickel-quarters");
+assert.strictEqual(E.bestDefense(B, { season: 2026, down: 3, distance: 12, zone: "mid" }).call.id, "nickel-quarters");
+assert.strictEqual(E.bestDefense(B, { season: 2019, down: 1, distance: 3, zone: "goal" }).call.id, "bear-goalline");
+const poudre = B.games.find(function (g) { return g.id === "2018-11-02-poudre"; });
+assert.strictEqual(E.bestDefense(B, { game: poudre, down: 1, distance: 10, zone: "mid" }).call.id, "nickel-cover2");
+
+B.games.forEach(function (game) {
+  const tricks = E.trickPlaysForGame(B, game);
+  assert.ok(tricks.length >= 1 && tricks.length <= 2, game.id);
+});
+const east = E.trickPlaysForGame(B, B.games.find(function (g) { return g.id === "2017-09-07-denver-east"; }));
+assert.ok(east.some(function (t) { return t.kind === "published" && t.id === "fake-punt" && t.source; }));
+
+assert.strictEqual(E.nextGame(B, "2026-10-17").opponent, "Northfield");
+const live = E.mergeBook(B, { updates: [{ id: "2026-10-23-northfield", patch: { ctScore: 21, oppScore: 14 } }] });
+assert.strictEqual(E.nextGame(live, "2026-10-17").opponent, "Castle View");
+assert.strictEqual(live.seasons.find(function (s) { return s.id === 2026; }).liveRecord, "5-4");
+assert.strictEqual(B.seasons.find(function (s) { return s.id === 2026; }).pf, 263);
+
+const model = E.applyLearning(E.emptyModel(B), { id: "a", callId: "nickel-quarters", yards: 1, touchdown: false });
+assert.strictEqual(model.model.weights["nickel-quarters"], 1.1);
+assert.strictEqual(E.safeText("North\nfield", 20), "Northfield");
+assert.strictEqual(E.safeId("../photo"), "photo");
+assert.strictEqual(E.opponents(B).some(function (row) { return row.name === "Cherry Creek"; }), true);
+assert.strictEqual(E.bestOffense(B, { season: 2026, situation: "standard" }).best.id, "mesh");
+const creek = E.opponents(B).find(function (row) { return row.name === "Cherry Creek"; });
+assert.strictEqual(creek.record.wins, 0);
+var board = E.signals(B, { now: 10000, lastBeat: 9500, publishedBook: B, photosOk: true, picturesOk: true, storageOk: true, updateReady: true });
+assert.strictEqual(board.ok, true, board.rows.filter(function (row) { return !row.ok; }).map(function (row) { return row.id + ": " + row.detail; }).join("; "));
+assert.ok(board.rows.every(function (row) { return !/15-minute|scheduled task/i.test(row.name + " " + row.detail); }));
+
+console.log("engine tests passed");

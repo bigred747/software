@@ -1,0 +1,31 @@
+Cougar Defense
+A standalone program for the defensive coordinator.
+
+It is not a website. It does not need an account. It does not send film, photos, or calls anywhere. Unzip this folder and keep it on the computer or phone you coach from.
+
+Windows 11
+1. Unzip the folder.
+2. Double-click "Open Cougar Defense".
+3. It opens in its own window.
+
+Phone or tablet
+1. Copy this whole folder onto the phone.
+2. Open index.html in the browser.
+3. Use the browser menu and choose Add to Home Screen.
+
+What is inside
+- This week's defensive install against Cherokee Trail.
+- A job for the line, the linebackers, the safeties, and the corners.
+- Wrap blitzes, with the check-out.
+- One or two trick alerts for every game.
+- A picture of every defense and every offensive play.
+- The scout card for each opponent from 2016 through this season.
+- A separate sheet you can hand to the offensive coordinator.
+
+After each game
+Open "After the game." Enter the score and what they ran. Install a photo of the new look if you have one. The install updates on this device.
+
+While the window is open
+The program checks the book about once a second and adjusts the calls from the film you enter. The Checks page stays green while that is running. Close the window and the check pauses. Nothing else runs on the computer.
+
+The public record does not include every snap from the last ten years. Where a play was not published, the card says so. Your film replaces that.
