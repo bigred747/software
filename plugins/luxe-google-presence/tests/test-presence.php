@@ -9,6 +9,7 @@ require dirname( __DIR__ ) . '/includes/class-score.php';
 require dirname( __DIR__ ) . '/includes/class-anchors.php';
 require dirname( __DIR__ ) . '/includes/class-copy.php';
 require dirname( __DIR__ ) . '/includes/class-visitor.php';
+require dirname( __DIR__ ) . '/includes/class-cache.php';
 require dirname( __DIR__ ) . '/includes/class-compat.php';
 require dirname( __DIR__ ) . '/includes/class-contract.php';
 require dirname( __DIR__ ) . '/includes/class-scan.php';
@@ -126,51 +127,56 @@ if ( strlen( $desktop ) < 500 || strlen( $mobile ) < 500 || strlen( $robots ) < 
 	expect( $home_fixed['price'] && ! $home_fixed['bad_disclosure'] && $home_fixed['hrefs'] && $home_fixed['products'] && $home_fixed['stable'], 'homepage repair restores the price line without touching links' );
 }
 
-$item_pages = array(
-	'/tmp/weight.html' => 'https://luxetrendsetters.com/item-weight/2-71-pounds/',
-	'/tmp/ounces.html' => 'https://luxetrendsetters.com/item-weight/1-12-ounces/',
+expect( Luxe_Google_Presence_Cache::can_release( 'GET', '/', false, '', array() ), 'homepage read can drop an empty session' );
+expect( Luxe_Google_Presence_Cache::can_release( 'HEAD', '/product/watch/', false, 'other=1' ), 'a product read can drop an empty session' );
+expect( ! Luxe_Google_Presence_Cache::can_release( 'GET', '/cart/', false, '', array() ), 'cart keeps its session' );
+expect( ! Luxe_Google_Presence_Cache::can_release( 'GET', '/checkout/', false, '', array() ), 'checkout keeps its session' );
+expect( ! Luxe_Google_Presence_Cache::can_release( 'GET', '/my-account/', false, '', array() ), 'account keeps its session' );
+expect( ! Luxe_Google_Presence_Cache::can_release( 'GET', '/?add-to-cart=12', false, '', array() ), 'add-to-cart keeps its session' );
+expect( ! Luxe_Google_Presence_Cache::can_release( 'POST', '/', false, '', array() ), 'a form post keeps its session' );
+expect( ! Luxe_Google_Presence_Cache::can_release( 'GET', '/', true, '', array() ), 'a logged-in visitor keeps the session' );
+expect( ! Luxe_Google_Presence_Cache::can_release( 'GET', '/', false, 'PHPSESSID=shopper', array( 'cart' => array( 'item' ) ) ), 'a shopper session is kept' );
+expect( Luxe_Google_Presence_Cache::session_is_empty( array( 'x' => '', 'y' => array() ) ), 'blank session values count as empty' );
+$cache_headers = Luxe_Google_Presence_Cache::public_headers(
+	array(
+		'Expires: Thu, 19 Nov 1981 08:52:00 GMT',
+		'Pragma: no-cache',
+		'Cache-Control: public, max-age=600, s-maxage=600',
+		'Set-Cookie: PHPSESSID=abc; path=/; secure; HttpOnly',
+		'Set-Cookie: wp_woocommerce_session_1=keep; path=/',
+	)
 );
-$weight_variants = 0;
-foreach ( $item_pages as $file => $url ) {
-	$html = lgp_fetch( $url, 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' );
-	if ( strlen( $html ) < 500 && is_readable( $file ) ) {
-		$html = file_get_contents( $file );
-		$html = is_string( $html ) ? $html : '';
-	}
-	echo 'SCAN ' . $url . ' bytes ' . strlen( $html ) . "\n";
-	expect( strlen( $html ) > 5000, 'fetched ' . $url );
-	if ( strlen( $html ) < 500 ) {
-		continue;
-	}
-	$before_bad = false !== stripos( $html, 'may contain affiliate links' );
-	$before_id  = (bool) preg_match( '/\balt="[0-9]{2}[A-Za-z0-9]{6,14}"/', $html );
-	$report     = Luxe_Google_Presence_Visitor::check( $html );
-	echo '  before-bad ' . ( $before_bad ? 'yes' : 'no' );
-	echo ' before-image-id ' . ( $before_id ? 'yes' : 'no' );
-	echo ' after-bad ' . ( $report['bad_disclosure'] ? 'yes' : 'no' );
-	echo ' official ' . ( $report['official'] ? 'yes' : 'no' );
-	echo ' price ' . ( $report['price'] ? 'yes' : 'no' );
-	echo ' image-id ' . ( $report['image_id'] ? 'STILL' : 'cleared' );
-	echo ' smartwatche-alt ' . ( $report['smartwatche'] ? 'STILL' : 'cleared' );
-	echo ' slug-alt ' . ( $report['slug_alt'] ? 'STILL' : 'cleared' );
-	echo ' amazon ' . ( $report['hrefs'] ? 'same' : 'CHANGED' ) . ' (' . $report['amazon_count'] . ')';
-	echo ' products ' . ( $report['products'] ? 'same' : 'CHANGED' );
-	echo ' junk-anchors ' . $report['junk_anchors'];
-	echo ' variants ' . $report['variants'];
-	echo ' stable ' . ( $report['stable'] ? 'yes' : 'no' ) . "\n";
-	expect( $before_bad, $url . ' still shows the generic disclosure before repair' );
-	expect( ! $report['bad_disclosure'], $url . ' generic disclosure is gone' );
-	expect( $report['official'] && $report['price'], $url . ' official Amazon lines are present' );
-	expect( ! $report['image_id'] && ! $report['smartwatche'] && ! $report['slug_alt'], $url . ' broken image labels are gone' );
-	expect( $report['hrefs'] && $report['amazon_count'] > 0, $url . ' Amazon hrefs stay intact' );
-	expect( $report['products'], $url . ' product permalinks stay intact' );
-	expect( 0 === $report['junk_anchors'], $url . ' filter links point at the shop' );
-	expect( $report['stable'], $url . ' repair is stable' );
-	if ( false !== strpos( $url, '2-71-pounds' ) ) {
-		$weight_variants = (int) $report['variants'];
-	}
+$cache_joined = implode( "\n", $cache_headers );
+expect( false === stripos( $cache_joined, 'PHPSESSID' ), 'public headers drop the PHP session cookie' );
+expect( false !== strpos( $cache_joined, 'wp_woocommerce_session_1=keep' ), 'public headers keep the WooCommerce cookie' );
+expect( false === strpos( $cache_joined, '1981' ) && false === stripos( $cache_joined, 'no-cache' ), 'public headers drop the session no-cache pair' );
+
+/**
+ * @param string $url URL.
+ * @return string
+ */
+function lgp_headers( $url ) {
+	$cmd = 'curl -sI --max-time 25 -A ' . escapeshellarg( 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15' ) . ' ' . escapeshellarg( $url );
+	$out = shell_exec( $cmd );
+	return is_string( $out ) ? $out : '';
 }
-expect( $weight_variants >= 7, 'macbook cards show storage and color' );
+
+$item_pages = array(
+	'https://luxetrendsetters.com/item-weight/2-71-pounds/',
+	'https://luxetrendsetters.com/item-weight/1-12-ounces/',
+	'https://luxetrendsetters.com/date-first-available/2026/',
+);
+foreach ( $item_pages as $url ) {
+	$hdr = lgp_headers( $url );
+	$location = '';
+	if ( preg_match( '/^location:\s*(\S+)/im', $hdr, $match ) ) {
+		$location = $match[1];
+	}
+	echo 'REDIRECT ' . $url . ' -> ' . $location . "\n";
+	expect( false !== strpos( $hdr, '301' ), $url . ' answers 301' );
+	expect( 0 === strpos( $location, 'https://luxetrendsetters.com/' ), $url . ' stays on this site' );
+	expect( false === stripos( $location, 'amazon.' ), $url . ' does not send shoppers to Amazon' );
+}
 
 if ( $fail > 0 ) {
 	echo "FAILED $fail\n";
