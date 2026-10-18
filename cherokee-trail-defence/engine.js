@@ -179,6 +179,8 @@ var CougarEngine = (function () {
     if (down >= 3 && distance <= 2 && zone !== "goal") {
       if (call.family === "goal") bonus += 200;
       if (call.id === "odd-cover3") bonus += 16;
+      if (call.id === "nickel-quarters") bonus -= 80;
+      if (call.family === "prevent") bonus -= 24;
     }
     if (down === 3 && distance >= 4 && distance <= 7 && call.family === "pressure") bonus += 18;
     if (situation.needStop && Number(tags.pass_explosive) >= 7 && call.id === "nickel-quarters") bonus += 24;
@@ -240,7 +242,6 @@ var CougarEngine = (function () {
   function explain(best, profile, situation) {
     var lines = [];
     lines.push(best.call.why);
-    lines.push(CONFIDENCE_TEXT[profile.confidence] || "");
     var leaders = topTags(profile.tags, 2).filter(function (row) { return row.value >= 4; });
     if (leaders.length) {
       lines.push("The strongest tells in this card are " + leaders.map(function (row) {
@@ -569,7 +570,7 @@ var CougarEngine = (function () {
         dl: { title: "Defensive line", align: "Punt rush, contain", job: "Rush the punter's side but stay in your lane. The end to the up-back squeezes inside-out and does not run past the ball. If you are deeper than the punter when the ball is still in the backfield, you are the man the fake is drawn for." },
         lb: { title: "Linebackers", align: "One spy, the rest in lanes", job: "The Mike is the spy. He does not rush. He watches the up-back's hands. If the up-back pulls the ball, the Mike fits him inside. The other backers stay in rush lanes and retrace if the ball stays in the backfield." },
         s: { title: "Safeties", align: "Deep, do not creep", job: "Stay at punt-return depth until you see a kick. A fake punt touchdown is usually a 30-yard throw or a run through the alley a safety left early. Come up only after the kick is away, or after the spy yells 'live'." },
-        cb: { title: "Corners", align: "Jam the gunners, find the ball", job: "Jam the gunner, then look back. If the ball is still in the punter's hands, abandon the gunner and fit the alley. Do not run 40 yards with a gunner on a ball that never left the backfield." }
+        cb: { title: "Corners", align: "Jam the gunners, find the ball", job: "Stay with the gunner until you find the ball. If it is still in the punter's hands, leave him and fit the alley. Do not run 40 yards with a gunner on a ball that never left the backfield." }
       }
     },
     {
@@ -611,7 +612,7 @@ var CougarEngine = (function () {
         dl: { title: "Defensive line", align: "Outside leverage on the reverse", job: "The end to the reverse squeezes with his outside arm free. He makes the ball carrier cut inside or throw from a crowded pocket. He does not dive inside and open the edge. The backside end stays home for the throwback." },
         lb: { title: "Linebackers", align: "Slow to the reverse, eyes on the ball", job: "Do not run yourself out of the play. Shuffle to the reverse until the ball is pitched. If the reverse man sets to throw, the Will on the backside finds the sit route. One backer has to be late to the reverse on purpose." },
         s: { title: "Safeties", align: "Backside safety stays on his hash", job: "The safety to the reverse can fit the alley late. The backside safety does not cross the formation. The throwback is aimed at the grass he would leave. He robs the sit, then carries the vertical." },
-        cb: { title: "Corners", align: "Backside corner stays home", job: "The corner to the reverse plays the pitch man as a runner until a throw starts. The backside corner does not chase the reverse across the field. His man is the throwback. Stay on top of him." }
+        cb: { title: "Corners", align: "Backside corner stays home", job: "The corner to the reverse plays the pitch man as a runner until a throw starts. The backside corner does not chase the reverse across the field. Stay on top of the receiver the throw is coming back to." }
       }
     },
     {
@@ -694,7 +695,7 @@ var CougarEngine = (function () {
       positions: {
         dl: { title: "Defensive line", align: "Contain the jet", job: "The end to the motion squeezes the jet and makes him run or throw flat-footed. Do not chase the motion inside. A jet who can set his feet will throw the wheel over the corner who just chased him." },
         lb: { title: "Linebackers", align: "Do not run with the motion", job: "The backer to the jet shuffles, he does not sprint. He fits the jet as a runner and walls a throw back inside. The backside backer stays in the middle for the quarterback, who still has a give." },
-        s: { title: "Safeties", align: "Motion does not move the free safety", job: "The free safety stays in the middle. Jet motion is not his trigger. He picks up the wheel if the corner bails with the jet. That is the throw." },
+        s: { title: "Safeties", align: "Motion does not move the free safety", job: "Jet motion is not the free safety's trigger. He picks up the wheel if the corner bails with the jet. That is the throw." },
         cb: { title: "Corners", align: "Outside man stays on the outside man", job: "The corner on the outside receiver does not follow the jet. His man is about to wheel. The nickel can widen with the motion, but he does it at a shuffle, with his eyes on the ball." }
       }
     },
@@ -752,13 +753,32 @@ var CougarEngine = (function () {
     }).map(function (row) { return row.trick; });
   }
 
+  var YOURS_NOTE = {
+    "fake-punt": "Keep a spy on the up-back. The rest of the rush stays in lanes.",
+    "flea-flicker": "One safety can fit the run. The other safety stays in the post.",
+    "reverse-pass": "Outside leverage on the reverse. The backside corner does not cross the field.",
+    "hook-and-ladder": "Two hats to the catch. One of them is for the trailer, not the receiver.",
+    "statue": "Rush wide on the side the quarterback is not looking.",
+    "fake-field-goal": "The wide-side end stays outside the holder instead of hitting the kicker.",
+    "jet-pop-pass": "The outside corner stays on his man. The end squeezes the jet before he can set his feet.",
+    "screen-and-wheel": "Stop the chase at the tackle. The slot who sold the block is the one who wheels."
+  };
+
+  function trickIntro(tricks) {
+    var list = tricks || [];
+    var published = list.filter(function (trick) { return trick.kind === "published"; }).length;
+    if (published && published < list.length) return "One alert was named in the game story. The other is your call, and Cherokee Trail was not reported to have run it.";
+    if (published) return "The game story named these. Defend them with the rules on the card.";
+    return "These are your alerts for this game. Cherokee Trail was not reported to have run them.";
+  }
+
   function decorateTrick(trick, game, season, kind, sourcePlay) {
     var coach = season && season.coachName ? season.coachName : "this staff";
     var why;
     if (kind === "published") {
       why = "Published trick in this game. " + (sourcePlay.text || trick.name) + " Source: " + (sourcePlay.source || "the game story") + ". Defend it with the rules on this card. It is not a down-and-distance play from their base offense.";
     } else {
-      why = "Your trick for " + gameShape(game) + ". " + coach + " is the coach of record for this season, and this call fits that season's published profile. " + trick.callOnce + " This is your play. It is not a play Cherokee Trail was reported to have run in this game.";
+      why = trick.callOnce + " " + (YOURS_NOTE[trick.id] || (coach + " is the coach of record, and this alert follows that season."));
     }
     return {
       id: trick.id,
@@ -1009,6 +1029,128 @@ var CougarEngine = (function () {
     return row[group];
   }
 
+  function cardLine(defense) {
+    var sit = (defense && defense.situation) || {};
+    var id = defense && defense.call && defense.call.id;
+    var say = plainLine(id, "say");
+    if (id === "bear-goalline" && sit.zone === "goal") {
+      return "One safety stands on the goal line. Man coverage. Nobody wraps.";
+    }
+    if (id === "bear-goalline") {
+      return "Five across. Own the gap inside you. No blitz on 3rd and 1.";
+    }
+    if (sit.down >= 3 && sit.distance >= 8) {
+      return "Both safeties stay deep. Do not blitz. A sack is not worth a touchdown.";
+    }
+    if (sit.zone === "red") {
+      return "Two safeties stay high. Do not jump a fade.";
+    }
+    if (sit.down === 2 && sit.distance >= 4 && sit.distance <= 7 && defense.wrap) {
+      return defense.wrap.name + " once this half. Check out if the backfield is empty.";
+    }
+    return say;
+  }
+
+  function sentencesOf(text) {
+    return String(text || "").split(/(?<=[.!?])\s+/).map(function (sentence) {
+      return sentence.replace(/\s+/g, " ").trim();
+    }).filter(function (sentence) { return sentence.length >= 20; });
+  }
+
+  function meetingLine(book, game) {
+    if (!game) return "";
+    var row = opponents(book).filter(function (item) { return item.name === game.opponent; })[0];
+    var played = row ? row.games.filter(function (item) { return !item.upcoming; }) : [];
+    if (!played.length) {
+      return "First meeting in this book. No snap list was published for " + game.opponent + ". This is the season call, not a filmed game.";
+    }
+    var last = played[played.length - 1];
+    var snaps = 0;
+    played.forEach(function (item) {
+      snaps += (item.plays || []).filter(function (play) { return play.text; }).length;
+    });
+    var score = last.result === "conflict" ? "Disputed" : last.result + " " + last.ctScore + "-" + last.oppScore + (last.overtime ? " " + last.overtime : "");
+    var line = "Series " + row.record.wins + "-" + row.record.losses + ". Last meeting " + last.date + ", " + score + ".";
+    if (!snaps) line += " No offensive snap list was published for those games.";
+    return line;
+  }
+
+  function duplicated(texts) {
+    var seen = {};
+    var problems = [];
+    texts.forEach(function (text) {
+      sentencesOf(text).forEach(function (sentence) {
+        var key = sentence.toLowerCase();
+        if (seen[key] && problems.indexOf(sentence) === -1) problems.push(sentence);
+        seen[key] = true;
+      });
+    });
+    return problems;
+  }
+
+  function repeatAudit(book) {
+    var game = nextGame(book, "2026-10-17");
+    var defense = bestDefense(book, { game: game, down: 1, distance: 10, zone: "mid", hash: "middle" });
+    var tricks = trickPlaysForGame(book, game);
+    var texts = [
+      defense.call.brief,
+      meetingLine(book, game),
+      defense.confidenceText,
+      defense.hashNote,
+      defense.wrapAdvice,
+      trickIntro(tricks)
+    ].concat(defense.reasons || []);
+    var coachNote = "";
+    ["dl", "lb", "s", "cb"].forEach(function (group) {
+      var card = positionCard(defense.call, group, game.coachId);
+      if (!coachNote) coachNote = card.coachNote;
+      texts.push(plainLine(defense.call.id, group));
+      texts.push(card.align);
+      texts.push(card.job);
+    });
+    if (coachNote) texts.push(coachNote);
+    if (defense.wrap) texts.push(defense.wrap.name);
+    tricks.forEach(function (trick) {
+      texts.push(trick.name);
+      texts.push(trick.summary);
+      texts.push(trick.defense);
+      texts.push(trick.why);
+    });
+    [[1, 10, "mid"], [2, 6, "mid"], [3, 1, "mid"], [3, 12, "mid"], [1, 8, "red"], [1, 3, "goal"]].forEach(function (item) {
+      var row = bestDefense(book, { game: game, down: item[0], distance: item[1], zone: item[2], hash: "middle" });
+      texts.push(row.call.name);
+      texts.push(cardLine(row));
+    });
+    var problems = duplicated(texts);
+    (book.calls || []).forEach(function (call) {
+      ["dl", "lb", "s", "cb"].forEach(function (group) {
+        duplicated([plainLine(call.id, group), call.positions[group].job]).forEach(function (sentence) {
+          problems.push(call.id + " " + group + ": " + sentence);
+        });
+      });
+    });
+    TRICKS.forEach(function (trick) {
+      ["dl", "lb", "s", "cb"].forEach(function (group) {
+        duplicated([plainLine(trick.id, group), trick.positions[group].job]).forEach(function (sentence) {
+          problems.push(trick.id + " " + group + ": " + sentence);
+        });
+      });
+    });
+    (book.games || []).forEach(function (item) {
+      var pair = trickPlaysForGame(book, item);
+      var card = [trickIntro(pair)];
+      pair.forEach(function (trick) {
+        card.push(trick.summary);
+        card.push(trick.defense);
+        card.push(trick.why);
+      });
+      duplicated(card).forEach(function (sentence) {
+        if (problems.indexOf(item.id + ": " + sentence) === -1) problems.push(item.id + ": " + sentence);
+      });
+    });
+    return { ok: problems.length === 0, problems: problems.slice(0, 8) };
+  }
+
   function plainAudit(book) {
     var problems = [];
     var groups = ["dl", "lb", "s", "cb"];
@@ -1035,6 +1177,7 @@ var CougarEngine = (function () {
     var audit = dataAudit(published);
     var tricks = trickAudit(live);
     var plain = plainAudit(published);
+    var repeats = repeatAudit(live);
     var beatAge = runtime.now && runtime.lastBeat ? runtime.now - runtime.lastBeat : null;
     var updateDetail = runtime.lastGameAdded
       ? "Last game folded in: " + runtime.lastGameAdded
@@ -1052,6 +1195,7 @@ var CougarEngine = (function () {
       check("s", "Safety jobs", jobsPresent(published, "s"), "A safety job is written on every call"),
       check("cb", "Corner jobs", jobsPresent(published, "cb"), "A corner job is written on every call"),
       check("plain", "Player room cards", plain.ok, plain.ok ? "Each room has a short card. The full diagnosis stays on the coach page." : plain.problems[0]),
+      check("sentences", "No repeated sentence", repeats.ok, repeats.ok ? "Every sentence on this week's install is used once" : repeats.problems[0]),
       check("wrap", "Wrap-around blitzes", published.calls.filter(function (call) { return call.family === "wrap"; }).length >= 3, "Sam wrap, Will wrap, and Bandit wrap"),
       check("tricks", "Trick plays, one or two a game", tricks.ok, tricks.ok ? "Every game has a trick card" : tricks.problems[0]),
       check("offense", "Your offense card", published.offense.length >= 6, published.offense.length + " calls to run against them"),
@@ -1107,7 +1251,7 @@ var CougarEngine = (function () {
       simple: "Nose on the center. Ends on the tackles. The end to the back stays home.",
       spots: [
         { spot: "Nose", line: "Shade the center to the call. Strike him, then find the back. The gap to the call is yours." },
-        { spot: "End", line: "Outside shoulder of the tackle. Long arm if he reaches. Squeeze. Do not fly up the field on the first step." }
+        { spot: "End", line: "Long arm the tackle if he reaches. Squeeze. Do not fly up the field on the first step." }
       ],
       run: "The end on the back's side squeezes and spills the run inside. The other end stays for the cutback and a quarterback keep. Low pads. Do not stand up and look.",
       pass: "Rush from where you lined up. The nose does not loop. The end's outside shoulder is the contain.",
@@ -1120,7 +1264,7 @@ var CougarEngine = (function () {
       spots: [
         { spot: "Nose", line: "Head up on the center. Strike and stay square. He cannot block you and a guard." },
         { spot: "Tackle", line: "Head up on the guard. The gap inside you is yours. Do not slant away from it." },
-        { spot: "End", line: "Wider than the tackle. The gap inside you is yours. You are the last man on the line if the ball spills." }
+        { spot: "End", line: "Wider than the tackle. You own the gap to your inside. You are the last man on the line if the ball spills." }
       ],
       run: "Step forward on the snap and fit low. If you slant out of your gap, the back walks through the hole you left.",
       pass: "Hands up. The throw is short. Do not rush past the ball and open the sneak.",
@@ -1218,6 +1362,17 @@ var CougarEngine = (function () {
       })).join(" ");
       if (banned.test(text)) problems.push(play.id + " teaches another room");
     });
+    var seen = {};
+    LINE_PLAYS.forEach(function (play) {
+      var blob = [play.simple, play.run, play.pass, play.avoid].concat((play.spots || []).map(function (spot) {
+        return spot.line;
+      })).join(" ");
+      sentencesOf(blob).forEach(function (sentence) {
+        var key = sentence.toLowerCase();
+        if (seen[key]) problems.push("repeated line sentence: " + sentence);
+        seen[key] = true;
+      });
+    });
     return { ok: problems.length === 0, coach: LINE_COACH, problems: problems };
   }
 
@@ -1242,6 +1397,10 @@ var CougarEngine = (function () {
     dataAudit: dataAudit,
     trickAudit: trickAudit,
     plainLine: plainLine,
+    cardLine: cardLine,
+    meetingLine: meetingLine,
+    trickIntro: trickIntro,
+    repeatAudit: repeatAudit,
     LINE_COACH: LINE_COACH,
     linePlays: linePlays,
     lineAudit: lineAudit,

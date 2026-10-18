@@ -399,7 +399,7 @@ var COUGAR_BOOK = {
         "dl": {
           "title": "Defensive line",
           "align": "Four down, tight",
-          "job": "Ends in a 4i or 5. Tackles in a 3. Rush four and get the quarterback's eyes down without leaving a free runner. Do not chase a screen past the tackle."
+          "job": "Ends in a 4i or 5. Tackles in a 3. Get the quarterback's eyes down without leaving a free runner."
         },
         "lb": {
           "title": "Linebackers",
@@ -497,7 +497,7 @@ var COUGAR_BOOK = {
         "s": {
           "title": "Safeties",
           "align": "Deep halves",
-          "job": "Both safeties sink at the snap. They do not come down for a flat. The flat belongs to the corner. They break on anything that gets past 12 yards."
+          "job": "Both safeties sink at the snap. They do not come down for a flat. They break on anything that gets past 12 yards."
         },
         "cb": {
           "title": "Corners",
@@ -531,7 +531,7 @@ var COUGAR_BOOK = {
         "dl": {
           "title": "Defensive line",
           "align": "Four-man rush",
-          "job": "Contain rush. The ends stay on the quarterback's shoulders. Do not run past a boot. The sim is the linebacker, not a fifth lineman trading gaps."
+          "job": "Contain rush. The ends stay on the quarterback's shoulders. The sim is the linebacker, not a fifth lineman trading gaps."
         },
         "lb": {
           "title": "Linebackers",
@@ -678,7 +678,7 @@ var COUGAR_BOOK = {
         "cb": {
           "title": "Corners",
           "align": "Stay home",
-          "job": "Do not chase the fake. The counter pass, if they throw it, is the receiver you left."
+          "job": "The counter pass, if they throw it, is the receiver you left."
         }
       },
       "coachNotes": {

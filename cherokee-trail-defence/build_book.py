@@ -35,7 +35,7 @@ CALLS = [
          "Two deep safeties answer the explosive throw and still fit a long run. This is the base call against the passing years, including the current Peterson offense.",
          {"run_inside": 6, "run_edge": 6, "run_explosive": 9, "pass_short": 6, "pass_explosive": 10, "play_action": 8, "goal_line": 3, "third_long": 9},
          {
-            "dl": pos("Defensive line", "Four down, tight", "Ends in a 4i or 5. Tackles in a 3. Rush four and get the quarterback's eyes down without leaving a free runner. Do not chase a screen past the tackle."),
+            "dl": pos("Defensive line", "Four down, tight", "Ends in a 4i or 5. Tackles in a 3. Get the quarterback's eyes down without leaving a free runner."),
             "lb": pos("Linebackers", "Two backers, nickel on the slot", "Mike and Will fit inside-out. The nickel is the apex on the slot, not a third linebacker in the box. On a run read he fits the alley. On a pass read he matches the slot."),
             "s": pos("Safeties", "Cover 4, both high", "Each safety owns a half until the quarterback declares. Do not drive on play-action until the ball is a run past the line. The post and the deep over are the explosives in this offense."),
             "cb": pos("Corners", "Press alignment, match rules", "Inside leverage, eyes on the receiver, jam, then carry anything vertical. You have a safety over the top. Do not squat on a hitch against Peterson, Brook, or Lavigne."),
@@ -67,7 +67,7 @@ CALLS = [
          {
             "dl": pos("Defensive line", "Four down", "Rush four from a tight alignment. The ends squeeze. A five-yard stick is not their problem. A boot lane is."),
             "lb": pos("Linebackers", "Wall the hooks", "Mike and Will drop to the hooks at eight yards and rally downhill to the stick. One of them has to be the tackler on a five-yard completion."),
-            "s": pos("Safeties", "Deep halves", "Both safeties sink at the snap. They do not come down for a flat. The flat belongs to the corner. They break on anything that gets past 12 yards."),
+            "s": pos("Safeties", "Deep halves", "Both safeties sink at the snap. They do not come down for a flat. They break on anything that gets past 12 yards."),
             "cb": pos("Corners", "Jam and sink", "Jam the receiver, then fall off into the flat. You are not a deep-third player in this call. Rally to the ball and tackle."),
          },
          {
@@ -80,7 +80,7 @@ CALLS = [
          "A way to hit the quarterback on third and medium without playing zero. The robber is there because this offense throws the crosser after play-action.",
          {"run_inside": 5, "run_edge": 4, "run_explosive": 4, "pass_short": 7, "pass_explosive": 7, "play_action": 8, "goal_line": 3, "third_long": 6},
          {
-            "dl": pos("Defensive line", "Four-man rush", "Contain rush. The ends stay on the quarterback's shoulders. Do not run past a boot. The sim is the linebacker, not a fifth lineman trading gaps."),
+            "dl": pos("Defensive line", "Four-man rush", "Contain rush. The ends stay on the quarterback's shoulders. The sim is the linebacker, not a fifth lineman trading gaps."),
             "lb": pos("Linebackers", "One blitz, one robber", "The Will adds late through the B gap. The Mike drops to the middle and robs anything crossing his face. They do not both blitz."),
             "s": pos("Safeties", "Two high", "Stay high. The pressure is only good if the shot is covered. Rotate only after the ball is thrown."),
             "cb": pos("Corners", "Man trail or sink", "Play inside leverage and carry the vertical. You are not jumping the hitch on the snap. The robber has the crosser."),
@@ -128,7 +128,7 @@ CALLS = [
             "dl": pos("Defensive line", "Backside end spills", "The backside end stays wide and spills. He does not follow a puller down the line and open the boot lane behind him."),
             "lb": pos("Linebackers", "Will wraps", "Will's landmark is the inside hip of the backside tackle. He meets the pulling guard there. Sam fits the front side. Mike is the cutback player."),
             "s": pos("Safeties", "Backside safety slow", "The safety away from the counter does not run himself across the formation. He is the fit if the quarterback keeps the ball."),
-            "cb": pos("Corners", "Stay home", "Do not chase the fake. The counter pass, if they throw it, is the receiver you left."),
+            "cb": pos("Corners", "Stay home", "The counter pass, if they throw it, is the receiver you left."),
          },
          {
             "mangnall": "Call it when the film shows a pull. If you have not seen a pull, Sam wrap is the better run blitz.",

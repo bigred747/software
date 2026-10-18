@@ -325,7 +325,7 @@
     var rest = plays.filter(function (play) { return play.id !== week.id; });
     state.copyText = [E.LINE_COACH, "DEFENSIVE LINE", week.name, week.simple, "Run. " + week.run, "Pass. " + week.pass, "Do not. " + week.avoid].join("\n");
     return '<section class="dl-banner"><div class="who">Defensive line</div><h2>' + esc(E.LINE_COACH) + '</h2>' +
-      '<p>' + esc(when(game)) + '</p><p class="job">' + esc(week.name) + '. ' + esc(week.simple) + '</p>' +
+      '<p>' + esc(when(game)) + '</p><p class="job">This week the line call is ' + esc(week.name) + '.</p>' +
       '<button class="btn" type="button" data-act="copy">Copy this week\'s line card</button></section>' +
       lineCard(week, true) +
       '<h3 class="dl-more">Every other line call</h3>' +
@@ -426,19 +426,7 @@
   }
 
   function weekLine(live, game) {
-    var row = E.opponents(live).filter(function (item) { return item.name === game.opponent; })[0];
-    var played = row ? row.games.filter(function (item) { return !item.upcoming; }) : [];
-    if (!played.length) {
-      return "First meeting in this book. No snap list was published for " + game.opponent + ". This is the season call, not a filmed game.";
-    }
-    var last = played[played.length - 1];
-    var snaps = 0;
-    played.forEach(function (item) {
-      snaps += (item.plays || []).filter(function (play) { return play.text; }).length;
-    });
-    var line = "Series " + row.record.wins + "-" + row.record.losses + ". Last meeting " + last.date + ", " + scoreLine(last) + ".";
-    if (!snaps) line += " No offensive snap list was published for those games.";
-    return line;
+    return E.meetingLine(live, game);
   }
 
   function installHtml() {
@@ -461,7 +449,7 @@
       "<p class=\"caption\">" + esc((D.get(defense.call.id) || {}).caption || "") + "</p>" +
       photoSlot(defense.call.id, "defense") + "</div><div>" + reasons(defense, season) + wrapCard(defense) + "</div></div>" +
       roomsBlock(defense.call, game.coachId) +
-      "<h3>Defend these tricks</h3>" + tricks.map(trickCard).join("") +
+      "<h3>Defend these tricks</h3><p class=\"muted\">" + esc(E.trickIntro(tricks)) + "</p>" + tricks.map(trickCard).join("") +
       "</section>";
   }
 
@@ -469,7 +457,7 @@
     var sits = [
       ["1st and 10", 1, 10, "mid"],
       ["2nd and 6", 2, 6, "mid"],
-      ["3rd and short", 3, 1, "mid"],
+      ["3rd and 1", 3, 1, "mid"],
       ["3rd and long", 3, 12, "mid"],
       ["Red zone", 1, 8, "red"],
       ["Goal line", 1, 3, "goal"]
@@ -477,7 +465,7 @@
     return '<h3>Friday card</h3><div class="friday">' + sits.map(function (item) {
       var defense = E.bestDefense(live, { game: game, down: item[1], distance: item[2], zone: item[3], hash: "middle" }, state.model);
       var on = state.sit.down === item[1] && state.sit.distance === item[2] && state.sit.zone === item[3];
-      var say = E.plainLine(defense.call.id, "say");
+      var say = E.cardLine(defense);
       return '<button type="button" class="row friday-row" data-sit="' + item[1] + "," + item[2] + "," + item[3] + '"' + (on ? ' aria-pressed="true"' : "") + "><b>" + esc(item[0]) + "</b><span>" + esc(defense.call.name) + "</span><span class=\"muted\">" + esc(say) + "</span></button>";
     }).join("") + "</div>";
   }
@@ -683,7 +671,8 @@
   function checksHtml() {
     var board = signals();
     return '<div class="checks">' + board.rows.map(function (row) {
-      return '<article class="row check" data-signal="' + row.id + '"><i class="dot" style="background:' + (row.ok ? "var(--green)" : "var(--red)") + '"></i><div><b>' + esc(row.name) + "</b><div class=\"detail muted\">" + esc(row.detail) + "</div></div></article>";
+      var light = row.ok ? "Green" : "Red";
+      return '<article class="row check" data-signal="' + row.id + '"><i class="dot" style="background:' + (row.ok ? "var(--green)" : "var(--red)") + '"></i><div><div class="split"><b>' + esc(row.name) + '</b><span class="tag ' + (row.ok ? "green" : "red") + '">' + light + "</span></div><div class=\"detail muted\">" + esc(row.detail) + "</div></div></article>";
     }).join("") + "</div>";
   }
 

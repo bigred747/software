@@ -23,6 +23,22 @@ assert.strictEqual(B.seasons.filter(function (s) { return !s.live; }).length, 10
 assert.strictEqual(E.bestDefense(B, { season: 2016, down: 1, distance: 10, zone: "mid" }).call.id, "odd-cover3");
 assert.strictEqual(E.bestDefense(B, { season: 2026, down: 1, distance: 10, zone: "mid" }).call.id, "nickel-quarters");
 assert.strictEqual(E.bestDefense(B, { season: 2026, down: 3, distance: 12, zone: "mid" }).call.id, "nickel-quarters");
+assert.strictEqual(E.bestDefense(B, { season: 2026, down: 3, distance: 1, zone: "mid" }).call.id, "bear-goalline");
+assert.strictEqual(E.bestDefense(B, { season: 2021, down: 3, distance: 1, zone: "mid" }).call.id, "bear-goalline");
+assert.strictEqual(E.bestDefense(B, { season: 2020, down: 3, distance: 1, zone: "mid" }).call.id, "bear-goalline");
+assert.strictEqual(E.bestDefense(B, { season: 2026, down: 1, distance: 8, zone: "red" }).call.id, "nickel-quarters");
+var second = E.bestDefense(B, { season: 2026, down: 2, distance: 6, zone: "mid" });
+assert.ok(E.cardLine(second).indexOf(second.wrap.name) === 0);
+var thirdLong = E.bestDefense(B, { season: 2026, down: 3, distance: 12, zone: "mid" });
+assert.ok(E.cardLine(thirdLong).indexOf("Do not blitz") !== -1);
+var redZone = E.bestDefense(B, { season: 2026, down: 1, distance: 8, zone: "red" });
+assert.ok(E.cardLine(redZone).indexOf("fade") !== -1);
+var fridayLines = [[1, 10, "mid"], [2, 6, "mid"], [3, 1, "mid"], [3, 12, "mid"], [1, 8, "red"], [1, 3, "goal"]].map(function (item) {
+  return E.cardLine(E.bestDefense(B, { season: 2026, down: item[0], distance: item[1], zone: item[2] }));
+});
+assert.strictEqual(new Set(fridayLines).size, fridayLines.length);
+var repeats = E.repeatAudit(B);
+assert.strictEqual(repeats.ok, true, repeats.problems.join(" | "));
 assert.strictEqual(E.bestDefense(B, { season: 2019, down: 1, distance: 3, zone: "goal" }).call.id, "bear-goalline");
 const poudre = B.games.find(function (g) { return g.id === "2018-11-02-poudre"; });
 assert.strictEqual(E.bestDefense(B, { game: poudre, down: 1, distance: 10, zone: "mid" }).call.id, "nickel-cover2");
