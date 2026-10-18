@@ -1,5 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#10283f"/>
-  <path d="M10 40c8-14 14-18 22-18s14 4 22 18" fill="none" stroke="#d7e6f5" stroke-width="3"/>
-  <circle cx="32" cy="26" r="4" fill="#8ebbe4"/>
+  <rect width="64" height="64" rx="14" fill="#10283f"/>
+  <text x="32" y="40" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" font-weight="700" fill="#f4f7fb" letter-spacing="1">AT</text>
 </svg>

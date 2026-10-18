@@ -1047,6 +1047,7 @@ var CougarEngine = (function () {
       check("opponents", "Split by opponent", opponents(live).length >= 20, opponents(live).length + " opponents"),
       check("coaches", "Coach cards", published.coaches.length === 3, "Mangnall, Johnson, and Jajczyk"),
       check("dl", "Defensive line jobs", jobsPresent(published, "dl"), "A line job is written on every call"),
+      check("dline", "Aston Torres line room", lineAudit().ok, lineAudit().ok ? "Nine line plays. The other rooms are not written on this card." : lineAudit().problems[0]),
       check("lb", "Linebacker jobs", jobsPresent(published, "lb"), "A linebacker job is written on every call"),
       check("s", "Safety jobs", jobsPresent(published, "s"), "A safety job is written on every call"),
       check("cb", "Corner jobs", jobsPresent(published, "cb"), "A corner job is written on every call"),
@@ -1085,6 +1086,141 @@ var CougarEngine = (function () {
     return cleaned || "play";
   }
 
+  var LINE_COACH = "Aston Torres";
+
+  var LINE_PLAYS = [
+    {
+      id: "nickel-quarters",
+      name: "Nickel Cover 4",
+      simple: "Rush four. Stay in your lane. Do not chase a screen past the tackle.",
+      spots: [
+        { spot: "End", line: "Outside shoulder of the tackle. Outside hand on his chest. Your outside arm stays free so he cannot hook you." },
+        { spot: "Tackle", line: "Outside shoulder of the guard. First step is up the field. You own the gap on your inside." }
+      ],
+      run: "Squeeze your gap and make the back cut to a backer. Do not cross the center on the first step. If the tackle reaches you, long-arm him and stay square.",
+      pass: "Rush the quarterback's near shoulder and get his eyes down. If the tackle opens a gate, stay in that gate. Running past him leaves a free lane.",
+      avoid: "Stop a screen at the tackle. Do not chase it to the flat. The end away from the boot stays home."
+    },
+    {
+      id: "odd-cover3",
+      name: "Odd Cover 3",
+      simple: "Nose on the center. Ends on the tackles. The end to the back stays home.",
+      spots: [
+        { spot: "Nose", line: "Shade the center to the call. Strike him, then find the back. The gap to the call is yours." },
+        { spot: "End", line: "Outside shoulder of the tackle. Long arm if he reaches. Squeeze. Do not fly up the field on the first step." }
+      ],
+      run: "The end on the back's side squeezes and spills the run inside. The other end stays for the cutback and a quarterback keep. Low pads. Do not stand up and look.",
+      pass: "Rush from where you lined up. The nose does not loop. The end's outside shoulder is the contain.",
+      avoid: "Do not chase a boot. That is why the back-side end never left."
+    },
+    {
+      id: "bear-goalline",
+      name: "Bear",
+      simple: "Five across. Own the gap inside you. Do not leave it.",
+      spots: [
+        { spot: "Nose", line: "Head up on the center. Strike and stay square. He cannot block you and a guard." },
+        { spot: "Tackle", line: "Head up on the guard. The gap inside you is yours. Do not slant away from it." },
+        { spot: "End", line: "Wider than the tackle. The gap inside you is yours. You are the last man on the line if the ball spills." }
+      ],
+      run: "Step forward on the snap and fit low. If you slant out of your gap, the back walks through the hole you left.",
+      pass: "Hands up. The throw is short. Do not rush past the ball and open the sneak.",
+      avoid: "No one loops. No one wraps. Stay in the gap you lined up in."
+    },
+    {
+      id: "nickel-cover2",
+      name: "Nickel Cover 2",
+      simple: "Rush four and stay tight. The boot is yours. The short throw is not.",
+      spots: [
+        { spot: "End", line: "Tight on the tackle. Squeeze. Your job is the boot lane, not a five-yard throw in the flat." },
+        { spot: "Tackle", line: "Tight on the guard. Rush the inside shoulder of the quarterback so he cannot step up." }
+      ],
+      run: "Play it as a four-man run fit. Do not widen on the first step. A zone play wants you to run yourself out of the gap.",
+      pass: "Four rush, shoulders square. The ends squeeze so the quarterback has to throw from the pocket.",
+      avoid: "Do not peel off for a short throw. Stay on the boot until the ball is out."
+    },
+    {
+      id: "sim-robber",
+      name: "Sim pressure",
+      simple: "Rush four. Stay on the quarterback. Do not run past a boot.",
+      spots: [
+        { spot: "End", line: "Contain rush. Your inside foot aims at the quarterback's near shoulder. Do not cross his face." },
+        { spot: "Tackle", line: "Win the inside gap. You are not looping with a backer. The extra rusher is not a lineman." }
+      ],
+      run: "Fit the run in your gap first. If it is a run, you still own the gap you lined up in. Do not chase the back out of your fit.",
+      pass: "Rush to affect the throw. Keep the pocket small. The end who loses contain loses the play.",
+      avoid: "Do not run past the quarterback on a boot. Turn back to the football."
+    },
+    {
+      id: "dime-cushion",
+      name: "Dime",
+      simple: "Rush, but do not crash inside. A draw or a keep can end the game.",
+      spots: [
+        { spot: "End", line: "Rush with a wide shoulder. You are the contain. Crashing inside is the lane they want." },
+        { spot: "Tackle", line: "Rush the guard, then find a draw. If the back comes straight downhill, shed and fit him." }
+      ],
+      run: "Treat a draw like a run in your gap. Do not keep rushing up the field after the back has the ball.",
+      pass: "Get a hand up, then settle. A late draw is the play they check to when the ends disappear.",
+      avoid: "Do not pin your ears. Contain first, then rush."
+    },
+    {
+      id: "sam-wrap",
+      name: "Sam wrap",
+      simple: "On the blitz side, force the run outside. Do not crash inside.",
+      spots: [
+        { spot: "End", line: "Long-arm the tackle and spill every run outside you. The blitzer is filling the gap you leave. You do not fill it." },
+        { spot: "Tackle", line: "Stay in your gap. Do not follow the end outside. You are the cutback on the inside." }
+      ],
+      run: "Spill, do not penetrate. If you crash, you and the blitzer are in the same gap and the back cuts behind both of you.",
+      pass: "After you spill, rush the quarterback only if the ball is still in his hands. Do not chase a quick throw to the flat.",
+      avoid: "A quick screen to your side means the blitz is off. Play your normal rush."
+    },
+    {
+      id: "will-wrap",
+      name: "Will wrap",
+      simple: "The back-side end stays wide. Do not chase a pulling lineman.",
+      spots: [
+        { spot: "End", line: "Stay wide of the tackle. If a guard pulls across your face, let him go. Your gap is the boot and the keep behind him." },
+        { spot: "Tackle", line: "Squeeze the guard who does not pull. Do not run down the line after the puller." }
+      ],
+      run: "Spill the counter. The pulling guard is not your man to chase. Meet the ball if it tries to cut back under you.",
+      pass: "The boot comes back to the side the line pulled away from. That end has to be there.",
+      avoid: "Do not follow the puller inside. That is the lane."
+    },
+    {
+      id: "bandit-wrap",
+      name: "Bandit wrap",
+      simple: "One end keeps the quarterback inside. The other end lets the blitzer through.",
+      spots: [
+        { spot: "End away", line: "Contain the quarterback. He cannot escape to your side. Four hands on the offensive line, not a free run at him from the far side." },
+        { spot: "End to the blitz", line: "Spill the run and leave the edge lane. The blitzer is coming there. Do not occupy that lane." }
+      ],
+      run: "Play your gap. Two people in the blitz lane means the draw scores inside.",
+      pass: "The contain end rushes after he has the quarterback walled. The spill end does not chase a quick throw.",
+      avoid: "Do not both rush up the field. One of you is the wall."
+    }
+  ];
+
+  function linePlays() {
+    return LINE_PLAYS;
+  }
+
+  function lineAudit() {
+    var problems = [];
+    if (LINE_COACH !== "Aston Torres") problems.push("line coach name");
+    if (LINE_PLAYS.length !== 9) problems.push("expected 9 line plays");
+    var banned = /son-in-law|free safety|the corner|linebacker drops|cover 2|cover 3|cover 4/i;
+    LINE_PLAYS.forEach(function (play) {
+      if (!play.simple || play.simple.length < 20) problems.push(play.id + " simple");
+      if (!play.run || !play.pass || !play.avoid) problems.push(play.id + " rules");
+      if (!play.spots || play.spots.length < 2) problems.push(play.id + " spots");
+      var text = [play.simple, play.run, play.pass, play.avoid].concat((play.spots || []).map(function (spot) {
+        return spot.spot + " " + spot.line;
+      })).join(" ");
+      if (banned.test(text)) problems.push(play.id + " teaches another room");
+    });
+    return { ok: problems.length === 0, coach: LINE_COACH, problems: problems };
+  }
+
   return {
     TAGS: TAGS,
     TAG_LABELS: TAG_LABELS,
@@ -1106,6 +1242,9 @@ var CougarEngine = (function () {
     dataAudit: dataAudit,
     trickAudit: trickAudit,
     plainLine: plainLine,
+    LINE_COACH: LINE_COACH,
+    linePlays: linePlays,
+    lineAudit: lineAudit,
     plainAudit: plainAudit,
     pointAudit: pointAudit,
     emptyModel: emptyModel,

@@ -52,12 +52,37 @@ img, svg { max-width: 100%; }
 .app {
   display: grid;
   grid-template-columns: var(--nav) 1fr;
+  grid-template-rows: auto 1fr;
   min-height: 100dvh;
+}
+.mast {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 16px 22px 14px;
+  background: #10283f;
+  color: #f7fafc;
+}
+.mast-name, .mast-role { margin: 0; }
+.mast-name {
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.mast-role {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: #c5d4e4;
 }
 .nav {
   position: sticky;
   top: 0;
-  height: 100dvh;
+  height: calc(100dvh - 58px);
+  align-self: start;
   padding: 18px 12px;
   background: var(--navy);
   color: #f4f7fb;
@@ -140,6 +165,28 @@ body.night .btn.primary, body.night .chip[aria-pressed="true"] {
   background: var(--card);
 }
 .rooms-pick button[aria-pressed="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
+.dl-banner {
+  background: linear-gradient(165deg, #10283f 0%, #1b4a78 70%, #245c8f 100%);
+  color: #f7fafc;
+  border-radius: 18px;
+  padding: 22px 22px 18px;
+  margin-bottom: 14px;
+}
+.dl-banner .who {
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: .72rem;
+  font-weight: 700;
+  color: #d5e4f4;
+}
+.dl-banner h2 { margin: 4px 0 8px; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -.03em; color: #fff; }
+.dl-banner p { color: #e7eef6; }
+.dl-banner .job { color: #fff; font-size: 1.2rem; }
+.dl-banner .btn { background: #fff; color: #10283f; border-color: #fff; margin-top: 8px; }
+.dl-play h3 { font-size: 1.25rem; }
+.dl-spot { display: grid; grid-template-columns: 92px 1fr; gap: 8px; margin: 8px 0; }
+.dl-spot b { color: var(--blue); }
+.dl-more { margin: 18px 0 8px; }
 .step { font-weight: 700; color: var(--blue); margin: 16px 0 4px; }
 .job { font-size: 1.28rem; line-height: 1.35; }
 .room, .card { padding: 14px; }
@@ -198,9 +245,11 @@ textarea { min-height: 88px; }
 :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 
 @media (max-width: 860px) {
-  .app { grid-template-columns: 1fr; }
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+  .mast { padding: 14px 16px 12px; }
+  .mast-name { font-size: 1.05rem; letter-spacing: .14em; }
   .nav {
-    position: sticky; bottom: 0; top: auto; height: auto; z-index: 3;
+    position: sticky; bottom: 0; top: auto; height: auto; z-index: 3; align-self: stretch;
     flex-direction: row; overflow: auto; padding: 8px; order: 2;
   }
   .brand, .nav .quiet, .nav .spacer { display: none; }
@@ -210,6 +259,7 @@ textarea { min-height: 88px; }
   .grid, .rooms { grid-template-columns: 1fr; }
   .rooms-pick { grid-template-columns: 1fr 1fr; }
   .rooms-pick button { min-height: 64px; font-size: 1.1rem; }
+  .dl-spot { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }

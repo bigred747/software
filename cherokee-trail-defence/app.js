@@ -11,6 +11,9 @@
   var PLAYERS = [
     ["learn", "Your room"]
   ];
+  var LINE_MENU = [
+    ["dline", "D-Line"]
+  ];
   var COACH = [
     ["install", "Install"],
     ["diagnose", "Diagnose"],
@@ -39,6 +42,7 @@
     state.section = "learn";
   }
   if (roomHash === "diagnose") state.section = "diagnose";
+  if (roomHash === "dline") state.section = "dline";
   state.sit = state.sit || { down: 1, distance: 10, zone: "mid", hash: "middle" };
   state.photosOk = true;
   state.photoCount = 0;
@@ -253,8 +257,9 @@
   }
 
   function navHtml() {
-    return '<div class="brand"><b>Cougar Defense</b><span>Full program</span></div>' +
+    return '<div class="brand"><b>Aston Torres</b><span>Defense</span></div>' +
       '<div class="nav-label">Players</div>' + navButtons(PLAYERS) +
+      '<div class="nav-label">' + esc(E.LINE_COACH) + '</div>' + navButtons(LINE_MENU) +
       '<div class="nav-label">Coach</div>' + navButtons(COACH) +
       '<div class="spacer"></div><div class="quiet">On this computer only. Not a website.</div>';
   }
@@ -271,6 +276,7 @@
   function title() {
     return ({
       learn: "Your job",
+      dline: "Defensive line",
       install: "This week's install",
       diagnose: "Diagnose",
       scout: "Scout by opponent",
@@ -281,9 +287,10 @@
       film: "After the game",
       oc: "Offensive sheet",
       checks: "Program checks"
-    })[state.section] || "Cougar Defense";
+    })[state.section] || "Aston Torres";
   }
   function subtitle() {
+    if (state.section === "dline") return E.LINE_COACH + ". Line calls only. The other rooms stay off this page.";
     if (state.section === "learn") return state.room ? "This card is only your room. The rest of the program is still in the menu." : "Tap your room. The rest of the program stays in the menu.";
     if (state.section === "diagnose") return "Full read for the coach. The install, scout, blitzes, and pictures are still in the menu.";
     if (state.section === "install") return "Cherokee Trail · Aurora · the call, the four rooms, and the blitz";
@@ -293,6 +300,7 @@
   }
 
   function viewHtml() {
+    if (state.section === "dline") return dlineHtml();
     if (state.section === "learn") return learnHtml();
     if (state.section === "diagnose") return diagnoseHtml();
     if (state.section === "install") return installHtml();
@@ -304,6 +312,32 @@
     if (state.section === "film") return filmHtml();
     if (state.section === "oc") return ocHtml();
     return checksHtml();
+  }
+
+  function dlineHtml() {
+    var live = book();
+    var game = E.nextGame(live, today());
+    var defense = E.bestDefense(live, { game: game, down: 1, distance: 10, zone: "mid", hash: "middle" }, state.model);
+    var plays = E.linePlays();
+    var week = plays.filter(function (play) { return play.id === defense.call.id; })[0] || plays[0];
+    var rest = plays.filter(function (play) { return play.id !== week.id; });
+    state.copyText = [E.LINE_COACH, "DEFENSIVE LINE", week.name, week.simple, "Run. " + week.run, "Pass. " + week.pass, "Do not. " + week.avoid].join("\n");
+    return '<section class="dl-banner"><div class="who">Defensive line</div><h2>' + esc(E.LINE_COACH) + '</h2>' +
+      '<p>' + esc(when(game)) + '</p><p class="job">' + esc(week.name) + '. ' + esc(week.simple) + '</p>' +
+      '<button class="btn" type="button" data-act="copy">Copy this week\'s line card</button></section>' +
+      lineCard(week, true) +
+      '<h3 class="dl-more">Every other line call</h3>' +
+      rest.map(function (play) { return lineCard(play, false); }).join("");
+  }
+
+  function lineCard(play, week) {
+    var spots = play.spots.map(function (spot) {
+      return '<div class="dl-spot"><b>' + esc(spot.spot) + '</b><span>' + esc(spot.line) + '</span></div>';
+    }).join("");
+    return '<article class="card dl-play">' + (week ? '<div class="kicker">This week, in the room</div>' : '') +
+      '<h3>' + esc(play.name) + '</h3><p class="job">' + esc(play.simple) + '</p>' + spots +
+      '<p><b>Run.</b> ' + esc(play.run) + '</p><p><b>Pass.</b> ' + esc(play.pass) + '</p>' +
+      '<p class="muted"><b>Do not.</b> ' + esc(play.avoid) + '</p></article>';
   }
 
   function learnHtml() {
@@ -396,7 +430,7 @@
     var defense = E.bestDefense(live, Object.assign({ game: game }, query()), state.model);
     var tricks = E.trickPlaysForGame(live, game);
     state.copyText = copyText(game, defense, tricks);
-    return '<div class="chips"><button type="button" class="chip" data-go="learn">Your room</button><button type="button" class="chip" data-go="diagnose">Diagnose</button></div>' +
+    return '<div class="chips"><button type="button" class="chip" data-go="learn">Your room</button><button type="button" class="chip" data-go="dline">' + esc(E.LINE_COACH) + '</button><button type="button" class="chip" data-go="diagnose">Diagnose</button></div>' +
       '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" +
       "<h2 class=\"call-name\">" + esc(defense.call.name) + "</h2>" +
       "<p class=\"brief\">" + esc(defense.call.brief) + "</p>" +
@@ -605,7 +639,7 @@
   }
 
   function copyText(game, defense, tricks) {
-    var lines = ["COUGAR DEFENSE", when(game), "", defense.call.name, defense.call.brief, ""];
+    var lines = ["ASTON TORRES", when(game), "", defense.call.name, defense.call.brief, ""];
     ["dl", "lb", "s", "cb"].forEach(function (group) {
       var card = defense.call.positions[group];
       lines.push(card.title + ": " + card.align);
@@ -812,7 +846,7 @@
         save();
         paint();
       } catch (err) {
-        note("That file is not a Cougar Defense backup.");
+        note("That file is not an Aston Torres backup.");
       }
     };
     reader.readAsText(file);
@@ -846,6 +880,7 @@
   });
   window.addEventListener("hashchange", function () {
     var hash = String(location.hash || "").replace(/^#/, "");
+    if (hash === "dline") { state.section = "dline"; paint(); return; }
     if (hash === "dl" || hash === "lb" || hash === "s" || hash === "cb") {
       state.room = hash;
       state.section = "learn";

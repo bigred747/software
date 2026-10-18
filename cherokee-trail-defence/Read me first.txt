@@ -1,5 +1,5 @@
-Cougar Defense
-This update keeps the whole original program and adds two pages.
+Aston Torres
+Defense. This update keeps the whole original program and adds the defensive line room.
 
 A standalone program for the defensive coordinator.
 
@@ -7,7 +7,7 @@ It is not a website. It does not need an account. It does not send film, photos,
 
 Windows 11
 1. Unzip the folder.
-2. Double-click "Open Cougar Defense".
+2. Double-click "Open Aston Torres".
 3. It opens in its own window.
 
 Phone or tablet
@@ -17,6 +17,7 @@ Phone or tablet
 
 The menu is split in two
 Players: Your room.
+Aston Torres: D-Line. That room is the defensive line only.
 Coach: Install, Diagnose, Scout, Rooms, Blitz, Alerts, Pictures, After the game, OC sheet, and Checks.
 Nothing from the first program was removed.
 
