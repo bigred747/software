@@ -43,6 +43,7 @@
   }
   if (roomHash === "diagnose") state.section = "diagnose";
   if (roomHash === "dline") state.section = "dline";
+  if (roomHash === "film") state.section = "film";
   state.sit = state.sit || { down: 1, distance: 10, zone: "mid", hash: "middle" };
   state.photosOk = true;
   state.photoCount = 0;
@@ -296,6 +297,7 @@
     if (state.section === "install") return "Cherokee Trail · Aurora · the call, the four rooms, and the blitz";
     if (state.section === "oc") return "Hand this sheet to the offensive coordinator. It is not the defensive install.";
     if (state.section === "pictures") return "Every defense and every offensive play has a picture. Install a photo of a new look under it.";
+    if (state.section === "film") return "The same Update everything button that is on the front page.";
     return "Standalone program. Film you add stays on this device.";
   }
 
@@ -436,7 +438,7 @@
       "<p class=\"brief\">" + esc(defense.call.brief) + "</p>" +
       "<p class=\"muted\">" + esc(defense.confidenceText) + "</p>" +
       sitChips() +
-      '<div class="chips"><button class="btn primary" type="button" data-act="copy">Copy the install</button></div>' +
+      (state.updateOpen ? updateForm(live, game) : '<div class="chips"><button class="btn primary update-all" type="button" data-act="open-update">Update everything</button><button class="btn" type="button" data-act="copy">Copy the install</button></div>') +
       '<div class="grid"><div><div class="picture">' + picture(defense.call.id) + "</div>" +
       "<p class=\"caption\">" + esc((D.get(defense.call.id) || {}).caption || "") + "</p>" +
       photoSlot(defense.call.id, "defense") + "</div><div>" + reasons(defense, season) + wrapCard(defense) + "</div></div>" +
@@ -593,14 +595,14 @@
       }).join("") + "</div>";
   }
 
-  function filmHtml() {
-    var live = book();
-    var upcoming = live.games.filter(function (game) { return game.upcoming; });
-    var options = upcoming.map(function (game) {
-      return '<option value="' + esc(game.id) + '">' + esc(game.date + " " + game.opponent) + "</option>";
-    }).join("");
-    return '<section class="hero"><p>Enter the final after the game. The opponent card, the install, and the trick alerts update from what you type. Nothing is sent off this computer.</p>' +
-      '<form id="film" autocomplete="off"><label>Game</label><select name="game">' + options + '<option value="new">A different opponent</option></select>' +
+  function updateForm(live, game) {
+    var upcoming = live.games.filter(function (item) { return item.upcoming; });
+    if (game && !upcoming.some(function (item) { return item.id === game.id; })) upcoming = [game].concat(upcoming);
+    var options = upcoming.map(function (item) {
+      return '<option value="' + esc(item.id) + '"' + (game && item.id === game.id ? " selected" : "") + ">" + esc(item.date + " " + item.opponent) + "</option>";
+    }).join("") + '<option value="new">A different opponent</option>';
+    return '<form id="week-form" class="update-form" autocomplete="off"><p>Enter the final and what they ran. This one button updates the install, the opponent card, and the trick alerts. Nothing leaves this computer.</p>' +
+      '<label>Game</label><select name="game">' + options + "</select>" +
       '<div id="new-opponent" hidden><label>Opponent</label><input name="opponent" type="text" maxlength="40"><label>Date</label><input name="date" type="date"></div>' +
       '<div class="form-row"><div><label>Cherokee Trail score</label><input name="ct" type="number" min="0" max="99" inputmode="numeric"></div>' +
       '<div><label>Opponent score</label><input name="opp" type="number" min="0" max="99" inputmode="numeric"></div></div>' +
@@ -608,9 +610,15 @@
       '<label>Play type</label><select name="tag"><option value="run_inside">Inside run</option><option value="run_explosive">Explosive run</option><option value="pass_short">Short pass</option><option value="pass_explosive">Shot play</option><option value="goal_line">Goal line</option></select>' +
       '<label>Yards you allowed on that play</label><input name="yards" type="number" min="0" max="99" inputmode="numeric">' +
       '<div class="drop"><b>Install a photo of the play</b><p class="muted">JPG, PNG, or WebP. It is resized and kept on this device.</p><input name="photo" type="file" accept="image/jpeg,image/png,image/webp"></div>' +
-      '<div class="chips"><button class="btn primary" type="submit">Update the install</button> <button class="btn" type="button" data-act="export">Save a backup file</button></div>' +
+      '<div class="chips"><button class="btn primary update-all" type="submit">Update everything</button> <button class="btn" type="button" data-act="export">Save a backup file</button></div>' +
       '<label class="btn">Open a backup<input type="file" accept="application/json" data-import="1" hidden></label>' +
-      '<p class="muted" id="film-note"></p></form></section>';
+      '<p class="muted" id="film-note"></p></form>';
+  }
+
+  function filmHtml() {
+    var live = book();
+    var game = E.nextGame(live, today());
+    return '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" + updateForm(live, game) + "</section>";
   }
 
   function ocHtml() {
@@ -707,6 +715,7 @@
     if (name === "size") { state.sideline = !state.sideline; save(); paint(); }
     if (name === "copy") copyInstall();
     if (name === "export") exportBackup();
+    if (name === "open-update") { state.updateOpen = true; state.section = "install"; paint(); }
   }
 
   function onChange(event) {
@@ -735,7 +744,7 @@
   }
 
   function onSubmit(event) {
-    if (!event.target || event.target.id !== "film") return;
+    if (!event.target || event.target.id !== "week-form") return;
     event.preventDefault();
     var form = event.target;
     var data = new FormData(form);
@@ -796,6 +805,7 @@
     }
     var named = current ? current.opponent : E.safeText(data.get("opponent"), 40);
     state.lastGameAdded = named + " " + today();
+    state.updateOpen = false;
     save();
     refreshCount().then(function () {
       state.section = "install";
@@ -881,6 +891,7 @@
   window.addEventListener("hashchange", function () {
     var hash = String(location.hash || "").replace(/^#/, "");
     if (hash === "dline") { state.section = "dline"; paint(); return; }
+    if (hash === "film") { state.section = "film"; paint(); return; }
     if (hash === "dl" || hash === "lb" || hash === "s" || hash === "cb") {
       state.room = hash;
       state.section = "learn";

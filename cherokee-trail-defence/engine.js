@@ -1038,7 +1038,7 @@ var CougarEngine = (function () {
     var beatAge = runtime.now && runtime.lastBeat ? runtime.now - runtime.lastBeat : null;
     var updateDetail = runtime.lastGameAdded
       ? "Last game folded in: " + runtime.lastGameAdded
-      : "Enter a final and the opponent card, call, and tricks update together";
+      : "Update everything on the front page writes the final into the card, the call, and the tricks";
     var rows = [
       check("book", "Book loaded", !!published && published.games && published.games.length > 100, published.games.length + " games in the ten-year book"),
       check("ten", "Ten-year check, 2016 through 2025", tenYearSeasons(published).length === 10, "10 seasons, plus the 2026 live slate"),
