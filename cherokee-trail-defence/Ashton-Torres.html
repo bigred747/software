@@ -6098,6 +6098,22 @@ var CougarDiagrams = (function () {
       "</section>" + rooms + trickBlocks;
   }
 
+  function weekLine(live, game) {
+    var row = E.opponents(live).filter(function (item) { return item.name === game.opponent; })[0];
+    var played = row ? row.games.filter(function (item) { return !item.upcoming; }) : [];
+    if (!played.length) {
+      return "First meeting in this book. No snap list was published for " + game.opponent + ". This is the season call, not a filmed game.";
+    }
+    var last = played[played.length - 1];
+    var snaps = 0;
+    played.forEach(function (item) {
+      snaps += (item.plays || []).filter(function (play) { return play.text; }).length;
+    });
+    var line = "Series " + row.record.wins + "-" + row.record.losses + ". Last meeting " + last.date + ", " + scoreLine(last) + ".";
+    if (!snaps) line += " No offensive snap list was published for those games.";
+    return line;
+  }
+
   function installHtml() {
     var live = book();
     var game = E.nextGame(live, today());
@@ -6109,6 +6125,7 @@ var CougarDiagrams = (function () {
       '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" +
       "<h2 class=\"call-name\">" + esc(defense.call.name) + "</h2>" +
       "<p class=\"brief\">" + esc(defense.call.brief) + "</p>" +
+      '<p class="muted">' + esc(weekLine(live, game)) + "</p>" +
       "<p class=\"muted\">" + esc(defense.confidenceText) + "</p>" +
       sitChips() +
       (state.updateOpen ? updateForm(live, game) : '<div class="chips"><button class="btn primary update-all" type="button" data-act="open-update">Update weekly</button><button class="btn" type="button" data-act="copy">Copy the install</button></div>') +
@@ -6155,10 +6172,16 @@ var CougarDiagrams = (function () {
   }
 
   function roomsBlock(call, coachId) {
-    return '<div class="rooms">' + ["dl", "lb", "s", "cb"].map(function (group) {
+    var note = "";
+    var rooms = ["dl", "lb", "s", "cb"].map(function (group) {
       var card = E.positionCard(call, group, coachId);
-      return '<article class="room"><h3>' + esc(card.title) + "</h3><p><b>" + esc(card.align) + "</b></p><p>" + esc(card.job) + "</p><p class=\"muted\">" + esc(card.coachNote) + "</p></article>";
-    }).join("") + "</div>";
+      if (!note && card.coachNote) note = card.coachNote;
+      var simple = E.plainLine(call.id, group);
+      return '<article class="room"><h3>' + esc(card.title) + "</h3>" +
+        (simple ? '<p class="job">' + esc(simple) + "</p>" : "") +
+        "<p><b>" + esc(card.align) + "</b></p><p>" + esc(card.job) + "</p></article>";
+    }).join("");
+    return (note ? '<p class="muted">' + esc(note) + "</p>" : "") + '<div class="rooms">' + rooms + "</div>";
   }
 
   function trickCard(trick) {
@@ -6320,7 +6343,7 @@ var CougarDiagrams = (function () {
   }
 
   function copyText(game, defense, tricks) {
-    var lines = ["ASHTON TORRES", when(game), "", defense.call.name, defense.call.brief, ""];
+    var lines = ["ASHTON TORRES", when(game), weekLine(book(), game), "", defense.call.name, defense.call.brief, ""];
     ["dl", "lb", "s", "cb"].forEach(function (group) {
       var card = defense.call.positions[group];
       lines.push(card.title + ": " + card.align);
