@@ -11,11 +11,17 @@ Windows 11
 That one file opens the program. You can also double-click Open Ashton Torres.
 
 Phone
-Download Ashton-Torres-Mobile.zip. The file named Start here tells you which piece to tap.
+Clicking Ashton-Torres-Mobile.zip does not open the call sheet. Open the zip first. The file named Start here is the same instruction.
 
-Android: tap Ashton-Torres.apk, allow the install, then Open. The icon is Ashton Torres. Film and photos stay on that phone.
+On a computer, double-click Open Ashton Torres. Ashton-Torres.html is the same program. That file works with no signal. Film, photos, and We called this stay on that computer.
 
-iPhone: AirDrop Install Ashton Torres.mobileconfig from a computer. Tap Install and enter the phone passcode. The phone says the profile is not signed. That warning is expected. The install adds the Ashton Torres icon and leaves every other setting alone. It does not ask for an Apple ID. The Files app on the iPhone shows Ashton-Torres.html and does not run it. The calls are in the icon. Film and photos stay on the computer.
+On a phone, open this link in Safari or Chrome:
+https://htmlpreview.github.io/?https://github.com/bigred747/software/blob/cursor/cougar-defence-call-sheet-1a2c/cherokee-trail-defence/Ashton-Torres.html
+The link needs a signal. Then use Share and Add to Home Screen. The icon is Ashton Torres. Film typed on the phone stays in that browser.
+
+Android: the file named Ashton-Torres.apk installs only on an Android phone. Tap it, allow the install, then Open. Film and photos stay on that phone.
+
+iPhone: tapping Install Ashton Torres.mobileconfig does not open the program. AirDrop that file from a computer, then tap Install. The phone says the profile is not signed. That warning is expected. It does not ask for an Apple ID. The Files app shows Ashton-Torres.html and does not run it. If the icon is blank, use the link above.
 
 The menu is split in two
 Players: Your room.

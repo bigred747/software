@@ -1,31 +1,27 @@
-Ashton Torres on a phone
+Clicking this zip does not open the call sheet.
 
-This zip is the call sheet for a phone. Use the file that matches the phone.
+On a computer
+1. Open this zip.
+2. Double-click the file named Open Ashton Torres.
+That opens the program. Ashton-Torres.html is the same program if the first file does not start.
+
+The computer file works with no signal. Film, photos, and We called this stay on that computer.
+
+On a phone
+Tap this link in Safari or Chrome. The call sheet opens.
+https://htmlpreview.github.io/?https://github.com/bigred747/software/blob/cursor/cougar-defence-call-sheet-1a2c/cherokee-trail-defence/Ashton-Torres.html
+
+The phone link needs a signal. Film you type there stays in that browser.
+
+Then use the Share button and choose Add to Home Screen. The icon is Ashton Torres.
 
 Android
-1. Put Ashton-Torres.apk on the phone. You can download this zip on the phone and open the apk from the zip.
-2. Tap Ashton-Torres.apk.
-3. Allow the install if the phone asks.
-4. Tap Install, then Open.
-The icon is named Ashton Torres. Film, photos, and We called this stay on that phone. The app does not ask for an account and does not send the call sheet anywhere.
+The file named Ashton-Torres.apk is for an Android phone only. Tap it, allow the install, then Open. Film and photos stay on that phone. The app does not ask for an account.
 
-iPhone
-An iPhone will not install the apk. It adds a Home Screen icon instead.
-1. Unzip this folder on a computer.
-2. AirDrop the file named Install Ashton Torres.mobileconfig to the iPhone. Send that file by itself. A zip opened in Files often shows a page of code instead of Install.
-3. Tap the AirDrop. If you see Profile Downloaded, open Settings. You can also open Settings, then General, then VPN & Device Management.
-4. Tap Ashton Torres Defense. Tap Install. Enter the phone passcode. Tap Install again.
-5. The phone says the profile is not signed. That warning is expected. The install adds the Ashton Torres icon. It leaves every other setting alone. It does not ask for an Apple ID.
-6. Tap the icon on the Home Screen.
-
-The calls are stored in the iPhone icon, so it opens with or without a signal. Weekly film save and Play photos can stay red on the iPhone. The call sheet still runs. Keep film on the computer, or on the Android app, where those lights are green.
+iPhone profile
+The file named Install Ashton Torres.mobileconfig does not open the program when you tap it. It only adds an icon after you AirDrop it from a computer to an iPhone and tap Install in Settings. The phone says the profile is not signed. That warning is expected. It does not ask for an Apple ID. If the icon opens a blank page, use the link above, or use Ashton-Torres.html on the computer for Friday.
 
 The Files app on the iPhone shows Ashton-Torres.html and does not run it.
-
-Computer
-Double-click Ashton-Torres.html.
-
-If the iPhone icon opens a blank page, use Ashton-Torres.html on the computer for Friday.
 
 Remove the iPhone icon
 Touch and hold the icon and remove it. Or open Settings, then General, then VPN & Device Management, tap Ashton Torres Defense, and remove the profile.

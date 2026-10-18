@@ -7,17 +7,19 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends Activity {
     private static final int PICK_FILE = 41;
+    private static final String SHEET = "file:///android_asset/Ashton-Torres.html";
     private WebView web;
     private ValueCallback<Uri[]> upload;
+    private boolean failed;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,33 +35,35 @@ public class MainActivity extends Activity {
         settings.setSupportZoom(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
-        settings.setAllowFileAccess(false);
+        settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new SheetClient());
         web.setWebChromeClient(new PhotoChooser());
         setContentView(web);
         try {
             InputStream in = getAssets().open("Ashton-Torres.html");
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[8192];
-            int n;
-            while ((n = in.read(buf)) >= 0) out.write(buf, 0, n);
             in.close();
-            String html = new String(out.toByteArray(), StandardCharsets.UTF_8);
-            web.loadDataWithBaseURL(
-                "https://ashtontorres.local/Ashton-Torres.html",
-                html,
-                "text/html",
-                "utf-8",
-                null
-            );
+            web.loadUrl(SHEET);
         } catch (Exception err) {
-            web.loadData(
-                "<p style=\"font:20px sans-serif;padding:24px\">The call sheet did not open. Install Ashton Torres again.</p>",
-                "text/html",
-                "utf-8"
-            );
+            showMissing();
+        }
+    }
+
+    private void showMissing() {
+        if (failed || web == null) return;
+        failed = true;
+        web.loadData(
+            "<p style=\"font:20px sans-serif;padding:24px;color:#f7fafc;background:#10283f\">The call sheet did not open. Install Ashton Torres again.</p>",
+            "text/html",
+            "utf-8"
+        );
+    }
+
+    private final class SheetClient extends WebViewClient {
+        @Override
+        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+            if (request != null && request.isForMainFrame()) showMissing();
         }
     }
 
