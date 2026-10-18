@@ -15,8 +15,10 @@ Phone or tablet
 2. Open index.html in the browser.
 3. Use the browser menu and choose Add to Home Screen.
 
-The menu
-Install, Your room, Diagnose, Scout, Rooms, Blitz, Alerts, Pictures, After the game, OC sheet, and Checks are all in the menu. Nothing from the first program was removed.
+The menu is split in two
+Players: Your room.
+Coach: Install, Diagnose, Scout, Rooms, Blitz, Alerts, Pictures, After the game, OC sheet, and Checks.
+Nothing from the first program was removed.
 
 Your room
 Tap Line, Backers, Safeties, or Corners. That page is the short card for one player.

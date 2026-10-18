@@ -8,9 +8,11 @@
   var saveTimer = 0;
   var dbPromise = null;
 
-  var NAV = [
+  var PLAYERS = [
+    ["learn", "Your room"]
+  ];
+  var COACH = [
     ["install", "Install"],
-    ["learn", "Your room"],
     ["diagnose", "Diagnose"],
     ["scout", "Scout"],
     ["rooms", "Rooms"],
@@ -244,11 +246,16 @@
     hydrate();
   }
 
+  function navButtons(items) {
+    return items.map(function (item) {
+      return '<button type="button" data-go="' + item[0] + '"' + (state.section === item[0] ? ' aria-current="page"' : "") + ">" + item[1] + "</button>";
+    }).join("");
+  }
+
   function navHtml() {
     return '<div class="brand"><b>Cougar Defense</b><span>Full program</span></div>' +
-      NAV.map(function (item) {
-        return '<button type="button" data-go="' + item[0] + '"' + (state.section === item[0] ? ' aria-current="page"' : "") + ">" + item[1] + "</button>";
-      }).join("") +
+      '<div class="nav-label">Players</div>' + navButtons(PLAYERS) +
+      '<div class="nav-label">Coach</div>' + navButtons(COACH) +
       '<div class="spacer"></div><div class="quiet">On this computer only. Not a website.</div>';
   }
 

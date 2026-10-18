@@ -78,6 +78,14 @@ img, svg { max-width: 100%; }
   min-height: 44px;
 }
 .nav button[aria-current="page"] { background: rgba(255,255,255,.12); }
+.nav-label {
+  margin: 10px 12px 0;
+  color: #9eb4c9;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
 .nav .spacer { flex: 1; }
 .nav .quiet { color: #c5d4e4; font-size: .78rem; padding: 8px 12px; }
 
@@ -196,6 +204,7 @@ textarea { min-height: 88px; }
     flex-direction: row; overflow: auto; padding: 8px; order: 2;
   }
   .brand, .nav .quiet, .nav .spacer { display: none; }
+  .nav-label { margin: 0 8px; align-self: center; white-space: nowrap; }
   .nav button { white-space: nowrap; }
   .main { order: 1; padding: 14px 14px 96px; }
   .grid, .rooms { grid-template-columns: 1fr; }
