@@ -1,5 +1,5 @@
 Cougar Defense
-This is the update. Each player taps one room. The coach uses Diagnose for the full read.
+This update keeps the whole original program and adds two pages.
 
 A standalone program for the defensive coordinator.
 
@@ -15,11 +15,14 @@ Phone or tablet
 2. Open index.html in the browser.
 3. Use the browser menu and choose Add to Home Screen.
 
-Players
-Open the program and tap your room: Line, Backers, Safeties, or Corners. You get the call and your job. You do not get the other rooms.
+The menu
+Install, Your room, Diagnose, Scout, Rooms, Blitz, Alerts, Pictures, After the game, OC sheet, and Checks are all in the menu. Nothing from the first program was removed.
 
-Coaches
-Tap Coach, then Diagnose. That page is the full read: the tells, the scores, every room, and the blitz. It is not the card you hand a player.
+Your room
+Tap Line, Backers, Safeties, or Corners. That page is the short card for one player.
+
+Diagnose
+The full read for the coach: the tells, the scores, every room, and the blitz.
 
 What is inside
 - This week's defensive install against Cherokee Trail.
