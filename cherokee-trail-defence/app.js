@@ -56,6 +56,18 @@
   state.photosOk = true;
   state.photoCount = 0;
   state.lastBeat = Date.now();
+  state.storageOk = storageProbe();
+
+  function storageProbe() {
+    try {
+      var probe = KEY + "-probe";
+      localStorage.setItem(probe, "1");
+      localStorage.removeItem(probe);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
 
   function loadState() {
     try {

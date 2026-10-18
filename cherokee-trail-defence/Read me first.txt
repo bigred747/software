@@ -3,17 +3,19 @@ Defense. This update keeps the whole original program and adds the defensive lin
 
 A standalone program for the defensive coordinator.
 
-It is not a website. It does not need an account. It does not send film, photos, or calls anywhere. Unzip this folder and keep it on the computer or phone you coach from.
+It is not a website. It does not need an account. It does not send film, photos, or calls anywhere. Unzip this folder and keep it on the computer you coach from.
 
 Windows 11
 1. Unzip the whole folder onto the Desktop.
 2. Double-click Ashton-Torres.html.
 That one file opens the program. You can also double-click Open Ashton Torres.
 
-Phone or tablet
-1. Copy Ashton-Torres.html onto the phone.
-2. Open that file in the browser.
-3. Use the browser menu and choose Add to Home Screen.
+Phone
+Download Ashton-Torres-Mobile.zip. The file named Start here tells you which piece to tap.
+
+Android: tap Ashton-Torres.apk, allow the install, then Open. The icon is Ashton Torres. Film and photos stay on that phone.
+
+iPhone: AirDrop Install Ashton Torres.mobileconfig from a computer. Tap Install and enter the phone passcode. The phone says the profile is not signed. That warning is expected. The install adds the Ashton Torres icon and leaves every other setting alone. It does not ask for an Apple ID. The Files app on the iPhone shows Ashton-Torres.html and does not run it. The calls are in the icon. Film and photos stay on the computer.
 
 The menu is split in two
 Players: Your room.
