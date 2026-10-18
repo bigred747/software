@@ -6,14 +6,13 @@ A standalone program for the defensive coordinator.
 It is not a website. It does not need an account. It does not send film, photos, or calls anywhere. Unzip this folder and keep it on the computer or phone you coach from.
 
 Windows 11
-1. Unzip the whole folder onto the computer. Do not open it from inside the zip.
-2. Open that folder and double-click "Open Aston Torres".
-3. It opens in its own window.
-If the window says File not found, the folder was not unzipped. Unzip it, then double-click Open Aston Torres from the unzipped folder.
+1. Unzip the whole folder onto the Desktop.
+2. Double-click Aston-Torres.html.
+That one file opens the program. You can also double-click Open Aston Torres.
 
 Phone or tablet
-1. Copy this whole folder onto the phone.
-2. Open index.html in the browser.
+1. Copy Aston-Torres.html onto the phone.
+2. Open that file in the browser.
 3. Use the browser menu and choose Add to Home Screen.
 
 The menu is split in two
