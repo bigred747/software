@@ -6,9 +6,10 @@ A standalone program for the defensive coordinator.
 It is not a website. It does not need an account. It does not send film, photos, or calls anywhere. Unzip this folder and keep it on the computer or phone you coach from.
 
 Windows 11
-1. Unzip the folder.
-2. Double-click "Open Aston Torres".
+1. Unzip the whole folder onto the computer. Do not open it from inside the zip.
+2. Open that folder and double-click "Open Aston Torres".
 3. It opens in its own window.
+If the window says File not found, the folder was not unzipped. Unzip it, then double-click Open Aston Torres from the unzipped folder.
 
 Phone or tablet
 1. Copy this whole folder onto the phone.
@@ -37,7 +38,7 @@ What is inside
 - A separate sheet you can hand to the offensive coordinator.
 
 After each game
-On the front page, press Update everything. Enter the score and what they ran. That one button updates the install, the opponent card, and the trick alerts on this device. The same button is on After the game.
+On the front page, press Update weekly. Enter the score and what they ran. That button updates the install, the opponent card, and the trick alerts on this device.
 
 While the window is open
 The program checks the book about once a second and adjusts the calls from the film you enter. The Checks page stays green while that is running. Close the window and the check pauses. Nothing else runs on the computer.

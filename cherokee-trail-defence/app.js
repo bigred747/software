@@ -297,7 +297,7 @@
     if (state.section === "install") return "Cherokee Trail · Aurora · the call, the four rooms, and the blitz";
     if (state.section === "oc") return "Hand this sheet to the offensive coordinator. It is not the defensive install.";
     if (state.section === "pictures") return "Every defense and every offensive play has a picture. Install a photo of a new look under it.";
-    if (state.section === "film") return "The same Update everything button that is on the front page.";
+    if (state.section === "film") return "Update weekly. The score stays on this computer.";
     return "Standalone program. Film you add stays on this device.";
   }
 
@@ -438,7 +438,7 @@
       "<p class=\"brief\">" + esc(defense.call.brief) + "</p>" +
       "<p class=\"muted\">" + esc(defense.confidenceText) + "</p>" +
       sitChips() +
-      (state.updateOpen ? updateForm(live, game) : '<div class="chips"><button class="btn primary update-all" type="button" data-act="open-update">Update everything</button><button class="btn" type="button" data-act="copy">Copy the install</button></div>') +
+      (state.updateOpen ? updateForm(live, game) : '<div class="chips"><button class="btn primary update-all" type="button" data-act="open-update">Update weekly</button><button class="btn" type="button" data-act="copy">Copy the install</button></div>') +
       '<div class="grid"><div><div class="picture">' + picture(defense.call.id) + "</div>" +
       "<p class=\"caption\">" + esc((D.get(defense.call.id) || {}).caption || "") + "</p>" +
       photoSlot(defense.call.id, "defense") + "</div><div>" + reasons(defense, season) + wrapCard(defense) + "</div></div>" +
@@ -601,7 +601,7 @@
     var options = upcoming.map(function (item) {
       return '<option value="' + esc(item.id) + '"' + (game && item.id === game.id ? " selected" : "") + ">" + esc(item.date + " " + item.opponent) + "</option>";
     }).join("") + '<option value="new">A different opponent</option>';
-    return '<form id="week-form" class="update-form" autocomplete="off"><p>Enter the final and what they ran. This one button updates the install, the opponent card, and the trick alerts. Nothing leaves this computer.</p>' +
+    return '<form id="week-form" class="update-form" autocomplete="off"><p>Enter this week\'s final and what they ran. Update weekly writes it into the install, the opponent card, and the trick alerts. Nothing leaves this computer.</p>' +
       '<label>Game</label><select name="game">' + options + "</select>" +
       '<div id="new-opponent" hidden><label>Opponent</label><input name="opponent" type="text" maxlength="40"><label>Date</label><input name="date" type="date"></div>' +
       '<div class="form-row"><div><label>Cherokee Trail score</label><input name="ct" type="number" min="0" max="99" inputmode="numeric"></div>' +
@@ -610,7 +610,7 @@
       '<label>Play type</label><select name="tag"><option value="run_inside">Inside run</option><option value="run_explosive">Explosive run</option><option value="pass_short">Short pass</option><option value="pass_explosive">Shot play</option><option value="goal_line">Goal line</option></select>' +
       '<label>Yards you allowed on that play</label><input name="yards" type="number" min="0" max="99" inputmode="numeric">' +
       '<div class="drop"><b>Install a photo of the play</b><p class="muted">JPG, PNG, or WebP. It is resized and kept on this device.</p><input name="photo" type="file" accept="image/jpeg,image/png,image/webp"></div>' +
-      '<div class="chips"><button class="btn primary update-all" type="submit">Update everything</button> <button class="btn" type="button" data-act="export">Save a backup file</button></div>' +
+      '<div class="chips"><button class="btn primary update-all" type="submit">Update weekly</button> <button class="btn" type="button" data-act="export">Save a backup file</button></div>' +
       '<label class="btn">Open a backup<input type="file" accept="application/json" data-import="1" hidden></label>' +
       '<p class="muted" id="film-note"></p></form>';
   }
