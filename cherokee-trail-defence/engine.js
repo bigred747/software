@@ -889,12 +889,152 @@ var CougarEngine = (function () {
     return { ok: problems.length === 0, problems: problems };
   }
 
+  var PLAIN = {
+    "odd-cover3": {
+      say: "Odd front. One safety deep in the middle. Fit the run.",
+      dl: "Play the center and the tackles. The end on the back's side stays home. Do not chase a boot.",
+      lb: "Mike hits the middle. Will hits the gap away from the play. Sam plays outside and makes the run cut back inside.",
+      s: "One safety stays deep in the middle. Come down only when it is a run. Do not jump the fake throw.",
+      cb: "Play deep. The short-side corner lines up inside his man. Do not jump a short throw."
+    },
+    "nickel-quarters": {
+      say: "Nickel. Both safeties start deep. Fit the run after you see it.",
+      dl: "Rush four. Stay in your lane. Do not chase a screen past the tackle.",
+      lb: "Fit the run from the inside out. If you are the nickel, stay on the slot.",
+      s: "Both of you start deep. Stay deep on a fake run. Come up only when the ball is past the line.",
+      cb: "Press your man and run with him if he goes deep. A safety is behind you. Do not sit on a short throw."
+    },
+    "bear-goalline": {
+      say: "Bear. Man coverage. One safety on the goal line. No blitz.",
+      dl: "Five across. Own the gap inside you. Do not leave it.",
+      lb: "Step forward on the snap. Stay in your gap until the ball goes outside.",
+      s: "Stand on the goal line in the middle. You are the last man.",
+      cb: "Press your man. Stay inside him. Do not let him behind you."
+    },
+    "nickel-cover2": {
+      say: "Cover 2. Corners take the flats. Safeties take the deep halves.",
+      dl: "Rush four and stay tight. You have the boot, not the short throw.",
+      lb: "Drop, then run to the short catch and make the tackle.",
+      s: "Both of you go deep. The flat belongs to the corner.",
+      cb: "Bump your man, then drop to the flat and tackle."
+    },
+    "sim-robber": {
+      say: "Four rush. One backer blitzes late. The other jumps the crosser.",
+      dl: "Rush four. Stay on the quarterback. Do not run past a boot.",
+      lb: "One of you blitzes late. The other sits in the middle for a crosser. Do not both blitz.",
+      s: "Stay deep. The blitz works only if the deep ball is covered.",
+      cb: "Stay inside your man and run deep with him. A backer has the crosser."
+    },
+    "dime-cushion": {
+      say: "Dime. Play deeper. Still fit a draw. This is not a soft prevent.",
+      dl: "Rush, but do not crash inside. A draw or a quarterback keep can end the game.",
+      lb: "Line up off the ball. Read run first.",
+      s: "Start deeper than normal. Do not give up a deep ball to make a short tackle.",
+      cb: "Line up off and outside. Protect the sideline. Tackle the short throw."
+    },
+    "sam-wrap": {
+      say: "Sam wraps inside the end. The end forces the run outside.",
+      dl: "On the blitz side, force the run outside. Do not crash inside. The blitzer is in that gap.",
+      lb: "Sam runs inside the tackle. Mike comes over the top for the cutback. Will stays on the back side.",
+      s: "Stay back until the ball is handed off. Then the safety to the blitz can come down.",
+      cb: "Play your coverage. A quick screen to the blitz side means we check out."
+    },
+    "will-wrap": {
+      say: "Will wraps from the back side and meets the pulling lineman.",
+      dl: "The back-side end stays wide. Do not chase the pulling lineman.",
+      lb: "Will meets the puller inside the back-side tackle. Sam plays the front. Mike plays the cutback.",
+      s: "Do not run across the field. Stay for a quarterback keep.",
+      cb: "Stay home. Do not chase the fake. If they throw it, it is to the man you left."
+    },
+    "bandit-wrap": {
+      say: "One safety blitzes off the edge. The corner on that side drops to the flat.",
+      dl: "The end away from the blitz keeps the quarterback inside. The other end lets the safety through.",
+      lb: "Do not blitz with the safety. Mike plays the middle. Will plays the cutback.",
+      s: "One safety blitzes off the edge. The other stays deep and does not come down.",
+      cb: "If the blitz is on your side, drop to the flat right away. That quick throw is yours."
+    },
+    "fake-punt": {
+      dl: "Rush your lane. Do not run past the punter. If you get deeper than the ball, the fake is drawn for you.",
+      lb: "One of you spies the up-back and does not rush. Everyone else stays in a lane.",
+      s: "Stay deep until the ball is kicked. Come up after the kick, or when the spy yells live.",
+      cb: "Jam the gunner, then look back. If the ball was not kicked, come fit the run."
+    },
+    "flea-flicker": {
+      dl: "Play the run. The back-side end stays home for the quarterback.",
+      lb: "Play the handoff as a run until the ball comes back. Then find the throw.",
+      s: "One safety can fit the run. The free safety stays deep. This trick is a throw.",
+      cb: "Stay on top of your man. This is a deep throw after a fake run. Do not jump a short route."
+    },
+    "reverse-pass": {
+      dl: "The end on the reverse stays outside. The back-side end stays home for the throwback.",
+      lb: "Shuffle to the reverse. Do not sprint. One backer stays for the throw back.",
+      s: "The back-side safety does not cross the field. The throwback is his.",
+      cb: "The back-side corner stays home. His man is the throwback."
+    },
+    "hook-and-ladder": {
+      dl: "Rush, then find the ball. This trick happens after the catch.",
+      lb: "Two of you go to the ball. One hits the catcher. One hits the trailer.",
+      s: "Come downhill, then find the second man. Do not run past the pitch.",
+      cb: "Stay on your feet and squeeze the catcher inside. Do not dive at his feet."
+    },
+    "statue": {
+      dl: "Rush wide. The run goes to the side the quarterback is not looking.",
+      lb: "The backer near the back stays on the back, even while the quarterback fakes the throw.",
+      s: "Do not break until the ball is really thrown. If he never throws it, fit the run.",
+      cb: "Stay on your man. Do not turn and run just because he cocked his arm."
+    },
+    "fake-field-goal": {
+      dl: "The wide-side end stays outside the holder. Do not all hit the kicker.",
+      lb: "One of you watches the holder and does not jump. The rest play the kick.",
+      s: "One safety watches the holder's hands. One stays deep for the kick.",
+      cb: "Stay with the wings. The throw is to a wing, not to the kicker."
+    },
+    "jet-pop-pass": {
+      dl: "Squeeze the jet so he cannot set his feet. Do not chase him inside.",
+      lb: "Shuffle with the jet. Do not sprint. The other backer stays in the middle.",
+      s: "The free safety stays in the middle. If a corner chases the jet, you have the wheel.",
+      cb: "Stay with the outside man. He is about to wheel. Do not follow the jet."
+    },
+    "screen-and-wheel": {
+      dl: "If you see a screen, stop. Do not chase the back past the tackle.",
+      lb: "One of you jumps the screen. The other stays under the wheel.",
+      s: "Watch the slot who sells a block and then wheels. Do not watch only the screen.",
+      cb: "Stay on the outside man. Do not come down to tackle the screen."
+    }
+  };
+
+  function plainLine(id, group) {
+    var row = PLAIN[id];
+    if (!row || !row[group]) return "";
+    return row[group];
+  }
+
+  function plainAudit(book) {
+    var problems = [];
+    var groups = ["dl", "lb", "s", "cb"];
+    (book.calls || []).forEach(function (call) {
+      if (!PLAIN[call.id] || !PLAIN[call.id].say) problems.push(call.id + " has no player call line");
+      groups.forEach(function (group) {
+        var line = plainLine(call.id, group);
+        if (line.length < 20 || line.length > 180) problems.push(call.id + " " + group + " player line is " + line.length);
+      });
+    });
+    TRICKS.forEach(function (trick) {
+      groups.forEach(function (group) {
+        var line = plainLine(trick.id, group);
+        if (line.length < 20 || line.length > 180) problems.push(trick.id + " " + group + " player line is " + line.length);
+      });
+    });
+    return { ok: problems.length === 0, problems: problems };
+  }
+
   function signals(book, runtime) {
     runtime = runtime || {};
     var published = runtime.publishedBook || book;
     var live = book;
     var audit = dataAudit(published);
     var tricks = trickAudit(live);
+    var plain = plainAudit(published);
     var beatAge = runtime.now && runtime.lastBeat ? runtime.now - runtime.lastBeat : null;
     var updateDetail = runtime.lastGameAdded
       ? "Last game folded in: " + runtime.lastGameAdded
@@ -910,6 +1050,7 @@ var CougarEngine = (function () {
       check("lb", "Linebacker jobs", jobsPresent(published, "lb"), "A linebacker job is written on every call"),
       check("s", "Safety jobs", jobsPresent(published, "s"), "A safety job is written on every call"),
       check("cb", "Corner jobs", jobsPresent(published, "cb"), "A corner job is written on every call"),
+      check("plain", "Player room cards", plain.ok, plain.ok ? "Each room has a short card. The full diagnosis stays on the coach page." : plain.problems[0]),
       check("wrap", "Wrap-around blitzes", published.calls.filter(function (call) { return call.family === "wrap"; }).length >= 3, "Sam wrap, Will wrap, and Bandit wrap"),
       check("tricks", "Trick plays, one or two a game", tricks.ok, tricks.ok ? "Every game has a trick card" : tricks.problems[0]),
       check("offense", "Your offense card", published.offense.length >= 6, published.offense.length + " calls to run against them"),
@@ -922,7 +1063,7 @@ var CougarEngine = (function () {
       check("save", "Weekly film save", runtime.storageOk !== false, runtime.storageOk === false ? "This browser is blocking saved film" : "Film, new games, and weights save on this computer")
     ];
     var master = rows.every(function (row) { return row.ok; }) && audit.ok && tricks.ok;
-    return { ok: master, rows: rows, problems: audit.problems.concat(tricks.problems) };
+    return { ok: master, rows: rows, problems: audit.problems.concat(tricks.problems, plain.problems) };
   }
 
   function jobsPresent(book, group) {
@@ -964,6 +1105,8 @@ var CougarEngine = (function () {
     positionCard: positionCard,
     dataAudit: dataAudit,
     trickAudit: trickAudit,
+    plainLine: plainLine,
+    plainAudit: plainAudit,
     pointAudit: pointAudit,
     emptyModel: emptyModel,
     applyLearning: applyLearning,

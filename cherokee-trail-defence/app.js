@@ -10,6 +10,7 @@
 
   var NAV = [
     ["install", "Install"],
+    ["diagnose", "Diagnose"],
     ["scout", "Scout"],
     ["rooms", "Rooms"],
     ["blitz", "Blitz"],
@@ -19,11 +20,26 @@
     ["oc", "OC sheet"],
     ["checks", "Checks"]
   ];
+  var ROOMS = [["dl", "Line"], ["lb", "Backers"], ["s", "Safeties"], ["cb", "Corners"]];
 
-  var state = loadState();
+  var stored = loadState();
+  var seenMode = !!stored.mode;
+  var state = stored;
   state.model = state.model || E.emptyModel(BASE);
   state.overlay = state.overlay || { updates: [], added: [] };
-  state.section = state.section || "install";
+  state.mode = state.mode || "player";
+  if (!seenMode) state.section = "learn";
+  else state.section = state.section || (state.mode === "player" ? "learn" : "install");
+  var roomHash = String(location.hash || "").replace(/^#/, "");
+  if (roomHash === "dl" || roomHash === "lb" || roomHash === "s" || roomHash === "cb") {
+    state.mode = "player";
+    state.room = roomHash;
+    state.section = "learn";
+  }
+  if (roomHash === "diagnose") {
+    state.mode = "coach";
+    state.section = "diagnose";
+  }
   state.sit = state.sit || { down: 1, distance: 10, zone: "mid", hash: "middle" };
   state.photosOk = true;
   state.photoCount = 0;
@@ -53,6 +69,7 @@
           model: state.model,
           opponent: state.opponent,
           room: state.room,
+          mode: state.mode,
           coachId: state.coachId,
           lastGameAdded: state.lastGameAdded || ""
         }));
@@ -231,14 +248,25 @@
   }
 
   function navHtml() {
-    return '<div class="brand"><b>Cougar Defense</b><span>Defensive coordinator</span></div>' +
+    if (state.mode !== "coach") {
+      return '<div class="brand"><b>Cougar Defense</b><span>Your room</span></div>' +
+        ROOMS.map(function (item) {
+          return '<button type="button" data-room="' + item[0] + '"' + (state.room === item[0] ? ' aria-current="page"' : "") + ">" + item[1] + "</button>";
+        }).join("") +
+        '<div class="spacer"></div><button type="button" data-act="coach">Coach</button>';
+    }
+    return '<div class="brand"><b>Cougar Defense</b><span>Coach</span></div>' +
       NAV.map(function (item) {
         return '<button type="button" data-go="' + item[0] + '"' + (state.section === item[0] ? ' aria-current="page"' : "") + ">" + item[1] + "</button>";
       }).join("") +
-      '<div class="spacer"></div><div class="quiet">On this computer only. Not a website.</div>';
+      '<div class="spacer"></div><button type="button" data-act="player">Players</button><div class="quiet">On this computer only. Not a website.</div>';
   }
 
   function topHtml(board) {
+    if (state.mode !== "coach") {
+      return "<div><h1>" + esc(title()) + "</h1><p>" + esc(subtitle()) + "</p></div>" +
+        '<div class="tools"><button type="button" data-act="size">' + (state.sideline ? "Normal text" : "Big text") + "</button></div>";
+    }
     var bad = board.rows.filter(function (row) { return !row.ok; }).length;
     var pill = bad ? '<span class="pill bad"><i class="dot"></i>' + bad + " to check</span>" : '<span class="pill"><i class="dot"></i>Ready</span>';
     return "<div><h1>" + esc(title()) + "</h1><p>" + esc(subtitle()) + "</p></div>" +
@@ -249,7 +277,9 @@
 
   function title() {
     return ({
+      learn: "Your job",
       install: "This week's install",
+      diagnose: "Diagnose",
       scout: "Scout by opponent",
       rooms: "Position rooms",
       blitz: "Wrap blitzes",
@@ -261,6 +291,8 @@
     })[state.section] || "Cougar Defense";
   }
   function subtitle() {
+    if (state.mode !== "coach") return state.room ? "This is your card. The other rooms are not on it." : "Tap your room. You only see your job.";
+    if (state.section === "diagnose") return "Full read for the coach. A player card does not show this.";
     if (state.section === "install") return "Cherokee Trail · Aurora · the call, the four rooms, and the blitz";
     if (state.section === "oc") return "Hand this sheet to the offensive coordinator. It is not the defensive install.";
     if (state.section === "pictures") return "Every defense and every offensive play has a picture. Install a photo of a new look under it.";
@@ -268,6 +300,8 @@
   }
 
   function viewHtml() {
+    if (state.mode !== "coach") return learnHtml();
+    if (state.section === "diagnose") return diagnoseHtml();
     if (state.section === "install") return installHtml();
     if (state.section === "scout") return scoutHtml();
     if (state.section === "rooms") return roomsHtml();
@@ -277,6 +311,89 @@
     if (state.section === "film") return filmHtml();
     if (state.section === "oc") return ocHtml();
     return checksHtml();
+  }
+
+  function learnHtml() {
+    var live = book();
+    var game = E.nextGame(live, today());
+    var defense = E.bestDefense(live, { game: game, down: 1, distance: 10, zone: "mid", hash: "middle" }, state.model);
+    var names = { dl: "Line", lb: "Backers", s: "Safeties", cb: "Corners" };
+    var group = names[state.room] ? state.room : "";
+    var picks = '<div class="rooms-pick">' + ROOMS.map(function (item) {
+      return '<button type="button" data-room="' + item[0] + '"' + (group === item[0] ? ' aria-pressed="true"' : "") + ">" + item[1] + "</button>";
+    }).join("") + "</div>";
+    var head = '<section class="hero learn"><div class="kicker">' + esc(when(game)) + "</div>" +
+      "<p class=\"step\">1. The call</p><h2 class=\"call-name\">" + esc(defense.call.name) + "</h2>" +
+      "<p class=\"brief\">" + esc(E.plainLine(defense.call.id, "say") || defense.call.brief) + "</p>";
+    if (!group) {
+      state.copyText = defense.call.name + "\nTap your room.";
+      return head + "<p class=\"step\">2. Your room</p>" + picks + "<p class=\"job\">Tap your room. You will only see your job.</p></section>";
+    }
+    var mine = defense.call.positions[group];
+    var job = E.plainLine(defense.call.id, group);
+    var tricks = E.trickPlaysForGame(live, game);
+    var goal = E.bestDefense(live, { game: game, down: 1, distance: 3, zone: "goal" }, state.model);
+    var goalLine = goal.call.id === defense.call.id ? "" :
+      "<p class=\"muted\">Inside the 5, the call is " + esc(goal.call.name) + ". " + esc(E.plainLine(goal.call.id, group)) + "</p>";
+    var blitz = defense.wrap
+      ? "<p class=\"step\">3. Your blitz</p><p class=\"job\">" + esc(defense.wrap.name) + ". " + esc(E.plainLine(defense.wrap.id, group)) + " We call it once. If the backfield is empty, we check out.</p>"
+      : "";
+    state.copyText = [
+      defense.call.name,
+      E.plainLine(defense.call.id, "say"),
+      "I play " + names[group] + ".",
+      mine.align + ".",
+      job,
+      defense.wrap ? "Blitz: " + defense.wrap.name + ". " + E.plainLine(defense.wrap.id, group) : "",
+      "Watch: " + tricks.map(function (trick) { return trick.name + ". " + E.plainLine(trick.id, group); }).join(" ")
+    ].filter(Boolean).join("\n");
+    return head +
+      "<p class=\"step\">2. Your job · " + esc(names[group]) + "</p><article class=\"room\"><p><b>" + esc(mine.align) + "</b></p><p class=\"job\">" + esc(job) + "</p></article>" +
+      goalLine + blitz +
+      "<p class=\"step\">4. Watch for this</p>" + tricks.map(function (trick) {
+        return "<p><b>" + esc(trick.name) + ".</b> " + esc(E.plainLine(trick.id, group)) + "</p>";
+      }).join("") +
+      '<div class="chips"><button class="btn primary" type="button" data-act="copy">Copy my card</button></div>' +
+      "<p class=\"step\">Change room</p>" + picks + "</section>";
+  }
+
+  function diagnoseHtml() {
+    var live = book();
+    var game = E.nextGame(live, today());
+    var season = E.seasonByYear(live, game.season);
+    var defense = E.bestDefense(live, Object.assign({ game: game }, query()), state.model);
+    var tricks = E.trickPlaysForGame(live, game);
+    var tells = defense.top.map(function (row) {
+      return esc(row.label) + " " + esc(String(row.value));
+    }).join(" · ");
+    var ranks = defense.rows.slice(0, 6).map(function (row) {
+      return "<li>" + esc(row.name) + " · score " + esc(String(row.score)) + "</li>";
+    }).join("");
+    var rooms = ["dl", "lb", "s", "cb"].map(function (group) {
+      var card = defense.call.positions[group];
+      var wrapJob = defense.wrap ? "<p><b>Blitz, " + esc(defense.wrap.name) + ".</b> " + esc(defense.wrap.positions[group].job) + "</p>" : "";
+      return "<article class=\"card\"><h3>" + esc(card.title) + " · " + esc(card.align) + "</h3><p>" + esc(card.job) + "</p>" + wrapJob +
+        "<p class=\"muted\">Player card: " + esc(E.plainLine(defense.call.id, group)) + "</p></article>";
+    }).join("");
+    var trickBlocks = tricks.map(function (trick) {
+      var roomsText = ["dl", "lb", "s", "cb"].map(function (group) {
+        var card = trick.positions[group];
+        return "<p><b>" + esc(card.title) + ".</b> " + esc(card.job) + "</p>";
+      }).join("");
+      return "<article class=\"card\"><h3>" + esc(trick.name) + "</h3><p>" + esc(trick.defense) + "</p>" + roomsText +
+        "<p class=\"muted\">" + esc(trick.why) + "</p></article>";
+    }).join("");
+    return '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" +
+      "<h2 class=\"call-name\">" + esc(defense.call.name) + "</h2>" +
+      "<p>" + esc(defense.confidenceText) + "</p>" + sitChips() +
+      "<p><b>Tells.</b> " + tells + "</p>" +
+      "<p><b>Weight on this call.</b> " + esc(String(defense.weight)) + (defense.alternate ? ". Next call: " + esc(defense.alternate.call.name) + " · " + esc(String(defense.alternate.score)) : "") + "</p>" +
+      "<ol>" + ranks + "</ol>" +
+      "<p>" + defense.reasons.map(esc).join("</p><p>") + "</p>" +
+      (season ? "<p>" + esc(season.why) + "</p>" : "") +
+      "<p class=\"muted\">" + esc(defense.hashNote) + "</p>" +
+      (defense.wrap ? "<p><b>" + esc(defense.wrap.name) + " · score " + esc(String(defense.wrapScore)) + ".</b> " + esc(defense.wrapAdvice) + "</p>" : "") +
+      "</section>" + rooms + trickBlocks;
   }
 
   function installHtml() {
@@ -538,7 +655,14 @@
     var coach = event.target.closest("[data-coach]");
     if (coach) { state.coachId = coach.getAttribute("data-coach"); save(); paint(); return; }
     var room = event.target.closest("[data-room]");
-    if (room) { state.room = room.getAttribute("data-room"); save(); paint(); return; }
+    if (room) {
+      state.room = room.getAttribute("data-room");
+      if (state.mode !== "coach") {
+        state.section = "learn";
+        if (location.hash !== "#" + state.room) location.hash = state.room;
+      }
+      save(); paint(); return;
+    }
     var year = event.target.closest("[data-year]");
     if (year) { state.alertYear = Number(year.getAttribute("data-year")); paint(); return; }
     var side = event.target.closest("[data-side]");
@@ -554,6 +678,8 @@
     var act = event.target.closest("[data-act]");
     if (!act) return;
     var name = act.getAttribute("data-act");
+    if (name === "coach") { state.mode = "coach"; state.section = "diagnose"; save(); paint(); }
+    if (name === "player") { state.mode = "player"; state.section = "learn"; save(); paint(); }
     if (name === "theme") { state.theme = state.theme === "night" ? "day" : "night"; save(); paint(); }
     if (name === "size") { state.sideline = !state.sideline; save(); paint(); }
     if (name === "copy") copyInstall();
@@ -728,6 +854,15 @@
   document.body.addEventListener("submit", onSubmit);
   document.getElementById("light").addEventListener("click", function () {
     document.getElementById("light").hidden = true;
+  });
+  window.addEventListener("hashchange", function () {
+    var hash = String(location.hash || "").replace(/^#/, "");
+    if (hash === "dl" || hash === "lb" || hash === "s" || hash === "cb") {
+      state.mode = "player";
+      state.room = hash;
+      state.section = "learn";
+      paint();
+    }
   });
 
   setInterval(function () {

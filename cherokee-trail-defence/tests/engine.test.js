@@ -51,5 +51,12 @@ assert.strictEqual(creek.record.wins, 0);
 var board = E.signals(B, { now: 10000, lastBeat: 9500, publishedBook: B, photosOk: true, picturesOk: true, storageOk: true, updateReady: true });
 assert.strictEqual(board.ok, true, board.rows.filter(function (row) { return !row.ok; }).map(function (row) { return row.id + ": " + row.detail; }).join("; "));
 assert.ok(board.rows.every(function (row) { return !/15-minute|scheduled task/i.test(row.name + " " + row.detail); }));
+var plain = E.plainAudit(B);
+assert.strictEqual(plain.ok, true, plain.problems.join("; "));
+assert.ok(E.plainLine("nickel-quarters", "lb").indexOf("slot") !== -1);
+assert.ok(E.plainLine("nickel-quarters", "dl").indexOf("Rush four") === 0);
+["dl", "lb", "s", "cb"].forEach(function (group) {
+  assert.ok(E.plainLine("jet-pop-pass", group).length > 20);
+});
 
 console.log("engine tests passed");

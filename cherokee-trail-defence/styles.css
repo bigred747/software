@@ -122,6 +122,18 @@ body.night .btn.primary, body.night .chip[aria-pressed="true"] {
 .muted { color: var(--muted); }
 .grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; }
 .rooms { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.rooms-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rooms-pick button {
+  min-height: 84px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.rooms-pick button[aria-pressed="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
+.step { font-weight: 700; color: var(--blue); margin: 16px 0 4px; }
+.job { font-size: 1.28rem; line-height: 1.35; }
 .room, .card { padding: 14px; }
 .room h3, .card h3 { margin: 0 0 6px; font-size: 1rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
@@ -185,8 +197,10 @@ textarea { min-height: 88px; }
   }
   .brand, .nav .quiet, .nav .spacer { display: none; }
   .nav button { white-space: nowrap; }
-  .main { order: 1; padding: 14px 14px 24px; }
+  .main { order: 1; padding: 14px 14px 96px; }
   .grid, .rooms { grid-template-columns: 1fr; }
+  .rooms-pick { grid-template-columns: 1fr 1fr; }
+  .rooms-pick button { min-height: 64px; font-size: 1.1rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }

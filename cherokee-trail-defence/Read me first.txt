@@ -13,6 +13,12 @@ Phone or tablet
 2. Open index.html in the browser.
 3. Use the browser menu and choose Add to Home Screen.
 
+Players
+Open the program and tap your room: Line, Backers, Safeties, or Corners. You get the call and your job. You do not get the other rooms.
+
+Coaches
+Tap Coach, then Diagnose. That page is the full read: the tells, the scores, every room, and the blitz. It is not the card you hand a player.
+
 What is inside
 - This week's defensive install against Cherokee Trail.
 - A job for the line, the linebackers, the safeties, and the corners.
