@@ -1,4 +1,4 @@
-Aston Torres
+Ashton Torres
 Defense. This update keeps the whole original program and adds the defensive line room.
 
 A standalone program for the defensive coordinator.
@@ -7,17 +7,17 @@ It is not a website. It does not need an account. It does not send film, photos,
 
 Windows 11
 1. Unzip the whole folder onto the Desktop.
-2. Double-click Aston-Torres.html.
-That one file opens the program. You can also double-click Open Aston Torres.
+2. Double-click Ashton-Torres.html.
+That one file opens the program. You can also double-click Open Ashton Torres.
 
 Phone or tablet
-1. Copy Aston-Torres.html onto the phone.
+1. Copy Ashton-Torres.html onto the phone.
 2. Open that file in the browser.
 3. Use the browser menu and choose Add to Home Screen.
 
 The menu is split in two
 Players: Your room.
-Aston Torres: D-Line. That room is the defensive line only.
+Ashton Torres: D-Line. That room is the defensive line only.
 Coach: Install, Diagnose, Scout, Rooms, Blitz, Alerts, Pictures, After the game, OC sheet, and Checks.
 Nothing from the first program was removed.
 

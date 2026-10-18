@@ -1047,7 +1047,7 @@ var CougarEngine = (function () {
       check("opponents", "Split by opponent", opponents(live).length >= 20, opponents(live).length + " opponents"),
       check("coaches", "Coach cards", published.coaches.length === 3, "Mangnall, Johnson, and Jajczyk"),
       check("dl", "Defensive line jobs", jobsPresent(published, "dl"), "A line job is written on every call"),
-      check("dline", "Aston Torres line room", lineAudit().ok, lineAudit().ok ? "Nine line plays. The other rooms are not written on this card." : lineAudit().problems[0]),
+      check("dline", "Ashton Torres line room", lineAudit().ok, lineAudit().ok ? "Nine line plays. The other rooms are not written on this card." : lineAudit().problems[0]),
       check("lb", "Linebacker jobs", jobsPresent(published, "lb"), "A linebacker job is written on every call"),
       check("s", "Safety jobs", jobsPresent(published, "s"), "A safety job is written on every call"),
       check("cb", "Corner jobs", jobsPresent(published, "cb"), "A corner job is written on every call"),
@@ -1086,7 +1086,7 @@ var CougarEngine = (function () {
     return cleaned || "play";
   }
 
-  var LINE_COACH = "Aston Torres";
+  var LINE_COACH = "Ashton Torres";
 
   var LINE_PLAYS = [
     {
@@ -1206,7 +1206,7 @@ var CougarEngine = (function () {
 
   function lineAudit() {
     var problems = [];
-    if (LINE_COACH !== "Aston Torres") problems.push("line coach name");
+    if (LINE_COACH !== "Ashton Torres") problems.push("line coach name");
     if (LINE_PLAYS.length !== 9) problems.push("expected 9 line plays");
     var banned = /son-in-law|free safety|the corner|linebacker drops|cover 2|cover 3|cover 4/i;
     LINE_PLAYS.forEach(function (play) {

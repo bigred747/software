@@ -60,7 +60,7 @@ assert.ok(E.plainLine("nickel-quarters", "dl").indexOf("Rush four") === 0);
 });
 var line = E.lineAudit();
 assert.strictEqual(line.ok, true, line.problems.join("; "));
-assert.strictEqual(E.LINE_COACH, "Aston Torres");
+assert.strictEqual(E.LINE_COACH, "Ashton Torres");
 assert.strictEqual(E.linePlays().length, 9);
 assert.ok(E.linePlays().some(function (play) { return play.id === "nickel-quarters" && play.spots.length >= 2; }));
 

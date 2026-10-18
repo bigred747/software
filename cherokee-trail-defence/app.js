@@ -258,7 +258,7 @@
   }
 
   function navHtml() {
-    return '<div class="brand"><b>Aston Torres</b><span>Defense</span></div>' +
+    return '<div class="brand"><b>Ashton Torres</b><span>Defense</span></div>' +
       '<div class="nav-label">Players</div>' + navButtons(PLAYERS) +
       '<div class="nav-label">' + esc(E.LINE_COACH) + '</div>' + navButtons(LINE_MENU) +
       '<div class="nav-label">Coach</div>' + navButtons(COACH) +
@@ -288,7 +288,7 @@
       film: "After the game",
       oc: "Offensive sheet",
       checks: "Program checks"
-    })[state.section] || "Aston Torres";
+    })[state.section] || "Ashton Torres";
   }
   function subtitle() {
     if (state.section === "dline") return E.LINE_COACH + ". Line calls only. The other rooms stay off this page.";
@@ -647,7 +647,7 @@
   }
 
   function copyText(game, defense, tricks) {
-    var lines = ["ASTON TORRES", when(game), "", defense.call.name, defense.call.brief, ""];
+    var lines = ["ASHTON TORRES", when(game), "", defense.call.name, defense.call.brief, ""];
     ["dl", "lb", "s", "cb"].forEach(function (group) {
       var card = defense.call.positions[group];
       lines.push(card.title + ": " + card.align);
@@ -856,7 +856,7 @@
         save();
         paint();
       } catch (err) {
-        note("That file is not an Aston Torres backup.");
+        note("That file is not an Ashton Torres backup.");
       }
     };
     reader.readAsText(file);
