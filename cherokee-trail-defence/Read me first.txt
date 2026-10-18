@@ -1,4 +1,6 @@
 Cougar Defense
+This is the update. Each player taps one room. The coach uses Diagnose for the full read.
+
 A standalone program for the defensive coordinator.
 
 It is not a website. It does not need an account. It does not send film, photos, or calls anywhere. Unzip this folder and keep it on the computer or phone you coach from.
