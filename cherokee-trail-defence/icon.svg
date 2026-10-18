@@ -1,4 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="14" fill="#10283f"/>
-  <text x="32" y="40" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="20" font-weight="700" fill="#f4f7fb" letter-spacing="1">AT</text>
+  <g transform="translate(8 6) scale(.58)">
+    <path fill="#f7fafc" d="M18 30l12-24 10 24zM44 30l10-24 12 24z"/>
+    <ellipse cx="42" cy="44" rx="28" ry="22" fill="#f7fafc"/>
+    <path fill="#10283f" d="M24 28l6-12 6 12zM48 28l6-12 6 12z"/>
+    <ellipse cx="32" cy="42" rx="4" ry="3" fill="#10283f"/>
+    <ellipse cx="52" cy="42" rx="4" ry="3" fill="#10283f"/>
+    <path fill="#e2b657" d="M42 48l-4 6h8z"/>
+  </g>
 </svg>

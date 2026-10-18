@@ -58,12 +58,16 @@ img, svg { max-width: 100%; }
 .mast {
   grid-column: 1 / -1;
   display: flex;
-  align-items: baseline;
-  gap: 16px;
-  padding: 16px 22px 14px;
-  background: #10283f;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 22px;
+  background:
+    radial-gradient(120px 80px at 18px 50%, rgba(226, 182, 87, .18), transparent 70%),
+    linear-gradient(90deg, #0c2034 0%, #10283f 42%, #16324f 100%);
   color: #f7fafc;
+  border-bottom: 2px solid #e2b657;
 }
+.cougar { width: 58px; height: 50px; flex: none; display: block; }
 .mast-name, .mast-role { margin: 0; }
 .mast-name {
   font-size: 1.35rem;
@@ -81,7 +85,7 @@ img, svg { max-width: 100%; }
 .nav {
   position: sticky;
   top: 0;
-  height: calc(100dvh - 58px);
+  height: calc(100dvh - 76px);
   align-self: start;
   padding: 18px 12px;
   background: var(--navy);
@@ -246,7 +250,8 @@ textarea { min-height: 88px; }
 
 @media (max-width: 860px) {
   .app { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
-  .mast { padding: 14px 16px 12px; }
+  .mast { padding: 10px 14px; }
+  .cougar { width: 46px; height: 40px; }
   .mast-name { font-size: 1.05rem; letter-spacing: .14em; }
   .nav {
     position: sticky; bottom: 0; top: auto; height: auto; z-index: 3; align-self: stretch;
