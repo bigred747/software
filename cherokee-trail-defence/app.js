@@ -485,6 +485,12 @@
       "</section>" + rooms + trickBlocks;
   }
 
+  function howTo() {
+    return '<div class="how"><p><b>How to set the call.</b> Tap a Friday down. The call above it changes.</p>' +
+      "<p>For short yardage, tap Goal line or 3rd and 1.</p>" +
+      "<p>Press Need a stop or Protect the lead. Use one. Then press We called this.</p></div>";
+  }
+
   function weekLine(live, game) {
     return E.meetingLine(live, game);
   }
@@ -496,7 +502,7 @@
     var defense = E.bestDefense(live, Object.assign({ game: game }, query()), state.model);
     var tricks = E.trickPlaysForGame(live, game);
     state.copyText = copyText(game, defense, tricks);
-    return signalStrip(board) + '<div class="chips"><button type="button" class="chip" data-go="learn">Your room</button><button type="button" class="chip" data-go="dline">' + esc(E.LINE_COACH) + '</button><button type="button" class="chip" data-go="diagnose">Diagnose</button></div>' +
+    return howTo() + signalStrip(board) + '<div class="chips"><button type="button" class="chip" data-go="learn">Your room</button><button type="button" class="chip" data-go="dline">' + esc(E.LINE_COACH) + '</button><button type="button" class="chip" data-go="diagnose">Diagnose</button></div>' +
       '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" +
       "<h2 class=\"call-name\">" + esc(defense.call.name) + "</h2>" +
       checkBanner(defense) +
