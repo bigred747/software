@@ -45,6 +45,14 @@
   if (roomHash === "dline") state.section = "dline";
   if (roomHash === "film") state.section = "film";
   state.sit = state.sit || { down: 1, distance: 10, zone: "mid", hash: "middle" };
+  state.sit.down = Number(state.sit.down) || 1;
+  state.sit.distance = state.sit.distance == null ? 10 : Number(state.sit.distance);
+  if (!state.sit.distance || state.sit.distance < 1) state.sit.distance = 10;
+  state.sit.zone = state.sit.zone || "mid";
+  state.sit.hash = state.sit.hash || "middle";
+  state.script = Array.isArray(state.script) ? state.script.filter(function (row) {
+    return row && row.id && row.gameId && row.call && row.label;
+  }).slice(-80) : [];
   state.photosOk = true;
   state.photoCount = 0;
   state.lastBeat = Date.now();
@@ -75,7 +83,8 @@
           room: state.room,
           pack: "full",
           coachId: state.coachId,
-          lastGameAdded: state.lastGameAdded || ""
+          lastGameAdded: state.lastGameAdded || "",
+          script: state.script
         }));
         state.storageOk = true;
       } catch (err) {
@@ -110,7 +119,9 @@
       down: state.sit.down,
       distance: state.sit.distance,
       zone: state.sit.zone,
-      hash: state.sit.hash
+      hash: state.sit.hash,
+      protect: !!state.sit.protect,
+      needStop: !!state.sit.needStop
     };
   }
 
@@ -267,7 +278,10 @@
 
   function topHtml(board) {
     var bad = board.rows.filter(function (row) { return !row.ok; }).length;
-    var pill = bad ? '<span class="pill bad"><i class="dot"></i>' + bad + " to check</span>" : '<span class="pill"><i class="dot"></i>Ready</span>';
+    var greens = board.rows.length - bad;
+    var pill = bad
+      ? '<span class="pill bad"><i class="lamp off" aria-hidden="true"></i>' + bad + " RED</span>"
+      : '<span class="pill"><i class="lamp on" aria-hidden="true"></i>' + greens + " GREEN</span>";
     return "<div><h1>" + esc(title()) + "</h1><p>" + esc(subtitle()) + "</p></div>" +
       '<div class="tools">' + pill +
       '<button type="button" data-act="theme">' + (state.theme === "night" ? "Light" : "Film room") + "</button>" +
@@ -301,11 +315,11 @@
     return "Standalone program. Film you add stays on this device.";
   }
 
-  function viewHtml() {
+  function viewHtml(board) {
     if (state.section === "dline") return dlineHtml();
     if (state.section === "learn") return learnHtml();
     if (state.section === "diagnose") return diagnoseHtml();
-    if (state.section === "install") return installHtml();
+    if (state.section === "install") return installHtml(board);
     if (state.section === "scout") return scoutHtml();
     if (state.section === "rooms") return roomsHtml();
     if (state.section === "blitz") return blitzHtml();
@@ -313,7 +327,40 @@
     if (state.section === "pictures") return picturesHtml();
     if (state.section === "film") return filmHtml();
     if (state.section === "oc") return ocHtml();
-    return checksHtml();
+    return checksHtml(board);
+  }
+
+  function signalBoard(board) {
+    board = board || signals();
+    var greens = board.rows.filter(function (row) { return row.ok; }).length;
+    var rows = board.rows.map(function (row) {
+      var on = !!row.ok;
+      return '<article class="signal ' + (on ? "on" : "off") + '" data-signal="' + row.id + '">' +
+        '<i class="lamp ' + (on ? "on" : "off") + '" aria-hidden="true"></i>' +
+        '<div><div class="signal-name"><b>' + esc(row.name) + '</b> <b class="signal-word">' + (on ? "GREEN" : "RED") + "</b></div>" +
+        '<div class="detail muted">' + esc(row.detail) + "</div></div></article>";
+    }).join("");
+    var tally = greens + " GREEN" + (board.ok ? "" : " · " + (board.rows.length - greens) + " RED");
+    return '<section class="signal-board" aria-label="Green signals"><h2>Green signals</h2>' +
+      '<p class="signal-count"><i class="lamp ' + (board.ok ? "on" : "off") + '" aria-hidden="true"></i><span>' +
+      tally + "</span></p>" +
+      '<div class="signal-grid">' + rows + "</div></section>";
+  }
+
+  function signalStrip(board) {
+    board = board || signals();
+    var greens = board.rows.filter(function (row) { return row.ok; }).length;
+    var chips = board.rows.map(function (row) {
+      var on = !!row.ok;
+      return '<span class="signal-chip ' + (on ? "on" : "off") + '" data-signal="' + row.id + '" title="' + esc(row.detail) + '">' +
+        '<i class="lamp ' + (on ? "on" : "off") + '" aria-hidden="true"></i>' +
+        "<b>" + esc(row.name) + '</b> <b class="signal-word">' + (on ? "GREEN" : "RED") + "</b>" +
+        '<span class="detail" hidden>' + esc(row.detail) + "</span></span>";
+    }).join("");
+    var tally = greens + " GREEN" + (board.ok ? "" : " · " + (board.rows.length - greens) + " RED");
+    return '<section class="signal-board signal-compact" aria-label="Green signals">' +
+      '<p class="signal-count"><i class="lamp ' + (board.ok ? "on" : "off") + '" aria-hidden="true"></i><span>' + tally + "</span></p>" +
+      '<div class="signal-strip">' + chips + "</div></section>";
   }
 
   function dlineHtml() {
@@ -414,7 +461,8 @@
     }).join("");
     return '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" +
       "<h2 class=\"call-name\">" + esc(defense.call.name) + "</h2>" +
-      "<p>" + esc(defense.confidenceText) + "</p>" + sitChips() +
+      checkBanner(defense) +
+      "<p>" + esc(defense.confidenceText) + "</p>" + flagLines() + sitChips() +
       "<p><b>Tells.</b> " + tells + "</p>" +
       "<p><b>Weight on this call.</b> " + esc(String(defense.weight)) + (defense.alternate ? ". Next call: " + esc(defense.alternate.call.name) + " · " + esc(String(defense.alternate.score)) : "") + "</p>" +
       "<ol>" + ranks + "</ol>" +
@@ -429,22 +477,25 @@
     return E.meetingLine(live, game);
   }
 
-  function installHtml() {
+  function installHtml(board) {
     var live = book();
     var game = E.nextGame(live, today());
     var season = E.seasonByYear(live, game.season);
     var defense = E.bestDefense(live, Object.assign({ game: game }, query()), state.model);
     var tricks = E.trickPlaysForGame(live, game);
     state.copyText = copyText(game, defense, tricks);
-    return '<div class="chips"><button type="button" class="chip" data-go="learn">Your room</button><button type="button" class="chip" data-go="dline">' + esc(E.LINE_COACH) + '</button><button type="button" class="chip" data-go="diagnose">Diagnose</button></div>' +
+    return signalStrip(board) + '<div class="chips"><button type="button" class="chip" data-go="learn">Your room</button><button type="button" class="chip" data-go="dline">' + esc(E.LINE_COACH) + '</button><button type="button" class="chip" data-go="diagnose">Diagnose</button></div>' +
       '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" +
       "<h2 class=\"call-name\">" + esc(defense.call.name) + "</h2>" +
+      checkBanner(defense) +
       "<p class=\"brief\">" + esc(defense.call.brief) + "</p>" +
       '<p class="muted">' + esc(weekLine(live, game)) + "</p>" +
       "<p class=\"muted\">" + esc(defense.confidenceText) + "</p>" +
+      flagLines() +
       sitChips() +
       fridayCard(live, game) +
-      (state.updateOpen ? updateForm(live, game) : '<div class="chips"><button class="btn primary update-all" type="button" data-act="open-update">Update weekly</button><button class="btn" type="button" data-act="copy">Copy the install</button></div>') +
+      scriptHtml(game) +
+      (state.updateOpen ? updateForm(live, game) : '<div class="chips"><button class="btn primary update-all" type="button" data-act="open-update">Update weekly</button><button class="btn" type="button" data-act="copy">Copy the install</button><button class="btn" type="button" data-act="wrist">Copy the wristband</button></div>') +
       '<div class="grid"><div><div class="picture">' + picture(defense.call.id) + "</div>" +
       "<p class=\"caption\">" + esc((D.get(defense.call.id) || {}).caption || "") + "</p>" +
       photoSlot(defense.call.id, "defense") + "</div><div>" + reasons(defense, season) + wrapCard(defense) + "</div></div>" +
@@ -486,10 +537,72 @@
       ["Red zone", 1, 8, "red"],
       ["Goal line", 1, 3, "goal"]
     ];
-    return '<div class="chips">' + items.map(function (item) {
-      var on = state.sit.down === item[1] && state.sit.distance === item[2] && state.sit.zone === item[3];
-      return '<button type="button" class="chip" data-sit="' + item[1] + "," + item[2] + "," + item[3] + '"' + (on ? ' aria-pressed="true"' : "") + ">" + item[0] + "</button>";
-    }).join("") + "</div>";
+    var downs = [1, 2, 3, 4].map(function (down) {
+      return '<button type="button" class="chip" data-down="' + down + '"' + (state.sit.down === down ? ' aria-pressed="true"' : "") + ">" + down + "</button>";
+    }).join("");
+    var zones = [["Open field", "mid"], ["Red zone", "red"], ["Goal line", "goal"]].map(function (item) {
+      return '<button type="button" class="chip" data-zone="' + item[1] + '"' + (state.sit.zone === item[1] ? ' aria-pressed="true"' : "") + ">" + item[0] + "</button>";
+    }).join("");
+    var hashes = [["Left hash", "left"], ["Middle", "middle"], ["Right hash", "right"]].map(function (item) {
+      return '<button type="button" class="chip" data-hash="' + item[1] + '"' + (state.sit.hash === item[1] ? ' aria-pressed="true"' : "") + ">" + item[0] + "</button>";
+    }).join("");
+    return '<div class="live-box"><p class="live-now">' + esc(sitLabel(state.sit)) + "</p>" +
+      '<div class="chips">' + items.map(function (item) {
+        var on = state.sit.down === item[1] && state.sit.distance === item[2] && state.sit.zone === item[3];
+        return '<button type="button" class="chip" data-sit="' + item[1] + "," + item[2] + "," + item[3] + '"' + (on ? ' aria-pressed="true"' : "") + ">" + item[0] + "</button>";
+      }).join("") + "</div>" +
+      '<div class="live-row"><span>Down</span><div class="chips">' + downs + "</div></div>" +
+      '<div class="live-row"><span>To go</span><div class="chips"><button type="button" class="chip" data-act="dist" data-delta="-1">−</button><b class="to-go">' + esc(String(state.sit.distance)) + '</b><button type="button" class="chip" data-act="dist" data-delta="1">+</button></div></div>' +
+      '<div class="live-row"><span>Field</span><div class="chips">' + zones + "</div></div>" +
+      '<div class="live-row"><span>Hash</span><div class="chips">' + hashes + "</div></div>" +
+      '<div class="chips"><button type="button" class="chip" data-act="toggle" data-flag="needStop"' + (state.sit.needStop ? ' aria-pressed="true"' : "") + '>Need a stop</button>' +
+      '<button type="button" class="chip" data-act="toggle" data-flag="protect"' + (state.sit.protect ? ' aria-pressed="true"' : "") + ">Protect the lead</button></div></div>";
+  }
+
+  function sitLabel(sit) {
+    var names = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th" };
+    var zone = sit.zone === "goal" ? ", goal line" : sit.zone === "red" ? ", red zone" : ", open field";
+    var hash = sit.hash === "left" ? ", left hash" : sit.hash === "right" ? ", right hash" : ", middle";
+    var extra = "";
+    if (sit.needStop) extra += ", need a stop";
+    if (sit.protect) extra += ", protect the lead";
+    return (names[sit.down] || String(sit.down)) + " and " + sit.distance + zone + hash + extra;
+  }
+
+  function flagLines() {
+    var lines = [];
+    if (state.sit.needStop) lines.push("Need a stop. Stay in the call. A free runner is worse than a missed sack.");
+    if (state.sit.protect) lines.push("Protect the lead. The safeties stay deep and the ends fit a draw.");
+    return lines.map(function (line) { return '<p class="flag-line">' + esc(line) + "</p>"; }).join("");
+  }
+
+  function checkBanner(defense) {
+    if (!defense.wrap) return "";
+    return '<p class="check-banner"><b>CHECK.</b> Empty backfield: stay in coverage. Do not send ' + esc(defense.wrap.name) + ".</p>";
+  }
+
+  function scriptFor(game) {
+    return (state.script || []).filter(function (row) { return game && row.gameId === game.id; });
+  }
+
+  function clockLabel(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    var h = d.getHours();
+    var m = d.getMinutes();
+    var ap = h >= 12 ? "pm" : "am";
+    h = h % 12 || 12;
+    return h + ":" + (m < 10 ? "0" : "") + m + " " + ap;
+  }
+
+  function scriptHtml(game) {
+    var rows = scriptFor(game);
+    var list = rows.length ? '<ol class="script-list">' + rows.map(function (row) {
+      return '<li><b>' + esc(clockLabel(row.at)) + "</b> " + esc(row.label) + " · " + esc(row.call) +
+        ' <button type="button" class="linkish" data-act="unlog" data-id="' + esc(row.id) + '">Remove</button></li>';
+    }).join("") + "</ol>" : '<p class="muted">Nothing logged yet. Press We called this when the ball is spotted.</p>';
+    return '<div class="script-log"><h3>Tonight\'s calls</h3>' + list +
+      '<div class="chips"><button class="btn primary" type="button" data-act="called">We called this</button></div></div>';
   }
 
   function reasons(defense, season) {
@@ -647,7 +760,7 @@
   function filmHtml() {
     var live = book();
     var game = E.nextGame(live, today());
-    return '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" + updateForm(live, game) + "</section>";
+    return '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" + scriptHtml(game) + updateForm(live, game) + "</section>";
   }
 
   function ocHtml() {
@@ -668,12 +781,8 @@
       }).join("");
   }
 
-  function checksHtml() {
-    var board = signals();
-    return '<div class="checks">' + board.rows.map(function (row) {
-      var light = row.ok ? "Green" : "Red";
-      return '<article class="row check" data-signal="' + row.id + '"><i class="dot" style="background:' + (row.ok ? "var(--green)" : "var(--red)") + '"></i><div><div class="split"><b>' + esc(row.name) + '</b><span class="tag ' + (row.ok ? "green" : "red") + '">' + light + "</span></div><div class=\"detail muted\">" + esc(row.detail) + "</div></div></article>";
-    }).join("") + "</div>";
+  function checksHtml(board) {
+    return signalBoard(board);
   }
 
   function copyText(game, defense, tricks) {
@@ -713,9 +822,17 @@
     var sit = event.target.closest("[data-sit]");
     if (sit) {
       var parts = sit.getAttribute("data-sit").split(",");
-      state.sit = { down: Number(parts[0]), distance: Number(parts[1]), zone: parts[2], hash: "middle" };
+      state.sit.down = Number(parts[0]);
+      state.sit.distance = Number(parts[1]);
+      state.sit.zone = parts[2];
       save(); paint(); return;
     }
+    var downBtn = event.target.closest("[data-down]");
+    if (downBtn) { state.sit.down = Number(downBtn.getAttribute("data-down")); save(); paint(); return; }
+    var zoneBtn = event.target.closest("[data-zone]");
+    if (zoneBtn) { state.sit.zone = zoneBtn.getAttribute("data-zone"); save(); paint(); return; }
+    var hashBtn = event.target.closest("[data-hash]");
+    if (hashBtn) { state.sit.hash = hashBtn.getAttribute("data-hash"); save(); paint(); return; }
     var opp = event.target.closest("[data-opp]");
     if (opp) { state.opponent = opp.getAttribute("data-opp"); paint(); return; }
     var coach = event.target.closest("[data-coach]");
@@ -744,6 +861,25 @@
     if (name === "theme") { state.theme = state.theme === "night" ? "day" : "night"; save(); paint(); }
     if (name === "size") { state.sideline = !state.sideline; save(); paint(); }
     if (name === "copy") copyInstall();
+    if (name === "wrist") copyWrist();
+    if (name === "called") logCall();
+    if (name === "unlog") {
+      var id = act.getAttribute("data-id");
+      state.script = state.script.filter(function (row) { return row.id !== id; });
+      save(); paint(); return;
+    }
+    if (name === "dist") {
+      var next = Number(state.sit.distance) + Number(act.getAttribute("data-delta") || 0);
+      if (next < 1) next = 1;
+      if (next > 25) next = 25;
+      state.sit.distance = next;
+      save(); paint(); return;
+    }
+    if (name === "toggle") {
+      var flag = act.getAttribute("data-flag");
+      if (flag === "needStop" || flag === "protect") state.sit[flag] = !state.sit[flag];
+      save(); paint(); return;
+    }
     if (name === "export") exportBackup();
     if (name === "open-update") { state.updateOpen = true; state.section = "install"; paint(); }
   }
@@ -849,7 +985,53 @@
   }
 
   function copyInstall() {
-    var text = state.copyText || "";
+    writeCopy(state.copyText || "");
+  }
+
+  function logCall() {
+    var live = book();
+    var game = E.nextGame(live, today());
+    var defense = E.bestDefense(live, Object.assign({ game: game }, query()), state.model);
+    state.script.push({
+      id: String(Date.now()),
+      gameId: game.id,
+      at: new Date().toISOString(),
+      label: sitLabel(state.sit),
+      call: defense.call.name
+    });
+    if (state.script.length > 80) state.script = state.script.slice(-80);
+    save();
+    paint();
+  }
+
+  function wristText() {
+    var live = book();
+    var game = E.nextGame(live, today());
+    var sits = [
+      ["1st and 10", 1, 10, "mid"],
+      ["2nd and 6", 2, 6, "mid"],
+      ["3rd and 1", 3, 1, "mid"],
+      ["3rd and long", 3, 12, "mid"],
+      ["Red zone", 1, 8, "red"],
+      ["Goal line", 1, 3, "goal"]
+    ];
+    var lines = ["ASHTON TORRES", "WRISTBAND", when(game), ""];
+    sits.forEach(function (item) {
+      var defense = E.bestDefense(live, { game: game, down: item[1], distance: item[2], zone: item[3], hash: "middle" }, state.model);
+      lines.push(item[0] + "  " + defense.call.name);
+      lines.push(E.cardLine(defense));
+      lines.push("");
+    });
+    var base = E.bestDefense(live, { game: game, down: 1, distance: 10, zone: "mid", hash: "middle" }, state.model);
+    if (base.wrap) lines.push("CHECK. Empty backfield: stay in coverage. Do not send " + base.wrap.name + ".");
+    return lines.join("\n");
+  }
+
+  function copyWrist() {
+    writeCopy(wristText());
+  }
+
+  function writeCopy(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).catch(function () { fallbackCopy(text); });
     } else fallbackCopy(text);
@@ -864,7 +1046,7 @@
   }
 
   function exportBackup() {
-    var blob = new Blob([JSON.stringify({ updates: state.overlay.updates, added: state.overlay.added, model: state.model })], { type: "application/json" });
+    var blob = new Blob([JSON.stringify({ updates: state.overlay.updates, added: state.overlay.added, model: state.model, script: state.script })], { type: "application/json" });
     var url = URL.createObjectURL(blob);
     var link = document.createElement("a");
     link.href = url;
@@ -883,6 +1065,11 @@
         state.overlay.updates = Array.isArray(data.updates) ? data.updates.slice(0, 400) : state.overlay.updates;
         state.overlay.added = Array.isArray(data.added) ? data.added.slice(0, 200) : state.overlay.added;
         if (data.model && data.model.weights) state.model = data.model;
+        if (Array.isArray(data.script)) {
+          state.script = data.script.filter(function (row) {
+            return row && row.id && row.gameId && row.call && row.label;
+          }).slice(-80);
+        }
         save();
         paint();
       } catch (err) {
