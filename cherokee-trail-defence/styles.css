@@ -255,6 +255,9 @@ textarea { min-height: 88px; }
 .check { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; }
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
 .search { max-width: 320px; margin-bottom: 10px; }
+.friday { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+button.friday-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; }
+button.friday-row[aria-pressed="true"] { border-color: #e2b657; box-shadow: 0 0 0 1px #e2b657; }
 .update-all { font-size: 1.15rem; min-height: 52px; padding: 12px 22px; }
 .update-form { margin-top: 8px; }
 
@@ -284,6 +287,7 @@ textarea { min-height: 88px; }
   .nav button { white-space: nowrap; }
   .main { order: 1; padding: 14px 14px 96px; }
   .grid, .rooms { grid-template-columns: 1fr; }
+  .friday { grid-template-columns: 1fr; }
   .update-all { width: 100%; }
   .rooms-pick { grid-template-columns: 1fr 1fr; }
   .rooms-pick button { min-height: 64px; font-size: 1.1rem; }

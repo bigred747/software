@@ -455,6 +455,7 @@
       '<p class="muted">' + esc(weekLine(live, game)) + "</p>" +
       "<p class=\"muted\">" + esc(defense.confidenceText) + "</p>" +
       sitChips() +
+      fridayCard(live, game) +
       (state.updateOpen ? updateForm(live, game) : '<div class="chips"><button class="btn primary update-all" type="button" data-act="open-update">Update weekly</button><button class="btn" type="button" data-act="copy">Copy the install</button></div>') +
       '<div class="grid"><div><div class="picture">' + picture(defense.call.id) + "</div>" +
       "<p class=\"caption\">" + esc((D.get(defense.call.id) || {}).caption || "") + "</p>" +
@@ -462,6 +463,23 @@
       roomsBlock(defense.call, game.coachId) +
       "<h3>Defend these tricks</h3>" + tricks.map(trickCard).join("") +
       "</section>";
+  }
+
+  function fridayCard(live, game) {
+    var sits = [
+      ["1st and 10", 1, 10, "mid"],
+      ["2nd and 6", 2, 6, "mid"],
+      ["3rd and short", 3, 1, "mid"],
+      ["3rd and long", 3, 12, "mid"],
+      ["Red zone", 1, 8, "red"],
+      ["Goal line", 1, 3, "goal"]
+    ];
+    return '<h3>Friday card</h3><div class="friday">' + sits.map(function (item) {
+      var defense = E.bestDefense(live, { game: game, down: item[1], distance: item[2], zone: item[3], hash: "middle" }, state.model);
+      var on = state.sit.down === item[1] && state.sit.distance === item[2] && state.sit.zone === item[3];
+      var say = E.plainLine(defense.call.id, "say");
+      return '<button type="button" class="row friday-row" data-sit="' + item[1] + "," + item[2] + "," + item[3] + '"' + (on ? ' aria-pressed="true"' : "") + "><b>" + esc(item[0]) + "</b><span>" + esc(defense.call.name) + "</span><span class=\"muted\">" + esc(say) + "</span></button>";
+    }).join("") + "</div>";
   }
 
   function when(game) {
