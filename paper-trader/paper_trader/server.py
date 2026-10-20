@@ -1,0 +1,207 @@
+"""Local-only desk. Listens on 127.0.0.1 and serves the sample session."""
+
+from __future__ import annotations
+
+import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
+
+from paper_trader.backtest import present, run_backtest
+from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
+from paper_trader.model import params_from_dict
+from paper_trader.samples import load_symbol, symbols
+
+WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
+STATIC = {"/index.html": "index.html", "/": "index.html", "/app.js": "app.js", "/app.css": "app.css"}
+TYPES = {
+    "index.html": "text/html; charset=utf-8",
+    "app.js": "text/javascript; charset=utf-8",
+    "app.css": "text/css; charset=utf-8",
+}
+
+
+class Desk:
+    def __init__(self, state_path: Path) -> None:
+        self.state_path = state_path
+        self.lock = threading.Lock()
+        self.journal = load_journal(state_path)
+
+    def snapshot(self) -> dict:
+        with self.lock:
+            return view_journal(self.journal)
+
+    def reset(self, raw: dict) -> dict:
+        with self.lock:
+            params = params_from_dict(raw)
+            symbol = str(raw.get("symbol") or self.journal.symbol)
+            bars = load_symbol(symbol)
+            if params.slow + 1 >= len(bars):
+                raise ValueError("The slow average is too long for this sample")
+            self.journal = Journal(symbol, params, params.slow + 1)
+            save_journal(self.state_path, self.journal)
+            return view_journal(self.journal)
+
+    def step(self, days: int) -> dict:
+        if days < 1 or days > 500:
+            raise ValueError("Step must be from 1 to 500 days")
+        with self.lock:
+            bars = load_symbol(self.journal.symbol)
+            self.journal.cursor = min(len(bars), self.journal.cursor + days)
+            save_journal(self.state_path, self.journal)
+            return view_journal(self.journal)
+
+    def run_rest(self) -> dict:
+        with self.lock:
+            bars = load_symbol(self.journal.symbol)
+            self.journal.cursor = len(bars)
+            save_journal(self.state_path, self.journal)
+            return view_journal(self.journal)
+
+    def backtest(self, raw: dict) -> dict:
+        params = params_from_dict(raw)
+        symbol = str(raw.get("symbol") or "BTC-USD")
+        bars = load_symbol(symbol)
+        result = run_backtest(bars, params)
+        payload = present(result, symbol, len(bars), params, len(bars))
+        payload["note"] = "Full sample replay. The paper session was left where it is."
+        return payload
+
+    def market(self, symbol: str, raw: dict) -> dict:
+        params = params_from_dict(raw)
+        return market_view(symbol, params)
+
+
+def create_server(state_path: Path, port: int = 8765) -> ThreadingHTTPServer:
+    desk = Desk(state_path)
+    handler = type("DeskHandler", (DeskHandler,), {"desk": desk})
+    server = ThreadingHTTPServer(("127.0.0.1", port), handler)
+    server.desk = desk  # type: ignore[attr-defined]
+    return server
+
+
+class DeskHandler(BaseHTTPRequestHandler):
+    desk: Desk
+    protocol_version = "HTTP/1.1"
+
+    def do_GET(self) -> None:  # noqa: N802
+        try:
+            self._route("GET")
+        except ValueError as exc:
+            self._json({"error": str(exc)}, 400)
+        except Exception:
+            self._json({"error": "The desk could not complete that request"}, 500)
+
+    def do_POST(self) -> None:  # noqa: N802
+        try:
+            self._route("POST")
+        except ValueError as exc:
+            self._json({"error": str(exc)}, 400)
+        except Exception:
+            self._json({"error": "The desk could not complete that request"}, 500)
+
+    def log_message(self, fmt: str, *args) -> None:
+        return
+
+    def _route(self, method: str) -> None:
+        parsed = urlparse(self.path)
+        path = unquote(parsed.path)
+        if ".." in path or path.startswith("//"):
+            self._json({"error": "Not found"}, 404)
+            return
+        query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
+        if path == "/favicon.ico":
+            self.send_response(204)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if method == "GET" and path in STATIC:
+            self._static(STATIC[path])
+            return
+        if method == "GET" and path == "/api/health":
+            self._json({"ok": True, "bind": "127.0.0.1"})
+            return
+        if method == "GET" and path == "/api/symbols":
+            self._json({"symbols": symbols()})
+            return
+        if method == "GET" and path == "/api/paper":
+            self._json(self.desk.snapshot())
+            return
+        if method == "GET" and path == "/api/market":
+            symbol = query.get("symbol") or self.desk.journal.symbol
+            raw = {**self.desk.journal.params.to_dict(), **query}
+            self._json(self.desk.market(symbol, raw))
+            return
+        if method == "GET" and path == "/api/backtest":
+            raw = {**self.desk.journal.params.to_dict(), **query, "symbol": query.get("symbol", self.desk.journal.symbol)}
+            self._json(self.desk.backtest(raw))
+            return
+        body = self._body() if method == "POST" else {}
+        if method == "POST" and path == "/api/paper/reset":
+            self._json(self.desk.reset(body))
+            return
+        if method == "POST" and path == "/api/paper/step":
+            self._json(self.desk.step(int(body.get("days", 1))))
+            return
+        if method == "POST" and path == "/api/paper/run":
+            self._json(self.desk.run_rest())
+            return
+        if method == "POST" and path == "/api/backtest":
+            self._json(self.desk.backtest(body))
+            return
+        self._json({"error": "Not found"}, 404)
+
+    def _body(self) -> dict:
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length > 100_000:
+            raise ValueError("Request is too large")
+        if length <= 0:
+            return {}
+        raw = self.rfile.read(length)
+        data = json.loads(raw.decode("utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("Request must be a JSON object")
+        return data
+
+    def _json(self, payload: dict, status: int = 200) -> None:
+        body = json.dumps(payload, allow_nan=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _static(self, name: str) -> None:
+        file_path = (WEB_ROOT / name).resolve()
+        if file_path.parent != WEB_ROOT.resolve() or not file_path.is_file():
+            self._json({"error": "Not found"}, 404)
+            return
+        body = file_path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", TYPES[name])
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None:
+    import webbrowser
+
+    server = create_server(state_path, port)
+    host, bound = server.server_address[:2]
+    url = f"http://{host}:{bound}/"
+    print(f"Paper Trader is running at {url}")
+    print("Sample prices only. Close this window to stop the desk.")
+    if open_browser:
+        webbrowser.open(url)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped.")
+    finally:
+        server.server_close()
