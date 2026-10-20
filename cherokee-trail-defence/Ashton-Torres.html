@@ -193,6 +193,10 @@ body.night .btn.primary, body.night .chip[aria-pressed="true"] {
 }
 .how p { margin: 0; }
 .how p + p { margin-top: 2px; }
+.best-card { margin: 0 0 12px; }
+.best-list { margin: 8px 0 0; padding-left: 1.2rem; }
+.best-list li { margin: 8px 0; }
+.best-list .linkish { font-weight: 700; }
 .kicker { color: var(--blue); font-weight: 650; font-size: .82rem; letter-spacing: .04em; text-transform: uppercase; }
 .call-name { font-size: clamp(1.8rem, 4vw, 2.7rem); line-height: 1.05; margin: 8px 0; letter-spacing: -.03em; }
 .brief { font-size: 1.15rem; margin: 0 0 8px; }
@@ -384,7 +388,7 @@ button.friday-row[aria-pressed="true"] { border-color: #e2b657; box-shadow: 0 0 
   .app { display: block; }
   .card, .hero, .room { break-inside: avoid; box-shadow: none; }
 }
-  </style>
+</style>
 </head>
 <body>
   <div class="app">
@@ -2415,11 +2419,72 @@ var COUGAR_BOOK = {
       "kickoff": "",
       "league": true,
       "playoff": false,
-      "note": "",
+      "note": "Sentinel Colorado printed this scoring summary. The 94-yard run is the longest published Cherokee Trail score in the ten-year book.",
       "overtime": "",
       "coachId": "johnson",
-      "plays": [],
-      "special": [],
+      "plays": [
+        {
+          "id": "2020-ec-14",
+          "kind": "snap",
+          "text": "Nate Gaye Jr. ran 14 yards for a touchdown.",
+          "tags": [
+            "run_inside"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        },
+        {
+          "id": "2020-ec-94",
+          "kind": "snap",
+          "text": "Jack Pierce ran 94 yards for a touchdown.",
+          "tags": [
+            "run_explosive"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        },
+        {
+          "id": "2020-ec-8",
+          "kind": "snap",
+          "text": "Jack Pierce caught an 8-yard touchdown from Jayden Lavigne.",
+          "tags": [
+            "pass_short"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        },
+        {
+          "id": "2020-ec-30",
+          "kind": "snap",
+          "text": "Nate Burke caught a 30-yard touchdown from Jayden Lavigne.",
+          "tags": [
+            "pass_explosive"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        },
+        {
+          "id": "2020-ec-44",
+          "kind": "snap",
+          "text": "Nate Gaye Jr. ran 44 yards for a touchdown.",
+          "tags": [
+            "run_explosive"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        },
+        {
+          "id": "2020-ec-11",
+          "kind": "snap",
+          "text": "Jack Pierce ran 11 yards for a touchdown.",
+          "tags": [
+            "run_inside"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        }
+      ],
+      "special": [
+        {
+          "id": "2020-ec-walker",
+          "text": "Gabe Walker scored on a fumble recovery.",
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        }
+      ],
       "result": "L",
       "ctScore": 50,
       "oppScore": 62,
@@ -2670,7 +2735,36 @@ var COUGAR_BOOK = {
       "note": "",
       "overtime": "",
       "coachId": "johnson",
-      "plays": [],
+      "plays": [
+        {
+          "id": "2021-col-59",
+          "kind": "snap",
+          "text": "Jack Pierce caught a 59-yard touchdown from Logan Brook.",
+          "tags": [
+            "pass_explosive"
+          ],
+          "source": "CHSAA Now, Sept. 2, 2021"
+        },
+        {
+          "id": "2021-col-3",
+          "kind": "snap",
+          "text": "Jack Pierce caught a 3-yard touchdown from Logan Brook.",
+          "tags": [
+            "pass_short",
+            "goal_line"
+          ],
+          "source": "CHSAA Now, Sept. 2, 2021"
+        },
+        {
+          "id": "2021-col-6",
+          "kind": "snap",
+          "text": "Gage Gordon caught a 6-yard touchdown from Logan Brook.",
+          "tags": [
+            "pass_short"
+          ],
+          "source": "CHSAA Now, Sept. 2, 2021"
+        }
+      ],
       "special": [],
       "result": "L",
       "ctScore": 21,
@@ -4179,6 +4273,307 @@ var COUGAR_BOOK = {
       "result": "",
       "countInPoints": false
     }
+  ],
+  "teams": [
+    {
+      "name": "Arapahoe",
+      "city": "Centennial",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Arvada West",
+      "city": "Arvada",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Castle View",
+      "city": "Castle Rock",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southern",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Chaparral",
+      "city": "Parker",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "4A South Metro",
+      "leagueSource": "MaxPreps Chaparral schedule, updated Oct. 11, 2026",
+      "facts": [
+        {
+          "text": "MaxPreps listed Chaparral in the 4A South Metro league on the schedule page updated Oct. 11, 2026.",
+          "source": "MaxPreps Chaparral schedule, updated Oct. 11, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Chatfield",
+      "city": "Littleton",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Cherry Creek",
+      "city": "Greenwood Village",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Columbine",
+      "city": "Littleton",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": [
+        {
+          "text": "The Coloradoan marked Columbine as a 4A school placed inside the 5A Southwest Metro League for 2026.",
+          "source": "Coloradoan, Aug. 20, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Dakota Ridge",
+      "city": "Littleton",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Denver East",
+      "city": "Denver",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Eaglecrest",
+      "city": "Centennial",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": [
+        {
+          "text": "Sentinel Colorado printed Eaglecrest 17, Erie 14 on Sept. 4, 2026, with passing touchdowns by William Brinkman and Cash Conley.",
+          "source": "Sentinel Colorado, Sept. 5, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Fairview",
+      "city": "Boulder",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Front Range",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Far Northeast Warriors",
+      "city": "Denver",
+      "citySource": "MaxPreps Far Northeast Warriors school page",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Fort Collins",
+      "city": "Fort Collins",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Front Range",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Fossil Ridge",
+      "city": "Fort Collins",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Front Range",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Fountain-Fort Carson",
+      "city": "Fountain",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southern",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Grandview",
+      "city": "Aurora",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": [
+        {
+          "text": "Sentinel Colorado printed Grandview 45, Fountain-Fort Carson 17 on Sept. 4, 2026. Lander Wise had 131 passing yards and a rushing touchdown. Timothy Arnold III had 103 receiving yards and a receiving touchdown.",
+          "source": "Sentinel Colorado, Sept. 5, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Highlands Ranch",
+      "city": "Highlands Ranch",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Hinkley",
+      "city": "Aurora",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": [
+        {
+          "text": "Sentinel Colorado printed Kennedy 69, Hinkley 0 on Sept. 5, 2026.",
+          "source": "Sentinel Colorado, Sept. 5, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Horizon",
+      "city": "Thornton",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Lakewood",
+      "city": "Lakewood",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Mountain Vista",
+      "city": "Highlands Ranch",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Mullen",
+      "city": "Denver",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Northfield",
+      "city": "Denver",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Overland",
+      "city": "Aurora",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": [
+        {
+          "text": "Sentinel Colorado printed Vista Ridge 48, Overland 6 on Sept. 4, 2026, with a receiving touchdown by Josiah West.",
+          "source": "Sentinel Colorado, Sept. 5, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Pine Creek",
+      "city": "Colorado Springs",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southern",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Pomona",
+      "city": "Arvada",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Poudre",
+      "city": "Fort Collins",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Ralston Valley",
+      "city": "Arvada",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Rock Canyon",
+      "city": "Highlands Ranch",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Rocky Mountain",
+      "city": "Fort Collins",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Front Range",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Smoky Hill",
+      "city": "Aurora",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "4A South Metro",
+      "leagueSource": "MaxPreps Smoky Hill schedule, updated Oct. 10, 2026",
+      "facts": [
+        {
+          "text": "MaxPreps listed Smoky Hill in the 4A South Metro league on the schedule page updated Oct. 10, 2026.",
+          "source": "MaxPreps Smoky Hill schedule, updated Oct. 10, 2026"
+        }
+      ]
+    },
+    {
+      "name": "ThunderRidge",
+      "city": "Highlands Ranch",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Valor Christian",
+      "city": "Highlands Ranch",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southern",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    }
   ]
 };
 
@@ -4530,6 +4925,20 @@ var CougarEngine = (function () {
     return { wins: wins, losses: losses, disputes: disputes, upcoming: upcoming, played: wins + losses + disputes };
   }
 
+  var BEST_IDS = ["2020-ec-94", "2026-aw-77", "2023-ch-77", "2020-ol-65", "2021-col-59"];
+
+  function bestPlays(book) {
+    var found = [];
+    BEST_IDS.forEach(function (id) {
+      (book.games || []).forEach(function (game) {
+        (game.plays || []).forEach(function (play) {
+          if (play.id === id) found.push({ play: play, game: game });
+        });
+      });
+    });
+    return found;
+  }
+
   function opponents(book) {
     var map = {};
     book.games.forEach(function (game) {
@@ -4622,6 +5031,22 @@ var CougarEngine = (function () {
       (game.special || []).forEach(function (play) {
         if (!play.source) problems.push("Special play " + play.id + " has no source.");
       });
+    });
+    var named = {};
+    (book.teams || []).forEach(function (team) {
+      if (!team.name || named[team.name]) problems.push("Team card " + (team.name || "blank") + " is missing or repeated.");
+      named[team.name] = true;
+      if (!team.city || !team.citySource) problems.push("Team " + team.name + " has no city source.");
+      if (team.league && !team.leagueSource) problems.push("Team " + team.name + " league has no source.");
+      (team.facts || []).forEach(function (item, index) {
+        if (!item.text || !item.source) problems.push("Team " + team.name + " fact " + index + " has no source.");
+      });
+    });
+    var seenOpp = {};
+    book.games.forEach(function (game) {
+      if (seenOpp[game.opponent]) return;
+      seenOpp[game.opponent] = true;
+      if (!named[game.opponent]) problems.push("No team card for " + game.opponent + ".");
     });
     book.calls.forEach(function (call) {
       ["dl", "lb", "s", "cb"].forEach(function (group) {
@@ -5569,6 +5994,7 @@ var CougarEngine = (function () {
     gameById: gameById,
     coachById: coachById,
     opponents: opponents,
+    bestPlays: bestPlays,
     nextGame: nextGame,
     bestDefense: bestDefense,
     seriesDefense: seriesDefense,
@@ -5926,6 +6352,7 @@ var CougarDiagrams = (function () {
     ["install", "Install"],
     ["diagnose", "Diagnose"],
     ["scout", "Scout"],
+    ["teams", "Teams"],
     ["rooms", "Rooms"],
     ["blitz", "Blitz"],
     ["alerts", "Alerts"],
@@ -6215,6 +6642,7 @@ var CougarDiagrams = (function () {
       install: "This week's install",
       diagnose: "Diagnose",
       scout: "Scout by opponent",
+      teams: "Team notes",
       rooms: "Position rooms",
       blitz: "Wrap blitzes",
       alerts: "Trick alerts",
@@ -6229,6 +6657,7 @@ var CougarDiagrams = (function () {
     if (state.section === "learn") return state.room ? "This card is only your room. The rest of the program is still in the menu." : "Tap your room. The rest of the program stays in the menu.";
     if (state.section === "diagnose") return "Full read for the coach. The install, scout, blitzes, and pictures are still in the menu.";
     if (state.section === "install") return "Cherokee Trail · Aurora · the call, the four rooms, and the blitz";
+    if (state.section === "teams") return "Published city and league notes. Not a snap tendency. Film is not stored here.";
     if (state.section === "oc") return "Hand this sheet to the offensive coordinator. It is not the defensive install.";
     if (state.section === "pictures") return "Every defense and every offensive play has a picture. Install a photo of a new look under it.";
     if (state.section === "film") return "Update weekly. The score stays on this computer.";
@@ -6241,6 +6670,7 @@ var CougarDiagrams = (function () {
     if (state.section === "diagnose") return diagnoseHtml();
     if (state.section === "install") return installHtml(board);
     if (state.section === "scout") return scoutHtml();
+    if (state.section === "teams") return teamsHtml();
     if (state.section === "rooms") return roomsHtml();
     if (state.section === "blitz") return blitzHtml();
     if (state.section === "alerts") return alertsHtml();
@@ -6399,6 +6829,16 @@ var CougarDiagrams = (function () {
       "<p>Press Need a stop or Protect the lead. Use one. Then press We called this.</p></div>";
   }
 
+  function bestHtml() {
+    var rows = E.bestPlays(book());
+    return '<section class="card best-card"><h3>Five best published plays</h3>' +
+      '<p class="muted">2017 through this season, ranked by the published yards. The film is not stored on this computer.</p><ol class="best-list">' +
+      rows.map(function (row) {
+        return "<li><button type=\"button\" class=\"linkish\" data-open=\"" + esc(row.game.opponent) + "\"><b>" + esc(row.play.text) + "</b></button> " +
+          '<span class="muted">' + esc(row.game.opponent) + ", " + esc(row.game.date) + ". " + esc(row.play.source) + ".</span></li>";
+      }).join("") + "</ol></section>";
+  }
+
   function weekLine(live, game) {
     return E.meetingLine(live, game);
   }
@@ -6410,7 +6850,7 @@ var CougarDiagrams = (function () {
     var defense = E.bestDefense(live, Object.assign({ game: game }, query()), state.model);
     var tricks = E.trickPlaysForGame(live, game);
     state.copyText = copyText(game, defense, tricks);
-    return howTo() + signalStrip(board) + '<div class="chips"><button type="button" class="chip" data-go="learn">Your room</button><button type="button" class="chip" data-go="dline">' + esc(E.LINE_COACH) + '</button><button type="button" class="chip" data-go="diagnose">Diagnose</button></div>' +
+    return howTo() + bestHtml() + signalStrip(board) + '<div class="chips"><button type="button" class="chip" data-go="learn">Your room</button><button type="button" class="chip" data-go="dline">' + esc(E.LINE_COACH) + '</button><button type="button" class="chip" data-go="diagnose">Diagnose</button></div>' +
       '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" +
       "<h2 class=\"call-name\">" + esc(defense.call.name) + "</h2>" +
       checkBanner(defense) +
@@ -6569,6 +7009,47 @@ var CougarDiagrams = (function () {
       '<div class="chips"><label class="btn">Install a photo<input type="file" accept="image/jpeg,image/png,image/webp" data-photo="' + esc(playId) + '" data-kind="' + (side === "offense" ? "offense" : "defense") + '" hidden></label></div>';
   }
 
+  function teamsHtml() {
+    var live = book();
+    var q = state.teamQ || "";
+    var rows = (live.teams || []).slice().filter(function (team) {
+      return !q || team.name.toLowerCase().indexOf(q) !== -1 || team.city.toLowerCase().indexOf(q) !== -1;
+    }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+    var next = E.nextGame(live, today());
+    var selectedName = state.team || (next && next.opponent);
+    var selected = rows.filter(function (team) { return team.name === selectedName; })[0] || rows[0];
+    return '<p class="muted">Cities are from the MaxPreps Colorado football directory, except Far Northeast, which is from its MaxPreps school page. A blank league means the pages checked did not print one. This is not every page on the internet. The film is not stored on this computer.</p>' +
+      '<input class="search" type="search" placeholder="Find a team" value="' + esc(state.teamQ || "") + '" data-team-q="1">' +
+      '<div class="grid"><div class="list">' + rows.map(function (team) {
+        var series = E.opponents(live).filter(function (row) { return row.name === team.name; })[0];
+        var rec = series ? series.record.wins + "-" + series.record.losses : "";
+        return '<button type="button" class="row" data-team="' + esc(team.name) + '"><div class="split"><b>' + esc(team.name) + "</b><span>" + rec + "</span></div><span class=\"muted\">" + esc(team.city) + (team.league ? " · " + esc(team.league) : "") + "</span></button>";
+      }).join("") + "</div><div>" + (selected ? teamDetail(live, selected) : "") + "</div></div>";
+  }
+
+  function teamDetail(live, team) {
+    var series = E.opponents(live).filter(function (row) { return row.name === team.name; })[0];
+    var games = series ? series.games : [];
+    var played = games.filter(function (game) { return !game.upcoming; });
+    var snaps = 0;
+    played.forEach(function (game) {
+      snaps += (game.plays || []).filter(function (play) { return play.text; }).length;
+    });
+    var rec = series ? series.record : { wins: 0, losses: 0 };
+    var league = team.league
+      ? "<p><b>2026 league.</b> " + esc(team.league) + ". " + esc(team.leagueSource) + ".</p>"
+      : "<p><b>2026 league.</b> Not printed.</p>";
+    var notes = (team.facts || []).map(function (item) {
+      return "<p>" + esc(item.text) + " " + esc(item.source) + ".</p>";
+    }).join("");
+    return '<div class="hero"><div class="kicker">Team card</div><h2 class="call-name">' + esc(team.name) + "</h2>" +
+      "<p><b>City.</b> " + esc(team.city) + ", Colorado.</p>" +
+      league +
+      "<p>" + esc(team.name) + " is " + rec.wins + "-" + rec.losses + " in played meetings (" + played.length + "). Published offensive snaps: " + snaps + ".</p>" +
+      notes +
+      '<div class="chips"><button type="button" class="btn" data-open="' + esc(team.name) + '">Open the scout card</button></div></div>';
+  }
+
   function scoutHtml() {
     var live = book();
     var rows = E.opponents(live).filter(function (row) {
@@ -6584,8 +7065,13 @@ var CougarDiagrams = (function () {
 
   function opponentDetail(live, row) {
     var defense = E.seriesDefense(live, row.name, query(), state.model);
+    var best = E.bestPlays(live).filter(function (item) { return item.game.opponent === row.name; });
     var head = '<div class="hero"><div class="kicker">Series call</div><h2 class="call-name">' + esc(defense.call.name) + "</h2><p>" + esc(defense.call.brief) + "</p><p class=\"muted\">" +
-      row.record.wins + "-" + row.record.losses + (row.record.disputes ? " · " + row.record.disputes + " result in dispute" : "") + "</p></div>";
+      row.record.wins + "-" + row.record.losses + (row.record.disputes ? " · " + row.record.disputes + " result in dispute" : "") + "</p>" +
+      (best.length ? best.map(function (item) {
+        return '<p><b>Best published play.</b> ' + esc(item.play.text) + " " + esc(item.game.date) + ".</p>";
+      }).join("") : "") +
+      "</div>";
     var games = row.games.slice().reverse().map(function (game) {
       var call = E.bestDefense(live, Object.assign({ game: game }, query()), state.model).call.name;
       var tricks = E.trickPlaysForGame(live, game).map(function (trick) { return trick.name; }).join(" · ");
@@ -6743,6 +7229,14 @@ var CougarDiagrams = (function () {
   }
 
   function onClick(event) {
+    var openOpp = event.target.closest("[data-open]");
+    if (openOpp) {
+      state.opponent = openOpp.getAttribute("data-open");
+      state.section = "scout";
+      save();
+      paint();
+      return;
+    }
     var go = event.target.closest("[data-go]");
     if (go) { state.section = go.getAttribute("data-go"); save(); paint(); return; }
     var sit = event.target.closest("[data-sit]");
@@ -6761,6 +7255,8 @@ var CougarDiagrams = (function () {
     if (hashBtn) { state.sit.hash = hashBtn.getAttribute("data-hash"); save(); paint(); return; }
     var opp = event.target.closest("[data-opp]");
     if (opp) { state.opponent = opp.getAttribute("data-opp"); paint(); return; }
+    var teamBtn = event.target.closest("[data-team]");
+    if (teamBtn) { state.team = teamBtn.getAttribute("data-team"); paint(); return; }
     var coach = event.target.closest("[data-coach]");
     if (coach) { state.coachId = coach.getAttribute("data-coach"); save(); paint(); return; }
     var room = event.target.closest("[data-room]");
@@ -6827,11 +7323,13 @@ var CougarDiagrams = (function () {
   }
 
   function onInput(event) {
-    if (!event.target.hasAttribute("data-q")) return;
-    state.q = String(event.target.value || "").trim().toLowerCase();
+    var boxKey = event.target.hasAttribute("data-q") ? "q" : (event.target.hasAttribute("data-team-q") ? "teamQ" : "");
+    if (!boxKey) return;
+    state[boxKey] = String(event.target.value || "").trim().toLowerCase();
     var start = event.target.selectionStart;
+    var attr = boxKey === "q" ? "data-q" : "data-team-q";
     paint();
-    var box = document.querySelector("[data-q]");
+    var box = document.querySelector("[" + attr + "]");
     if (box) { box.focus(); box.selectionStart = box.selectionEnd = start; }
   }
 

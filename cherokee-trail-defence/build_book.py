@@ -439,6 +439,8 @@ SRC = {
     "copreps-2026": "Colorado Preps, Aug. 28, 2026",
     "maxpreps": "MaxPreps schedule and season totals",
     "maxpreps-2026": "MaxPreps game update",
+    "sentinel-eaglecrest-2020": "Sentinel Colorado, Oct. 10, 2020",
+    "chsaa-columbine-2021": "CHSAA Now, Sept. 2, 2021",
 }
 
 def snap(gid, text, tags, source, kind="snap"):
@@ -470,6 +472,23 @@ by["2019-11-08-fountain-fort-carson"]["plays"] = [
     snap("2019-ffc-8b", "Williams scored on another 8-yard run.", ["run_inside", "goal_line"], SRC["sentinel-ffc"]),
     snap("2019-ffc-3", "Williams scored on a 3-yard run.", ["run_inside", "goal_line"], SRC["sentinel-ffc"]),
     snap("2019-ffc-gaye", "Nate Gaye scored a touchdown. The yardage was not published.", [], SRC["sentinel-ffc"]),
+]
+by["2020-10-09-eaglecrest"]["plays"] = [
+    snap("2020-ec-14", "Nate Gaye Jr. ran 14 yards for a touchdown.", ["run_inside"], SRC["sentinel-eaglecrest-2020"]),
+    snap("2020-ec-94", "Jack Pierce ran 94 yards for a touchdown.", ["run_explosive"], SRC["sentinel-eaglecrest-2020"]),
+    snap("2020-ec-8", "Jack Pierce caught an 8-yard touchdown from Jayden Lavigne.", ["pass_short"], SRC["sentinel-eaglecrest-2020"]),
+    snap("2020-ec-30", "Nate Burke caught a 30-yard touchdown from Jayden Lavigne.", ["pass_explosive"], SRC["sentinel-eaglecrest-2020"]),
+    snap("2020-ec-44", "Nate Gaye Jr. ran 44 yards for a touchdown.", ["run_explosive"], SRC["sentinel-eaglecrest-2020"]),
+    snap("2020-ec-11", "Jack Pierce ran 11 yards for a touchdown.", ["run_inside"], SRC["sentinel-eaglecrest-2020"]),
+]
+by["2020-10-09-eaglecrest"]["special"] = [
+    {"id": "2020-ec-walker", "text": "Gabe Walker scored on a fumble recovery.", "source": SRC["sentinel-eaglecrest-2020"]}
+]
+by["2020-10-09-eaglecrest"]["note"] = "Sentinel Colorado printed this scoring summary. The 94-yard run is the longest published Cherokee Trail score in the ten-year book."
+by["2021-09-02-columbine"]["plays"] = [
+    snap("2021-col-59", "Jack Pierce caught a 59-yard touchdown from Logan Brook.", ["pass_explosive"], SRC["chsaa-columbine-2021"]),
+    snap("2021-col-3", "Jack Pierce caught a 3-yard touchdown from Logan Brook.", ["pass_short", "goal_line"], SRC["chsaa-columbine-2021"]),
+    snap("2021-col-6", "Gage Gordon caught a 6-yard touchdown from Logan Brook.", ["pass_short"], SRC["chsaa-columbine-2021"]),
 ]
 by["2020-11-13-overland"]["plays"] = [
     snap("2020-ol-65", "Nate Gaye ran 65 yards for a touchdown.", ["run_explosive"], SRC["sentinel-overland-2020"]),
@@ -543,6 +562,78 @@ by["2026-09-24-cherry-creek"]["plays"] = [
 by["2026-10-02-mullen"]["statTags"] = {"run_inside": 2, "run_edge": 2, "run_explosive": 2, "pass_short": 5, "pass_explosive": 10, "play_action": 4, "goal_line": 2, "third_long": 7}
 by["2026-10-02-mullen"]["note"] = "Team line: 383 passing yards and 63 rushing yards. Not a snap list."
 
+CITY_SRC = "MaxPreps Colorado football school directory"
+LEAGUE_SRC = "Coloradoan, Aug. 20, 2026"
+SENTINEL_W2 = "Sentinel Colorado, Sept. 5, 2026"
+
+def team(name, city, league="", facts=None, city_source=CITY_SRC, league_source=""):
+    return {
+        "name": name,
+        "city": city,
+        "citySource": city_source,
+        "league": league,
+        "leagueSource": (league_source or LEAGUE_SRC) if league else "",
+        "facts": facts or [],
+    }
+
+def fact(text, source):
+    return {"text": text, "source": source}
+
+TEAMS = [
+    team("Arapahoe", "Centennial", "5A Centennial"),
+    team("Arvada West", "Arvada", "5A Southwest Metro"),
+    team("Castle View", "Castle Rock", "5A Southern"),
+    team("Chaparral", "Parker", "4A South Metro", [
+        fact("MaxPreps listed Chaparral in the 4A South Metro league on the schedule page updated Oct. 11, 2026.", "MaxPreps Chaparral schedule, updated Oct. 11, 2026"),
+    ], league_source="MaxPreps Chaparral schedule, updated Oct. 11, 2026"),
+    team("Chatfield", "Littleton", "5A Southwest Metro"),
+    team("Cherry Creek", "Greenwood Village", "5A Centennial"),
+    team("Columbine", "Littleton", "5A Southwest Metro", [
+        fact("The Coloradoan marked Columbine as a 4A school placed inside the 5A Southwest Metro League for 2026.", LEAGUE_SRC),
+    ]),
+    team("Dakota Ridge", "Littleton"),
+    team("Denver East", "Denver"),
+    team("Eaglecrest", "Centennial", "5A Centennial", [
+        fact("Sentinel Colorado printed Eaglecrest 17, Erie 14 on Sept. 4, 2026, with passing touchdowns by William Brinkman and Cash Conley.", SENTINEL_W2),
+    ]),
+    team("Fairview", "Boulder", "5A Front Range"),
+    team("Far Northeast Warriors", "Denver", city_source="MaxPreps Far Northeast Warriors school page"),
+    team("Fort Collins", "Fort Collins", "5A Front Range"),
+    team("Fossil Ridge", "Fort Collins", "5A Front Range"),
+    team("Fountain-Fort Carson", "Fountain", "5A Southern"),
+    team("Grandview", "Aurora", "5A Centennial", [
+        fact("Sentinel Colorado printed Grandview 45, Fountain-Fort Carson 17 on Sept. 4, 2026. Lander Wise had 131 passing yards and a rushing touchdown. Timothy Arnold III had 103 receiving yards and a receiving touchdown.", SENTINEL_W2),
+    ]),
+    team("Highlands Ranch", "Highlands Ranch"),
+    team("Hinkley", "Aurora", facts=[
+        fact("Sentinel Colorado printed Kennedy 69, Hinkley 0 on Sept. 5, 2026.", SENTINEL_W2),
+    ]),
+    team("Horizon", "Thornton"),
+    team("Lakewood", "Lakewood"),
+    team("Mountain Vista", "Highlands Ranch", "5A Southwest Metro"),
+    team("Mullen", "Denver", "5A Centennial"),
+    team("Northfield", "Denver", "5A Centennial"),
+    team("Overland", "Aurora", facts=[
+        fact("Sentinel Colorado printed Vista Ridge 48, Overland 6 on Sept. 4, 2026, with a receiving touchdown by Josiah West.", SENTINEL_W2),
+    ]),
+    team("Pine Creek", "Colorado Springs", "5A Southern"),
+    team("Pomona", "Arvada"),
+    team("Poudre", "Fort Collins"),
+    team("Ralston Valley", "Arvada", "5A Southwest Metro"),
+    team("Rock Canyon", "Highlands Ranch", "5A Southwest Metro"),
+    team("Rocky Mountain", "Fort Collins", "5A Front Range"),
+    team("Smoky Hill", "Aurora", "4A South Metro", [
+        fact("MaxPreps listed Smoky Hill in the 4A South Metro league on the schedule page updated Oct. 10, 2026.", "MaxPreps Smoky Hill schedule, updated Oct. 10, 2026"),
+    ], league_source="MaxPreps Smoky Hill schedule, updated Oct. 10, 2026"),
+    team("ThunderRidge", "Highlands Ranch", "5A Southwest Metro"),
+    team("Valor Christian", "Highlands Ranch", "5A Southern"),
+]
+
+team_names = {row["name"] for row in TEAMS}
+opponent_names = {row["opponent"] for row in games}
+if team_names != opponent_names:
+    raise SystemExit("Team cards do not match opponents: %s" % sorted(team_names.symmetric_difference(opponent_names)))
+
 # Point audit
 for season in SEASONS:
     pf = pa = 0
@@ -577,6 +668,7 @@ book = {
     "calls": CALLS,
     "offense": OFFENSE,
     "games": games,
+    "teams": TEAMS,
 }
 
 out = ROOT / "book.js"

@@ -179,6 +179,10 @@ body.night .btn.primary, body.night .chip[aria-pressed="true"] {
 }
 .how p { margin: 0; }
 .how p + p { margin-top: 2px; }
+.best-card { margin: 0 0 12px; }
+.best-list { margin: 8px 0 0; padding-left: 1.2rem; }
+.best-list li { margin: 8px 0; }
+.best-list .linkish { font-weight: 700; }
 .kicker { color: var(--blue); font-weight: 650; font-size: .82rem; letter-spacing: .04em; text-transform: uppercase; }
 .call-name { font-size: clamp(1.8rem, 4vw, 2.7rem); line-height: 1.05; margin: 8px 0; letter-spacing: -.03em; }
 .brief { font-size: 1.15rem; margin: 0 0 8px; }

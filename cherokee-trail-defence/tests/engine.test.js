@@ -85,4 +85,23 @@ assert.strictEqual(E.LINE_COACH, "Ashton Torres");
 assert.strictEqual(E.linePlays().length, 9);
 assert.ok(E.linePlays().some(function (play) { return play.id === "nickel-quarters" && play.spots.length >= 2; }));
 
+var best = E.bestPlays(B);
+assert.strictEqual(best.map(function (row) { return row.play.id; }).join(","), "2020-ec-94,2026-aw-77,2023-ch-77,2020-ol-65,2021-col-59");
+assert.ok(best[0].play.text.indexOf("94") !== -1);
+assert.ok(best.every(function (row) { return row.play.source; }));
+
+var oppNames = E.opponents(B).map(function (row) { return row.name; }).sort();
+var teamNames = B.teams.map(function (team) { return team.name; }).sort();
+assert.strictEqual(teamNames.join("|"), oppNames.join("|"));
+assert.strictEqual(B.teams.length, 33);
+B.teams.forEach(function (team) {
+  assert.ok(team.city && team.citySource, team.name);
+  if (team.league) assert.ok(team.leagueSource, team.name);
+  (team.facts || []).forEach(function (item) {
+    assert.ok(item.text && item.source, team.name);
+  });
+});
+assert.ok(B.teams.some(function (team) { return team.name === "Northfield" && team.league === "5A Centennial" && team.city === "Denver"; }));
+assert.ok(B.teams.some(function (team) { return team.name === "Dakota Ridge" && team.league === "" && team.city === "Littleton"; }));
+
 console.log("engine tests passed");

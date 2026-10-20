@@ -18,6 +18,7 @@
     ["install", "Install"],
     ["diagnose", "Diagnose"],
     ["scout", "Scout"],
+    ["teams", "Teams"],
     ["rooms", "Rooms"],
     ["blitz", "Blitz"],
     ["alerts", "Alerts"],
@@ -307,6 +308,7 @@
       install: "This week's install",
       diagnose: "Diagnose",
       scout: "Scout by opponent",
+      teams: "Team notes",
       rooms: "Position rooms",
       blitz: "Wrap blitzes",
       alerts: "Trick alerts",
@@ -321,6 +323,7 @@
     if (state.section === "learn") return state.room ? "This card is only your room. The rest of the program is still in the menu." : "Tap your room. The rest of the program stays in the menu.";
     if (state.section === "diagnose") return "Full read for the coach. The install, scout, blitzes, and pictures are still in the menu.";
     if (state.section === "install") return "Cherokee Trail · Aurora · the call, the four rooms, and the blitz";
+    if (state.section === "teams") return "Published city and league notes. Not a snap tendency. Film is not stored here.";
     if (state.section === "oc") return "Hand this sheet to the offensive coordinator. It is not the defensive install.";
     if (state.section === "pictures") return "Every defense and every offensive play has a picture. Install a photo of a new look under it.";
     if (state.section === "film") return "Update weekly. The score stays on this computer.";
@@ -333,6 +336,7 @@
     if (state.section === "diagnose") return diagnoseHtml();
     if (state.section === "install") return installHtml(board);
     if (state.section === "scout") return scoutHtml();
+    if (state.section === "teams") return teamsHtml();
     if (state.section === "rooms") return roomsHtml();
     if (state.section === "blitz") return blitzHtml();
     if (state.section === "alerts") return alertsHtml();
@@ -491,6 +495,16 @@
       "<p>Press Need a stop or Protect the lead. Use one. Then press We called this.</p></div>";
   }
 
+  function bestHtml() {
+    var rows = E.bestPlays(book());
+    return '<section class="card best-card"><h3>Five best published plays</h3>' +
+      '<p class="muted">2017 through this season, ranked by the published yards. The film is not stored on this computer.</p><ol class="best-list">' +
+      rows.map(function (row) {
+        return "<li><button type=\"button\" class=\"linkish\" data-open=\"" + esc(row.game.opponent) + "\"><b>" + esc(row.play.text) + "</b></button> " +
+          '<span class="muted">' + esc(row.game.opponent) + ", " + esc(row.game.date) + ". " + esc(row.play.source) + ".</span></li>";
+      }).join("") + "</ol></section>";
+  }
+
   function weekLine(live, game) {
     return E.meetingLine(live, game);
   }
@@ -502,7 +516,7 @@
     var defense = E.bestDefense(live, Object.assign({ game: game }, query()), state.model);
     var tricks = E.trickPlaysForGame(live, game);
     state.copyText = copyText(game, defense, tricks);
-    return howTo() + signalStrip(board) + '<div class="chips"><button type="button" class="chip" data-go="learn">Your room</button><button type="button" class="chip" data-go="dline">' + esc(E.LINE_COACH) + '</button><button type="button" class="chip" data-go="diagnose">Diagnose</button></div>' +
+    return howTo() + bestHtml() + signalStrip(board) + '<div class="chips"><button type="button" class="chip" data-go="learn">Your room</button><button type="button" class="chip" data-go="dline">' + esc(E.LINE_COACH) + '</button><button type="button" class="chip" data-go="diagnose">Diagnose</button></div>' +
       '<section class="hero"><div class="kicker">' + esc(when(game)) + "</div>" +
       "<h2 class=\"call-name\">" + esc(defense.call.name) + "</h2>" +
       checkBanner(defense) +
@@ -661,6 +675,47 @@
       '<div class="chips"><label class="btn">Install a photo<input type="file" accept="image/jpeg,image/png,image/webp" data-photo="' + esc(playId) + '" data-kind="' + (side === "offense" ? "offense" : "defense") + '" hidden></label></div>';
   }
 
+  function teamsHtml() {
+    var live = book();
+    var q = state.teamQ || "";
+    var rows = (live.teams || []).slice().filter(function (team) {
+      return !q || team.name.toLowerCase().indexOf(q) !== -1 || team.city.toLowerCase().indexOf(q) !== -1;
+    }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+    var next = E.nextGame(live, today());
+    var selectedName = state.team || (next && next.opponent);
+    var selected = rows.filter(function (team) { return team.name === selectedName; })[0] || rows[0];
+    return '<p class="muted">Cities are from the MaxPreps Colorado football directory, except Far Northeast, which is from its MaxPreps school page. A blank league means the pages checked did not print one. This is not every page on the internet. The film is not stored on this computer.</p>' +
+      '<input class="search" type="search" placeholder="Find a team" value="' + esc(state.teamQ || "") + '" data-team-q="1">' +
+      '<div class="grid"><div class="list">' + rows.map(function (team) {
+        var series = E.opponents(live).filter(function (row) { return row.name === team.name; })[0];
+        var rec = series ? series.record.wins + "-" + series.record.losses : "";
+        return '<button type="button" class="row" data-team="' + esc(team.name) + '"><div class="split"><b>' + esc(team.name) + "</b><span>" + rec + "</span></div><span class=\"muted\">" + esc(team.city) + (team.league ? " · " + esc(team.league) : "") + "</span></button>";
+      }).join("") + "</div><div>" + (selected ? teamDetail(live, selected) : "") + "</div></div>";
+  }
+
+  function teamDetail(live, team) {
+    var series = E.opponents(live).filter(function (row) { return row.name === team.name; })[0];
+    var games = series ? series.games : [];
+    var played = games.filter(function (game) { return !game.upcoming; });
+    var snaps = 0;
+    played.forEach(function (game) {
+      snaps += (game.plays || []).filter(function (play) { return play.text; }).length;
+    });
+    var rec = series ? series.record : { wins: 0, losses: 0 };
+    var league = team.league
+      ? "<p><b>2026 league.</b> " + esc(team.league) + ". " + esc(team.leagueSource) + ".</p>"
+      : "<p><b>2026 league.</b> Not printed.</p>";
+    var notes = (team.facts || []).map(function (item) {
+      return "<p>" + esc(item.text) + " " + esc(item.source) + ".</p>";
+    }).join("");
+    return '<div class="hero"><div class="kicker">Team card</div><h2 class="call-name">' + esc(team.name) + "</h2>" +
+      "<p><b>City.</b> " + esc(team.city) + ", Colorado.</p>" +
+      league +
+      "<p>" + esc(team.name) + " is " + rec.wins + "-" + rec.losses + " in played meetings (" + played.length + "). Published offensive snaps: " + snaps + ".</p>" +
+      notes +
+      '<div class="chips"><button type="button" class="btn" data-open="' + esc(team.name) + '">Open the scout card</button></div></div>';
+  }
+
   function scoutHtml() {
     var live = book();
     var rows = E.opponents(live).filter(function (row) {
@@ -676,8 +731,13 @@
 
   function opponentDetail(live, row) {
     var defense = E.seriesDefense(live, row.name, query(), state.model);
+    var best = E.bestPlays(live).filter(function (item) { return item.game.opponent === row.name; });
     var head = '<div class="hero"><div class="kicker">Series call</div><h2 class="call-name">' + esc(defense.call.name) + "</h2><p>" + esc(defense.call.brief) + "</p><p class=\"muted\">" +
-      row.record.wins + "-" + row.record.losses + (row.record.disputes ? " · " + row.record.disputes + " result in dispute" : "") + "</p></div>";
+      row.record.wins + "-" + row.record.losses + (row.record.disputes ? " · " + row.record.disputes + " result in dispute" : "") + "</p>" +
+      (best.length ? best.map(function (item) {
+        return '<p><b>Best published play.</b> ' + esc(item.play.text) + " " + esc(item.game.date) + ".</p>";
+      }).join("") : "") +
+      "</div>";
     var games = row.games.slice().reverse().map(function (game) {
       var call = E.bestDefense(live, Object.assign({ game: game }, query()), state.model).call.name;
       var tricks = E.trickPlaysForGame(live, game).map(function (trick) { return trick.name; }).join(" · ");
@@ -835,6 +895,14 @@
   }
 
   function onClick(event) {
+    var openOpp = event.target.closest("[data-open]");
+    if (openOpp) {
+      state.opponent = openOpp.getAttribute("data-open");
+      state.section = "scout";
+      save();
+      paint();
+      return;
+    }
     var go = event.target.closest("[data-go]");
     if (go) { state.section = go.getAttribute("data-go"); save(); paint(); return; }
     var sit = event.target.closest("[data-sit]");
@@ -853,6 +921,8 @@
     if (hashBtn) { state.sit.hash = hashBtn.getAttribute("data-hash"); save(); paint(); return; }
     var opp = event.target.closest("[data-opp]");
     if (opp) { state.opponent = opp.getAttribute("data-opp"); paint(); return; }
+    var teamBtn = event.target.closest("[data-team]");
+    if (teamBtn) { state.team = teamBtn.getAttribute("data-team"); paint(); return; }
     var coach = event.target.closest("[data-coach]");
     if (coach) { state.coachId = coach.getAttribute("data-coach"); save(); paint(); return; }
     var room = event.target.closest("[data-room]");
@@ -919,11 +989,13 @@
   }
 
   function onInput(event) {
-    if (!event.target.hasAttribute("data-q")) return;
-    state.q = String(event.target.value || "").trim().toLowerCase();
+    var boxKey = event.target.hasAttribute("data-q") ? "q" : (event.target.hasAttribute("data-team-q") ? "teamQ" : "");
+    if (!boxKey) return;
+    state[boxKey] = String(event.target.value || "").trim().toLowerCase();
     var start = event.target.selectionStart;
+    var attr = boxKey === "q" ? "data-q" : "data-team-q";
     paint();
-    var box = document.querySelector("[data-q]");
+    var box = document.querySelector("[" + attr + "]");
     if (box) { box.focus(); box.selectionStart = box.selectionEnd = start; }
   }
 

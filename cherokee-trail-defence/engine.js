@@ -346,6 +346,20 @@ var CougarEngine = (function () {
     return { wins: wins, losses: losses, disputes: disputes, upcoming: upcoming, played: wins + losses + disputes };
   }
 
+  var BEST_IDS = ["2020-ec-94", "2026-aw-77", "2023-ch-77", "2020-ol-65", "2021-col-59"];
+
+  function bestPlays(book) {
+    var found = [];
+    BEST_IDS.forEach(function (id) {
+      (book.games || []).forEach(function (game) {
+        (game.plays || []).forEach(function (play) {
+          if (play.id === id) found.push({ play: play, game: game });
+        });
+      });
+    });
+    return found;
+  }
+
   function opponents(book) {
     var map = {};
     book.games.forEach(function (game) {
@@ -438,6 +452,22 @@ var CougarEngine = (function () {
       (game.special || []).forEach(function (play) {
         if (!play.source) problems.push("Special play " + play.id + " has no source.");
       });
+    });
+    var named = {};
+    (book.teams || []).forEach(function (team) {
+      if (!team.name || named[team.name]) problems.push("Team card " + (team.name || "blank") + " is missing or repeated.");
+      named[team.name] = true;
+      if (!team.city || !team.citySource) problems.push("Team " + team.name + " has no city source.");
+      if (team.league && !team.leagueSource) problems.push("Team " + team.name + " league has no source.");
+      (team.facts || []).forEach(function (item, index) {
+        if (!item.text || !item.source) problems.push("Team " + team.name + " fact " + index + " has no source.");
+      });
+    });
+    var seenOpp = {};
+    book.games.forEach(function (game) {
+      if (seenOpp[game.opponent]) return;
+      seenOpp[game.opponent] = true;
+      if (!named[game.opponent]) problems.push("No team card for " + game.opponent + ".");
     });
     book.calls.forEach(function (call) {
       ["dl", "lb", "s", "cb"].forEach(function (group) {
@@ -1385,6 +1415,7 @@ var CougarEngine = (function () {
     gameById: gameById,
     coachById: coachById,
     opponents: opponents,
+    bestPlays: bestPlays,
     nextGame: nextGame,
     bestDefense: bestDefense,
     seriesDefense: seriesDefense,

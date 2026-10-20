@@ -2008,11 +2008,72 @@ var COUGAR_BOOK = {
       "kickoff": "",
       "league": true,
       "playoff": false,
-      "note": "",
+      "note": "Sentinel Colorado printed this scoring summary. The 94-yard run is the longest published Cherokee Trail score in the ten-year book.",
       "overtime": "",
       "coachId": "johnson",
-      "plays": [],
-      "special": [],
+      "plays": [
+        {
+          "id": "2020-ec-14",
+          "kind": "snap",
+          "text": "Nate Gaye Jr. ran 14 yards for a touchdown.",
+          "tags": [
+            "run_inside"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        },
+        {
+          "id": "2020-ec-94",
+          "kind": "snap",
+          "text": "Jack Pierce ran 94 yards for a touchdown.",
+          "tags": [
+            "run_explosive"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        },
+        {
+          "id": "2020-ec-8",
+          "kind": "snap",
+          "text": "Jack Pierce caught an 8-yard touchdown from Jayden Lavigne.",
+          "tags": [
+            "pass_short"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        },
+        {
+          "id": "2020-ec-30",
+          "kind": "snap",
+          "text": "Nate Burke caught a 30-yard touchdown from Jayden Lavigne.",
+          "tags": [
+            "pass_explosive"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        },
+        {
+          "id": "2020-ec-44",
+          "kind": "snap",
+          "text": "Nate Gaye Jr. ran 44 yards for a touchdown.",
+          "tags": [
+            "run_explosive"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        },
+        {
+          "id": "2020-ec-11",
+          "kind": "snap",
+          "text": "Jack Pierce ran 11 yards for a touchdown.",
+          "tags": [
+            "run_inside"
+          ],
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        }
+      ],
+      "special": [
+        {
+          "id": "2020-ec-walker",
+          "text": "Gabe Walker scored on a fumble recovery.",
+          "source": "Sentinel Colorado, Oct. 10, 2020"
+        }
+      ],
       "result": "L",
       "ctScore": 50,
       "oppScore": 62,
@@ -2263,7 +2324,36 @@ var COUGAR_BOOK = {
       "note": "",
       "overtime": "",
       "coachId": "johnson",
-      "plays": [],
+      "plays": [
+        {
+          "id": "2021-col-59",
+          "kind": "snap",
+          "text": "Jack Pierce caught a 59-yard touchdown from Logan Brook.",
+          "tags": [
+            "pass_explosive"
+          ],
+          "source": "CHSAA Now, Sept. 2, 2021"
+        },
+        {
+          "id": "2021-col-3",
+          "kind": "snap",
+          "text": "Jack Pierce caught a 3-yard touchdown from Logan Brook.",
+          "tags": [
+            "pass_short",
+            "goal_line"
+          ],
+          "source": "CHSAA Now, Sept. 2, 2021"
+        },
+        {
+          "id": "2021-col-6",
+          "kind": "snap",
+          "text": "Gage Gordon caught a 6-yard touchdown from Logan Brook.",
+          "tags": [
+            "pass_short"
+          ],
+          "source": "CHSAA Now, Sept. 2, 2021"
+        }
+      ],
       "special": [],
       "result": "L",
       "ctScore": 21,
@@ -3771,6 +3861,307 @@ var COUGAR_BOOK = {
       "upcoming": true,
       "result": "",
       "countInPoints": false
+    }
+  ],
+  "teams": [
+    {
+      "name": "Arapahoe",
+      "city": "Centennial",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Arvada West",
+      "city": "Arvada",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Castle View",
+      "city": "Castle Rock",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southern",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Chaparral",
+      "city": "Parker",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "4A South Metro",
+      "leagueSource": "MaxPreps Chaparral schedule, updated Oct. 11, 2026",
+      "facts": [
+        {
+          "text": "MaxPreps listed Chaparral in the 4A South Metro league on the schedule page updated Oct. 11, 2026.",
+          "source": "MaxPreps Chaparral schedule, updated Oct. 11, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Chatfield",
+      "city": "Littleton",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Cherry Creek",
+      "city": "Greenwood Village",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Columbine",
+      "city": "Littleton",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": [
+        {
+          "text": "The Coloradoan marked Columbine as a 4A school placed inside the 5A Southwest Metro League for 2026.",
+          "source": "Coloradoan, Aug. 20, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Dakota Ridge",
+      "city": "Littleton",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Denver East",
+      "city": "Denver",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Eaglecrest",
+      "city": "Centennial",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": [
+        {
+          "text": "Sentinel Colorado printed Eaglecrest 17, Erie 14 on Sept. 4, 2026, with passing touchdowns by William Brinkman and Cash Conley.",
+          "source": "Sentinel Colorado, Sept. 5, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Fairview",
+      "city": "Boulder",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Front Range",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Far Northeast Warriors",
+      "city": "Denver",
+      "citySource": "MaxPreps Far Northeast Warriors school page",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Fort Collins",
+      "city": "Fort Collins",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Front Range",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Fossil Ridge",
+      "city": "Fort Collins",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Front Range",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Fountain-Fort Carson",
+      "city": "Fountain",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southern",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Grandview",
+      "city": "Aurora",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": [
+        {
+          "text": "Sentinel Colorado printed Grandview 45, Fountain-Fort Carson 17 on Sept. 4, 2026. Lander Wise had 131 passing yards and a rushing touchdown. Timothy Arnold III had 103 receiving yards and a receiving touchdown.",
+          "source": "Sentinel Colorado, Sept. 5, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Highlands Ranch",
+      "city": "Highlands Ranch",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Hinkley",
+      "city": "Aurora",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": [
+        {
+          "text": "Sentinel Colorado printed Kennedy 69, Hinkley 0 on Sept. 5, 2026.",
+          "source": "Sentinel Colorado, Sept. 5, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Horizon",
+      "city": "Thornton",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Lakewood",
+      "city": "Lakewood",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Mountain Vista",
+      "city": "Highlands Ranch",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Mullen",
+      "city": "Denver",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Northfield",
+      "city": "Denver",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Centennial",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Overland",
+      "city": "Aurora",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": [
+        {
+          "text": "Sentinel Colorado printed Vista Ridge 48, Overland 6 on Sept. 4, 2026, with a receiving touchdown by Josiah West.",
+          "source": "Sentinel Colorado, Sept. 5, 2026"
+        }
+      ]
+    },
+    {
+      "name": "Pine Creek",
+      "city": "Colorado Springs",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southern",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Pomona",
+      "city": "Arvada",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Poudre",
+      "city": "Fort Collins",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "",
+      "leagueSource": "",
+      "facts": []
+    },
+    {
+      "name": "Ralston Valley",
+      "city": "Arvada",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Rock Canyon",
+      "city": "Highlands Ranch",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Rocky Mountain",
+      "city": "Fort Collins",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Front Range",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Smoky Hill",
+      "city": "Aurora",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "4A South Metro",
+      "leagueSource": "MaxPreps Smoky Hill schedule, updated Oct. 10, 2026",
+      "facts": [
+        {
+          "text": "MaxPreps listed Smoky Hill in the 4A South Metro league on the schedule page updated Oct. 10, 2026.",
+          "source": "MaxPreps Smoky Hill schedule, updated Oct. 10, 2026"
+        }
+      ]
+    },
+    {
+      "name": "ThunderRidge",
+      "city": "Highlands Ranch",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southwest Metro",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
+    },
+    {
+      "name": "Valor Christian",
+      "city": "Highlands Ranch",
+      "citySource": "MaxPreps Colorado football school directory",
+      "league": "5A Southern",
+      "leagueSource": "Coloradoan, Aug. 20, 2026",
+      "facts": []
     }
   ]
 };
