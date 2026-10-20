@@ -65,7 +65,19 @@ class ServerTests(unittest.TestCase):
         status, page = self.open("/")
         self.assertEqual(status, 200)
         self.assertIn(b"Paper Trader", page)
+        self.assertIn(b'id="auto"', page)
+        self.assertIn(b'id="paper"', page)
+        self.assertIn(b">Auto<", page)
+        self.assertIn(b">Paper<", page)
         self.assertNotIn(b"deposit", page.lower())
+
+    def test_paper_button_engages_paper_and_rejects_another_mode(self) -> None:
+        status, raw = self.open("/api/paper/mode", "POST", {"mode": "paper"})
+        self.assertEqual(status, 200)
+        payload = json.loads(raw)
+        self.assertEqual(payload["mode"], "paper")
+        self.assertTrue(payload["paper"])
+        self.assertEqual(self.open("/api/paper/mode", "POST", {"mode": "live"})[0], 400)
 
     def test_step_and_backtest(self) -> None:
         status, raw = self.open("/api/paper")

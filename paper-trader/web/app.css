@@ -98,7 +98,21 @@ select, input { width: 100%; padding: 8px 10px; }
 dt { color: var(--muted); font-size: 12px; }
 dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
 
-.actions { display: grid; gap: 8px; }
+.modes, .actions { display: grid; gap: 8px; }
+
+.modes { grid-template-columns: 1fr 1fr; margin-bottom: 8px; }
+
+#paper[aria-pressed="true"] {
+  background: #1d4d3a;
+  border-color: var(--up);
+  color: var(--up);
+}
+
+#auto[aria-pressed="true"] {
+  background: #1c3d66;
+  border-color: var(--fast);
+  color: var(--fast);
+}
 
 button {
   padding: 10px 12px;

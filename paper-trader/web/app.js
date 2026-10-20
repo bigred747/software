@@ -1,4 +1,4 @@
-const state = { market: null, paper: null, busy: false };
+const state = { market: null, paper: null, busy: false, auto: false, autoTimer: 0 };
 
 const notes = {
   BUY: "The next sample day would open a simulated long at that day's open.",
@@ -106,8 +106,12 @@ function render(paper) {
     : "Flat";
   $("through").textContent = paper.cursor + " / " + paper.total_bars;
   $("chart-title").textContent = (paper.last_date || "Sample") + " · " + paper.symbol;
-  $("next").disabled = paper.finished;
-  $("run").disabled = paper.finished;
+  $("next").disabled = state.auto || paper.finished;
+  $("run").disabled = state.auto || paper.finished;
+  $("auto").disabled = Boolean(paper.finished);
+  $("auto").setAttribute("aria-pressed", state.auto ? "true" : "false");
+  $("paper").disabled = false;
+  $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
   fillTrades($("journal-body"), paper.trades || []);
   drawCandles();
   drawRsi();
@@ -273,7 +277,68 @@ async function withBusy(action) {
   }
 }
 
+function stopAuto(message) {
+  state.auto = false;
+  if (state.autoTimer) {
+    clearTimeout(state.autoTimer);
+    state.autoTimer = 0;
+  }
+  if (state.paper) render(state.paper);
+  if (message) $("status").textContent = message;
+}
+
+async function autoTick() {
+  if (!state.auto || state.busy) return;
+  state.busy = true;
+  try {
+    const paper = await post("/api/paper/step", { days: 1 });
+    render(paper);
+    if (paper.finished || paper.paper !== true) {
+      state.auto = false;
+      render(paper);
+      $("status").textContent = paper.finished
+        ? "Auto stopped. The sample is finished."
+        : "Auto stopped. Paper is off.";
+      return;
+    }
+    $("status").textContent = "Auto is on. This step is a simulated sample day.";
+  } catch (error) {
+    state.auto = false;
+    if (state.paper) render(state.paper);
+    $("status").textContent = error.message;
+    return;
+  } finally {
+    state.busy = false;
+  }
+  if (state.auto) state.autoTimer = setTimeout(autoTick, 200);
+}
+
+$("auto").addEventListener("click", () => {
+  if (!state.paper || state.paper.paper !== true) {
+    $("status").textContent = "Turn Paper on first. Auto only replays the sample.";
+    return;
+  }
+  if (state.paper.finished) return;
+  state.auto = !state.auto;
+  render(state.paper);
+  if (!state.auto) {
+    if (state.autoTimer) clearTimeout(state.autoTimer);
+    state.autoTimer = 0;
+    $("status").textContent = "Auto is off.";
+    return;
+  }
+  $("status").textContent = "Auto is on. Simulated sample days only.";
+  autoTick();
+});
+
+$("paper").addEventListener("click", () => withBusy(async () => {
+  const paper = await post("/api/paper/mode", { mode: "paper" });
+  render(paper);
+  $("status").textContent = "Paper is on. Orders stay simulated on this computer.";
+}));
+
 $("symbol").addEventListener("change", () => withBusy(async () => {
+  stopAuto();
   const paper = await post("/api/paper/reset", formParams());
   await loadMarket();
   render(paper);
@@ -285,11 +350,13 @@ $("next").addEventListener("click", () => withBusy(async () => {
 }));
 
 $("run").addEventListener("click", () => withBusy(async () => {
+  stopAuto();
   render(await post("/api/paper/run", {}));
   $("status").textContent = "Sample session finished.";
 }));
 
 $("reset").addEventListener("click", () => withBusy(async () => {
+  stopAuto();
   const paper = await post("/api/paper/reset", formParams());
   await loadMarket();
   render(paper);

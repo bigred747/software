@@ -178,6 +178,11 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._json(self.desk.backtest(raw))
             return
         body = self._body() if method == "POST" else {}
+        if method == "POST" and path == "/api/paper/mode":
+            if str(body.get("mode") or "") != "paper":
+                raise ValueError("This desk only runs in paper mode")
+            self._json(self.desk.snapshot())
+            return
         if method == "POST" and path == "/api/paper/reset":
             self._json(self.desk.reset(body))
             return

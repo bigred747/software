@@ -185,6 +185,8 @@ def present(result: Result, symbol: str, total_bars: int, params: Params, cursor
         "markers": points,
         "params": params.to_dict(),
         "finished": cursor >= total_bars,
+        "mode": "paper",
+        "paper": True,
     }
 
 

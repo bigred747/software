@@ -21,6 +21,8 @@ On Windows, double-click `Start-Paper-Trader.bat`.
 
 The browser opens to `http://127.0.0.1:8765/`.
 
+- **Auto** steps the sample one day at a time on its own. Click it again to stop. Each fill stays simulated.
+- **Paper** turns the paper account on. The button stays pressed, and the desk refuses any other account.
 - **Next day** advances the sample by one session and applies the prior close's signal at the next open.
 - **Run remaining days** finishes the sample.
 - **Reset session** starts again and applies the strategy settings.
