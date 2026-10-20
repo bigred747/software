@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from paper_trader.backtest import run_backtest, signal_name
+from paper_trader.guard import assert_safe_launch
 from paper_trader.model import Params
 from paper_trader.samples import load_symbol
 from paper_trader.server import serve
@@ -34,8 +35,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "serve":
-            if not 1 <= args.port <= 65535:
-                raise ValueError("Port must be from 1 to 65535")
+            if not 1024 <= args.port <= 65535:
+                raise ValueError("Port must be from 1024 to 65535")
+            assert_safe_launch([Path(__file__).resolve(), Path.cwd()])
             serve(STATE_PATH, args.port, open_browser=not args.no_browser)
             return 0
         params = Params(

@@ -26,6 +26,12 @@ def symbols() -> list[dict[str, str | int]]:
     ]
 
 
+def warm() -> None:
+    """Build every sample once so the first page does not wait."""
+    for symbol in SPECS:
+        load_symbol(symbol)
+
+
 def load_symbol(symbol: str, count: int = SAMPLE_COUNT) -> list[Bar]:
     if symbol not in SPECS:
         known = ", ".join(SPECS)

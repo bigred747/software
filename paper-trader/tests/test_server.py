@@ -13,6 +13,8 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from paper_trader.cli import main
+from paper_trader.guard import assert_safe_launch, is_temp_zip_extract
 from paper_trader.server import create_server
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,22 +34,34 @@ class ServerTests(unittest.TestCase):
         self.server.server_close()
         self.folder.cleanup()
 
-    def open(self, path: str, method: str = "GET", body: dict | None = None):
+    def open(self, path: str, method: str = "GET", body: dict | None = None, host: str | None = None, headers: bool = False):
         data = None if body is None else json.dumps(body).encode()
         request = Request(self.base + path, data=data, method=method)
         if data is not None:
             request.add_header("Content-Type", "application/json")
+        if host is not None:
+            request.add_header("Host", host)
         try:
             with urlopen(request, timeout=5) as response:
-                return response.status, response.read()
+                payload = response.read()
+                if headers:
+                    return response.status, payload, response.headers
+                return response.status, payload
         except HTTPError as exc:
-            return exc.code, exc.read()
+            payload = exc.read()
+            if headers:
+                return exc.code, payload, exc.headers
+            return exc.code, payload
 
     def test_server_is_local_and_pages_load(self) -> None:
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
-        status, health = self.open("/api/health")
+        status, health, headers = self.open("/api/health", headers=True)
         self.assertEqual(status, 200)
-        self.assertTrue(json.loads(health)["ok"])
+        payload = json.loads(health)
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["bind"], "127.0.0.1")
+        self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
+        self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
         status, page = self.open("/")
         self.assertEqual(status, 200)
         self.assertIn(b"Paper Trader", page)
@@ -67,6 +81,15 @@ class ServerTests(unittest.TestCase):
     def test_rejects_path_escape_and_unknown_market(self) -> None:
         self.assertEqual(self.open("/../README.md")[0], 404)
         self.assertEqual(self.open("/api/market?symbol=NOPE")[0], 400)
+        self.assertEqual(self.open("/api/health", host="example.test")[0], 404)
+
+    def test_refuses_a_temporary_zip_folder_and_a_low_port(self) -> None:
+        temp_zip = Path(r"C:\Users\rick\AppData\Local\Temp\abc_pack.zip.43d\app")
+        self.assertTrue(is_temp_zip_extract(temp_zip))
+        self.assertFalse(is_temp_zip_extract(Path(r"C:\Users\rick\Documents\paper-trader")))
+        with self.assertRaises(ValueError):
+            assert_safe_launch([temp_zip])
+        self.assertEqual(main(["serve", "--port", "80", "--no-browser"]), 2)
 
     def test_package_does_not_ask_for_money_or_keys(self) -> None:
         banned = ("quantumtrade", "paypal", "seed phrase", "mnemonic", "guaranteed profit", "deposit")
@@ -82,7 +105,10 @@ class ServerTests(unittest.TestCase):
             self.assertNotIn(word, blob)
         bat = (ROOT / "Start-Paper-Trader.bat").read_text(encoding="utf-8").lower()
         self.assertIn("python -m paper_trader serve", bat)
+        self.assertIn("if not errorlevel 1", bat)
         self.assertNotIn("powershell", bat)
+        self.assertNotIn("pip", bat)
+        self.assertNotIn("requirements", bat)
 
 
 if __name__ == "__main__":

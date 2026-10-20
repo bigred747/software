@@ -8,10 +8,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from paper_trader import __version__
 from paper_trader.backtest import present, run_backtest
 from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
 from paper_trader.model import params_from_dict
-from paper_trader.samples import load_symbol, symbols
+from paper_trader.samples import load_symbol, symbols, warm
 
 WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
 STATIC = {"/index.html": "index.html", "/": "index.html", "/app.js": "app.js", "/app.css": "app.css"}
@@ -20,6 +21,15 @@ TYPES = {
     "app.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
 }
+_STATIC_BYTES: dict[str, bytes] = {}
+_LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+_SECURITY_HEADERS = (
+    ("X-Content-Type-Options", "nosniff"),
+    ("Referrer-Policy", "no-referrer"),
+    ("X-Frame-Options", "DENY"),
+    ("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'"),
+    ("Cache-Control", "no-store"),
+)
 
 
 class Desk:
@@ -73,10 +83,31 @@ class Desk:
         return market_view(symbol, params)
 
 
+def _local_host(header: str) -> bool:
+    name = header.strip().lower().split(":", 1)[0]
+    return name in _LOCAL_HOSTS
+
+
+def load_static() -> None:
+    if _STATIC_BYTES:
+        return
+    root = WEB_ROOT.resolve()
+    for name in TYPES:
+        file_path = (WEB_ROOT / name).resolve()
+        if file_path.parent != root or not file_path.is_file():
+            raise FileNotFoundError(name)
+        _STATIC_BYTES[name] = file_path.read_bytes()
+
+
 def create_server(state_path: Path, port: int = 8765) -> ThreadingHTTPServer:
+    warm()
+    load_static()
     desk = Desk(state_path)
     handler = type("DeskHandler", (DeskHandler,), {"desk": desk})
     server = ThreadingHTTPServer(("127.0.0.1", port), handler)
+    if server.server_address[0] != "127.0.0.1":
+        server.server_close()
+        raise RuntimeError("The desk refused to listen outside this computer")
     server.desk = desk  # type: ignore[attr-defined]
     return server
 
@@ -104,8 +135,17 @@ class DeskHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args) -> None:
         return
 
+    def address_string(self) -> str:
+        return self.client_address[0]
+
     def _route(self, method: str) -> None:
+        if not _local_host(self.headers.get("Host", "")):
+            self._json({"error": "Not found"}, 404)
+            return
         parsed = urlparse(self.path)
+        if parsed.scheme or parsed.netloc:
+            self._json({"error": "Not found"}, 404)
+            return
         path = unquote(parsed.path)
         if ".." in path or path.startswith("//"):
             self._json({"error": "Not found"}, 404)
@@ -120,7 +160,7 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._static(STATIC[path])
             return
         if method == "GET" and path == "/api/health":
-            self._json({"ok": True, "bind": "127.0.0.1"})
+            self._json({"ok": True, "bind": "127.0.0.1", "version": __version__})
             return
         if method == "GET" and path == "/api/symbols":
             self._json({"symbols": symbols()})
@@ -169,22 +209,23 @@ class DeskHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff")
+        self._security_headers()
         self.end_headers()
         self.wfile.write(body)
 
+    def _security_headers(self) -> None:
+        for name, value in _SECURITY_HEADERS:
+            self.send_header(name, value)
+
     def _static(self, name: str) -> None:
-        file_path = (WEB_ROOT / name).resolve()
-        if file_path.parent != WEB_ROOT.resolve() or not file_path.is_file():
+        body = _STATIC_BYTES.get(name)
+        if body is None:
             self._json({"error": "Not found"}, 404)
             return
-        body = file_path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", TYPES[name])
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff")
+        self._security_headers()
         self.end_headers()
         self.wfile.write(body)
 
@@ -197,7 +238,7 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
     url = f"http://{host}:{bound}/"
     print(f"Paper Trader is running at {url}")
     print("Sample prices only. Close this window to stop the desk.")
-    if open_browser:
+    if open_browser and url.startswith("http://127.0.0.1:"):
         webbrowser.open(url)
     try:
         server.serve_forever()

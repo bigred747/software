@@ -8,7 +8,9 @@ Sample prices are a teaching series. They are not live quotes, and the sample re
 
 ## Run it
 
-Install Python 3.11 or newer, then:
+Python 3.11 or newer is enough. The desk uses the Python standard library, so startup does not install packages and does not wait on a download.
+
+Copy the `paper-trader` folder to a normal place such as Documents. Do not run it from inside a zip or from a temporary folder.
 
 ```bash
 cd paper-trader

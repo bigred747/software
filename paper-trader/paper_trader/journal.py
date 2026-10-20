@@ -46,7 +46,10 @@ def save_journal(path: Path, journal: Journal) -> None:
         "cursor": journal.cursor,
         "params": journal.params.to_dict(),
     }
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
 
 
 def view_journal(journal: Journal) -> dict:
