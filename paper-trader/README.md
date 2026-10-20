@@ -8,9 +8,9 @@ Sample prices are a teaching series. They are not live quotes, and the sample re
 
 ## Run it
 
-Python 3.11 or newer is enough. The desk uses the Python standard library, so startup does not install packages and does not wait on a download.
+The Windows zip already contains Python. Right-click it, choose Extract All, put the folder in Documents, and double-click `Start-Paper-Trader.bat`. Do not run it from inside the zip.
 
-Copy the `paper-trader` folder to a normal place such as Documents. Do not run it from inside a zip or from a temporary folder.
+From a source checkout, Python 3.11 or newer is enough. The desk uses the Python standard library, so startup does not install packages and does not wait on a download.
 
 ```bash
 cd paper-trader

@@ -7,6 +7,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import zipfile
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -116,11 +117,26 @@ class ServerTests(unittest.TestCase):
         for word in banned:
             self.assertNotIn(word, blob)
         bat = (ROOT / "Start-Paper-Trader.bat").read_text(encoding="utf-8").lower()
+        self.assertIn("runtime\\python.exe", bat)
         self.assertIn("python -m paper_trader serve", bat)
         self.assertIn("if not errorlevel 1", bat)
         self.assertNotIn("powershell", bat)
         self.assertNotIn("pip", bat)
         self.assertNotIn("requirements", bat)
+
+    def test_windows_zip_includes_its_own_python(self) -> None:
+        archive = ROOT.parent / "Paper-Trader.zip"
+        self.assertTrue(archive.is_file())
+        self.assertGreater(archive.stat().st_size, 8_000_000)
+        with zipfile.ZipFile(archive) as packed:
+            names = packed.namelist()
+            page = packed.read("paper-trader/web/index.html")
+            path_file = packed.read("paper-trader/runtime/python313._pth")
+        self.assertIn("paper-trader/runtime/python.exe", names)
+        self.assertIn("paper-trader/Start-Paper-Trader.bat", names)
+        self.assertIn(b">Auto<", page)
+        self.assertIn(b">Paper<", page)
+        self.assertIn(b"..", path_file)
 
 
 if __name__ == "__main__":

@@ -4,9 +4,13 @@ cd /d "%~dp0"
 echo Paper Trader stays on this computer. It replays sample prices and does not place broker orders.
 echo %~dp0 | findstr /I /C:"\AppData\Local\Temp\" | findstr /I /C:".zip." >nul
 if not errorlevel 1 (
-  echo This copy is still inside a temporary zip folder. Copy the paper-trader folder to Documents and start it there.
+  echo This copy is still inside the zip. Right-click Paper-Trader.zip, choose Extract All, put the folder in Documents, and start it there.
   pause
   exit /b 1
+)
+if exist "%~dp0runtime\python.exe" (
+  "%~dp0runtime\python.exe" -m paper_trader serve
+  goto done
 )
 where python >nul 2>&1
 if not errorlevel 1 (
@@ -18,6 +22,6 @@ if not errorlevel 1 (
   py -3 -m paper_trader serve
   goto done
 )
-echo Install Python 3 from https://www.python.org/downloads/ and check "Add python.exe to PATH". Then run this file again.
+echo The Windows copy is missing runtime\python.exe. Download Paper-Trader.zip again and use Extract All.
 :done
 pause
