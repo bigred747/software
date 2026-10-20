@@ -4163,5 +4163,271 @@ var COUGAR_BOOK = {
       "leagueSource": "Coloradoan, Aug. 20, 2026",
       "facts": []
     }
-  ]
+  ],
+  "titles": {
+    "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025",
+    "summary": "Championship games: 1 (2012); Semifinals: 4 (2007, 2010, 2012, 2013); Quarterfinals: 5 (2007, 2010, 2012, 2013, 2020); Playoff appearances: 20.",
+    "final": {
+      "date": "2012-12-01",
+      "round": "Class 5A championship",
+      "place": "Sports Authority Field at Mile High",
+      "result": "Valor Christian 9, Cherokee Trail 0",
+      "coach": "Monte Thelen",
+      "source": "Sentinel Colorado, Dec. 1, 2012",
+      "lines": [
+        {
+          "text": "Quarters: Cherokee Trail 0-0-0-0, Valor Christian 0-0-0-9.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Scoring: Christian McCaffrey 1-yard run, kick failed, 6:01 left. Spencer 38-yard field goal, 2:04 left.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "The box header ranked Valor Christian fourth and Cherokee Trail third.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Coach Monte Thelen. Sentinel called it the best season in school history and the first state championship game in the 10th season of the school's existence.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Anthony Murray intercepted Luke Del Rio's first pass. The first half was scoreless.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Ryan Winke's 43-yard field goal was blocked. Spencer missed a 30-yard attempt.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Cherokee Trail held Valor scoreless in the first half. Sentinel said that was Valor's first scoreless half since the 2010 opener against Grandview.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "McCaffrey's punt on the last play of the third quarter was downed at the Cherokee Trail 1. Thelen called that the play of the game.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Cherokee Trail gained 4 yards on three rushes and punted. Aric Johnson's kick went out of the end zone to the Cherokee Trail 39.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Del Rio hit Chaz Polson at the 1 on third-and-12. Evan White stopped McCaffrey twice. The touchdown was awarded on the third try. Cherokee Trail said the knee was down.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Spencer missed the extra point. Valor led 6-0 with 6:01 left.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "On third-and-2, McCaffrey dropped Cameron Smith for a 3-yard loss. On fourth down, Johnson scrambled and was tackled short.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "A facemask on Jackson Burrell's tackle of McCaffrey was marked 10 yards in the backfield. Spencer made a 38-yard field goal. Valor led 9-0 with 2:04 left.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Cherokee Trail never reached Valor's red zone and missed another fourth down.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Rushing, Cherokee Trail: Cameron Smith 14-25, Sherman Thomas 6-15, Dante Deleonardis 1-4, Cameron Currington 1-2.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Rushing, Valor Christian: Christian McCaffrey 28-126, Daryl Hawkins 8-46, Luke Del Rio 1 for minus 3.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Passing, Cherokee Trail: Aric Johnson 6-13, 91 yards.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Passing, Valor Christian: Luke Del Rio 12-20, 89 yards, 1 interception.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Receiving, Cherokee Trail: Brandon Barry 2-44, Cameron Smith 2-20, Anthony Murray 1-17, Dominique Grady 1-10.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Receiving, Valor Christian: Chaz Polson 5-42, Christian McCaffrey 4-32, Alex Ulmer 1-10, Levi Waddell 1-5.",
+          "source": "Sentinel Colorado, Dec. 1, 2012"
+        },
+        {
+          "text": "Cherokee Trail was 12-2. Denver Post called this the first final in its nine-year varsity history.",
+          "source": "Denver Post, Dec. 1, 2012"
+        },
+        {
+          "text": "Cherokee Trail had 134 yards of offense.",
+          "source": "Denver Post, Dec. 1, 2012"
+        },
+        {
+          "text": "Christian McCaffrey was held to 114 rushing yards and 52 receiving yards.",
+          "source": "Denver Post, Dec. 1, 2012"
+        },
+        {
+          "text": "The game MVP punt was 46 yards and was downed at the Cherokee Trail 1.",
+          "source": "Denver Post, Dec. 1, 2012"
+        },
+        {
+          "text": "Valor Christian was 12-2. Denver Post called this its fourth consecutive title, after 3A in 2009 and 4A twice.",
+          "source": "Denver Post, Dec. 1, 2012"
+        },
+        {
+          "text": "This was the lowest-scoring championship since Chatfield beat Fairview 9-3 in 2001.",
+          "source": "Denver Post, Dec. 1, 2012"
+        }
+      ]
+    },
+    "gaps": [
+      {
+        "text": "This list has no 2017 line. Sentinel Colorado did not print a 2017 playoff game.",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      }
+    ],
+    "years": [
+      {
+        "year": 2025,
+        "klass": "5A",
+        "bracket": "24 teams",
+        "text": "Fountain-Fort Carson 14, Cherokee Trail 7 (1st round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2024,
+        "klass": "5A",
+        "bracket": "24 teams",
+        "text": "Cherokee Trail 25, Castle View 7; Columbine 42, Cherokee Trail 21 (2nd round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2023,
+        "klass": "5A",
+        "bracket": "24 teams",
+        "text": "Chatfield 42, Cherokee Trail 7 (1st round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2022,
+        "klass": "5A",
+        "bracket": "24 teams",
+        "text": "Rock Canyon 23, Cherokee Trail 20 (1st round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2021,
+        "klass": "5A",
+        "bracket": "24 teams",
+        "text": "Cherokee Trail 41, Fossil Ridge 29; Ralston Valley 42, Cherokee Trail 20 (2nd round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2020,
+        "klass": "5A",
+        "bracket": "8 teams",
+        "text": "Valor Christian 49, Cherokee Trail 14 (quarterfinals)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2019,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Cherokee Trail 35, Fountain-Fort Carson 17; Fairview 36, Cherokee Trail 34 (2nd round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2018,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Cherokee Trail 37, Poudre 31 (2OT); Ralston Valley 52, Cherokee Trail 0 (2nd round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2016,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Valor Christian 42, Cherokee Trail 0 (1st round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2015,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Heritage 19, Cherokee Trail 14 (1st round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2014,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Mountain Vista 24, Cherokee Trail 14 (1st round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2013,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Cherokee Trail 40, Arvada West 21; Cherokee Trail 41, Mountain Range 7; Cherokee Trail 27, Cherry Creek 14; Valor Christian 42, Cherokee Trail 23 (semifinals)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2012,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Cherokee Trail 42, Mountain Range 6; Cherokee Trail 24, Mullen 21; Cherokee Trail 17, Eaglecrest 14; Cherokee Trail 17, Ralston Valley 10; Valor Christian 9, Cherokee Trail 0 (championship game)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2011,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Fountain-Fort Carson 31, Cherokee Trail 21 (1st round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2010,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Cherokee Trail 27, Legacy 14; Cherokee Trail 27, ThunderRidge 6; Cherokee Trail 14, Ralston Valley 2; Regis Jesuit 21, Cherokee Trail 20 (semifinals)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2009,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Cherokee Trail 14, Rocky Mountain 9; Pomona 28, Cherokee Trail 7 (2nd round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2008,
+        "klass": "5A",
+        "bracket": "",
+        "text": "Cherokee Trail 28, Mountain Vista 6; Rocky Mountain 28, Cherokee Trail 14 (2nd round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2007,
+        "klass": "4A",
+        "bracket": "",
+        "text": "Cherokee Trail 15, Pine Creek 14; Cherokee Trail 10, Air Academy 0; Monarch 6, Cherokee Trail 0 (OT) (semifinals)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2006,
+        "klass": "4A",
+        "bracket": "",
+        "text": "Montrose 23, Cherokee Trail 21 (1st round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      },
+      {
+        "year": 2005,
+        "klass": "3A",
+        "bracket": "",
+        "text": "Eagle Valley 31, Cherokee Trail 14 (1st round)",
+        "source": "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+      }
+    ]
+  }
 };

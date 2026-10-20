@@ -645,6 +645,87 @@ for season in SEASONS:
     if pf != season["pf"] or pa != season["pa"]:
         raise SystemExit("Point mismatch %s: got %s-%s expected %s-%s" % (season["id"], pf, pa, season["pf"], season["pa"]))
 
+# Championship page. Not games. These lines are not tagged snaps and do not change a Friday call.
+HIST = "Sentinel Colorado playoff history, updated Nov. 7, 2025"
+SENTINEL_FINAL = "Sentinel Colorado, Dec. 1, 2012"
+POST_FINAL = "Denver Post, Dec. 1, 2012"
+
+def history_year(year, klass, text, bracket=""):
+    return {"year": year, "klass": klass, "bracket": bracket, "text": text, "source": HIST}
+
+TITLES = {
+    "source": HIST,
+    "summary": "Championship games: 1 (2012); Semifinals: 4 (2007, 2010, 2012, 2013); Quarterfinals: 5 (2007, 2010, 2012, 2013, 2020); Playoff appearances: 20.",
+    "final": {
+        "date": "2012-12-01",
+        "round": "Class 5A championship",
+        "place": "Sports Authority Field at Mile High",
+        "result": "Valor Christian 9, Cherokee Trail 0",
+        "coach": "Monte Thelen",
+        "source": SENTINEL_FINAL,
+        "lines": [
+            fact("Quarters: Cherokee Trail 0-0-0-0, Valor Christian 0-0-0-9.", SENTINEL_FINAL),
+            fact("Scoring: Christian McCaffrey 1-yard run, kick failed, 6:01 left. Spencer 38-yard field goal, 2:04 left.", SENTINEL_FINAL),
+            fact("The box header ranked Valor Christian fourth and Cherokee Trail third.", SENTINEL_FINAL),
+            fact("Coach Monte Thelen. Sentinel called it the best season in school history and the first state championship game in the 10th season of the school's existence.", SENTINEL_FINAL),
+            fact("Anthony Murray intercepted Luke Del Rio's first pass. The first half was scoreless.", SENTINEL_FINAL),
+            fact("Ryan Winke's 43-yard field goal was blocked. Spencer missed a 30-yard attempt.", SENTINEL_FINAL),
+            fact("Cherokee Trail held Valor scoreless in the first half. Sentinel said that was Valor's first scoreless half since the 2010 opener against Grandview.", SENTINEL_FINAL),
+            fact("McCaffrey's punt on the last play of the third quarter was downed at the Cherokee Trail 1. Thelen called that the play of the game.", SENTINEL_FINAL),
+            fact("Cherokee Trail gained 4 yards on three rushes and punted. Aric Johnson's kick went out of the end zone to the Cherokee Trail 39.", SENTINEL_FINAL),
+            fact("Del Rio hit Chaz Polson at the 1 on third-and-12. Evan White stopped McCaffrey twice. The touchdown was awarded on the third try. Cherokee Trail said the knee was down.", SENTINEL_FINAL),
+            fact("Spencer missed the extra point. Valor led 6-0 with 6:01 left.", SENTINEL_FINAL),
+            fact("On third-and-2, McCaffrey dropped Cameron Smith for a 3-yard loss. On fourth down, Johnson scrambled and was tackled short.", SENTINEL_FINAL),
+            fact("A facemask on Jackson Burrell's tackle of McCaffrey was marked 10 yards in the backfield. Spencer made a 38-yard field goal. Valor led 9-0 with 2:04 left.", SENTINEL_FINAL),
+            fact("Cherokee Trail never reached Valor's red zone and missed another fourth down.", SENTINEL_FINAL),
+            fact("Rushing, Cherokee Trail: Cameron Smith 14-25, Sherman Thomas 6-15, Dante Deleonardis 1-4, Cameron Currington 1-2.", SENTINEL_FINAL),
+            fact("Rushing, Valor Christian: Christian McCaffrey 28-126, Daryl Hawkins 8-46, Luke Del Rio 1 for minus 3.", SENTINEL_FINAL),
+            fact("Passing, Cherokee Trail: Aric Johnson 6-13, 91 yards.", SENTINEL_FINAL),
+            fact("Passing, Valor Christian: Luke Del Rio 12-20, 89 yards, 1 interception.", SENTINEL_FINAL),
+            fact("Receiving, Cherokee Trail: Brandon Barry 2-44, Cameron Smith 2-20, Anthony Murray 1-17, Dominique Grady 1-10.", SENTINEL_FINAL),
+            fact("Receiving, Valor Christian: Chaz Polson 5-42, Christian McCaffrey 4-32, Alex Ulmer 1-10, Levi Waddell 1-5.", SENTINEL_FINAL),
+            fact("Cherokee Trail was 12-2. Denver Post called this the first final in its nine-year varsity history.", POST_FINAL),
+            fact("Cherokee Trail had 134 yards of offense.", POST_FINAL),
+            fact("Christian McCaffrey was held to 114 rushing yards and 52 receiving yards.", POST_FINAL),
+            fact("The game MVP punt was 46 yards and was downed at the Cherokee Trail 1.", POST_FINAL),
+            fact("Valor Christian was 12-2. Denver Post called this its fourth consecutive title, after 3A in 2009 and 4A twice.", POST_FINAL),
+            fact("This was the lowest-scoring championship since Chatfield beat Fairview 9-3 in 2001.", POST_FINAL),
+        ],
+    },
+    "gaps": [
+        fact("This list has no 2017 line. Sentinel Colorado did not print a 2017 playoff game.", HIST),
+    ],
+    "years": [
+        history_year(2025, "5A", "Fountain-Fort Carson 14, Cherokee Trail 7 (1st round)", "24 teams"),
+        history_year(2024, "5A", "Cherokee Trail 25, Castle View 7; Columbine 42, Cherokee Trail 21 (2nd round)", "24 teams"),
+        history_year(2023, "5A", "Chatfield 42, Cherokee Trail 7 (1st round)", "24 teams"),
+        history_year(2022, "5A", "Rock Canyon 23, Cherokee Trail 20 (1st round)", "24 teams"),
+        history_year(2021, "5A", "Cherokee Trail 41, Fossil Ridge 29; Ralston Valley 42, Cherokee Trail 20 (2nd round)", "24 teams"),
+        history_year(2020, "5A", "Valor Christian 49, Cherokee Trail 14 (quarterfinals)", "8 teams"),
+        history_year(2019, "5A", "Cherokee Trail 35, Fountain-Fort Carson 17; Fairview 36, Cherokee Trail 34 (2nd round)"),
+        history_year(2018, "5A", "Cherokee Trail 37, Poudre 31 (2OT); Ralston Valley 52, Cherokee Trail 0 (2nd round)"),
+        history_year(2016, "5A", "Valor Christian 42, Cherokee Trail 0 (1st round)"),
+        history_year(2015, "5A", "Heritage 19, Cherokee Trail 14 (1st round)"),
+        history_year(2014, "5A", "Mountain Vista 24, Cherokee Trail 14 (1st round)"),
+        history_year(2013, "5A", "Cherokee Trail 40, Arvada West 21; Cherokee Trail 41, Mountain Range 7; Cherokee Trail 27, Cherry Creek 14; Valor Christian 42, Cherokee Trail 23 (semifinals)"),
+        history_year(2012, "5A", "Cherokee Trail 42, Mountain Range 6; Cherokee Trail 24, Mullen 21; Cherokee Trail 17, Eaglecrest 14; Cherokee Trail 17, Ralston Valley 10; Valor Christian 9, Cherokee Trail 0 (championship game)"),
+        history_year(2011, "5A", "Fountain-Fort Carson 31, Cherokee Trail 21 (1st round)"),
+        history_year(2010, "5A", "Cherokee Trail 27, Legacy 14; Cherokee Trail 27, ThunderRidge 6; Cherokee Trail 14, Ralston Valley 2; Regis Jesuit 21, Cherokee Trail 20 (semifinals)"),
+        history_year(2009, "5A", "Cherokee Trail 14, Rocky Mountain 9; Pomona 28, Cherokee Trail 7 (2nd round)"),
+        history_year(2008, "5A", "Cherokee Trail 28, Mountain Vista 6; Rocky Mountain 28, Cherokee Trail 14 (2nd round)"),
+        history_year(2007, "4A", "Cherokee Trail 15, Pine Creek 14; Cherokee Trail 10, Air Academy 0; Monarch 6, Cherokee Trail 0 (OT) (semifinals)"),
+        history_year(2006, "4A", "Montrose 23, Cherokee Trail 21 (1st round)"),
+        history_year(2005, "3A", "Eagle Valley 31, Cherokee Trail 14 (1st round)"),
+    ],
+}
+
+if len(TITLES["years"]) != 20:
+    raise SystemExit("Playoff history must list 20 years")
+if any(row["year"] == 2017 for row in TITLES["years"]):
+    raise SystemExit("2017 is not in the Sentinel playoff history")
+if TITLES["final"]["result"] != "Valor Christian 9, Cherokee Trail 0":
+    raise SystemExit("Championship result changed")
+
 book = {
     "meta": {
         "name": "Cougar Defense",
@@ -669,6 +750,7 @@ book = {
     "offense": OFFENSE,
     "games": games,
     "teams": TEAMS,
+    "titles": TITLES,
 }
 
 out = ROOT / "book.js"

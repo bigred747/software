@@ -469,6 +469,26 @@ var CougarEngine = (function () {
       seenOpp[game.opponent] = true;
       if (!named[game.opponent]) problems.push("No team card for " + game.opponent + ".");
     });
+    var titles = book.titles || {};
+    if (!titles.source) problems.push("Playoff history has no source.");
+    if (!titles.summary || titles.summary.indexOf("Playoff appearances: 20") === -1) {
+      problems.push("Playoff appearance count is missing.");
+    }
+    if (!titles.final || titles.final.result !== "Valor Christian 9, Cherokee Trail 0" || !titles.final.source) {
+      problems.push("Championship final is missing or unsourced.");
+    }
+    ((titles.final && titles.final.lines) || []).forEach(function (item, index) {
+      if (!item.text || !item.source) problems.push("Championship line " + index + " has no source.");
+    });
+    (titles.gaps || []).forEach(function (item, index) {
+      if (!item.text || !item.source) problems.push("Playoff gap " + index + " has no source.");
+    });
+    if (!titles.years || titles.years.length !== 20) {
+      problems.push("Playoff history has " + ((titles.years && titles.years.length) || 0) + " years.");
+    }
+    (titles.years || []).forEach(function (row) {
+      if (!row.year || !row.text || !row.source) problems.push("Playoff year " + (row.year || "blank") + " has no source.");
+    });
     book.calls.forEach(function (call) {
       ["dl", "lb", "s", "cb"].forEach(function (group) {
         if (!call.positions || !call.positions[group] || !call.positions[group].job) {

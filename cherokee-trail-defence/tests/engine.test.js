@@ -104,4 +104,24 @@ B.teams.forEach(function (team) {
 assert.ok(B.teams.some(function (team) { return team.name === "Northfield" && team.league === "5A Centennial" && team.city === "Denver"; }));
 assert.ok(B.teams.some(function (team) { return team.name === "Dakota Ridge" && team.league === "" && team.city === "Littleton"; }));
 
+var titles = B.titles;
+assert.ok(titles && titles.source);
+assert.strictEqual(titles.summary.indexOf("Playoff appearances: 20") !== -1, true);
+assert.strictEqual(titles.final.result, "Valor Christian 9, Cherokee Trail 0");
+assert.strictEqual(titles.final.source, "Sentinel Colorado, Dec. 1, 2012");
+assert.ok(titles.final.lines.every(function (item) { return item.text && item.source; }));
+assert.ok(titles.gaps.every(function (item) { return item.text && item.source; }));
+assert.strictEqual(titles.years.length, 20);
+assert.strictEqual(titles.years.map(function (row) { return row.year; }).join(","), "2025,2024,2023,2022,2021,2020,2019,2018,2016,2015,2014,2013,2012,2011,2010,2009,2008,2007,2006,2005");
+assert.ok(titles.years.every(function (row) { return row.text && row.source; }));
+assert.strictEqual(titles.years.filter(function (row) { return row.year === 2017; }).length, 0);
+var postLines = titles.final.lines.filter(function (item) { return item.source.indexOf("Denver Post") !== -1; });
+var sentinelLines = titles.final.lines.filter(function (item) { return item.source.indexOf("Sentinel Colorado, Dec. 1, 2012") !== -1; });
+assert.ok(postLines.some(function (item) { return item.text.indexOf("114 rushing yards") !== -1 && item.text.indexOf("52 receiving") !== -1; }));
+assert.ok(sentinelLines.some(function (item) { return item.text.indexOf("28-126") !== -1; }));
+assert.strictEqual(postLines.some(function (item) { return item.text.indexOf("28-126") !== -1; }), false);
+assert.strictEqual(sentinelLines.some(function (item) { return item.text.indexOf("114 rushing") !== -1; }), false);
+assert.strictEqual(E.dataAudit(B).ok, true, E.dataAudit(B).problems.join("; "));
+assert.strictEqual(B.games.length, 119);
+
 console.log("engine tests passed");

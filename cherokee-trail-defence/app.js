@@ -19,6 +19,7 @@
     ["diagnose", "Diagnose"],
     ["scout", "Scout"],
     ["teams", "Teams"],
+    ["titles", "Titles"],
     ["rooms", "Rooms"],
     ["blitz", "Blitz"],
     ["alerts", "Alerts"],
@@ -309,6 +310,7 @@
       diagnose: "Diagnose",
       scout: "Scout by opponent",
       teams: "Team notes",
+      titles: "State championship",
       rooms: "Position rooms",
       blitz: "Wrap blitzes",
       alerts: "Trick alerts",
@@ -324,6 +326,7 @@
     if (state.section === "diagnose") return "Full read for the coach. The install, scout, blitzes, and pictures are still in the menu.";
     if (state.section === "install") return "Cherokee Trail · Aurora · the call, the four rooms, and the blitz";
     if (state.section === "teams") return "Published city and league notes. Not a snap tendency. Film is not stored here.";
+    if (state.section === "titles") return "One published championship game. Cherokee Trail lost it. This page does not pick Friday's call.";
     if (state.section === "oc") return "Hand this sheet to the offensive coordinator. It is not the defensive install.";
     if (state.section === "pictures") return "Every defense and every offensive play has a picture. Install a photo of a new look under it.";
     if (state.section === "film") return "Update weekly. The score stays on this computer.";
@@ -337,6 +340,7 @@
     if (state.section === "install") return installHtml(board);
     if (state.section === "scout") return scoutHtml();
     if (state.section === "teams") return teamsHtml();
+    if (state.section === "titles") return titlesHtml();
     if (state.section === "rooms") return roomsHtml();
     if (state.section === "blitz") return blitzHtml();
     if (state.section === "alerts") return alertsHtml();
@@ -714,6 +718,35 @@
       "<p>" + esc(team.name) + " is " + rec.wins + "-" + rec.losses + " in played meetings (" + played.length + "). Published offensive snaps: " + snaps + ".</p>" +
       notes +
       '<div class="chips"><button type="button" class="btn" data-open="' + esc(team.name) + '">Open the scout card</button></div></div>';
+  }
+
+  function titlesHtml() {
+    var page = book().titles || {};
+    var finalGame = page.final || {};
+    var lines = (finalGame.lines || []).map(function (item) {
+      return "<p>" + esc(item.text) + " <span class=\"muted\">" + esc(item.source) + ".</span></p>";
+    }).join("");
+    var gaps = (page.gaps || []).map(function (item) {
+      return "<p class=\"muted\">" + esc(item.text) + " " + esc(item.source) + ".</p>";
+    }).join("");
+    var years = (page.years || []).map(function (row) {
+      var champ = String(row.text || "").indexOf("championship game") !== -1;
+      var label = row.year + " · " + row.klass + (row.bracket ? " · " + row.bracket : "");
+      return '<article class="row' + (champ ? " title-year" : "") + '"><div class="split"><b>' + esc(label) + "</b>" +
+        (champ ? '<span class="tag">Championship game</span>' : "") + "</div><p>" + esc(row.text) + "</p>" +
+        '<p class="muted">' + esc(row.source) + ".</p></article>";
+    }).join("");
+    return '<p class="muted">Sentinel Colorado lists one championship game since 2005, and Cherokee Trail lost it. No football state title is printed in that history. This final is from 2012 and is not used to pick Friday\'s call. The film is not stored on this computer.</p>' +
+      '<p class="muted">The Denver Post and Sentinel Colorado printed different yardage for Christian McCaffrey. Each line keeps the paper that printed it.</p>' +
+      '<div class="hero"><div class="kicker">' + esc(finalGame.round || "Championship") + "</div>" +
+      '<h2 class="call-name">' + esc(finalGame.result || "") + "</h2>" +
+      "<p>" + esc(finalGame.date || "") + (finalGame.place ? " · " + esc(finalGame.place) : "") + ".</p>" +
+      (finalGame.coach ? "<p>Cherokee Trail coach: " + esc(finalGame.coach) + ".</p>" : "") +
+      "<p class=\"muted\">" + esc(finalGame.source || "") + ".</p></div>" +
+      '<section class="card title-box"><h3>What each paper printed</h3>' + lines + "</section>" +
+      '<section class="card"><h3>Playoff history since 2005</h3><p>' + esc(page.summary || "") + "</p>" +
+      '<p class="muted">' + esc(page.source || "") + ".</p>" + gaps + "</section>" +
+      '<div class="list">' + years + "</div>";
   }
 
   function scoutHtml() {
