@@ -1,0 +1,58 @@
+Ashton Torres
+Defense. This update keeps the whole original program and adds the defensive line room.
+
+A standalone program for the defensive coordinator.
+
+It is not a website. It does not need an account. It does not send film, photos, or calls anywhere. Unzip this folder and keep it on the computer you coach from.
+
+Windows 11
+1. Unzip the whole folder onto the Desktop.
+2. Double-click Ashton-Torres.html.
+That one file opens the program. You can also double-click Open Ashton Torres.
+
+Phone
+Clicking Ashton-Torres-Mobile.zip does not open the call sheet. Open the zip first. The file named Start here is the same instruction.
+
+On a computer, double-click Open Ashton Torres. Ashton-Torres.html is the same program. That file works with no signal. Film, photos, and We called this stay on that computer.
+
+On a phone, open this link in Safari or Chrome:
+https://htmlpreview.github.io/?https://github.com/bigred747/software/blob/cursor/cougar-defence-call-sheet-1a2c/cherokee-trail-defence/Ashton-Torres.html
+The link needs a signal. Then use Share and Add to Home Screen. The icon is Ashton Torres. Film typed on the phone stays in that browser.
+
+Android: the file named Ashton-Torres.apk installs only on an Android phone. Tap it, allow the install, then Open. Film and photos stay on that phone.
+
+iPhone: tapping Install Ashton Torres.mobileconfig does not open the program. AirDrop that file from a computer, then tap Install. The phone says the profile is not signed. That warning is expected. It does not ask for an Apple ID. The Files app shows Ashton-Torres.html and does not run it. If the icon is blank, use the link above.
+
+The menu is split in two
+Players: Your room.
+Ashton Torres: D-Line. That room is the defensive line only.
+Coach: Install, Diagnose, Scout, Rooms, Blitz, Alerts, Pictures, After the game, OC sheet, and Checks.
+Nothing from the first program was removed.
+
+Your room
+Tap Line, Backers, Safeties, or Corners. That page is the short card for one player.
+
+Diagnose
+The full read for the coach: the tells, the scores, every room, and the blitz.
+
+What is inside
+- This week's defensive install against Cherokee Trail.
+- A job for the line, the linebackers, the safeties, and the corners.
+- Wrap blitzes, with the check-out.
+- One or two trick alerts for every game.
+- A picture of every defense and every offensive play.
+- The scout card for each opponent from 2016 through this season.
+- A separate sheet you can hand to the offensive coordinator.
+
+On Friday
+The front page opens with a green light and the word GREEN for every process. The header shows the count. Checks lists the detail for each one.
+
+Set the down, the distance, the field, and the hash. Turn on Need a stop or Protect the lead when that is the situation. The call updates. Press We called this to keep tonight's script on this computer. Copy the wristband for the six situations. If the backfield is empty, the check says to stay in coverage.
+
+After each game
+On the front page, the Friday card shows the call for every situation. Press Update weekly after the game. Enter the score and what they ran. That button updates the install, the opponent card, and the trick alerts on this device. Tonight's calls stay on this computer with the backup file.
+
+While the window is open
+The program checks the book about once a second and adjusts the calls from the film you enter. The Checks page stays green while that is running. Close the window and the check pauses. Nothing else runs on the computer.
+
+The public record does not include every snap from the last ten years. Where a play was not published, the card says so. Your film replaces that.
