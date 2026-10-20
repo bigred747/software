@@ -49,6 +49,12 @@ A product is 95–100 when it has **supported brand + ASIN + price + primary ima
 
 ## Paper Trader
 
-Local sample trading desk in [paper-trader](paper-trader/README.md). It replays built-in prices, shows signals, and keeps a simulated account. It does not place broker orders, collect payments, or connect to an exchange.
+Local sample trading desk in [paper-trader](paper-trader/README.md). It replays built-in prices, shows signals, and keeps a simulated account. **Auto** steps the sample. **Paper** stays on, so fills stay simulated. It does not place broker orders, collect payments, or connect to an exchange.
 
-Windows: install Python 3, copy the `paper-trader` folder to Documents, then double-click `Start-Paper-Trader.bat`. It does not install packages and it listens only on this computer. Do not run it from inside a zip. If a different trading window says a file under `AppData\Local\Temp` is missing, close that window. A green antivirus scan does not fill in a file the temporary unzip never copied, and that temp folder is not an install.
+**Download:**
+
+[Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-safe-fast-1106/Paper-Trader.zip)
+
+SHA-256 `da8b65b8393cbe042f41dd21a5e16d01ecb210a8efaf6b0677bd3b3f7be6c032`
+
+Windows: install Python 3, right-click the zip, choose **Extract All**, and put the `paper-trader` folder in Documents. Then double-click `Start-Paper-Trader.bat`. Do not run the bat from inside the zip. It does not install packages and it listens only on this computer.
