@@ -181,6 +181,11 @@ class ServerTests(unittest.TestCase):
         self.assertIn("unblock-file", allow)
         self.assertIn("launch.py", allow)
         self.assertIn("install", allow)
+        for name in ("Start-Paper-Trader.bat", "1 Allow Paper Trader.bat", "2 Open Paper Trader.bat"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            self.assertIn("tar -xf", text)
+            self.assertIn('.zip.', text)
+            self.assertNotIn('Temp\\"', text)
         self.assertIn("paper trader.lnk", allow)
         self.assertIn("remove-source", allow)
         self.assertIn("start-paper-trader.bat", opener)

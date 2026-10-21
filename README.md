@@ -55,8 +55,8 @@ Local sample trading desk in [paper-trader](paper-trader/README.md). It replays 
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-safe-fast-1106/Paper-Trader.zip)
 
-SHA-256 `e5a8c7e1cefff567085cb55f31d2bbcee2d7adf2398bf54c2d26938921a06343`
+SHA-256 `53384ac29e382617b11379c328d1fbc7026b5780d80f345e99216638e5c10d96`
 
 Size **10.9 MB**. Python 3.13 for Windows is inside the zip.
 
-Right-click the zip, choose **Extract All**. Then two clicks: `1 Allow Paper Trader.bat` installs the newest copy in Documents and removes older Paper Trader folders from Documents, Desktop, and Downloads. **Paper Trader** on the desktop opens the desk. Auto starts, and Signals are green when each part is working. Do not run the files from inside the zip.
+Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.4.2 extracts the whole zip into Documents and opens that copy. Signals show **1.4.2** when this copy is running.
