@@ -106,7 +106,14 @@ class ServerTests(unittest.TestCase):
 
     def test_package_does_not_ask_for_money_or_keys(self) -> None:
         banned = ("quantumtrade", "paypal", "seed phrase", "mnemonic", "guaranteed profit", "deposit")
-        roots = [ROOT / "paper_trader", ROOT / "web", ROOT / "README.md", ROOT / "Start-Paper-Trader.bat"]
+        roots = [
+            ROOT / "paper_trader",
+            ROOT / "web",
+            ROOT / "README.md",
+            ROOT / "Start-Paper-Trader.bat",
+            ROOT / "1 Allow Paper Trader.bat",
+            ROOT / "2 Open Paper Trader.bat",
+        ]
         text = []
         for root in roots:
             files = [root] if root.is_file() else root.rglob("*")
@@ -123,6 +130,13 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("powershell", bat)
         self.assertNotIn("pip", bat)
         self.assertNotIn("requirements", bat)
+        allow = (ROOT / "1 Allow Paper Trader.bat").read_text(encoding="utf-8").lower()
+        opener = (ROOT / "2 Open Paper Trader.bat").read_text(encoding="utf-8").lower()
+        self.assertIn("unblock-file", allow)
+        self.assertIn("paper trader.lnk", allow)
+        self.assertIn("start-paper-trader.bat", opener)
+        for blocked in ("add-mpexclusion", "set-mppreference", "exclusionpath", "reg add", "netsh"):
+            self.assertNotIn(blocked, allow)
 
     def test_windows_zip_includes_its_own_python(self) -> None:
         archive = ROOT.parent / "Paper-Trader.zip"
@@ -132,8 +146,12 @@ class ServerTests(unittest.TestCase):
             names = packed.namelist()
             page = packed.read("paper-trader/web/index.html")
             path_file = packed.read("paper-trader/runtime/python313._pth")
+            script = packed.read("paper-trader/web/app.js")
         self.assertIn("paper-trader/runtime/python.exe", names)
         self.assertIn("paper-trader/Start-Paper-Trader.bat", names)
+        self.assertIn("paper-trader/1 Allow Paper Trader.bat", names)
+        self.assertIn("paper-trader/2 Open Paper Trader.bat", names)
+        self.assertIn(b"state.auto = true", script)
         self.assertIn(b">Auto<", page)
         self.assertIn(b">Paper<", page)
         self.assertIn(b"..", path_file)

@@ -84,6 +84,13 @@ async function boot() {
   fillForm(paper.params);
   await loadMarket();
   render(paper);
+  if (paper.paper === true && !paper.finished) {
+    state.auto = true;
+    render(paper);
+    $("status").textContent = "Auto is on. Simulated sample days only.";
+    autoTick();
+    return;
+  }
   $("status").textContent = "Sample session ready.";
 }
 

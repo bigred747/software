@@ -8,7 +8,12 @@ Sample prices are a teaching series. They are not live quotes, and the sample re
 
 ## Run it
 
-The Windows zip already contains Python. Right-click it, choose Extract All, put the folder in Documents, and double-click `Start-Paper-Trader.bat`. Do not run it from inside the zip.
+Right-click `Paper-Trader.zip`, choose Extract All, and put the folder in Documents. Then two clicks:
+
+1. Double-click `1 Allow Paper Trader.bat`. That clears the download block on these files and puts **Paper Trader** on the desktop.
+2. Double-click **Paper Trader** on the desktop. The desk opens and **Auto** starts. Click **Auto** again to stop.
+
+Do not run either file from inside the zip.
 
 From a source checkout, Python 3.11 or newer is enough. The desk uses the Python standard library, so startup does not install packages and does not wait on a download.
 
@@ -17,11 +22,9 @@ cd paper-trader
 python -m paper_trader serve
 ```
 
-On Windows, double-click `Start-Paper-Trader.bat`.
-
 The browser opens to `http://127.0.0.1:8765/`.
 
-- **Auto** steps the sample one day at a time on its own. Click it again to stop. Each fill stays simulated.
+- **Auto** starts with the desk and steps the sample one day at a time. Click it again to stop. Each fill stays simulated.
 - **Paper** turns the paper account on. The button stays pressed, and the desk refuses any other account.
 - **Next day** advances the sample by one session and applies the prior close's signal at the next open.
 - **Run remaining days** finishes the sample.
