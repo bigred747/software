@@ -46,3 +46,17 @@ A product is 95–100 when it has **supported brand + ASIN + price + primary ima
 - **Integrity 95** when the rest of the gate is met.
 - Taxonomy leftovers are repaired. They **do not cap** a valid product at 94.
 - Unknown brand, renewed, used, refurbished stay **HOLD** and stay below 95.
+
+## Paper Trader
+
+Local sample trading desk in [paper-trader](paper-trader/README.md). It replays built-in prices, shows signals, and keeps a simulated account. **Auto** steps the sample. **Trade** places one simulated order. **Paper** stays on. It does not place broker orders, collect payments, or connect to an exchange.
+
+**Download the whole bot:**
+
+[Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-safe-fast-1106/Paper-Trader.zip)
+
+SHA-256 `53384ac29e382617b11379c328d1fbc7026b5780d80f345e99216638e5c10d96`
+
+Size **10.9 MB**. Python 3.13 for Windows is inside the zip.
+
+Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.4.2 extracts the whole zip into Documents and opens that copy. Signals show **1.4.2** when this copy is running.

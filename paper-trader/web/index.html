@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paper Trader</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <p class="eyebrow">Local sample desk</p>
+      <h1>Paper Trader</h1>
+    </div>
+    <p class="lede">Replays built-in daily prices on this computer. Fills are simulated. Nothing is sent to a broker, and the desk does not collect payments.</p>
+  </header>
+
+  <main class="layout">
+    <section class="panel controls" aria-label="Session">
+      <label for="symbol">Market</label>
+      <select id="symbol"></select>
+
+      <p id="signal" class="signal">HOLD</p>
+      <p id="signal-note" class="muted"></p>
+
+      <dl class="stats">
+        <div><dt>Equity</dt><dd id="equity">—</dd></div>
+        <div><dt>Cash</dt><dd id="cash">—</dd></div>
+        <div><dt>Position</dt><dd id="shares">—</dd></div>
+        <div><dt>Session</dt><dd id="through">—</dd></div>
+      </dl>
+
+      <div class="modes" role="group" aria-label="Trading controls">
+        <button id="auto" type="button" aria-pressed="false">Auto</button>
+        <button id="trade" type="button">Trade</button>
+        <button id="paper" type="button" aria-pressed="false">Paper</button>
+      </div>
+      <div class="actions">
+        <button id="next" type="button">Next day</button>
+        <button id="run" type="button">Run remaining days</button>
+        <button id="reset" type="button" class="quiet">Reset session</button>
+        <button id="full" type="button" class="quiet">Run full backtest</button>
+      </div>
+      <p id="status" class="status" role="status"></p>
+      <h2 class="signals-title">Signals</h2>
+      <ul id="signals" class="signals"></ul>
+
+      <details>
+        <summary>Strategy settings</summary>
+        <div class="fields">
+          <label>Fast average <input id="fast" type="number" min="2" max="80" value="10"></label>
+          <label>Slow average <input id="slow" type="number" min="3" max="200" value="30"></label>
+          <label>RSI length <input id="rsi" type="number" min="0" max="50" value="14"></label>
+          <label>Starting cash <input id="cash-input" type="number" min="1" step="100" value="10000"></label>
+          <label>Fee (basis points) <input id="fee" type="number" min="0" max="100" step="0.1" value="5"></label>
+          <label>Stop (%) <input id="stop" type="number" min="0" max="50" step="0.1" value="8"></label>
+        </div>
+        <p class="muted">Reset session applies these settings. A stop of 0 turns the stop off. RSI length 0 turns RSI off.</p>
+      </details>
+    </section>
+
+    <section class="panel chart-panel" aria-label="Chart">
+      <div class="chart-head">
+        <h2 id="chart-title">Chart</h2>
+        <p class="legend"><span class="swatch fast"></span> Fast average <span class="swatch slow"></span> Slow average</p>
+      </div>
+      <canvas id="candles" width="800" height="360"></canvas>
+      <canvas id="rsi-chart" width="800" height="96" aria-label="RSI"></canvas>
+      <p class="muted">Green and red dots are simulated buys and sells. The line under the candles is RSI.</p>
+    </section>
+  </main>
+
+  <section class="panel wide">
+    <h2>Session journal</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
+        </thead>
+        <tbody id="journal-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel wide">
+    <h2>Full-sample backtest</h2>
+    <p id="backtest-summary" class="muted">Runs the whole sample without moving the session day.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
+        </thead>
+        <tbody id="backtest-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Sample prices are not live quotes and are not a forecast. Past sample results do not predict real trading.
+  </footer>
+  <script src="/app.js"></script>
+</body>
+</html>
