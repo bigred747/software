@@ -115,6 +115,7 @@ function render(paper) {
   $("chart-title").textContent = (paper.last_date || "Sample") + " · " + paper.symbol;
   $("next").disabled = state.auto || paper.finished;
   $("run").disabled = state.auto || paper.finished;
+  $("trade").disabled = Boolean(paper.finished);
   $("auto").disabled = Boolean(paper.finished);
   $("auto").setAttribute("aria-pressed", state.auto ? "true" : "false");
   $("paper").disabled = false;
@@ -337,6 +338,14 @@ $("auto").addEventListener("click", () => {
   $("status").textContent = "Auto is on. Simulated sample days only.";
   autoTick();
 });
+
+$("trade").addEventListener("click", () => withBusy(async () => {
+  stopAuto();
+  const paper = await post("/api/paper/trade", {});
+  render(paper);
+  const verb = paper.last_action === "sell" ? "Sold" : "Bought";
+  $("status").textContent = verb + " one simulated position on the paper account.";
+}));
 
 $("paper").addEventListener("click", () => withBusy(async () => {
   const paper = await post("/api/paper/mode", { mode: "paper" });

@@ -36,7 +36,12 @@ def max_drawdown(values: list[float]) -> float:
     return worst
 
 
-def run_backtest(bars: list[Bar], params: Params, end: int | None = None) -> Result:
+def run_backtest(
+    bars: list[Bar],
+    params: Params,
+    end: int | None = None,
+    manual: dict[int, str] | None = None,
+) -> Result:
     validate_params(params)
     if end is None:
         end = len(bars)
@@ -58,9 +63,25 @@ def run_backtest(bars: list[Bar], params: Params, end: int | None = None) -> Res
     pending: str | None = None
     trades: list[Trade] = []
     curve: list[tuple[str, float]] = []
+    orders = manual or {}
 
     for index, bar in enumerate(view):
-        if pending == "buy" and shares == 0 and cash > 0:
+        manual_side = orders.get(index)
+        if manual_side == "buy" and shares == 0 and cash > 0:
+            shares, cash, cost, entry_price = _open_long(cash, bar.open, fee_rate)
+            entry_date = bar.date
+            pending = None
+        elif manual_side == "sell" and shares > 0 and entry_price is not None:
+            cash, pnl = _close_long(cash, shares, bar.open, fee_rate, cost)
+            trades.append(
+                Trade(entry_date or bar.date, bar.date, entry_price, bar.open, shares, pnl, "trade")
+            )
+            shares = 0.0
+            entry_price = None
+            entry_date = None
+            cost = 0.0
+            pending = None
+        elif pending == "buy" and shares == 0 and cash > 0:
             shares, cash, cost, entry_price = _open_long(cash, bar.open, fee_rate)
             entry_date = bar.date
             pending = None

@@ -67,8 +67,10 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn(b"Paper Trader", page)
         self.assertIn(b'id="auto"', page)
+        self.assertIn(b'id="trade"', page)
         self.assertIn(b'id="paper"', page)
         self.assertIn(b">Auto<", page)
+        self.assertIn(b">Trade<", page)
         self.assertIn(b">Paper<", page)
         self.assertNotIn(b"deposit", page.lower())
 
@@ -79,6 +81,22 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(payload["mode"], "paper")
         self.assertTrue(payload["paper"])
         self.assertEqual(self.open("/api/paper/mode", "POST", {"mode": "live"})[0], 400)
+
+    def test_trade_button_places_a_simulated_order(self) -> None:
+        status, raw = self.open("/api/paper")
+        self.assertEqual(status, 200)
+        before = json.loads(raw)
+        status, traded = self.open("/api/paper/trade", "POST", {})
+        self.assertEqual(status, 200)
+        payload = json.loads(traded)
+        self.assertEqual(payload["mode"], "paper")
+        self.assertTrue(payload["paper"])
+        self.assertEqual(payload["cursor"], before["cursor"] + 1)
+        self.assertIn(payload["last_action"], {"buy", "sell"})
+        if payload["last_action"] == "buy":
+            self.assertGreater(payload["shares"], 0)
+        else:
+            self.assertEqual(payload["shares"], 0)
 
     def test_step_and_backtest(self) -> None:
         status, raw = self.open("/api/paper")
@@ -152,7 +170,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn("paper-trader/1 Allow Paper Trader.bat", names)
         self.assertIn("paper-trader/2 Open Paper Trader.bat", names)
         self.assertIn(b"state.auto = true", script)
+        self.assertIn(b"/api/paper/trade", script)
         self.assertIn(b">Auto<", page)
+        self.assertIn(b">Trade<", page)
         self.assertIn(b">Paper<", page)
         self.assertIn(b"..", path_file)
 

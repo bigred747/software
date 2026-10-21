@@ -49,13 +49,13 @@ A product is 95–100 when it has **supported brand + ASIN + price + primary ima
 
 ## Paper Trader
 
-Local sample trading desk in [paper-trader](paper-trader/README.md). It replays built-in prices, shows signals, and keeps a simulated account. **Auto** steps the sample. **Paper** stays on, so fills stay simulated. It does not place broker orders, collect payments, or connect to an exchange.
+Local sample trading desk in [paper-trader](paper-trader/README.md). It replays built-in prices, shows signals, and keeps a simulated account. **Auto** steps the sample. **Trade** places one simulated order. **Paper** stays on. It does not place broker orders, collect payments, or connect to an exchange.
 
-**Download:**
+**Download the whole bot:**
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-safe-fast-1106/Paper-Trader.zip)
 
-SHA-256 `d999d4b4a9ddbdeb4f40458429e862d07b99dd812326c739b420c92d506aed18`
+SHA-256 `e5d67c00caf8432f3fc1ddf12c667b7bbc8f967c0353bb9139264e9078dd5080`
 
 Size **10.9 MB**. Python 3.13 for Windows is inside the zip.
 

@@ -62,6 +62,20 @@ class Desk:
             save_journal(self.state_path, self.journal)
             return view_journal(self.journal)
 
+    def trade(self) -> dict:
+        with self.lock:
+            bars = load_symbol(self.journal.symbol)
+            if self.journal.cursor >= len(bars):
+                raise ValueError("The sample is finished")
+            held = view_journal(self.journal)["shares"] > 0
+            side = "sell" if held else "buy"
+            self.journal.orders[self.journal.cursor] = side
+            self.journal.cursor += 1
+            save_journal(self.state_path, self.journal)
+            payload = view_journal(self.journal)
+            payload["last_action"] = side
+            return payload
+
     def run_rest(self) -> dict:
         with self.lock:
             bars = load_symbol(self.journal.symbol)
@@ -185,6 +199,9 @@ class DeskHandler(BaseHTTPRequestHandler):
             return
         if method == "POST" and path == "/api/paper/reset":
             self._json(self.desk.reset(body))
+            return
+        if method == "POST" and path == "/api/paper/trade":
+            self._json(self.desk.trade())
             return
         if method == "POST" and path == "/api/paper/step":
             self._json(self.desk.step(int(body.get("days", 1))))

@@ -87,6 +87,13 @@ class BacktestTests(unittest.TestCase):
         later = run_backtest(bars, params)
         self.assertEqual(later.trades[: len(early.trades)], early.trades)
 
+    def test_trade_button_order_fills_on_the_chosen_bar(self) -> None:
+        params = Params(fast=2, slow=3, rsi_period=0, cash=10_000, fee_bps=0, stop_pct=0)
+        result = run_backtest(hand_bars(), params, manual={1: "buy", 2: "sell"})
+        self.assertEqual(result.trades[0].reason, "trade")
+        self.assertEqual(result.trades[0].entry_price, 10)
+        self.assertEqual(result.trades[0].exit_price, 10)
+
     def test_bad_settings_are_rejected(self) -> None:
         with self.assertRaises(ValueError):
             run_backtest(hand_bars(), Params(fast=10, slow=5, rsi_period=0))

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from paper_trader.backtest import present, run_backtest
@@ -17,6 +17,7 @@ class Journal:
     symbol: str
     params: Params
     cursor: int
+    orders: dict[int, str] = field(default_factory=dict)
 
 
 def default_journal() -> Journal:
@@ -34,7 +35,11 @@ def load_journal(path: Path) -> Journal:
         bars = load_symbol(symbol)
         cursor = int(raw["cursor"])
         cursor = max(params.slow + 1, min(len(bars), cursor))
-        return Journal(symbol, params, cursor)
+        orders: dict[int, str] = {}
+        for key, side in dict(raw.get("orders") or {}).items():
+            if side in {"buy", "sell"}:
+                orders[int(key)] = str(side)
+        return Journal(symbol, params, cursor, orders)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         return default_journal()
 
@@ -45,6 +50,7 @@ def save_journal(path: Path, journal: Journal) -> None:
         "symbol": journal.symbol,
         "cursor": journal.cursor,
         "params": journal.params.to_dict(),
+        "orders": {str(index): side for index, side in sorted(journal.orders.items())},
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -54,7 +60,7 @@ def save_journal(path: Path, journal: Journal) -> None:
 
 def view_journal(journal: Journal) -> dict:
     bars = load_symbol(journal.symbol)
-    result = run_backtest(bars, journal.params, end=journal.cursor)
+    result = run_backtest(bars, journal.params, end=journal.cursor, manual=journal.orders)
     return present(result, journal.symbol, len(bars), journal.params, journal.cursor)
 
 
