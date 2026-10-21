@@ -55,7 +55,7 @@ Local sample trading desk in [paper-trader](paper-trader/README.md). It replays 
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-safe-fast-1106/Paper-Trader.zip)
 
-SHA-256 `86e7720df3238dea19938b5e247f6ecf8b3040592f4ab9602ec1a4765ab3c666`
+SHA-256 `e5a8c7e1cefff567085cb55f31d2bbcee2d7adf2398bf54c2d26938921a06343`
 
 Size **10.9 MB**. Python 3.13 for Windows is inside the zip.
 

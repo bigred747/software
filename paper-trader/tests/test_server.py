@@ -83,6 +83,20 @@ class ServerTests(unittest.TestCase):
         self.assertTrue(payload["paper"])
         self.assertEqual(self.open("/api/paper/mode", "POST", {"mode": "live"})[0], 400)
 
+    def test_launch_finds_the_program_from_another_folder(self) -> None:
+        import subprocess
+
+        completed = subprocess.run(
+            [sys.executable, str(ROOT / "launch.py"), "backtest", "--symbol", "BTC-USD"],
+            cwd=Path("/tmp"),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("Paper Trader sample replay", completed.stdout)
+
     def test_signals_are_green_when_the_desk_is_healthy(self) -> None:
         status, raw = self.open("/api/checks")
         self.assertEqual(status, 200)
@@ -156,7 +170,8 @@ class ServerTests(unittest.TestCase):
             self.assertNotIn(word, blob)
         bat = (ROOT / "Start-Paper-Trader.bat").read_text(encoding="utf-8").lower()
         self.assertIn("runtime\\python.exe", bat)
-        self.assertIn("python -m paper_trader serve", bat)
+        self.assertIn("launch.py", bat)
+        self.assertIn("serve", bat)
         self.assertIn("if not errorlevel 1", bat)
         self.assertNotIn("powershell", bat)
         self.assertNotIn("pip", bat)
@@ -164,7 +179,8 @@ class ServerTests(unittest.TestCase):
         allow = (ROOT / "1 Allow Paper Trader.bat").read_text(encoding="utf-8").lower()
         opener = (ROOT / "2 Open Paper Trader.bat").read_text(encoding="utf-8").lower()
         self.assertIn("unblock-file", allow)
-        self.assertIn("paper_trader install", allow)
+        self.assertIn("launch.py", allow)
+        self.assertIn("install", allow)
         self.assertIn("paper trader.lnk", allow)
         self.assertIn("remove-source", allow)
         self.assertIn("start-paper-trader.bat", opener)

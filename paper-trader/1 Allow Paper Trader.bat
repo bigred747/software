@@ -11,7 +11,7 @@ if not errorlevel 1 (
 powershell -NoProfile -Command "Get-ChildItem -LiteralPath $env:CD -Recurse -File | Unblock-File"
 set "PY=%~dp0runtime\python.exe"
 if not exist "%PY%" set "PY=python"
-"%PY%" -m paper_trader install > "%TEMP%\paper-trader-install.txt"
+"%PY%" "%~dp0launch.py" install > "%TEMP%\paper-trader-install.txt"
 if errorlevel 1 (
   echo Could not install the newest copy.
   pause

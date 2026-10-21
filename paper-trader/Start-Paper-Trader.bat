@@ -9,19 +9,19 @@ if not errorlevel 1 (
   exit /b 1
 )
 if exist "%~dp0runtime\python.exe" (
-  "%~dp0runtime\python.exe" -m paper_trader serve
+  "%~dp0runtime\python.exe" "%~dp0launch.py" serve
   goto done
 )
 where python >nul 2>&1
 if not errorlevel 1 (
-  python -m paper_trader serve
+  python "%~dp0launch.py" serve
   goto done
 )
 where py >nul 2>&1
 if not errorlevel 1 (
-  py -3 -m paper_trader serve
+  py -3 "%~dp0launch.py" serve
   goto done
 )
-echo The Windows copy is missing runtime\python.exe. Download Paper-Trader.zip again and use Extract All.
+echo Python was not found. Extract Paper-Trader.zip again, then run 1 Allow Paper Trader.bat.
 :done
 pause
