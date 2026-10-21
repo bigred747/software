@@ -136,6 +136,14 @@ button.quiet { background: transparent; }
 
 .signals { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 
+.readings { display: grid; gap: 4px; margin: 8px 0 10px; }
+
+.readings div { display: flex; justify-content: space-between; gap: 12px; }
+
+.readings dt { color: var(--muted); }
+
+.readings dd { margin: 0; font-variant-numeric: tabular-nums; }
+
 .signals li {
   display: flex;
   align-items: center;

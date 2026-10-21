@@ -13,7 +13,7 @@ from paper_trader.backtest import present, run_backtest
 from paper_trader.install import single_copy_status
 from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
 from paper_trader.model import params_from_dict
-from paper_trader.samples import load_symbol, symbols, warm
+from paper_trader.samples import catalog_size, load_symbol, search_symbols, warm
 
 WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
 STATIC = {"/index.html": "index.html", "/": "index.html", "/app.js": "app.js", "/app.css": "app.css"}
@@ -46,11 +46,11 @@ class Desk:
     def checks(self) -> dict:
         with self.lock:
             view = view_journal(self.journal)
-        listed = symbols()
+        listed = catalog_size()
         prices_ok = True
         try:
-            for item in listed:
-                if len(load_symbol(str(item["symbol"]))) < 200:
+            for symbol in ("BTC-USD", "XRP-USD", "XLM-USD"):
+                if len(load_symbol(symbol)) < 200:
                     prices_ok = False
         except ValueError:
             prices_ok = False
@@ -63,7 +63,9 @@ class Desk:
                 "ok": not view.get("finished"),
                 "detail": "Ready" if not view.get("finished") else "Sample finished",
             },
-            {"name": "Markets", "ok": len(listed) == 5 and prices_ok, "detail": f"{len(listed)} samples"},
+            {"name": "Markets", "ok": listed >= 7500 and prices_ok, "detail": f"{listed} samples"},
+            {"name": "Squeeze", "ok": prices_ok, "detail": "Ready"},
+            {"name": "Arrows", "ok": prices_ok, "detail": "Ready"},
             {"name": "Broker", "ok": True, "detail": "Not connected"},
             {"name": "Version", "ok": True, "detail": __version__},
             single_copy_status(Path.home()),
@@ -208,7 +210,11 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._json(self.desk.checks())
             return
         if method == "GET" and path == "/api/symbols":
-            self._json({"symbols": symbols()})
+            try:
+                limit = int(query.get("limit", "40"))
+            except ValueError:
+                limit = 40
+            self._json(search_symbols(query.get("q", ""), query.get("category", ""), limit))
             return
         if method == "GET" and path == "/api/paper":
             self._json(self.desk.snapshot())

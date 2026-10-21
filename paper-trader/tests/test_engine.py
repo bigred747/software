@@ -13,7 +13,8 @@ from paper_trader.backtest import max_drawdown, run_backtest
 from paper_trader.indicators import rsi, sma
 from paper_trader.journal import load_journal, save_journal, view_journal
 from paper_trader.model import Bar, Params
-from paper_trader.samples import load_symbol, symbols
+from paper_trader.indicators import squeeze_marks
+from paper_trader.samples import catalog_size, load_symbol, search_symbols
 
 
 def bar(day: str, price: float, low: float | None = None, high: float | None = None, open_: float | None = None) -> Bar:
@@ -101,15 +102,33 @@ class BacktestTests(unittest.TestCase):
 
 class SampleTests(unittest.TestCase):
     def test_samples_are_weekday_bars_and_can_trade(self) -> None:
-        self.assertEqual(len(symbols()), 5)
-        for item in symbols():
-            bars = load_symbol(str(item["symbol"]))
+        self.assertGreaterEqual(catalog_size(), 7500)
+        for symbol in ("BTC-USD", "XRP-USD", "XLM-USD", "ETH-USD", "AAPL", "SPY", "ES"):
+            bars = load_symbol(symbol)
             self.assertGreaterEqual(len(bars), 200)
             dates = [bar.date for bar in bars]
             self.assertEqual(dates, sorted(set(dates)))
         result = run_backtest(load_symbol("BTC-USD"), Params())
         self.assertGreaterEqual(len(result.trades), 1)
         self.assertGreater(result.equity_curve[-1][1], 0)
+        self.assertTrue(any(trade.reason == "squeeze" for trade in result.trades))
+
+    def test_search_finds_the_requested_names(self) -> None:
+        xrp = search_symbols("xrp")
+        self.assertEqual(xrp["symbols"][0]["symbol"], "XRP-USD")
+        xlm = search_symbols("stellar")
+        self.assertEqual(xlm["symbols"][0]["symbol"], "XLM-USD")
+        bitcoin = search_symbols("bitcoin", "crypto")
+        self.assertEqual(bitcoin["symbols"][0]["symbol"], "BTC-USD")
+        futures = search_symbols("es", "future")
+        self.assertEqual(futures["symbols"][0]["symbol"], "ES")
+        self.assertEqual(search_symbols("", "stock")["total"], 7500)
+
+    def test_squeeze_releases_mark_a_direction(self) -> None:
+        bars = load_symbol("XRP-USD")
+        buys, sells, state = squeeze_marks([bar.high for bar in bars], [bar.low for bar in bars], [bar.close for bar in bars])
+        self.assertEqual(len(state["level"]), len(bars))
+        self.assertTrue(buys or sells)
 
     def test_partial_replay_matches_the_full_prefix(self) -> None:
         bars = load_symbol("AAPL")

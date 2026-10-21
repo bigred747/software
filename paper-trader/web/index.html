@@ -12,13 +12,24 @@
       <p class="eyebrow">Local sample desk</p>
       <h1>Paper Trader</h1>
     </div>
-    <p class="lede">Replays built-in daily prices on this computer. Fills are simulated. Nothing is sent to a broker, and the desk does not collect payments.</p>
+    <p class="lede">Replays 7,500 built-in daily samples on this computer: stocks, ETFs, futures, and crypto. Fills are simulated. Nothing is sent to a broker, and the desk does not collect payments.</p>
   </header>
 
   <main class="layout">
     <section class="panel controls" aria-label="Session">
-      <label for="symbol">Market</label>
-      <select id="symbol"></select>
+      <label for="search">Find a market</label>
+      <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off">
+      <label for="category">Type</label>
+      <select id="category">
+        <option value="">All 7,500</option>
+        <option value="crypto">Crypto</option>
+        <option value="stock">Stocks</option>
+        <option value="etf">ETFs</option>
+        <option value="future">Futures</option>
+      </select>
+      <label for="symbol">Results</label>
+      <select id="symbol" size="7"></select>
+      <p id="market-count" class="muted"></p>
 
       <p id="signal" class="signal">HOLD</p>
       <p id="signal-note" class="muted"></p>
@@ -66,7 +77,9 @@
       </div>
       <canvas id="candles" width="800" height="360"></canvas>
       <canvas id="rsi-chart" width="800" height="96" aria-label="RSI"></canvas>
-      <p class="muted">Green and red dots are simulated buys and sells. The line under the candles is RSI.</p>
+      <h2 class="signals-title">B4 readings</h2>
+      <div id="readings" class="readings"></div>
+      <p class="muted">Green arrows are simulated buys. Red arrows are simulated sells. Squares under the candles show squeeze compression: blue is tight, gold is normal, gray is wide. The line under the candles is RSI. Prices are samples, not live quotes.</p>
     </section>
   </main>
 

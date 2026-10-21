@@ -1,4 +1,4 @@
-const state = { market: null, paper: null, busy: false, auto: false, autoTimer: 0 };
+const state = { market: null, paper: null, busy: false, auto: false, autoTimer: 0, decimals: 2 };
 
 const notes = {
   BUY: "The next sample day would open a simulated long at that day's open.",
@@ -42,9 +42,7 @@ function fillForm(params) {
 }
 
 function priceDigits() {
-  const selected = state.market && state.market.symbol;
-  const option = [...$("symbol").options].find((item) => item.value === selected);
-  return option ? Number(option.dataset.decimals || 2) : 2;
+  return state.decimals || 2;
 }
 
 function formatPrice(value) {
@@ -68,19 +66,39 @@ function post(url, body) {
   });
 }
 
-async function boot() {
-  const listed = await getJSON("/api/symbols");
+async function refreshSymbols() {
+  const params = new URLSearchParams({
+    q: $("search").value.trim(),
+    category: $("category").value,
+    limit: "40",
+  });
+  const listed = await getJSON("/api/symbols?" + params.toString());
   const select = $("symbol");
+  const current = (state.paper && state.paper.symbol) || select.value;
+  const rows = listed.symbols.slice();
+  if (current && !rows.some((item) => item.symbol === current)) {
+    rows.unshift({ symbol: current, name: "Current sample", category: "", decimals: state.decimals });
+  }
   select.replaceChildren();
-  listed.symbols.forEach((item) => {
+  rows.forEach((item) => {
     const option = document.createElement("option");
     option.value = item.symbol;
     option.dataset.decimals = String(item.decimals);
-    option.textContent = item.symbol + " · " + item.name;
+    const kind = item.category ? " · " + item.category : "";
+    option.textContent = item.symbol + " · " + item.name + kind;
     select.appendChild(option);
   });
+  if (current) select.value = current;
+  const chosen = [...select.options].find((item) => item.value === select.value);
+  if (chosen) state.decimals = Number(chosen.dataset.decimals || 2);
+  const total = Number(listed.total || 0).toLocaleString();
+  $("market-count").textContent = select.options.length + " listed · " + total + " sample markets";
+}
+
+async function boot() {
   const paper = await getJSON("/api/paper");
-  select.value = paper.symbol;
+  state.paper = paper;
+  await refreshSymbols();
   fillForm(paper.params);
   await loadMarket();
   render(paper);
@@ -137,8 +155,40 @@ function render(paper) {
   $("paper").disabled = false;
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
   fillTrades($("journal-body"), paper.trades || []);
+  renderReadings();
   drawCandles();
   drawRsi();
+}
+
+function renderReadings() {
+  const cursor = state.paper ? state.paper.cursor : 0;
+  const index = Math.max(0, cursor - 1);
+  const market = state.market || {};
+  const level = (market.squeeze || [])[index] || 0;
+  const momentum = (market.momentum || [])[index];
+  const rsiValue = (market.rsi || [])[index];
+  const fast = (market.fast || [])[index];
+  const slow = (market.slow || [])[index];
+  const squeezeName = level >= 3 ? "Tight" : level === 2 ? "Normal" : level === 1 ? "Wide" : "Off";
+  const momentumName = momentum == null ? "—" : momentum >= 0 ? "Up " + Number(momentum).toFixed(2) : "Down " + Number(momentum).toFixed(2);
+  const rsiName = rsiValue == null ? "—" : Number(rsiValue).toFixed(1);
+  const averageName = fast == null || slow == null ? "—" : fast >= slow ? "Fast above slow" : "Fast below slow";
+  const list = $("readings");
+  list.replaceChildren();
+  [
+    ["Squeeze", squeezeName],
+    ["Momentum", momentumName],
+    ["RSI", rsiName],
+    ["Averages", averageName],
+  ].forEach(([name, value]) => {
+    const row = document.createElement("div");
+    const label = document.createElement("dt");
+    const detail = document.createElement("dd");
+    label.textContent = name;
+    detail.textContent = value;
+    row.append(label, detail);
+    list.appendChild(row);
+  });
 }
 
 function fillTrades(body, trades) {
@@ -182,16 +232,17 @@ function drawCandles() {
   const bars = sliceToCursor(state.market.bars);
   const fast = sliceToCursor(state.market.fast);
   const slow = sliceToCursor(state.market.slow);
+  const squeeze = sliceToCursor(state.market.squeeze);
   const ctx = prepare(canvas);
   if (!bars.length) return;
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
-  const pad = 28;
+  const pad = 36;
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
   const span = high - low || 1;
-  low -= span * 0.06;
-  high += span * 0.06;
+  low -= span * 0.14;
+  high += span * 0.14;
   const y = (price) => pad + ((high - price) / (high - low)) * (height - pad * 2);
   const slot = (width - pad * 2) / bars.length;
   ctx.strokeStyle = "#2d3640";
@@ -221,16 +272,42 @@ function drawCandles() {
   });
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff");
   drawLine(ctx, slow, y, pad, slot, "#e2b15a");
+  squeeze.forEach((level, index) => {
+    if (!level) return;
+    const x = pad + index * slot + slot / 2;
+    ctx.fillStyle = level >= 3 ? "#7eb6ff" : level === 2 ? "#e2b15a" : "#9aa6b2";
+    ctx.fillRect(x - 2.5, height - 12, 5, 5);
+  });
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
   (state.paper.markers || []).forEach((marker) => {
     const index = byDate.get(marker.date);
     if (index == null) return;
+    const bar = bars[index];
     const x = pad + index * slot + slot / 2;
-    ctx.fillStyle = marker.side === "buy" ? "#3ddc97" : "#ff6b7a";
-    ctx.beginPath();
-    ctx.arc(x, y(marker.price), 3.5, 0, Math.PI * 2);
-    ctx.fill();
+    const up = marker.side === "buy";
+    ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
+    const point = up ? y(bar.low) + 16 : y(bar.high) - 16;
+    drawArrow(ctx, x, point, up);
   });
+}
+
+function drawArrow(ctx, x, y, up) {
+  const size = 10;
+  ctx.beginPath();
+  if (up) {
+    ctx.moveTo(x, y - size);
+    ctx.lineTo(x - size * 0.82, y + size * 0.62);
+    ctx.lineTo(x + size * 0.82, y + size * 0.62);
+  } else {
+    ctx.moveTo(x, y + size);
+    ctx.lineTo(x - size * 0.82, y - size * 0.62);
+    ctx.lineTo(x + size * 0.82, y - size * 0.62);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "#121417";
+  ctx.stroke();
 }
 
 function drawRsi() {
@@ -372,11 +449,28 @@ $("paper").addEventListener("click", () => withBusy(async () => {
 
 $("symbol").addEventListener("change", () => withBusy(async () => {
   stopAuto();
+  const chosen = $("symbol").selectedOptions[0];
+  if (chosen) state.decimals = Number(chosen.dataset.decimals || 2);
   const paper = await post("/api/paper/reset", formParams());
+  state.paper = paper;
+  await refreshSymbols();
   await loadMarket();
   render(paper);
-  $("status").textContent = "Started a new sample session.";
+  $("status").textContent = "Started a new sample session for " + paper.symbol + ".";
 }));
+
+let searchTimer = 0;
+function queueSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    refreshSymbols().catch((error) => {
+      $("status").textContent = error.message;
+    });
+  }, 160);
+}
+
+$("search").addEventListener("input", queueSearch);
+$("category").addEventListener("change", queueSearch);
 
 $("next").addEventListener("click", () => withBusy(async () => {
   render(await post("/api/paper/step", { days: 1 }));

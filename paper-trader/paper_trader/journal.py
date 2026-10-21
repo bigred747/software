@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from paper_trader.backtest import present, run_backtest
-from paper_trader.indicators import rsi, sma
+from paper_trader.indicators import rsi, sma, squeeze
 from paper_trader.model import Params, params_from_dict
 from paper_trader.samples import load_symbol
 
@@ -70,6 +70,7 @@ def market_view(symbol: str, params: Params) -> dict:
     fast = sma(closes, params.fast)
     slow = sma(closes, params.slow)
     rsi_values = rsi(closes, params.rsi_period) if params.rsi_period else [None] * len(bars)
+    bands = squeeze([bar.high for bar in bars], [bar.low for bar in bars], closes)
     return {
         "symbol": symbol,
         "note": "Built-in sample prices. Not live quotes.",
@@ -87,5 +88,7 @@ def market_view(symbol: str, params: Params) -> dict:
         "fast": fast,
         "slow": slow,
         "rsi": rsi_values,
+        "squeeze": bands["level"],
+        "momentum": bands["momentum"],
         "params": params.to_dict(),
     }
