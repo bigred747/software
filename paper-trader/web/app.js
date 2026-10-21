@@ -84,6 +84,7 @@ async function boot() {
   fillForm(paper.params);
   await loadMarket();
   render(paper);
+  await loadSignals();
   if (paper.paper === true && !paper.finished) {
     state.auto = true;
     render(paper);
@@ -92,6 +93,21 @@ async function boot() {
     return;
   }
   $("status").textContent = "Sample session ready.";
+}
+
+async function loadSignals() {
+  const report = await getJSON("/api/checks");
+  const list = $("signals");
+  list.replaceChildren();
+  report.items.forEach((item) => {
+    const row = document.createElement("li");
+    const dot = document.createElement("span");
+    dot.className = item.ok ? "dot on" : "dot";
+    const text = document.createElement("span");
+    text.textContent = item.name + " · " + item.detail;
+    row.append(dot, text);
+    list.appendChild(row);
+  });
 }
 
 async function loadMarket() {
@@ -345,6 +361,7 @@ $("trade").addEventListener("click", () => withBusy(async () => {
   render(paper);
   const verb = paper.last_action === "sell" ? "Sold" : "Bought";
   $("status").textContent = verb + " one simulated position on the paper account.";
+  await loadSignals();
 }));
 
 $("paper").addEventListener("click", () => withBusy(async () => {

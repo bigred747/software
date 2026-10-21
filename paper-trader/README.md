@@ -10,8 +10,8 @@ Sample prices are a teaching series. They are not live quotes, and the sample re
 
 Right-click `Paper-Trader.zip`, choose Extract All, and put the folder in Documents. Then two clicks:
 
-1. Double-click `1 Allow Paper Trader.bat`. That clears the download block on these files and puts **Paper Trader** on the desktop.
-2. Double-click **Paper Trader** on the desktop. The desk opens and **Auto** starts. Click **Auto** again to stop.
+1. Double-click `1 Allow Paper Trader.bat`. That clears the download block, puts the newest copy in Documents, removes older Paper Trader folders from Documents, Desktop, and Downloads, and puts **Paper Trader** on the desktop.
+2. Double-click **Paper Trader** on the desktop. The desk opens, **Auto** starts, and the **Signals** list turns green for each part that is working. Click **Auto** again to stop.
 
 Do not run either file from inside the zip.
 

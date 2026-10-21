@@ -69,6 +69,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b'id="auto"', page)
         self.assertIn(b'id="trade"', page)
         self.assertIn(b'id="paper"', page)
+        self.assertIn(b'id="signals"', page)
         self.assertIn(b">Auto<", page)
         self.assertIn(b">Trade<", page)
         self.assertIn(b">Paper<", page)
@@ -81,6 +82,18 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(payload["mode"], "paper")
         self.assertTrue(payload["paper"])
         self.assertEqual(self.open("/api/paper/mode", "POST", {"mode": "live"})[0], 400)
+
+    def test_signals_are_green_when_the_desk_is_healthy(self) -> None:
+        status, raw = self.open("/api/checks")
+        self.assertEqual(status, 200)
+        payload = json.loads(raw)
+        self.assertTrue(payload["ok"])
+        names = {item["name"] for item in payload["items"]}
+        for name in ("Paper", "Auto", "Trade", "Markets", "Broker", "Install"):
+            self.assertIn(name, names)
+        for item in payload["items"]:
+            self.assertTrue(item["ok"])
+            self.assertTrue(item["detail"])
 
     def test_trade_button_places_a_simulated_order(self) -> None:
         status, raw = self.open("/api/paper")
@@ -151,7 +164,9 @@ class ServerTests(unittest.TestCase):
         allow = (ROOT / "1 Allow Paper Trader.bat").read_text(encoding="utf-8").lower()
         opener = (ROOT / "2 Open Paper Trader.bat").read_text(encoding="utf-8").lower()
         self.assertIn("unblock-file", allow)
+        self.assertIn("paper_trader install", allow)
         self.assertIn("paper trader.lnk", allow)
+        self.assertIn("remove-source", allow)
         self.assertIn("start-paper-trader.bat", opener)
         for blocked in ("add-mpexclusion", "set-mppreference", "exclusionpath", "reg add", "netsh"):
             self.assertNotIn(blocked, allow)
@@ -171,9 +186,11 @@ class ServerTests(unittest.TestCase):
         self.assertIn("paper-trader/2 Open Paper Trader.bat", names)
         self.assertIn(b"state.auto = true", script)
         self.assertIn(b"/api/paper/trade", script)
+        self.assertIn(b"/api/checks", script)
         self.assertIn(b">Auto<", page)
         self.assertIn(b">Trade<", page)
         self.assertIn(b">Paper<", page)
+        self.assertIn(b'id="signals"', page)
         self.assertIn(b"..", path_file)
 
 

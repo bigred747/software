@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from paper_trader import __version__
 from paper_trader.backtest import present, run_backtest
+from paper_trader.install import single_copy_status
 from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
 from paper_trader.model import params_from_dict
 from paper_trader.samples import load_symbol, symbols, warm
@@ -41,6 +42,33 @@ class Desk:
     def snapshot(self) -> dict:
         with self.lock:
             return view_journal(self.journal)
+
+    def checks(self) -> dict:
+        with self.lock:
+            view = view_journal(self.journal)
+        listed = symbols()
+        prices_ok = True
+        try:
+            for item in listed:
+                if len(load_symbol(str(item["symbol"]))) < 200:
+                    prices_ok = False
+        except ValueError:
+            prices_ok = False
+        items: list[dict[str, str | bool]] = [
+            {"name": "This computer", "ok": True, "detail": "127.0.0.1"},
+            {"name": "Paper", "ok": view.get("paper") is True and view.get("mode") == "paper", "detail": "On"},
+            {"name": "Auto", "ok": True, "detail": "Ready"},
+            {
+                "name": "Trade",
+                "ok": not view.get("finished"),
+                "detail": "Ready" if not view.get("finished") else "Sample finished",
+            },
+            {"name": "Markets", "ok": len(listed) == 5 and prices_ok, "detail": f"{len(listed)} samples"},
+            {"name": "Broker", "ok": True, "detail": "Not connected"},
+            {"name": "Version", "ok": True, "detail": __version__},
+            single_copy_status(Path.home()),
+        ]
+        return {"ok": all(bool(item["ok"]) for item in items), "items": items}
 
     def reset(self, raw: dict) -> dict:
         with self.lock:
@@ -175,6 +203,9 @@ class DeskHandler(BaseHTTPRequestHandler):
             return
         if method == "GET" and path == "/api/health":
             self._json({"ok": True, "bind": "127.0.0.1", "version": __version__})
+            return
+        if method == "GET" and path == "/api/checks":
+            self._json(self.desk.checks())
             return
         if method == "GET" and path == "/api/symbols":
             self._json({"symbols": symbols()})

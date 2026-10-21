@@ -8,6 +8,7 @@ from pathlib import Path
 
 from paper_trader.backtest import run_backtest, signal_name
 from paper_trader.guard import assert_safe_launch
+from paper_trader.install import install_newest
 from paper_trader.model import Params
 from paper_trader.samples import load_symbol
 from paper_trader.server import serve
@@ -24,6 +25,8 @@ def main(argv: list[str] | None = None) -> int:
     server = commands.add_parser("serve", help="Open the desk in a browser on this computer")
     server.add_argument("--port", type=int, default=8765)
     server.add_argument("--no-browser", action="store_true")
+    install = commands.add_parser("install", help="Keep only the newest copy in Documents")
+    install.add_argument("--home", type=Path, default=None)
     check = commands.add_parser("backtest", help="Replay one sample market and print the result")
     check.add_argument("--symbol", default="BTC-USD")
     check.add_argument("--fast", type=int, default=10)
@@ -34,6 +37,13 @@ def main(argv: list[str] | None = None) -> int:
     check.add_argument("--rsi", type=int, default=14)
     args = parser.parse_args(argv)
     try:
+        if args.command == "install":
+            home = args.home or Path.home()
+            folder = Path(__file__).resolve().parents[1]
+            dest, action = install_newest(folder, home)
+            print(dest)
+            print(action)
+            return 0
         if args.command == "serve":
             if not 1024 <= args.port <= 65535:
                 raise ValueError("Port must be from 1024 to 65535")
