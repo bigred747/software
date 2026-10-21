@@ -216,8 +216,11 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"drawArrow", script)
         self.assertIn("paper-trader/paper_trader/catalog.txt", names)
         self.assertIn("paper-trader/web/study.js", names)
+        self.assertIn("paper-trader/web/frames.js", names)
+        self.assertIn("paper-trader/web/frame.html", names)
         self.assertIn("paper-trader/iphone/PaperTrader.html", names)
         self.assertIn(b"Install study", page)
+        self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
 
 

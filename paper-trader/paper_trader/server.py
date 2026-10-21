@@ -23,6 +23,9 @@ STATIC = {
     "/app.css": "app.css",
     "/engine.js": "engine.js",
     "/study.js": "study.js",
+    "/frames.js": "frames.js",
+    "/frame.js": "frame.js",
+    "/frame.html": "frame.html",
     "/manifest.webmanifest": "manifest.webmanifest",
     "/icon.png": "icon.png",
 }
@@ -32,6 +35,9 @@ TYPES = {
     "app.css": "text/css; charset=utf-8",
     "engine.js": "text/javascript; charset=utf-8",
     "study.js": "text/javascript; charset=utf-8",
+    "frames.js": "text/javascript; charset=utf-8",
+    "frame.js": "text/javascript; charset=utf-8",
+    "frame.html": "text/html; charset=utf-8",
     "manifest.webmanifest": "application/manifest+json",
     "icon.png": "image/png",
 }
@@ -80,6 +86,7 @@ class Desk:
             {"name": "Squeeze", "ok": prices_ok, "detail": "Ready"},
             {"name": "Arrows", "ok": prices_ok, "detail": "Ready"},
             {"name": "Study", "ok": True, "detail": "On this device"},
+            {"name": "Timeframes", "ok": True, "detail": "10 windows"},
             {"name": "Phone", "ok": True, "detail": "Layout adapts"},
             {"name": "Broker", "ok": True, "detail": "Not connected"},
             {"name": "Version", "ok": True, "detail": __version__},

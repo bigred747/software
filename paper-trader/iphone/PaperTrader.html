@@ -43,11 +43,29 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  min-height: 52px;
+  gap: 18px;
+  min-height: 58px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--line);
+  background: #141920;
 }
+
+.quote {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  grid-template-rows: auto auto;
+  column-gap: 14px;
+  align-items: baseline;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+#quote-symbol { font-weight: 650; letter-spacing: 0.03em; }
+#quote-last { font-size: 20px; font-weight: 680; }
+#quote-change { font-size: 14px; }
+#quote-asof { grid-column: 1 / -1; font-size: 12px; }
+.quote.up #quote-last, .quote.up #quote-change { color: var(--up); }
+.quote.down #quote-last, .quote.down #quote-change { color: var(--down); }
 
 .brand { display: flex; align-items: baseline; gap: 12px; }
 
@@ -74,7 +92,7 @@ h2 { font-size: 15px; }
   grid-template-columns: 280px minmax(0, 1fr) 280px;
   grid-template-rows: minmax(360px, 1fr) minmax(220px, 34vh);
   gap: 8px;
-  height: calc(100dvh - 53px);
+  height: calc(100dvh - 59px);
   padding: 8px;
 }
 
@@ -90,7 +108,7 @@ h2 { font-size: 15px; }
 .watch { grid-column: 1; grid-row: 1; overflow: auto; }
 .chart-panel { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
-.dock { grid-column: 1 / -1; grid-row: 2; overflow: auto; }
+.dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
 
 label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 13px; }
 
@@ -143,9 +161,11 @@ dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
 #trade { background: #3a2a14; border-color: var(--slow); color: var(--slow); }
 #paper[aria-pressed="true"] { background: #1d4d3a; border-color: var(--up); color: var(--up); }
 #auto[aria-pressed="true"] { background: #1c3d66; border-color: var(--fast); color: var(--fast); }
-#study-install { background: #1c3330; border-color: var(--accent); color: var(--accent); }
+#study-install, #frames-all { background: #1c3330; border-color: var(--accent); color: var(--accent); }
 
 button { min-height: 44px; padding: 10px 12px; background: var(--button); cursor: pointer; }
+button:hover:not(:disabled) { border-color: #4d5d72; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button:disabled { opacity: 0.45; cursor: default; }
 button.quiet { background: transparent; }
 
@@ -171,6 +191,21 @@ button.quiet { background: transparent; }
 .chart-head, .legend { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .legend, .chart-note { margin: 0; font-size: 12px; }
 .chart-note { margin-top: 6px; }
+
+.frame-bar, .frame-list { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.frame-bar { flex-wrap: wrap; overflow: visible; }
+.frame-list { flex-direction: column; overflow: auto; margin: 8px 0; min-height: 0; }
+.frame-bar button, .frame-list button { width: auto; min-height: 36px; white-space: nowrap; }
+.frame-list button { display: flex; justify-content: space-between; gap: 12px; width: 100%; }
+.frame-bar .up, .frame-list .up { color: var(--up); border-color: #1d4d3a; }
+.frame-bar .down, .frame-list .down { color: var(--down); border-color: #5a3038; }
+.frame-bar button.on, .frame-list button.on {
+  background: #1c3330;
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.brief { display: grid; gap: 6px; margin: 8px 0 10px; }
+.brief p { margin: 0; }
 
 .swatch {
   display: inline-block;
@@ -202,7 +237,25 @@ canvas {
 }
 .dock-tab.on { border-color: var(--accent); color: var(--accent); }
 .dock-page { display: none; }
-.dock-page.on { display: block; }
+.dock-page.on { display: block; overflow: auto; flex: 1; min-height: 0; }
+.dock-page.on[data-dock-page="frames"] { display: flex; flex-direction: column; overflow: hidden; }
+.frames-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+}
+.frames-side, .frames-main { min-height: 0; min-width: 0; height: 100%; }
+.frames-side, .frames-main { display: flex; flex-direction: column; overflow: hidden; }
+.brief { overflow: auto; flex: 1 1 4.2em; min-height: 4.2em; font-size: 13px; line-height: 1.35; }
+#frame-preview { height: 96px; flex: 0 0 96px; }
+.frame-page { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+.frame-page h1 { font-size: 18px; }
+#frame-chart { flex: 1 1 0; height: 0; min-height: 0; }
 
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; }
 th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: left; }
@@ -216,7 +269,8 @@ footer { display: none; }
 .tabbar { display: none; }
 
 @media (max-width: 980px) {
-  .top { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .top { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .quote { margin-left: 0; }
   .lede { max-width: none; }
   .workspace {
     display: block;
@@ -224,6 +278,9 @@ footer { display: none; }
     padding: 8px 8px calc(64px + var(--safe-bottom));
   }
   .watch, .chart-panel, .ticket, .dock { display: none; margin: 0; }
+  .frames-layout { display: block; }
+  .frame-list, .brief { max-height: none; }
+  .dock-page.on[data-dock-page="frames"] { display: block; overflow: visible; }
   body[data-tab="markets"] .watch,
   body[data-tab="chart"] .chart-panel,
   body[data-tab="trade"] .ticket,
@@ -255,7 +312,13 @@ footer { display: none; }
       <p class="eyebrow">Local sample desk</p>
       <h1>Paper Trader</h1>
     </div>
-    <p class="lede">7,500 sample markets on this device. Fills stay simulated. Nothing is sent to a broker.</p>
+    <div id="quote" class="quote" aria-live="polite">
+      <span id="quote-symbol">—</span>
+      <span id="quote-last">—</span>
+      <span id="quote-change">—</span>
+      <span id="quote-asof" class="muted">Sample session</span>
+    </div>
+    <p class="lede">Simulated fills only. Prices are samples.</p>
   </header>
 
   <div class="workspace">
@@ -281,6 +344,7 @@ footer { display: none; }
         <h2 id="chart-title">Chart</h2>
         <p class="legend"><span class="swatch fast"></span> Fast <span class="swatch slow"></span> Slow</p>
       </div>
+      <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
       <canvas id="candles" width="800" height="360"></canvas>
       <canvas id="rsi-chart" width="800" height="88" aria-label="RSI"></canvas>
       <p class="muted chart-note">Green arrows are simulated buys. Red arrows are simulated sells. Squares show squeeze compression. Study lines come from the formula installed on this device. Prices are samples, not live quotes.</p>
@@ -324,6 +388,7 @@ footer { display: none; }
     <section id="view-study" class="panel dock" aria-label="Desk tools">
       <div class="dock-tabs" role="tablist">
         <button type="button" class="dock-tab on" data-dock="study">Study</button>
+        <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">B4 readings</button>
         <button type="button" class="dock-tab" data-dock="journal">Journal</button>
         <button type="button" class="dock-tab" data-dock="backtest">Backtest</button>
@@ -348,6 +413,25 @@ plot Sell = close crosses below baseline;</textarea>
         <label for="study-list">Installed on this device</label>
         <select id="study-list"></select>
         <p id="study-status" class="status"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="frames">
+        <div class="frames-layout">
+          <div class="frames-side">
+            <div class="study-actions">
+              <button id="frames-all" type="button">Open all 10 windows</button>
+              <button id="brief-window" type="button" class="quiet">Open brief</button>
+            </div>
+            <p id="frame-lead" class="muted"></p>
+            <div id="frame-list" class="frame-list"></div>
+          </div>
+          <div class="frames-main">
+            <h2>Brief</h2>
+            <div id="brief" class="brief"></div>
+            <p id="frame-preview-caption" class="muted"></p>
+            <canvas id="frame-preview" width="800" height="180" aria-label="Selected timeframe"></canvas>
+          </div>
+        </div>
       </div>
 
       <div class="dock-page" data-dock-page="readings">
@@ -1281,6 +1365,223 @@ plot Sell = close crosses below baseline;</textarea>
 
 </script>
   <script>
+/* Ten sample timeframes built from the daily series already on this page. */
+(function (root) {
+  const SESSION_MINUTES = 480;
+  const FRAMES = [
+    { id: "1m", short: "1m", label: "1 minute", kind: "intra", minutes: 1 },
+    { id: "5m", short: "5m", label: "5 minute", kind: "intra", minutes: 5 },
+    { id: "15m", short: "15m", label: "15 minute", kind: "intra", minutes: 15 },
+    { id: "30m", short: "30m", label: "30 minute", kind: "intra", minutes: 30 },
+    { id: "1h", short: "1h", label: "1 hour", kind: "intra", minutes: 60 },
+    { id: "4h", short: "4h", label: "4 hour", kind: "intra", minutes: 240 },
+    { id: "1D", short: "1D", label: "Daily", kind: "day" },
+    { id: "1W", short: "1W", label: "Weekly", kind: "week" },
+    { id: "1M", short: "1M", label: "Monthly", kind: "month" },
+    { id: "1Q", short: "1Q", label: "Quarterly", kind: "quarter" },
+  ];
+
+  function frameById(id) {
+    return FRAMES.find((frame) => frame.id === id) || FRAMES[6];
+  }
+
+  function valueOnPath(points, t) {
+    const clamped = Math.max(0, Math.min(0.999999, t));
+    const segment = Math.min(2, Math.floor(clamped * 3));
+    const local = clamped * 3 - segment;
+    return points[segment] + (points[segment + 1] - points[segment]) * local;
+  }
+
+  function intradayDay(bar, minutes) {
+    const count = SESSION_MINUTES / minutes;
+    const points = bar.close >= bar.open
+      ? [bar.open, bar.low, bar.high, bar.close]
+      : [bar.open, bar.high, bar.low, bar.close];
+    const marks = [0, 1 / 3, 2 / 3, 1];
+    const out = [];
+    for (let index = 0; index < count; index += 1) {
+      const start = index / count;
+      const end = (index + 1) / count;
+      let open = index === 0 ? bar.open : valueOnPath(points, start);
+      let close = index === count - 1 ? bar.close : valueOnPath(points, end);
+      let high = Math.max(open, close);
+      let low = Math.min(open, close);
+      marks.forEach((mark, markIndex) => {
+        if (mark > start && mark < end) {
+          high = Math.max(high, points[markIndex]);
+          low = Math.min(low, points[markIndex]);
+        }
+      });
+      high = Math.min(bar.high, high);
+      low = Math.max(bar.low, low);
+      high = Math.max(high, open, close);
+      low = Math.min(low, open, close);
+      const minute = index * minutes;
+      const hour = String(Math.floor(minute / 60) + 9).padStart(2, "0");
+      const min = String(minute % 60).padStart(2, "0");
+      out.push({
+        date: bar.date + " " + hour + ":" + min,
+        open, high, low, close,
+        volume: bar.volume / count,
+      });
+    }
+    return out;
+  }
+
+  function intraday(daily, minutes, limit) {
+    const perDay = SESSION_MINUTES / minutes;
+    const days = Math.min(daily.length, Math.ceil(limit / perDay) + 1);
+    const bars = [];
+    daily.slice(-days).forEach((bar) => {
+      intradayDay(bar, minutes).forEach((child) => bars.push(child));
+    });
+    return bars.slice(-limit);
+  }
+
+  function weekKey(date) {
+    const day = new Date(date + "T00:00:00Z");
+    const weekday = day.getUTCDay() || 7;
+    const thursday = new Date(day);
+    thursday.setUTCDate(day.getUTCDate() + 4 - weekday);
+    const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+    const week = Math.ceil(((thursday - yearStart) / 86400000 + 1) / 7);
+    return thursday.getUTCFullYear() + "-W" + String(week).padStart(2, "0");
+  }
+
+  function aggregate(daily, keyFn) {
+    const groups = [];
+    daily.forEach((bar) => {
+      const key = keyFn(bar.date);
+      const last = groups[groups.length - 1];
+      if (!last || last.key !== key) {
+        groups.push({
+          key,
+          date: bar.date,
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close,
+          volume: bar.volume,
+        });
+        return;
+      }
+      last.high = Math.max(last.high, bar.high);
+      last.low = Math.min(last.low, bar.low);
+      last.close = bar.close;
+      last.volume += bar.volume;
+      last.date = bar.date;
+    });
+    return groups;
+  }
+
+  function barsFor(daily, frame, limit) {
+    const source = daily || [];
+    if (!source.length) return [];
+    if (frame.kind === "intra") return intraday(source, frame.minutes, limit || 160);
+    if (frame.kind === "week") return aggregate(source, weekKey);
+    if (frame.kind === "month") return aggregate(source, (date) => date.slice(0, 7));
+    if (frame.kind === "quarter") {
+      return aggregate(source, (date) => {
+        const month = Number(date.slice(5, 7));
+        return date.slice(0, 4) + "-Q" + Math.ceil(month / 3);
+      });
+    }
+    return source.map((bar) => ({ ...bar }));
+  }
+
+  function summarize(bars) {
+    if (!bars.length) return { bias: "flat", last: null, change: 0, count: 0, asOf: "" };
+    const last = bars[bars.length - 1];
+    const previous = bars[bars.length - 2] || last;
+    const window = bars.slice(-Math.min(8, bars.length));
+    const average = window.reduce((sum, bar) => sum + bar.close, 0) / window.length;
+    let bias = "flat";
+    if (last.close > average * 1.001) bias = "up";
+    else if (last.close < average * 0.999) bias = "down";
+    const change = previous.close ? ((last.close - previous.close) / previous.close) * 100 : 0;
+    return { bias, last: last.close, change, count: bars.length, asOf: last.date };
+  }
+
+  function analyze(daily) {
+    return FRAMES.map((frame) => {
+      const bars = barsFor(daily, frame, 160);
+      return { ...frame, ...summarize(bars), bars };
+    });
+  }
+
+  function brief(symbol, rows) {
+    const ups = rows.filter((row) => row.bias === "up").length;
+    const downs = rows.filter((row) => row.bias === "down").length;
+    const lines = rows.map((row) => {
+      const change = (row.change >= 0 ? "+" : "") + row.change.toFixed(2) + "%";
+      return row.label + " is " + row.bias + " (" + change + " on the last bar, " + row.count + " bars through " + row.asOf + ").";
+    });
+    return {
+      title: symbol + " timeframe brief",
+      lead: ups + " of 10 timeframes are up and " + downs + " are down. Intraday bars are built from the daily sample. They are not a live tape.",
+      lines,
+    };
+  }
+
+  function draw(canvas, bars) {
+    if (!canvas || !bars || !bars.length) return;
+    const ratio = root.devicePixelRatio || 1;
+    const width = canvas.clientWidth || 640;
+    const height = canvas.clientHeight || 280;
+    canvas.width = Math.floor(width * ratio);
+    canvas.height = Math.floor(height * ratio);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    let low = Math.min(...bars.map((bar) => bar.low));
+    let high = Math.max(...bars.map((bar) => bar.high));
+    const span = high - low || 1;
+    low -= span * 0.08;
+    high += span * 0.08;
+    ctx.font = "12px Segoe UI, sans-serif";
+    const padLeft = Math.max(44, Math.ceil(ctx.measureText(high.toFixed(high >= 100 ? 2 : 4)).width) + 12);
+    const padTop = height < 150 ? 8 : 22;
+    const padBottom = height < 150 ? 8 : 18;
+    const y = (price) => padTop + ((high - price) / (high - low)) * (height - padTop - padBottom);
+    const slot = (width - padLeft - 10) / bars.length;
+    ctx.strokeStyle = "#2a3340";
+    ctx.fillStyle = "#93a0ad";
+    const grids = height < 150 ? 2 : 4;
+    for (let grid = 0; grid < grids; grid += 1) {
+      const price = low + ((high - low) * grid) / Math.max(1, grids - 1);
+      const line = y(price);
+      ctx.beginPath();
+      ctx.moveTo(padLeft, line);
+      ctx.lineTo(width - 8, line);
+      ctx.stroke();
+      ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
+    }
+    bars.forEach((bar, index) => {
+      const x = padLeft + index * slot + slot / 2;
+      const up = bar.close >= bar.open;
+      ctx.strokeStyle = up ? "#3ddc97" : "#ff6b7a";
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.beginPath();
+      ctx.moveTo(x, y(bar.high));
+      ctx.lineTo(x, y(bar.low));
+      ctx.stroke();
+      const top = y(Math.max(bar.open, bar.close));
+      const bottom = y(Math.min(bar.open, bar.close));
+      ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
+    });
+    ctx.fillStyle = "#93a0ad";
+    if (height >= 150) {
+      ctx.fillText(bars[0].date, padLeft, 14);
+      const endLabel = bars[bars.length - 1].date;
+      ctx.fillText(endLabel, Math.max(padLeft + 8, width - 8 - ctx.measureText(endLabel).width), 14);
+    }
+  }
+
+  root.PaperFrames = { FRAMES, frameById, barsFor, analyze, brief, draw, intradayDay };
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+</script>
+  <script>
 const state = {
   market: null,
   paper: null,
@@ -1293,6 +1594,7 @@ const state = {
   session: null,
   study: null,
   studyCode: "",
+  frameId: "1D",
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -1351,8 +1653,11 @@ function formatPrice(value) {
 }
 
 function formatMoney(value) {
-  if (value == null || Number.isNaN(Number(value))) return "—";
-  return Number(value).toLocaleString(undefined, { style: "currency", currency: "USD" });
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+  const rounded = Math.round(number * 100) / 100;
+  const shown = rounded === 0 ? 0 : rounded;
+  return shown.toLocaleString(undefined, { style: "currency", currency: "USD" });
 }
 
 function post(url, body) {
@@ -1431,8 +1736,9 @@ function renderLocalSignals() {
     ["Squeeze", true, "Ready"],
     ["Arrows", true, "Ready"],
     ["Study", true, "On this device"],
+    ["Timeframes", true, "10 windows"],
     ["Broker", true, "Not connected"],
-    ["Version", true, "1.6.0"],
+    ["Version", true, "1.7.0"],
   ];
   const list = $("signals");
   list.replaceChildren();
@@ -1537,10 +1843,11 @@ function render(paper) {
   $("equity").textContent = formatMoney(paper.equity);
   $("cash").textContent = formatMoney(paper.cash);
   $("shares").textContent = paper.shares > 0
-    ? paper.shares.toFixed(4) + " @ " + formatPrice(paper.entry_price)
+    ? paper.shares.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " @ " + formatPrice(paper.entry_price)
     : "Flat";
   $("through").textContent = paper.cursor + " / " + paper.total_bars;
-  $("chart-title").textContent = (paper.last_date || "Sample") + " · " + paper.symbol;
+  $("chart-title").textContent = (paper.symbol || "Sample") + " · Daily session";
+  renderQuote(paper);
   $("next").disabled = state.auto || paper.finished;
   $("run").disabled = state.auto || paper.finished;
   $("trade").disabled = Boolean(paper.finished);
@@ -1550,8 +1857,156 @@ function render(paper) {
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
   fillTrades($("journal-body"), paper.trades || []);
   renderReadings();
+  renderFrames();
   drawCandles();
   drawRsi();
+}
+
+function renderQuote(paper) {
+  const bars = seenBars();
+  const last = bars.length ? bars[bars.length - 1] : null;
+  const previous = bars.length > 1 ? bars[bars.length - 2] : null;
+  const quote = $("quote");
+  if (!quote) return;
+  $("quote-symbol").textContent = paper.symbol || "Sample";
+  if (!last) {
+    $("quote-last").textContent = "—";
+    $("quote-change").textContent = "—";
+    $("quote-asof").textContent = "Sample session";
+    quote.className = "quote";
+    return;
+  }
+  const change = previous ? last.close - previous.close : 0;
+  const percent = previous && previous.close ? (change / previous.close) * 100 : 0;
+  const sign = change > 0 ? "+" : "";
+  $("quote-last").textContent = formatPrice(last.close);
+  $("quote-change").textContent = sign + formatPrice(change) + "  " + sign + percent.toFixed(2) + "%";
+  $("quote-asof").textContent = "Through " + (last.date || paper.last_date || "the sample") + " · not a live quote";
+  quote.className = "quote " + (change > 0 ? "up" : change < 0 ? "down" : "flat");
+}
+
+function seenBars() {
+  const cursor = state.paper ? state.paper.cursor : (state.market && state.market.bars ? state.market.bars.length : 0);
+  return ((state.market && state.market.bars) || []).slice(0, cursor);
+}
+
+function renderFrames() {
+  if (!state.market || typeof PaperFrames === "undefined" || !$("frame-bar")) return;
+  const rows = PaperFrames.analyze(seenBars());
+  state.frames = rows;
+  const note = PaperFrames.brief((state.paper && state.paper.symbol) || "Sample", rows);
+  state.brief = note;
+  const bar = $("frame-bar");
+  bar.replaceChildren();
+  const selectedId = state.frameId || "1D";
+  rows.forEach((row) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = row.bias + (row.id === selectedId ? " on" : "");
+    button.setAttribute("aria-pressed", row.id === selectedId ? "true" : "false");
+    button.textContent = row.short || row.label;
+    button.title = row.label;
+    button.addEventListener("click", () => openFrame(row.id));
+    bar.appendChild(button);
+  });
+  const list = $("frame-list");
+  list.replaceChildren();
+  rows.forEach((row) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = row.bias + (row.id === selectedId ? " on" : "");
+    button.setAttribute("aria-pressed", row.id === selectedId ? "true" : "false");
+    const name = document.createElement("span");
+    name.textContent = row.label;
+    const detail = document.createElement("span");
+    const change = (row.change >= 0 ? "+" : "") + row.change.toFixed(2) + "%";
+    detail.textContent = row.bias + " · " + change;
+    button.append(name, detail);
+    button.addEventListener("click", () => openFrame(row.id));
+    list.appendChild(button);
+  });
+  $("frame-lead").textContent = note.lead;
+  const brief = $("brief");
+  brief.replaceChildren();
+  note.lines.forEach((line) => {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = line;
+    brief.appendChild(paragraph);
+  });
+  const selected = rows.find((row) => row.id === selectedId) || rows[0];
+  const caption = $("frame-preview-caption");
+  if (caption && selected) {
+    const change = (selected.change >= 0 ? "+" : "") + selected.change.toFixed(2) + "%";
+    caption.textContent = selected.label + " preview · " + selected.bias + " · " + change + " · " + selected.count + " sample bars";
+  }
+  PaperFrames.draw($("frame-preview"), selected.bars);
+}
+
+function openFrameWindow(frameId) {
+  const index = PaperFrames.FRAMES.findIndex((frame) => frame.id === frameId);
+  const features = "popup=yes,width=860,height=640,left=" + (70 + Math.max(0, index) * 32) + ",top=" + (48 + Math.max(0, index) * 24);
+  const name = "paper-frame-" + frameId;
+  if (!state.offline && location.protocol !== "file:") {
+    const symbol = encodeURIComponent(state.paper.symbol);
+    const cursor = state.paper.cursor;
+    return window.open("/frame.html?symbol=" + symbol + "&frame=" + encodeURIComponent(frameId) + "&cursor=" + cursor, name, features);
+  }
+  const win = window.open("", name, features);
+  if (win) writeOfflineFrame(win, frameId);
+  return win;
+}
+
+function writeOfflineFrame(win, frameId) {
+  const frame = PaperFrames.frameById(frameId);
+  const row = (state.frames || []).find((item) => item.id === frame.id);
+  const bars = row ? row.bars : [];
+  const heading = (state.paper.symbol || "Sample") + " · " + frame.label;
+  win.document.open();
+  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p style=\"padding:12px 16px\">" + heading + " is " + (row ? row.bias : "flat") + ". Sample bars, not a live quote.</p><canvas id=\"c\" style=\"width:100%;height:78vh\"></canvas><script>const bars = " + JSON.stringify(bars) + ";const canvas=document.getElementById('c');function paint(){const width=canvas.clientWidth||640;const height=canvas.clientHeight||360;canvas.width=width;canvas.height=height;const ctx=canvas.getContext('2d');if(!bars.length)return;const pad=28;let low=Math.min(...bars.map(b=>b.low));let high=Math.max(...bars.map(b=>b.high));const span=high-low||1;low-=span*0.08;high+=span*0.08;const y=p=>pad+((high-p)/(high-low))*(height-pad*2);const slot=(width-pad*2)/bars.length;bars.forEach((bar,index)=>{const x=pad+index*slot+slot/2;const up=bar.close>=bar.open;ctx.strokeStyle=up?'#3ddc97':'#ff6b7a';ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(x,y(bar.high));ctx.lineTo(x,y(bar.low));ctx.stroke();const top=y(Math.max(bar.open,bar.close));const bottom=y(Math.min(bar.open,bar.close));ctx.fillRect(x-2,top,4,Math.max(1,bottom-top));});}paint();addEventListener('resize',paint);<" + "/script></body>");
+  win.document.close();
+}
+
+function openFrame(frameId) {
+  state.frameId = frameId;
+  renderFrames();
+  const win = openFrameWindow(frameId);
+  if (!win) {
+    showDock("frames");
+    $("status").textContent = "The window was blocked. " + PaperFrames.frameById(frameId).label + " is in the Timeframes panel.";
+    return false;
+  }
+  win.focus();
+  $("status").textContent = PaperFrames.frameById(frameId).label + " opened in its own window.";
+  return true;
+}
+
+function openAllFrames() {
+  let opened = 0;
+  PaperFrames.FRAMES.forEach((frame) => {
+    const win = openFrameWindow(frame.id);
+    if (win) opened += 1;
+  });
+  showDock("frames");
+  $("status").textContent = opened
+    ? "Opened " + opened + " of 10 windows. A blocked window stays listed in this panel."
+    : "The browser blocked the windows. Each timeframe is listed in this panel.";
+}
+
+function openBrief() {
+  renderFrames();
+  const note = state.brief;
+  if (!note) return;
+  const win = window.open("", "paper-brief", "popup=yes,width=680,height=760");
+  if (!win) {
+    showDock("frames");
+    $("status").textContent = "The brief is in the Timeframes panel.";
+    return;
+  }
+  const body = [note.lead].concat(note.lines).map((line) => "<p>" + line.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch])) + "</p>").join("");
+  win.document.open();
+  win.document.write("<!DOCTYPE html><title>" + note.title + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:18px/1.5 Segoe UI,sans-serif\"><article style=\"max-width:640px;padding:28px\"><p style=\"letter-spacing:.08em;text-transform:uppercase;color:#8fd0c4;font-size:12px\">Brief</p><h1 style=\"font-size:28px\">" + note.title + "</h1>" + body + "<p style=\"color:#93a0ad\">Sample prices are not live quotes and are not a forecast.</p></article></body>");
+  win.document.close();
+  $("status").textContent = "The brief opened in its own window.";
 }
 
 function renderReadings() {
@@ -1631,7 +2086,7 @@ function drawCandles() {
   if (!bars.length) return;
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
-  const pad = 36;
+  const pad = 64;
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
   const span = high - low || 1;
@@ -2032,6 +2487,9 @@ $("study-list").addEventListener("change", () => {
     $("study-status").textContent = error.message;
   }
 });
+
+$("frames-all").addEventListener("click", () => openAllFrames());
+$("brief-window").addEventListener("click", () => openBrief());
 
 document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
   button.addEventListener("click", () => {

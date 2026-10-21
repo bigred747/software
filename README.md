@@ -51,14 +51,16 @@ A product is 95–100 when it has **supported brand + ASIN + price + primary ima
 
 Local sample trading desk in [paper-trader](paper-trader/README.md). It replays 7,500 built-in markets (stocks, ETFs, futures, and crypto, including Bitcoin, XRP, and Stellar), shows squeeze compression and buy/sell arrows, and keeps a simulated account. **Auto** steps the sample. **Trade** places one simulated order. **Paper** stays on. It does not place broker orders, collect payments, or connect to an exchange. Prices are samples, not live quotes.
 
+The header shows the sample symbol, last price, and change. Ten sample timeframes (1 minute through quarterly) open in their own windows, with a written brief in the Timeframes panel. Intraday bars are built from the daily sample. They are not a live tape and they are not a forecast. This desk is an original layout. It is not a copy of another platform.
+
 **Download the whole bot:**
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/Paper-Trader.zip)
 
-SHA-256 `b7278d1a2e40de36243f1d2c780c626241e6279fdb9fe384c766d9d927536886`
+SHA-256 `2975c16d3494de4c4f5161b529edd817e6883ecc6485285aaa136ae146251c4f`
 
 Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The iPhone page is `iphone/PaperTrader.html` inside the same zip.
 
-Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.6.0 extracts the whole zip into Documents and opens that copy. Signals show **1.6.0** when this copy is running.
+Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.7.0 extracts the whole zip into Documents and opens that copy. Signals show **1.7.0** when this copy is running.
 
 On an iPhone, copy `iphone/PaperTrader.html` from the zip into the Files app and open it in Safari. The desk runs in the browser. Studies stay on the device.

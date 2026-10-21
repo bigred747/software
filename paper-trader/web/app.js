@@ -10,6 +10,7 @@ const state = {
   session: null,
   study: null,
   studyCode: "",
+  frameId: "1D",
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -68,8 +69,11 @@ function formatPrice(value) {
 }
 
 function formatMoney(value) {
-  if (value == null || Number.isNaN(Number(value))) return "—";
-  return Number(value).toLocaleString(undefined, { style: "currency", currency: "USD" });
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "—";
+  const rounded = Math.round(number * 100) / 100;
+  const shown = rounded === 0 ? 0 : rounded;
+  return shown.toLocaleString(undefined, { style: "currency", currency: "USD" });
 }
 
 function post(url, body) {
@@ -148,8 +152,9 @@ function renderLocalSignals() {
     ["Squeeze", true, "Ready"],
     ["Arrows", true, "Ready"],
     ["Study", true, "On this device"],
+    ["Timeframes", true, "10 windows"],
     ["Broker", true, "Not connected"],
-    ["Version", true, "1.6.0"],
+    ["Version", true, "1.7.0"],
   ];
   const list = $("signals");
   list.replaceChildren();
@@ -254,10 +259,11 @@ function render(paper) {
   $("equity").textContent = formatMoney(paper.equity);
   $("cash").textContent = formatMoney(paper.cash);
   $("shares").textContent = paper.shares > 0
-    ? paper.shares.toFixed(4) + " @ " + formatPrice(paper.entry_price)
+    ? paper.shares.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " @ " + formatPrice(paper.entry_price)
     : "Flat";
   $("through").textContent = paper.cursor + " / " + paper.total_bars;
-  $("chart-title").textContent = (paper.last_date || "Sample") + " · " + paper.symbol;
+  $("chart-title").textContent = (paper.symbol || "Sample") + " · Daily session";
+  renderQuote(paper);
   $("next").disabled = state.auto || paper.finished;
   $("run").disabled = state.auto || paper.finished;
   $("trade").disabled = Boolean(paper.finished);
@@ -267,8 +273,156 @@ function render(paper) {
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
   fillTrades($("journal-body"), paper.trades || []);
   renderReadings();
+  renderFrames();
   drawCandles();
   drawRsi();
+}
+
+function renderQuote(paper) {
+  const bars = seenBars();
+  const last = bars.length ? bars[bars.length - 1] : null;
+  const previous = bars.length > 1 ? bars[bars.length - 2] : null;
+  const quote = $("quote");
+  if (!quote) return;
+  $("quote-symbol").textContent = paper.symbol || "Sample";
+  if (!last) {
+    $("quote-last").textContent = "—";
+    $("quote-change").textContent = "—";
+    $("quote-asof").textContent = "Sample session";
+    quote.className = "quote";
+    return;
+  }
+  const change = previous ? last.close - previous.close : 0;
+  const percent = previous && previous.close ? (change / previous.close) * 100 : 0;
+  const sign = change > 0 ? "+" : "";
+  $("quote-last").textContent = formatPrice(last.close);
+  $("quote-change").textContent = sign + formatPrice(change) + "  " + sign + percent.toFixed(2) + "%";
+  $("quote-asof").textContent = "Through " + (last.date || paper.last_date || "the sample") + " · not a live quote";
+  quote.className = "quote " + (change > 0 ? "up" : change < 0 ? "down" : "flat");
+}
+
+function seenBars() {
+  const cursor = state.paper ? state.paper.cursor : (state.market && state.market.bars ? state.market.bars.length : 0);
+  return ((state.market && state.market.bars) || []).slice(0, cursor);
+}
+
+function renderFrames() {
+  if (!state.market || typeof PaperFrames === "undefined" || !$("frame-bar")) return;
+  const rows = PaperFrames.analyze(seenBars());
+  state.frames = rows;
+  const note = PaperFrames.brief((state.paper && state.paper.symbol) || "Sample", rows);
+  state.brief = note;
+  const bar = $("frame-bar");
+  bar.replaceChildren();
+  const selectedId = state.frameId || "1D";
+  rows.forEach((row) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = row.bias + (row.id === selectedId ? " on" : "");
+    button.setAttribute("aria-pressed", row.id === selectedId ? "true" : "false");
+    button.textContent = row.short || row.label;
+    button.title = row.label;
+    button.addEventListener("click", () => openFrame(row.id));
+    bar.appendChild(button);
+  });
+  const list = $("frame-list");
+  list.replaceChildren();
+  rows.forEach((row) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = row.bias + (row.id === selectedId ? " on" : "");
+    button.setAttribute("aria-pressed", row.id === selectedId ? "true" : "false");
+    const name = document.createElement("span");
+    name.textContent = row.label;
+    const detail = document.createElement("span");
+    const change = (row.change >= 0 ? "+" : "") + row.change.toFixed(2) + "%";
+    detail.textContent = row.bias + " · " + change;
+    button.append(name, detail);
+    button.addEventListener("click", () => openFrame(row.id));
+    list.appendChild(button);
+  });
+  $("frame-lead").textContent = note.lead;
+  const brief = $("brief");
+  brief.replaceChildren();
+  note.lines.forEach((line) => {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = line;
+    brief.appendChild(paragraph);
+  });
+  const selected = rows.find((row) => row.id === selectedId) || rows[0];
+  const caption = $("frame-preview-caption");
+  if (caption && selected) {
+    const change = (selected.change >= 0 ? "+" : "") + selected.change.toFixed(2) + "%";
+    caption.textContent = selected.label + " preview · " + selected.bias + " · " + change + " · " + selected.count + " sample bars";
+  }
+  PaperFrames.draw($("frame-preview"), selected.bars);
+}
+
+function openFrameWindow(frameId) {
+  const index = PaperFrames.FRAMES.findIndex((frame) => frame.id === frameId);
+  const features = "popup=yes,width=860,height=640,left=" + (70 + Math.max(0, index) * 32) + ",top=" + (48 + Math.max(0, index) * 24);
+  const name = "paper-frame-" + frameId;
+  if (!state.offline && location.protocol !== "file:") {
+    const symbol = encodeURIComponent(state.paper.symbol);
+    const cursor = state.paper.cursor;
+    return window.open("/frame.html?symbol=" + symbol + "&frame=" + encodeURIComponent(frameId) + "&cursor=" + cursor, name, features);
+  }
+  const win = window.open("", name, features);
+  if (win) writeOfflineFrame(win, frameId);
+  return win;
+}
+
+function writeOfflineFrame(win, frameId) {
+  const frame = PaperFrames.frameById(frameId);
+  const row = (state.frames || []).find((item) => item.id === frame.id);
+  const bars = row ? row.bars : [];
+  const heading = (state.paper.symbol || "Sample") + " · " + frame.label;
+  win.document.open();
+  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p style=\"padding:12px 16px\">" + heading + " is " + (row ? row.bias : "flat") + ". Sample bars, not a live quote.</p><canvas id=\"c\" style=\"width:100%;height:78vh\"></canvas><script>const bars = " + JSON.stringify(bars) + ";const canvas=document.getElementById('c');function paint(){const width=canvas.clientWidth||640;const height=canvas.clientHeight||360;canvas.width=width;canvas.height=height;const ctx=canvas.getContext('2d');if(!bars.length)return;const pad=28;let low=Math.min(...bars.map(b=>b.low));let high=Math.max(...bars.map(b=>b.high));const span=high-low||1;low-=span*0.08;high+=span*0.08;const y=p=>pad+((high-p)/(high-low))*(height-pad*2);const slot=(width-pad*2)/bars.length;bars.forEach((bar,index)=>{const x=pad+index*slot+slot/2;const up=bar.close>=bar.open;ctx.strokeStyle=up?'#3ddc97':'#ff6b7a';ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(x,y(bar.high));ctx.lineTo(x,y(bar.low));ctx.stroke();const top=y(Math.max(bar.open,bar.close));const bottom=y(Math.min(bar.open,bar.close));ctx.fillRect(x-2,top,4,Math.max(1,bottom-top));});}paint();addEventListener('resize',paint);<" + "/script></body>");
+  win.document.close();
+}
+
+function openFrame(frameId) {
+  state.frameId = frameId;
+  renderFrames();
+  const win = openFrameWindow(frameId);
+  if (!win) {
+    showDock("frames");
+    $("status").textContent = "The window was blocked. " + PaperFrames.frameById(frameId).label + " is in the Timeframes panel.";
+    return false;
+  }
+  win.focus();
+  $("status").textContent = PaperFrames.frameById(frameId).label + " opened in its own window.";
+  return true;
+}
+
+function openAllFrames() {
+  let opened = 0;
+  PaperFrames.FRAMES.forEach((frame) => {
+    const win = openFrameWindow(frame.id);
+    if (win) opened += 1;
+  });
+  showDock("frames");
+  $("status").textContent = opened
+    ? "Opened " + opened + " of 10 windows. A blocked window stays listed in this panel."
+    : "The browser blocked the windows. Each timeframe is listed in this panel.";
+}
+
+function openBrief() {
+  renderFrames();
+  const note = state.brief;
+  if (!note) return;
+  const win = window.open("", "paper-brief", "popup=yes,width=680,height=760");
+  if (!win) {
+    showDock("frames");
+    $("status").textContent = "The brief is in the Timeframes panel.";
+    return;
+  }
+  const body = [note.lead].concat(note.lines).map((line) => "<p>" + line.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch])) + "</p>").join("");
+  win.document.open();
+  win.document.write("<!DOCTYPE html><title>" + note.title + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:18px/1.5 Segoe UI,sans-serif\"><article style=\"max-width:640px;padding:28px\"><p style=\"letter-spacing:.08em;text-transform:uppercase;color:#8fd0c4;font-size:12px\">Brief</p><h1 style=\"font-size:28px\">" + note.title + "</h1>" + body + "<p style=\"color:#93a0ad\">Sample prices are not live quotes and are not a forecast.</p></article></body>");
+  win.document.close();
+  $("status").textContent = "The brief opened in its own window.";
 }
 
 function renderReadings() {
@@ -348,7 +502,7 @@ function drawCandles() {
   if (!bars.length) return;
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
-  const pad = 36;
+  const pad = 64;
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
   const span = high - low || 1;
@@ -749,6 +903,9 @@ $("study-list").addEventListener("change", () => {
     $("study-status").textContent = error.message;
   }
 });
+
+$("frames-all").addEventListener("click", () => openAllFrames());
+$("brief-window").addEventListener("click", () => openBrief());
 
 document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
   button.addEventListener("click", () => {

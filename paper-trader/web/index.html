@@ -19,7 +19,13 @@
       <p class="eyebrow">Local sample desk</p>
       <h1>Paper Trader</h1>
     </div>
-    <p class="lede">7,500 sample markets on this device. Fills stay simulated. Nothing is sent to a broker.</p>
+    <div id="quote" class="quote" aria-live="polite">
+      <span id="quote-symbol">—</span>
+      <span id="quote-last">—</span>
+      <span id="quote-change">—</span>
+      <span id="quote-asof" class="muted">Sample session</span>
+    </div>
+    <p class="lede">Simulated fills only. Prices are samples.</p>
   </header>
 
   <div class="workspace">
@@ -45,6 +51,7 @@
         <h2 id="chart-title">Chart</h2>
         <p class="legend"><span class="swatch fast"></span> Fast <span class="swatch slow"></span> Slow</p>
       </div>
+      <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
       <canvas id="candles" width="800" height="360"></canvas>
       <canvas id="rsi-chart" width="800" height="88" aria-label="RSI"></canvas>
       <p class="muted chart-note">Green arrows are simulated buys. Red arrows are simulated sells. Squares show squeeze compression. Study lines come from the formula installed on this device. Prices are samples, not live quotes.</p>
@@ -88,6 +95,7 @@
     <section id="view-study" class="panel dock" aria-label="Desk tools">
       <div class="dock-tabs" role="tablist">
         <button type="button" class="dock-tab on" data-dock="study">Study</button>
+        <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">B4 readings</button>
         <button type="button" class="dock-tab" data-dock="journal">Journal</button>
         <button type="button" class="dock-tab" data-dock="backtest">Backtest</button>
@@ -112,6 +120,25 @@ plot Sell = close crosses below baseline;</textarea>
         <label for="study-list">Installed on this device</label>
         <select id="study-list"></select>
         <p id="study-status" class="status"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="frames">
+        <div class="frames-layout">
+          <div class="frames-side">
+            <div class="study-actions">
+              <button id="frames-all" type="button">Open all 10 windows</button>
+              <button id="brief-window" type="button" class="quiet">Open brief</button>
+            </div>
+            <p id="frame-lead" class="muted"></p>
+            <div id="frame-list" class="frame-list"></div>
+          </div>
+          <div class="frames-main">
+            <h2>Brief</h2>
+            <div id="brief" class="brief"></div>
+            <p id="frame-preview-caption" class="muted"></p>
+            <canvas id="frame-preview" width="800" height="180" aria-label="Selected timeframe"></canvas>
+          </div>
+        </div>
       </div>
 
       <div class="dock-page" data-dock-page="readings">
@@ -163,6 +190,7 @@ plot Sell = close crosses below baseline;</textarea>
   </footer>
   <script src="/engine.js"></script>
   <script src="/study.js"></script>
+  <script src="/frames.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

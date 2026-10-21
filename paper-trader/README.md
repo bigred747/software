@@ -13,7 +13,7 @@ Right-click `Paper-Trader.zip`, choose Extract All, and put the folder in Docume
 1. Double-click `1 Allow Paper Trader.bat`. That clears the download block, puts the newest copy in Documents, removes older Paper Trader folders from Documents, Desktop, and Downloads, and puts **Paper Trader** on the desktop.
 2. Double-click **Paper Trader** on the desktop. The desk opens, **Auto** starts, and the **Signals** list turns green for each part that is working. Click **Auto** again to stop.
 
-If a file is opened from inside the zip, this version extracts the whole zip into Documents and opens that copy. The green Signals list shows version 1.6.0 when this copy is running.
+If a file is opened from inside the zip, this version extracts the whole zip into Documents and opens that copy. The green Signals list shows version 1.7.0 when this copy is running.
 
 From a source checkout, Python 3.11 or newer is enough. The desk uses the Python standard library, so startup does not install packages and does not wait on a download.
 
@@ -34,7 +34,11 @@ The browser opens to `http://127.0.0.1:8765/`.
 
 The catalog has 7,500 sample markets: stocks, ETFs, futures, and crypto. Bitcoin, XRP, and Stellar are included. Search the list. These series are generated on this computer. They are not live quotes.
 
-The desk is a wide layout on a computer: markets on the left, chart in the center, paper ticket on the right, and tools along the bottom. On a phone the same page uses a bottom bar: Markets, Chart, Trade, and Study.
+The desk is a wide layout on a computer: markets on the left, the daily session chart in the center, the paper ticket on the right, and tools along the bottom. The header shows the sample symbol, last price, and change. On a phone the same page uses a bottom bar: Markets, Chart, Trade, and Study.
+
+## Timeframes
+
+Ten sample timeframes sit under the chart: 1 minute, 5 minute, 15 minute, 30 minute, 1 hour, 4 hour, Daily, Weekly, Monthly, and Quarterly. Click one to open it in its own window, or open all ten at once. The Timeframes panel keeps a written brief and a preview when the browser blocks a window. Intraday bars are built from the daily sample. They are not a live tape, and they are not a forecast. The center chart stays on the daily session so the paper arrows stay lined up with the trades.
 
 ## Study formulas
 

@@ -16,14 +16,16 @@ def build() -> Path:
     catalog = (ROOT / "paper_trader" / "catalog.txt").read_text(encoding="utf-8")
     engine = (web / "engine.js").read_text(encoding="utf-8")
     study = (web / "study.js").read_text(encoding="utf-8")
+    frames = (web / "frames.js").read_text(encoding="utf-8")
     app = (web / "app.js").read_text(encoding="utf-8")
     html = html.replace(
         '<script src="/engine.js"></script>',
         "<script>globalThis.PAPER_CATALOG = " + json.dumps(catalog) + ";</script>\n<script>\n" + engine + "\n</script>",
     )
     html = html.replace('<script src="/study.js"></script>', "<script>\n" + study + "\n</script>")
+    html = html.replace('<script src="/frames.js"></script>', "<script>\n" + frames + "\n</script>")
     html = html.replace('<script src="/app.js"></script>', "<script>\n" + app + "\n</script>")
-    for name in ("engine.js", "study.js", "app.js"):
+    for name in ("engine.js", "study.js", "frames.js", "app.js"):
         if f"/{name}" in html:
             raise RuntimeError(f"{name} was not inlined")
     out = ROOT / "iphone" / "PaperTrader.html"

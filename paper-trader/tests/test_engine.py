@@ -163,6 +163,16 @@ class StudyAndPhoneTests(unittest.TestCase):
         )
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
 
+    def test_ten_timeframes_stay_inside_the_daily_sample(self) -> None:
+        completed = subprocess.run(
+            ["node", "--test", "web/frames.test.mjs"],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+
     def test_phone_prices_match_the_computer_samples(self) -> None:
         root = Path(__file__).resolve().parents[1]
         script = r"""
