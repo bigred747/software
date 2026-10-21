@@ -55,8 +55,10 @@ Local sample trading desk in [paper-trader](paper-trader/README.md). It replays 
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/Paper-Trader.zip)
 
-SHA-256 `a22c8e9b09bca73ed42f4e2ea03b4cd3f975cdb17a7f6bbc36060f61fb577397`
+SHA-256 `b7278d1a2e40de36243f1d2c780c626241e6279fdb9fe384c766d9d927536886`
 
-Size **11.6 MB**. Python 3.13 for Windows is inside the zip.
+Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The iPhone page is `iphone/PaperTrader.html` inside the same zip.
 
-Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.5.0 extracts the whole zip into Documents and opens that copy. Signals show **1.5.0** when this copy is running.
+Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.6.0 extracts the whole zip into Documents and opens that copy. Signals show **1.6.0** when this copy is running.
+
+On an iPhone, copy `iphone/PaperTrader.html` from the zip into the Files app and open it in Safari. The desk runs in the browser. Studies stay on the device.

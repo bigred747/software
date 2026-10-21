@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -148,6 +150,51 @@ class SampleTests(unittest.TestCase):
             view = view_journal(loaded)
             self.assertEqual(view["symbol"], "BTC-USD")
             self.assertEqual(view["cursor"], loaded.cursor)
+
+
+class StudyAndPhoneTests(unittest.TestCase):
+    def test_study_runner_stays_local(self) -> None:
+        completed = subprocess.run(
+            ["node", "--test", "web/study.test.mjs"],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+
+    def test_phone_prices_match_the_computer_samples(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        script = r"""
+import fs from "node:fs";
+import vm from "node:vm";
+const context = {};
+context.globalThis = context;
+vm.createContext(context);
+vm.runInContext(fs.readFileSync("web/engine.js", "utf8"), context);
+const text = fs.readFileSync("paper_trader/catalog.txt", "utf8");
+const rows = context.PaperEngine.parseCatalog(text);
+const out = {};
+for (const symbol of ["XRP-USD", "XLM-USD", "AAPL"]) {
+  const row = rows.find((item) => item.symbol === symbol);
+  out[symbol] = context.PaperEngine.buildBars(symbol, row, 220).map((bar) => bar.close);
+}
+console.log(JSON.stringify(out));
+"""
+        completed = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        got = json.loads(completed.stdout)
+        for symbol, closes in got.items():
+            expected = [bar.close for bar in load_symbol(symbol)]
+            self.assertEqual(len(closes), len(expected))
+            for left, right in zip(closes, expected):
+                self.assertAlmostEqual(left, right, places=6)
 
 
 if __name__ == "__main__":

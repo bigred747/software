@@ -13,7 +13,7 @@ Right-click `Paper-Trader.zip`, choose Extract All, and put the folder in Docume
 1. Double-click `1 Allow Paper Trader.bat`. That clears the download block, puts the newest copy in Documents, removes older Paper Trader folders from Documents, Desktop, and Downloads, and puts **Paper Trader** on the desktop.
 2. Double-click **Paper Trader** on the desktop. The desk opens, **Auto** starts, and the **Signals** list turns green for each part that is working. Click **Auto** again to stop.
 
-If a file is opened from inside the zip, this version extracts the whole zip into Documents and opens that copy. The green Signals list shows version 1.5.0 when this copy is running.
+If a file is opened from inside the zip, this version extracts the whole zip into Documents and opens that copy. The green Signals list shows version 1.6.0 when this copy is running.
 
 From a source checkout, Python 3.11 or newer is enough. The desk uses the Python standard library, so startup does not install packages and does not wait on a download.
 
@@ -33,6 +33,18 @@ The browser opens to `http://127.0.0.1:8765/`.
 - **Run full backtest** replays the whole sample without moving the session day.
 
 The catalog has 7,500 sample markets: stocks, ETFs, futures, and crypto. Bitcoin, XRP, and Stellar are included. Search the list. These series are generated on this computer. They are not live quotes.
+
+The desk is a wide layout on a computer: markets on the left, chart in the center, paper ticket on the right, and tools along the bottom. On a phone the same page uses a bottom bar: Markets, Chart, Trade, and Study.
+
+## Study formulas
+
+Open **Study**, paste a formula, and click **Install study**. The formula runs in the page on the sample prices. It is stored on this device. It cannot place a broker order, open a connection, or read files.
+
+A formula can use `input`, `def`, `plot`, `if/then/else`, bar offsets such as `close[1]`, and math such as `Average`, `ExpAverage`, `RSI`, `ATR`, `Highest`, `Lowest`, `Sum`, and `crosses above`. An `AddOrder` line only paints a paper arrow. Fold, profile, and brokerage calls are refused.
+
+## iPhone
+
+The zip contains `iphone/PaperTrader.html`. Copy that file to the iPhone, open it from the Files app in Safari, and the same desk runs there. Sample prices and formulas stay on the phone. There is no app-store install and no broker connection. The computer copy still starts with `Start-Paper-Trader.bat` and listens only on 127.0.0.1.
 
 ## Rules
 

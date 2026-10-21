@@ -2,23 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101318">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Paper Trader">
   <title>Paper Trader</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.png">
+  <link rel="apple-touch-icon" href="/icon.png">
   <link rel="stylesheet" href="/app.css">
 </head>
-<body>
+<body data-tab="chart">
   <header class="top">
-    <div>
+    <div class="brand">
       <p class="eyebrow">Local sample desk</p>
       <h1>Paper Trader</h1>
     </div>
-    <p class="lede">Replays 7,500 built-in daily samples on this computer: stocks, ETFs, futures, and crypto. Fills are simulated. Nothing is sent to a broker, and the desk does not collect payments.</p>
+    <p class="lede">7,500 sample markets on this device. Fills stay simulated. Nothing is sent to a broker.</p>
   </header>
 
-  <main class="layout">
-    <section class="panel controls" aria-label="Session">
+  <div class="workspace">
+    <section id="view-markets" class="panel watch" aria-label="Markets">
+      <h2>Markets</h2>
       <label for="search">Find a market</label>
-      <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off">
+      <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
       <label for="category">Type</label>
       <select id="category">
         <option value="">All 7,500</option>
@@ -28,19 +36,29 @@
         <option value="future">Futures</option>
       </select>
       <label for="symbol">Results</label>
-      <select id="symbol" size="7"></select>
+      <select id="symbol" size="8"></select>
       <p id="market-count" class="muted"></p>
+    </section>
 
+    <section id="view-chart" class="panel chart-panel" aria-label="Chart">
+      <div class="chart-head">
+        <h2 id="chart-title">Chart</h2>
+        <p class="legend"><span class="swatch fast"></span> Fast <span class="swatch slow"></span> Slow</p>
+      </div>
+      <canvas id="candles" width="800" height="360"></canvas>
+      <canvas id="rsi-chart" width="800" height="88" aria-label="RSI"></canvas>
+      <p class="muted chart-note">Green arrows are simulated buys. Red arrows are simulated sells. Squares show squeeze compression. Study lines come from the formula installed on this device. Prices are samples, not live quotes.</p>
+    </section>
+
+    <section id="view-trade" class="panel ticket" aria-label="Session">
       <p id="signal" class="signal">HOLD</p>
       <p id="signal-note" class="muted"></p>
-
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>
         <div><dt>Cash</dt><dd id="cash">—</dd></div>
         <div><dt>Position</dt><dd id="shares">—</dd></div>
         <div><dt>Session</dt><dd id="through">—</dd></div>
       </dl>
-
       <div class="modes" role="group" aria-label="Trading controls">
         <button id="auto" type="button" aria-pressed="false">Auto</button>
         <button id="trade" type="button">Trade</button>
@@ -53,64 +71,98 @@
         <button id="full" type="button" class="quiet">Run full backtest</button>
       </div>
       <p id="status" class="status" role="status"></p>
-      <h2 class="signals-title">Signals</h2>
-      <ul id="signals" class="signals"></ul>
-
       <details>
         <summary>Strategy settings</summary>
         <div class="fields">
-          <label>Fast average <input id="fast" type="number" min="2" max="80" value="10"></label>
-          <label>Slow average <input id="slow" type="number" min="3" max="200" value="30"></label>
-          <label>RSI length <input id="rsi" type="number" min="0" max="50" value="14"></label>
-          <label>Starting cash <input id="cash-input" type="number" min="1" step="100" value="10000"></label>
-          <label>Fee (basis points) <input id="fee" type="number" min="0" max="100" step="0.1" value="5"></label>
-          <label>Stop (%) <input id="stop" type="number" min="0" max="50" step="0.1" value="8"></label>
+          <label>Fast average <input id="fast" type="number" min="2" max="80" value="10" inputmode="numeric"></label>
+          <label>Slow average <input id="slow" type="number" min="3" max="200" value="30" inputmode="numeric"></label>
+          <label>RSI length <input id="rsi" type="number" min="0" max="50" value="14" inputmode="numeric"></label>
+          <label>Starting cash <input id="cash-input" type="number" min="1" step="100" value="10000" inputmode="decimal"></label>
+          <label>Fee (basis points) <input id="fee" type="number" min="0" max="100" step="0.1" value="5" inputmode="decimal"></label>
+          <label>Stop (%) <input id="stop" type="number" min="0" max="50" step="0.1" value="8" inputmode="decimal"></label>
         </div>
         <p class="muted">Reset session applies these settings. A stop of 0 turns the stop off. RSI length 0 turns RSI off.</p>
       </details>
     </section>
 
-    <section class="panel chart-panel" aria-label="Chart">
-      <div class="chart-head">
-        <h2 id="chart-title">Chart</h2>
-        <p class="legend"><span class="swatch fast"></span> Fast average <span class="swatch slow"></span> Slow average</p>
+    <section id="view-study" class="panel dock" aria-label="Desk tools">
+      <div class="dock-tabs" role="tablist">
+        <button type="button" class="dock-tab on" data-dock="study">Study</button>
+        <button type="button" class="dock-tab" data-dock="readings">B4 readings</button>
+        <button type="button" class="dock-tab" data-dock="journal">Journal</button>
+        <button type="button" class="dock-tab" data-dock="backtest">Backtest</button>
+        <button type="button" class="dock-tab" data-dock="signals">Signals</button>
       </div>
-      <canvas id="candles" width="800" height="360"></canvas>
-      <canvas id="rsi-chart" width="800" height="96" aria-label="RSI"></canvas>
-      <h2 class="signals-title">B4 readings</h2>
-      <div id="readings" class="readings"></div>
-      <p class="muted">Green arrows are simulated buys. Red arrows are simulated sells. Squares under the candles show squeeze compression: blue is tight, gold is normal, gray is wide. The line under the candles is RSI. Prices are samples, not live quotes.</p>
+
+      <div class="dock-page on" data-dock-page="study">
+        <h2>Install study</h2>
+        <p class="muted">Paste your own price formula. It runs on the sample in this page only. It cannot place a broker order, open a connection, or read files.</p>
+        <label for="study-name">Name</label>
+        <input id="study-name" maxlength="40" value="Baseline cross" autocomplete="off">
+        <label for="study-code">Formula</label>
+        <textarea id="study-code" spellcheck="false" maxlength="12000">input length = 20;
+def baseline = Average(close, length);
+plot Baseline = baseline;
+plot Buy = close crosses above baseline;
+plot Sell = close crosses below baseline;</textarea>
+        <div class="study-actions">
+          <button id="study-install" type="button">Install study</button>
+          <button id="study-remove" type="button" class="quiet">Remove</button>
+        </div>
+        <label for="study-list">Installed on this device</label>
+        <select id="study-list"></select>
+        <p id="study-status" class="status"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="readings">
+        <h2 class="signals-title">B4 readings</h2>
+        <div id="readings" class="readings"></div>
+      </div>
+
+      <div class="dock-page" data-dock-page="journal">
+        <h2>Session journal</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
+            </thead>
+            <tbody id="journal-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="backtest">
+        <h2>Full-sample backtest</h2>
+        <p id="backtest-summary" class="muted">Runs the whole sample without moving the session day.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
+            </thead>
+            <tbody id="backtest-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="signals">
+        <h2 class="signals-title">Signals</h2>
+        <ul id="signals" class="signals"></ul>
+      </div>
     </section>
-  </main>
+  </div>
 
-  <section class="panel wide">
-    <h2>Session journal</h2>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
-        </thead>
-        <tbody id="journal-body"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel wide">
-    <h2>Full-sample backtest</h2>
-    <p id="backtest-summary" class="muted">Runs the whole sample without moving the session day.</p>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
-        </thead>
-        <tbody id="backtest-body"></tbody>
-      </table>
-    </div>
-  </section>
+  <nav class="tabbar" aria-label="Sections">
+    <button type="button" data-tab="markets">Markets</button>
+    <button type="button" data-tab="chart" class="on">Chart</button>
+    <button type="button" data-tab="trade">Trade</button>
+    <button type="button" data-tab="study">Study</button>
+  </nav>
 
   <footer>
     Sample prices are not live quotes and are not a forecast. Past sample results do not predict real trading.
   </footer>
+  <script src="/engine.js"></script>
+  <script src="/study.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

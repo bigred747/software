@@ -16,11 +16,24 @@ from paper_trader.model import params_from_dict
 from paper_trader.samples import catalog_size, load_symbol, search_symbols, warm
 
 WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
-STATIC = {"/index.html": "index.html", "/": "index.html", "/app.js": "app.js", "/app.css": "app.css"}
+STATIC = {
+    "/index.html": "index.html",
+    "/": "index.html",
+    "/app.js": "app.js",
+    "/app.css": "app.css",
+    "/engine.js": "engine.js",
+    "/study.js": "study.js",
+    "/manifest.webmanifest": "manifest.webmanifest",
+    "/icon.png": "icon.png",
+}
 TYPES = {
     "index.html": "text/html; charset=utf-8",
     "app.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
+    "engine.js": "text/javascript; charset=utf-8",
+    "study.js": "text/javascript; charset=utf-8",
+    "manifest.webmanifest": "application/manifest+json",
+    "icon.png": "image/png",
 }
 _STATIC_BYTES: dict[str, bytes] = {}
 _LOCAL_HOSTS = {"127.0.0.1", "localhost"}
@@ -66,6 +79,8 @@ class Desk:
             {"name": "Markets", "ok": listed >= 7500 and prices_ok, "detail": f"{listed} samples"},
             {"name": "Squeeze", "ok": prices_ok, "detail": "Ready"},
             {"name": "Arrows", "ok": prices_ok, "detail": "Ready"},
+            {"name": "Study", "ok": True, "detail": "On this device"},
+            {"name": "Phone", "ok": True, "detail": "Layout adapts"},
             {"name": "Broker", "ok": True, "detail": "Not connected"},
             {"name": "Version", "ok": True, "detail": __version__},
             single_copy_status(Path.home()),
@@ -199,6 +214,15 @@ class DeskHandler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.send_header("Content-Length", "0")
             self.end_headers()
+            return
+        if method == "GET" and path == "/catalog.txt":
+            body = (Path(__file__).resolve().parent / "catalog.txt").read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self._security_headers()
+            self.end_headers()
+            self.wfile.write(body)
             return
         if method == "GET" and path in STATIC:
             self._static(STATIC[path])

@@ -1,4 +1,18 @@
-const state = { market: null, paper: null, busy: false, auto: false, autoTimer: 0, decimals: 2 };
+const state = {
+  market: null,
+  paper: null,
+  busy: false,
+  auto: false,
+  autoTimer: 0,
+  decimals: 2,
+  offline: false,
+  catalog: [],
+  session: null,
+  study: null,
+  studyCode: "",
+};
+
+const STUDY_KEY = "paperTraderStudies";
 
 const notes = {
   BUY: "The next sample day would open a simulated long at that day's open.",
@@ -66,13 +80,32 @@ function post(url, body) {
   });
 }
 
+async function paperCall(path, body) {
+  if (!state.offline) return post(path, body);
+  const params = body || {};
+  if (path === "/api/paper/step") return PaperEngine.step(state.session, params.days || 1);
+  if (path === "/api/paper/run") return PaperEngine.run(state.session);
+  if (path === "/api/paper/trade") return PaperEngine.trade(state.session);
+  if (path === "/api/paper/mode") return PaperEngine.view(state.session);
+  if (path === "/api/paper/reset") {
+    state.session = PaperEngine.reset(state.catalog, { ...formParams(), ...params });
+    return PaperEngine.view(state.session);
+  }
+  throw new Error("That action stays on this device");
+}
+
 async function refreshSymbols() {
+  let listed;
+  if (state.offline) {
+    listed = PaperEngine.search(state.catalog, $("search").value.trim(), $("category").value, 40);
+  } else {
   const params = new URLSearchParams({
     q: $("search").value.trim(),
     category: $("category").value,
     limit: "40",
   });
-  const listed = await getJSON("/api/symbols?" + params.toString());
+  listed = await getJSON("/api/symbols?" + params.toString());
+  }
   const select = $("symbol");
   const current = (state.paper && state.paper.symbol) || select.value;
   const rows = listed.symbols.slice();
@@ -95,7 +128,69 @@ async function refreshSymbols() {
   $("market-count").textContent = select.options.length + " listed · " + total + " sample markets";
 }
 
+async function probeDesk() {
+  if (location.protocol === "file:") return false;
+  try {
+    const response = await fetch("/api/health", { cache: "no-store" });
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+}
+
+function renderLocalSignals() {
+  const items = [
+    ["This device", true, state.offline ? "Phone copy" : "127.0.0.1"],
+    ["Paper", true, "On"],
+    ["Auto", true, "Ready"],
+    ["Trade", true, "Ready"],
+    ["Markets", state.catalog.length >= 7500, state.catalog.length + " samples"],
+    ["Squeeze", true, "Ready"],
+    ["Arrows", true, "Ready"],
+    ["Study", true, "On this device"],
+    ["Broker", true, "Not connected"],
+    ["Version", true, "1.6.0"],
+  ];
+  const list = $("signals");
+  list.replaceChildren();
+  items.forEach(([name, ok, detail]) => {
+    const row = document.createElement("li");
+    const dot = document.createElement("span");
+    dot.className = ok ? "dot on" : "dot";
+    const text = document.createElement("span");
+    text.textContent = name + " · " + detail;
+    row.append(dot, text);
+    list.appendChild(row);
+  });
+}
+
+async function bootOffline() {
+  const text = globalThis.PAPER_CATALOG || await (await fetch("/catalog.txt")).text();
+  state.catalog = PaperEngine.parseCatalog(text);
+  state.session = PaperEngine.open(state.catalog, "BTC-USD", {});
+  state.paper = PaperEngine.view(state.session);
+  await refreshSymbols();
+  fillForm(state.paper.params);
+  state.market = PaperEngine.market(state.session);
+  render(state.paper);
+  renderLocalSignals();
+  if (state.paper.paper === true && !state.paper.finished) {
+    state.auto = true;
+    render(state.paper);
+    $("status").textContent = "Auto is on. Simulated sample days only.";
+    autoTick();
+    return;
+  }
+  $("status").textContent = "Phone copy ready. Sample prices stay on this device.";
+}
+
 async function boot() {
+  restoreStudies();
+  state.offline = !(await probeDesk());
+  if (state.offline) {
+    await bootOffline();
+    return;
+  }
   const paper = await getJSON("/api/paper");
   state.paper = paper;
   await refreshSymbols();
@@ -128,9 +223,25 @@ async function loadSignals() {
   });
 }
 
+function rerunStudy() {
+  if (!state.studyCode || !state.market) return;
+  try {
+    state.study = PaperStudy.runStudy(state.studyCode, state.market.bars);
+  } catch (error) {
+    state.study = null;
+    $("study-status").textContent = error.message;
+  }
+}
+
 async function loadMarket() {
+  if (state.offline) {
+    state.market = PaperEngine.market(state.session);
+    rerunStudy();
+    return;
+  }
   const params = new URLSearchParams(formParams());
   state.market = await getJSON("/api/market?" + params.toString());
+  rerunStudy();
 }
 
 function render(paper) {
@@ -272,6 +383,7 @@ function drawCandles() {
   });
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff");
   drawLine(ctx, slow, y, pad, slot, "#e2b15a");
+  drawStudy(ctx, bars, y, pad, slot);
   squeeze.forEach((level, index) => {
     if (!level) return;
     const x = pad + index * slot + slot / 2;
@@ -288,6 +400,33 @@ function drawCandles() {
     ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
     const point = up ? y(bar.low) + 16 : y(bar.high) - 16;
     drawArrow(ctx, x, point, up);
+  });
+}
+
+function drawStudy(ctx, bars, y, pad, slot) {
+  if (!state.study) return;
+  const colors = ["#d7e2ea", "#7dcec4", "#d2b4f0", "#e6c36a"];
+  let line = 0;
+  state.study.plots.forEach((plot) => {
+    const values = sliceToCursor(plot.values);
+    const numeric = values.filter((value) => value != null);
+    const binary = numeric.length > 0 && numeric.every((value) => value === 0 || value === 1);
+    const side = plot.side || (/sell|short|down/i.test(plot.name) ? "sell" : /buy|long|up/i.test(plot.name) ? "buy" : "");
+    if (binary && side) {
+      values.forEach((value, index) => {
+        if (value !== 1 || (index > 0 && values[index - 1] === 1)) return;
+        const bar = bars[index];
+        if (!bar) return;
+        const x = pad + index * slot + slot / 2;
+        const up = side !== "sell";
+        ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
+        drawArrow(ctx, x, up ? y(bar.low) + 28 : y(bar.high) - 28, up);
+      });
+      return;
+    }
+    if (binary) return;
+    drawLine(ctx, values, y, pad, slot, colors[line % colors.length]);
+    line += 1;
   });
 }
 
@@ -392,7 +531,7 @@ async function autoTick() {
   if (!state.auto || state.busy) return;
   state.busy = true;
   try {
-    const paper = await post("/api/paper/step", { days: 1 });
+    const paper = await paperCall("/api/paper/step", { days: 1 });
     render(paper);
     if (paper.finished || paper.paper !== true) {
       state.auto = false;
@@ -434,7 +573,7 @@ $("auto").addEventListener("click", () => {
 
 $("trade").addEventListener("click", () => withBusy(async () => {
   stopAuto();
-  const paper = await post("/api/paper/trade", {});
+  const paper = await paperCall("/api/paper/trade", {});
   render(paper);
   const verb = paper.last_action === "sell" ? "Sold" : "Bought";
   $("status").textContent = verb + " one simulated position on the paper account.";
@@ -442,7 +581,7 @@ $("trade").addEventListener("click", () => withBusy(async () => {
 }));
 
 $("paper").addEventListener("click", () => withBusy(async () => {
-  const paper = await post("/api/paper/mode", { mode: "paper" });
+  const paper = await paperCall("/api/paper/mode", { mode: "paper" });
   render(paper);
   $("status").textContent = "Paper is on. Orders stay simulated on this computer.";
 }));
@@ -451,7 +590,7 @@ $("symbol").addEventListener("change", () => withBusy(async () => {
   stopAuto();
   const chosen = $("symbol").selectedOptions[0];
   if (chosen) state.decimals = Number(chosen.dataset.decimals || 2);
-  const paper = await post("/api/paper/reset", formParams());
+  const paper = await paperCall("/api/paper/reset", formParams());
   state.paper = paper;
   await refreshSymbols();
   await loadMarket();
@@ -473,24 +612,29 @@ $("search").addEventListener("input", queueSearch);
 $("category").addEventListener("change", queueSearch);
 
 $("next").addEventListener("click", () => withBusy(async () => {
-  render(await post("/api/paper/step", { days: 1 }));
+  render(await paperCall("/api/paper/step", { days: 1 }));
 }));
 
 $("run").addEventListener("click", () => withBusy(async () => {
   stopAuto();
-  render(await post("/api/paper/run", {}));
+  render(await paperCall("/api/paper/run", {}));
   $("status").textContent = "Sample session finished.";
 }));
 
 $("reset").addEventListener("click", () => withBusy(async () => {
   stopAuto();
-  const paper = await post("/api/paper/reset", formParams());
+  const paper = await paperCall("/api/paper/reset", formParams());
   await loadMarket();
   render(paper);
   $("status").textContent = "Session reset with the settings above.";
 }));
 
 $("full").addEventListener("click", () => withBusy(async () => {
+  if (state.offline) {
+    $("backtest-summary").textContent = "On the phone, Run remaining days replays the sample. The separate full-sample report is on the computer copy.";
+    showDock("backtest");
+    return;
+  }
   const report = await post("/api/backtest", formParams());
   const factor = report.profit_factor == null ? "—" : report.profit_factor.toFixed(2);
   $("backtest-summary").textContent =
@@ -499,6 +643,127 @@ $("full").addEventListener("click", () => withBusy(async () => {
     " · win rate " + report.win_rate_pct.toFixed(1) + "% · profit factor " + factor;
   fillTrades($("backtest-body"), report.trades || []);
 }));
+
+function storedStudies() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(STUDY_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.code === "string" && typeof item.name === "string").slice(0, 20) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveStudies(studies) {
+  try {
+    localStorage.setItem(STUDY_KEY, JSON.stringify(studies.slice(0, 20)));
+  } catch (error) {
+    return;
+  }
+}
+
+function fillStudyList() {
+  const select = $("study-list");
+  const studies = storedStudies();
+  select.replaceChildren();
+  if (!studies.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "None installed";
+    select.appendChild(option);
+    return;
+  }
+  studies.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.name;
+    option.textContent = item.name;
+    select.appendChild(option);
+  });
+}
+
+function restoreStudies() {
+  fillStudyList();
+  const studies = storedStudies();
+  if (!studies.length) return;
+  $("study-name").value = studies[0].name;
+  $("study-code").value = studies[0].code;
+  state.studyCode = studies[0].code;
+}
+
+function showDock(name) {
+  document.querySelectorAll(".dock-tab").forEach((button) => {
+    button.classList.toggle("on", button.dataset.dock === name);
+  });
+  document.querySelectorAll(".dock-page").forEach((page) => {
+    page.classList.toggle("on", page.dataset.dockPage === name);
+  });
+  if (window.matchMedia("(max-width: 980px)").matches) {
+    document.body.dataset.tab = "study";
+    document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
+      button.classList.toggle("on", button.dataset.tab === "study");
+    });
+  }
+}
+
+$("study-install").addEventListener("click", () => {
+  try {
+    const code = $("study-code").value;
+    const result = PaperStudy.runStudy(code, (state.market && state.market.bars) || []);
+    const name = ($("study-name").value || "Study").trim().slice(0, 40) || "Study";
+    const studies = storedStudies().filter((item) => item.name !== name);
+    studies.unshift({ name, code });
+    saveStudies(studies);
+    state.studyCode = code;
+    state.study = result;
+    fillStudyList();
+    $("study-list").value = name;
+    drawCandles();
+    $("study-status").textContent = "Installed " + name + " on this device. " + result.plots.length + " plots. No broker order was sent.";
+  } catch (error) {
+    state.study = null;
+    $("study-status").textContent = error.message;
+  }
+});
+
+$("study-remove").addEventListener("click", () => {
+  const name = $("study-list").value;
+  if (!name) return;
+  saveStudies(storedStudies().filter((item) => item.name !== name));
+  state.study = null;
+  state.studyCode = "";
+  fillStudyList();
+  if (state.market) drawCandles();
+  $("study-status").textContent = "Removed from this device.";
+});
+
+$("study-list").addEventListener("change", () => {
+  const found = storedStudies().find((item) => item.name === $("study-list").value);
+  if (!found) return;
+  $("study-name").value = found.name;
+  $("study-code").value = found.code;
+  state.studyCode = found.code;
+  try {
+    state.study = PaperStudy.runStudy(found.code, (state.market && state.market.bars) || []);
+    if (state.market) drawCandles();
+    $("study-status").textContent = found.name + " is on the chart. It stays on this device.";
+  } catch (error) {
+    $("study-status").textContent = error.message;
+  }
+});
+
+document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.body.dataset.tab = button.dataset.tab;
+    document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item === button));
+    if (state.market && state.paper) {
+      drawCandles();
+      drawRsi();
+    }
+  });
+});
+
+document.querySelectorAll(".dock-tab").forEach((button) => {
+  button.addEventListener("click", () => showDock(button.dataset.dock));
+});
 
 window.addEventListener("resize", () => {
   if (state.market && state.paper) {

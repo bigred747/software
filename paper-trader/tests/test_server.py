@@ -215,6 +215,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"B4 readings", page)
         self.assertIn(b"drawArrow", script)
         self.assertIn("paper-trader/paper_trader/catalog.txt", names)
+        self.assertIn("paper-trader/web/study.js", names)
+        self.assertIn("paper-trader/iphone/PaperTrader.html", names)
+        self.assertIn(b"Install study", page)
         self.assertIn(b"..", path_file)
 
 
