@@ -53,7 +53,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.26";
+const VERSION = "1.9.27";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -1953,12 +1953,30 @@ async function warnSqueeze() {
 async function autoTick() {
   if (!state.auto || state.busy) return;
   state.busy = true;
-  let delay = 15000;
+  let delay = 5000;
   try {
     if (state.offline && state.session) {
-      const row = state.catalog.find((item) => item.symbol === state.session.symbol);
-      const bars = await PaperLive.daily(state.session.symbol, row ? row.category : "");
-      const paper = PaperEngine.replaceBars(state.session, bars);
+      const symbol = state.session.symbol;
+      let bars = state.session.bars;
+      if (bars && bars.length && PaperLive.lastTrade) {
+        const trade = await PaperLive.lastTrade(symbol);
+        const last = bars[bars.length - 1];
+        const live = Number(trade.price);
+        bars[bars.length - 1] = {
+          date: last.date,
+          open: last.open,
+          high: Math.max(last.high, live, last.open),
+          low: Math.min(last.low, live, last.open),
+          close: live,
+          volume: last.volume,
+        };
+        if (trade.asOf > 0) bars.asOf = trade.asOf;
+      } else {
+        const row = state.catalog.find((item) => item.symbol === symbol);
+        bars = await PaperLive.daily(symbol, row ? row.category : "");
+        PaperEngine.replaceBars(state.session, bars);
+      }
+      const paper = PaperEngine.view(state.session);
       state.market = PaperEngine.market(state.session);
       stampQuote(bars);
       render(paper);

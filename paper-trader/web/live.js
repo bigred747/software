@@ -48,8 +48,55 @@
       previous = date;
     });
     if (!bars.length) throw new Error("No live quote");
-    bars.asOf = Math.floor(Date.now() / 1000);
+    const last = ordered[ordered.length - 1];
+    bars.asOf = last && last.unix > 0 ? Math.floor(last.unix) : Math.floor(Date.now() / 1000);
     return bars;
+  }
+
+  function applyTrade(bars, trade) {
+    if (!trade || !(Number(trade.price) > 0) || !bars.length) return bars;
+    const last = bars[bars.length - 1];
+    const live = Number(trade.price);
+    bars[bars.length - 1] = {
+      date: last.date,
+      open: last.open,
+      high: Math.max(last.high, live, last.open),
+      low: Math.min(last.low, live, last.open),
+      close: live,
+      volume: last.volume,
+    };
+    if (trade.asOf > 0) bars.asOf = trade.asOf;
+    return bars;
+  }
+
+  async function coinbaseTicker(symbol) {
+    const payload = await pull("https://api.exchange.coinbase.com/products/" + encodeURIComponent(symbol) + "/ticker");
+    const price = Number(payload && payload.price);
+    const asOf = payload && payload.time ? Math.floor(Date.parse(payload.time) / 1000) : 0;
+    if (!(price > 0)) throw new Error("No live quote for " + symbol);
+    return { price, asOf };
+  }
+
+  async function bitstampTicker(symbol) {
+    const pair = symbol.replace("-", "").toLowerCase();
+    const payload = await pull("https://www.bitstamp.net/api/v2/ticker/" + pair + "/");
+    const price = Number(payload && payload.last);
+    const asOf = Number(payload && payload.timestamp) || 0;
+    if (!(price > 0)) throw new Error("No live quote for " + symbol);
+    return { price, asOf };
+  }
+
+  async function lastTrade(symbol) {
+    let last = new Error("The quote feed did not answer. Check the connection.");
+    const readers = [coinbaseTicker, bitstampTicker];
+    for (let index = 0; index < readers.length; index += 1) {
+      try {
+        return await readers[index](symbol);
+      } catch (error) {
+        last = error instanceof Error ? error : last;
+      }
+    }
+    throw last;
   }
 
   function timed(promise) {
@@ -192,11 +239,19 @@
     return category === "crypto" || /-USD$/.test(symbol);
   }
 
+  async function withLastTrade(symbol, bars) {
+    try {
+      return applyTrade(bars, await lastTrade(symbol));
+    } catch (error) {
+      return bars;
+    }
+  }
+
   async function daily(symbol, category) {
     if (!crypto(symbol, category)) {
       throw new Error(symbol + " loads on the computer desk. This device loads live crypto quotes.");
     }
-    return candles(symbol, "1D", false);
+    return withLastTrade(symbol, await candles(symbol, "1D", false));
   }
 
   async function frame(symbol, category, frameId) {
@@ -204,12 +259,12 @@
       throw new Error(symbol + " loads on the computer desk. This device loads live crypto quotes.");
     }
     if (frameId === "1W" || frameId === "1M" || frameId === "1Q") {
-      const dailyBars = await candles(symbol, "1D", false);
+      const dailyBars = await withLastTrade(symbol, await candles(symbol, "1D", false));
       return root.PaperFrames.barsFor(dailyBars, root.PaperFrames.frameById(frameId));
     }
     if (!{ "1m": 1, "5m": 1, "15m": 1, "30m": 1, "1h": 1, "4h": 1, "1D": 1 }[frameId]) throw new Error("Unknown timeframe");
-    return candles(symbol, frameId, frameId !== "1D");
+    return withLastTrade(symbol, await candles(symbol, frameId, frameId !== "1D"));
   }
 
-  root.PaperLive = { daily, frame };
+  root.PaperLive = { daily, frame, lastTrade };
 })(typeof globalThis !== "undefined" ? globalThis : this);

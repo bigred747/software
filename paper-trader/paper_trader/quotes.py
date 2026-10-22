@@ -127,26 +127,48 @@ def parse_chart(payload: dict, intraday: bool) -> tuple[list[Bar], dict]:
             volume = 0.0
         bars.append(Bar(label, open_, high, low, close, volume))
         previous = label
-    price = meta.get("regularMarketPrice")
-    if bars and price is not None and not intraday:
+    as_of, live = _latest_price(meta, stamps)
+    if bars and live > 0 and not intraday:
         last = bars[-1]
-        live = float(price)
-        if live > 0:
-            bars[-1] = Bar(
-                last.date,
-                last.open,
-                max(last.high, live, last.open),
-                min(last.low, live, last.open),
-                live,
-                last.volume,
-            )
-    as_of = int(meta.get("regularMarketTime") or (stamps[-1] if stamps else 0))
-    shown = float(price) if price is not None else (bars[-1].close if bars else 0.0)
+        bars[-1] = Bar(
+            last.date,
+            last.open,
+            max(last.high, live, last.open),
+            min(last.low, live, last.open),
+            live,
+            last.volume,
+        )
+    shown = live if live > 0 else (bars[-1].close if bars else 0.0)
     return bars, {
         "as_of": as_of,
         "price": shown,
         "exchange": str(meta.get("exchangeName") or ""),
     }
+
+
+def _latest_price(meta: dict, stamps: list) -> tuple[int, float]:
+    """The newest price the feed published: regular session, or a later pre/post trade."""
+    regular_time = int(meta.get("regularMarketTime") or (stamps[-1] if stamps else 0))
+    choices: list[tuple[int, float]] = []
+    regular = meta.get("regularMarketPrice")
+    if regular is not None:
+        try:
+            price = float(regular)
+        except (TypeError, ValueError):
+            price = 0.0
+        if price > 0:
+            choices.append((regular_time, price))
+    for time_key, price_key in (("postMarketTime", "postMarketPrice"), ("preMarketTime", "preMarketPrice")):
+        try:
+            moment = int(meta.get(time_key) or 0)
+            price = float(meta.get(price_key) or 0)
+        except (TypeError, ValueError):
+            continue
+        if moment > 0 and price > 0:
+            choices.append((moment, price))
+    if not choices:
+        return regular_time, 0.0
+    return max(choices, key=lambda item: item[0])
 
 
 def aggregate_hours(bars: list[Bar], size: int) -> list[Bar]:

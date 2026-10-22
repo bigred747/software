@@ -87,6 +87,16 @@ class QuoteParseTests(unittest.TestCase):
         start = int(datetime(2024, 1, 2, tzinfo=timezone.utc).timestamp())
         stamps = [start, start + 86400]
         bars, _meta = quotes.parse_chart(_chart(stamps, [10, 0], [11, 1], [9, 0], [10.5, 1]), intraday=False)
+
+    def test_a_later_extended_trade_is_the_quote(self) -> None:
+        payload = _chart([1_700_000_000], [10], [11], [9], [10.5], price=10.5, when=1_700_000_000)
+        meta = payload["chart"]["result"][0]["meta"]
+        meta["postMarketPrice"] = 12
+        meta["postMarketTime"] = 1_700_003_600
+        bars, parsed = quotes.parse_chart(payload, intraday=False)
+        self.assertEqual(parsed["price"], 12)
+        self.assertEqual(parsed["as_of"], 1_700_003_600)
+        self.assertEqual(bars[-1].close, 12)
         self.assertEqual(len(bars), 1)
 
     def test_yahoo_symbols_follow_the_catalog(self) -> None:
