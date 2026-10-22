@@ -19,6 +19,7 @@ from paper_trader.install import keep_only_running, single_copy_status, write_de
 from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
 from paper_trader.learn import (
     allow_entry,
+    buys_on,
     book_view,
     bought_on,
     desk_day,
@@ -170,7 +171,12 @@ class Desk:
             side = "sell" if held else "buy"
             if side == "buy":
                 day = bars[-1].date
-                reason = allow_entry(self.journal.symbol, self._picks(self.journal.symbol, bars), self._already_bought(day))
+                reason = allow_entry(
+                    self.journal.symbol,
+                    self._picks(self.journal.symbol, bars),
+                    self._already_bought(day),
+                    buys_on(self._day_path(), day),
+                )
                 if reason:
                     raise ValueError(reason)
                 remember_day_buy(self._day_path(), self.journal.symbol, day)

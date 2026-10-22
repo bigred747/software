@@ -32,9 +32,11 @@ MIN_SEEN = 8
 PRECISE_SEEN = 20
 PRECISE_RATE = 0.60
 PICK_LIMIT = 5
+PICK_AIM = 3
+PICK_GAP = 5
 SCAN_LIMIT = 12
 WATCH_LIMIT = 24
-PICK_NOTE = "Closed-bar score of the strongest markets today. At most 5. Not a forecast."
+PICK_NOTE = "The strongest buy setups today. Three to five names, and no more. Not a forecast."
 EMPTY_NOTE = "No market cleared the bar today."
 SCAN_PAUSE = 0.15
 INTERVAL = 60.0
@@ -115,8 +117,36 @@ def precise_rate(seen: int, matched: int) -> float | None:
     return rate
 
 
+def best_picks(qualified: list[dict]) -> list[dict]:
+    """Three to five of the highest scores. Never more than five.
+
+    Names tied with the best score are kept first. When fewer than three
+    share that score, the next name is added only while it stays within
+    5 points of the best. Once three seats are filled, a lower score stays off.
+    """
+    if not qualified:
+        return []
+    best = int(qualified[0]["rate"])
+    kept: list[dict] = []
+    seen_names: set[str] = set()
+    for item in qualified:
+        symbol = str(item.get("symbol") or "")
+        if not symbol or symbol in seen_names:
+            continue
+        if len(kept) >= PICK_LIMIT:
+            break
+        rate = int(item["rate"])
+        close_enough = len(kept) < PICK_AIM and best - rate <= PICK_GAP
+        if rate == best or close_enough:
+            seen_names.add(symbol)
+            kept.append(item)
+            continue
+        break
+    return kept
+
+
 def rank_today(rows: list[dict]) -> list[dict]:
-    """Keep today's buy setups that cleared the closed-bar bar. At most five."""
+    """Today's buy setups with the highest closed-bar scores. Three to five, and no more."""
     dated = _current_rows(rows)
     if not dated:
         return []
@@ -145,16 +175,7 @@ def rank_today(rows: list[dict]) -> list[dict]:
             "setup": "buy",
         })
     qualified.sort(key=lambda item: (-int(item["rate"]), -int(item["seen"]), str(item["symbol"])))
-    kept: list[dict] = []
-    seen_names: set[str] = set()
-    for item in qualified:
-        if item["symbol"] in seen_names:
-            continue
-        seen_names.add(item["symbol"])
-        kept.append(item)
-        if len(kept) >= PICK_LIMIT:
-            break
-    return kept
+    return best_picks(qualified)
 
 
 def pick_note(picks: list[dict]) -> str:
@@ -308,14 +329,23 @@ def scan_report(path: Path) -> dict:
     }
 
 
-def allow_entry(symbol: str, picks: list[dict], bought_today: bool) -> str:
-    """A new paper buy needs a seat in today's five, and only one buy per name per day."""
+def allow_entry(symbol: str, picks: list[dict], bought_today: bool, buys_today: int = 0) -> str:
+    """A new paper buy needs a seat in today's best, with at most five new buys a day."""
+    if int(buys_today) >= PICK_LIMIT:
+        return "Today already has five paper buys."
     names = {str(row.get("symbol") or "") for row in picks}
     if symbol not in names:
-        return "This market is not in today's five."
+        return "This market is not in today's best."
     if bought_today:
         return "This market already has a paper buy today."
     return ""
+
+
+def buys_on(path: Path, day: str) -> int:
+    raw = _load_day(path)
+    if str(raw.get("date") or "") != day:
+        return 0
+    return len({str(item) for item in list(raw.get("symbols") or []) if str(item)})
 
 
 def bought_on(path: Path, symbol: str, day: str) -> bool:

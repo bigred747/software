@@ -263,11 +263,18 @@ class ScanTests(unittest.TestCase):
             _row("F", 50, 40),
         ]
         picks = rank_today(rows)
-        self.assertEqual([row["symbol"] for row in picks], ["F", "B", "C", "A", "D"])
+        self.assertEqual([row["symbol"] for row in picks], ["F", "B", "C", "A"])
         self.assertEqual(picks[0]["rate"], 80)
-        self.assertEqual(allow_entry("SPY", picks, False), "This market is not in today's five.")
+        self.assertNotIn("D", [row["symbol"] for row in picks])
+        self.assertLessEqual(len(picks), 5)
+        self.assertEqual(allow_entry("SPY", picks, False), "This market is not in today's best.")
         self.assertEqual(allow_entry("F", picks, True), "This market already has a paper buy today.")
         self.assertEqual(allow_entry("F", picks, False), "")
+        self.assertEqual(allow_entry("F", picks, False, 5), "Today already has five paper buys.")
+        tied = [_row(f"T{index}", 40, 32) for index in range(6)]
+        self.assertEqual(len(rank_today(tied)), 5)
+        thin = [_row("TOP", 40, 36), _row("NEAR", 20, 17), _row("FAR", 20, 12)]
+        self.assertEqual([row["symbol"] for row in rank_today(thin)], ["TOP", "NEAR"])
 
     def test_leaders_are_the_highest_closed_bar_scores(self) -> None:
         rows = [_row("SHORT", 8, 8), _row("WEAK", 20, 11, setup="")]

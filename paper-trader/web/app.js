@@ -53,7 +53,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.25";
+const VERSION = "1.9.26";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -471,13 +471,30 @@ function phoneLeaders(rows, buysOnly) {
     .sort((a, b) => b.rate - a.rate || b.seen - a.seen || a.symbol.localeCompare(b.symbol));
 }
 
+function bestPicks(rows) {
+  const qualified = phoneLeaders(rows, true);
+  if (!qualified.length) return [];
+  const best = qualified[0].rate;
+  const kept = [];
+  for (let index = 0; index < qualified.length; index += 1) {
+    const row = qualified[index];
+    if (kept.length >= 5) break;
+    if (row.rate === best || (kept.length < 3 && best - row.rate <= 5)) kept.push(row);
+    else break;
+  }
+  return kept;
+}
+
 function phoneBuyReason(symbol) {
-  if (!state.scanOn && !state.scanDone) return "Turn the scanner on to fill today's five.";
+  if (!state.scanOn && !state.scanDone) return "Turn the scanner on to fill today's best.";
   if (!state.scanDone) return "The daily scan is still walking live crypto.";
-  if (!(state.picks || []).some((row) => row.symbol === symbol)) return "This market is not in today's five.";
   const bars = state.session && state.session.bars ? state.session.bars : [];
   const day = bars.length ? bars[bars.length - 1].date : "";
-  if ((state.session.dayBuys || []).includes(day + "|" + symbol)) return "This market already has a paper buy today.";
+  const bought = (state.session.dayBuys || []).filter((key) => key.indexOf(day + "|") === 0);
+  const names = new Set(bought.map((key) => key.slice(day.length + 1)));
+  if (names.size >= 5) return "Today already has five paper buys.";
+  if (!(state.picks || []).some((row) => row.symbol === symbol)) return "This market is not in today's best.";
+  if (names.has(symbol)) return "This market already has a paper buy today.";
   return "";
 }
 
@@ -624,7 +641,7 @@ async function scanPhone() {
     }
     if (token !== phoneScanToken || !state.scanOn) return;
     const leaders = phoneLeaders(scored, false).slice(0, 12);
-    const picks = phoneLeaders(scored, true).slice(0, 5);
+    const picks = bestPicks(scored);
     state.leaders = leaders;
     state.picks = picks;
     const done = index + 1 === symbols.length;
@@ -632,7 +649,7 @@ async function scanPhone() {
     const missed = errors ? " " + errors + " quotes did not answer." : "";
     state.scanNote = "Scanned " + (index + 1) + " of " + symbols.length + ". This phone scans live crypto. " + score + missed;
     state.pickNote = picks.length
-      ? "Closed-bar score of the strongest markets today. At most 5. Not a forecast."
+      ? "The strongest buy setups today. Three to five names, and no more. Not a forecast."
       : "No market cleared the bar today.";
     state.scanDone = done;
     renderScan();
