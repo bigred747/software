@@ -31,7 +31,6 @@ STALE_SECONDS = 180.0
 DEFAULT_RULE = "True momentum 5/3 with the candle"
 _SYMBOL = re.compile(r"^[A-Za-z0-9.^=-]{1,16}$")
 _WATCH_LOCK = threading.Lock()
-_DETACHED = 0x00000008 | 0x00000200 | 0x08000000
 
 
 def mood(bars: list[Bar], length: int = 20) -> dict:
@@ -152,10 +151,17 @@ def startup_folder() -> Path | None:
 
 
 def startup_script(python: Path, launch: Path) -> str:
-    """Hidden sign-in launch. It does not change firewall, registry, or exclusions."""
-    command = f'"{python}" "{launch}" learn'
-    literal = '"' + command.replace('"', '""') + '"'
-    return 'Set shell = CreateObject("WScript.Shell")\r\n' f"shell.Run {literal}, 0, False\r\n"
+    """Sign-in launch in a normal window named Paper Trader Learn.
+
+    It does not hide the window, and it does not change firewall, registry, or exclusions.
+    """
+    root = launch.parent
+    return (
+        "@echo off\r\n"
+        f'cd /d "{root}"\r\n'
+        "title Paper Trader Learn\r\n"
+        f'start "Paper Trader Learn" /MIN "{python}" "{launch}" learn\r\n'
+    )
 
 
 def write_startup(root: Path, folder: Path | None = None) -> Path | None:
@@ -166,7 +172,10 @@ def write_startup(root: Path, folder: Path | None = None) -> Path | None:
     program = python if python.is_file() else Path(sys.executable)
     try:
         destination.mkdir(parents=True, exist_ok=True)
-        path = destination / "Paper Trader Learn.vbs"
+        hidden = destination / "Paper Trader Learn.vbs"
+        if hidden.is_file():
+            hidden.unlink()
+        path = destination / "Paper Trader Learn.bat"
         path.write_text(startup_script(program, root / "launch.py"), encoding="utf-8")
     except OSError:
         return None
@@ -413,10 +422,18 @@ def stop_learners(home: Path, source: Path | None = None, killer=None) -> list[i
     return stopped
 
 
-def spawn_learner(root: Path) -> None:
+def learner_command(root: Path, windows: bool | None = None) -> list[str]:
+    """The score's launch command. On Windows the window is named Paper Trader Learn."""
     python = root / "runtime" / "python.exe"
     program = str(python if python.is_file() else Path(sys.executable))
-    command = [program, str(root / "launch.py"), "learn"]
+    launch = str(root / "launch.py")
+    if os.name == "nt" if windows is None else windows:
+        return ["cmd", "/c", "start", "Paper Trader Learn", "/MIN", program, launch, "learn"]
+    return [program, launch, "learn"]
+
+
+def spawn_learner(root: Path) -> None:
+    command = learner_command(root)
     options: dict = {
         "cwd": str(root),
         "stdin": subprocess.DEVNULL,
@@ -425,7 +442,7 @@ def spawn_learner(root: Path) -> None:
         "close_fds": True,
     }
     if os.name == "nt":
-        options["creationflags"] = _DETACHED
+        options["creationflags"] = 0x08000000
     else:
         options["start_new_session"] = True
     subprocess.Popen(command, **options)

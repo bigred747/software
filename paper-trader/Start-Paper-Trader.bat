@@ -16,6 +16,12 @@ set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup"
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
 if exist "%STAGE%" set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup-%RANDOM%"
 mkdir "%STAGE%"
+mkdir "%STAGE%\paper-trader" 2>nul
+mkdir "%STAGE%\paper-trader\paper_trader" 2>nul
+mkdir "%STAGE%\paper-trader\web" 2>nul
+mkdir "%STAGE%\paper-trader\tools" 2>nul
+mkdir "%STAGE%\paper-trader\iphone" 2>nul
+mkdir "%STAGE%\paper-trader\runtime" 2>nul
 tar -xf "!ZIP!" -C "%STAGE%"
 if errorlevel 1 goto BadZip
 if not exist "%STAGE%\paper-trader\launch.py" goto BadZip
@@ -67,6 +73,8 @@ exit /b 1
 
 :BadZip
 echo Could not extract Paper-Trader.zip.
+echo The program files could not be written into Documents.
+echo If a security program blocked them, allow Paper Trader, then double-click this file again.
 pause
 exit /b 1
 

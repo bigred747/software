@@ -18,6 +18,7 @@ from paper_trader.learn import (
     choose,
     ensure_learner,
     fit,
+    learner_command,
     learning_report,
     mood,
     remember_symbols,
@@ -180,14 +181,28 @@ class AlwaysOnTests(unittest.TestCase):
         launch = Path(r"C:\Users\rick\Documents\Paper Trader\launch.py")
         script = startup_script(python, launch)
         self.assertIn("learn", script)
+        self.assertIn("Paper Trader Learn", script)
         self.assertIn(str(python), script)
+        self.assertNotIn("wscript", script.lower())
         self.assertNotIn("powershell", script.lower())
         for blocked in ("reg add", "netsh", "pip", "schtasks"):
             self.assertNotIn(blocked, script.lower())
+        source = (Path(__file__).resolve().parents[1] / "paper_trader" / "learn.py").read_text(encoding="utf-8")
+        self.assertNotIn("WScript", source)
+        self.assertNotIn("shell.Run", source)
         with tempfile.TemporaryDirectory() as folder:
-            written = write_startup(Path(folder), Path(folder))
+            folder_path = Path(folder)
+            (folder_path / "Paper Trader Learn.vbs").write_text("old\r\n", encoding="utf-8")
+            written = write_startup(folder_path, folder_path)
             self.assertIsNotNone(written)
+            assert written is not None
+            self.assertEqual(written.suffix, ".bat")
             self.assertIn("learn", written.read_text(encoding="utf-8"))
+            self.assertFalse((folder_path / "Paper Trader Learn.vbs").exists())
+        command = learner_command(Path(r"C:\Users\rick\Documents\Paper Trader"), windows=True)
+        self.assertIn("Paper Trader Learn", command)
+        self.assertIn("learn", command)
+        self.assertNotIn("powershell", " ".join(command).lower())
 
     def test_watch_list_drops_bad_symbols(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
