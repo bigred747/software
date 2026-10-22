@@ -52,7 +52,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.22";
+const VERSION = "1.9.23";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -564,15 +564,45 @@ async function loadCatalogText() {
 async function bootOffline() {
   const text = await loadCatalogText();
   state.catalog = PaperEngine.parseCatalog(text);
-  const saved = savedSymbol();
-  let symbol = state.catalog.some((row) => row.symbol === saved) ? saved : "BTC-USD";
-  let row = state.catalog.find((item) => item.symbol === symbol);
-  if (!phoneCrypto(symbol, row)) {
-    symbol = "BTC-USD";
-    row = state.catalog.find((item) => item.symbol === symbol);
+  const select = $("category");
+  if (select) {
+    const value = select.value;
+    const visible = state.catalog.some((row) => !value || row.category === value);
+    if (!visible) select.value = "crypto";
   }
-  const bars = await PaperLive.daily(symbol, row ? row.category : "");
-  state.session = PaperEngine.sessionFromBars(symbol, bars, {});
+  renderPins();
+  state.scanNote = "Loading the live quote…";
+  state.pickNote = "";
+  renderScan();
+  renderToday();
+  await refreshSymbols();
+  deskLine("Loading the live quote…");
+  const saved = savedSymbol();
+  const order = [];
+  [saved, "BTC-USD", "ETH-USD", "XRP-USD", "SOL-USD"].forEach((symbol) => {
+    if (!symbol || order.includes(symbol)) return;
+    const row = state.catalog.find((item) => item.symbol === symbol);
+    if (row && phoneCrypto(symbol, row)) order.push(symbol);
+  });
+  let found = null;
+  let lastError = null;
+  for (let index = 0; index < order.length; index += 1) {
+    const symbol = order[index];
+    const row = state.catalog.find((item) => item.symbol === symbol);
+    try {
+      const bars = await PaperLive.daily(symbol, row ? row.category : "crypto");
+      found = { symbol, bars };
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (!found) {
+    scanPhone();
+    throw lastError || new Error("The quote feed did not answer. Check the connection.");
+  }
+  const bars = found.bars;
+  state.session = PaperEngine.sessionFromBars(found.symbol, bars, {});
   state.paper = PaperEngine.view(state.session);
   await refreshSymbols();
   fillForm(state.paper.params);
@@ -583,6 +613,7 @@ async function bootOffline() {
   rememberSymbol(state.paper.symbol);
   noteEdge();
   deskLine("Desk is working.");
+  showChart();
   scanPhone();
   if (state.paper.paper === true) {
     state.auto = true;
@@ -863,7 +894,10 @@ function renderPins() {
   const bar = $("pins");
   if (!bar) return;
   const current = (state.paper && state.paper.symbol) || "";
-  const pins = readPins();
+  let pins = readPins();
+  if (state.offline) {
+    pins = pins.filter((symbol) => phoneCrypto(symbol, state.catalog.find((row) => row.symbol === symbol)));
+  }
   bar.replaceChildren();
   pins.forEach((symbol) => {
     const button = document.createElement("button");
