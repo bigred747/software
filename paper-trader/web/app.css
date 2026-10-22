@@ -276,7 +276,7 @@ canvas {
   margin-top: 8px;
 }
 #candles { flex: 1 1 auto; min-height: 240px; height: auto; }
-#rsi-chart { height: 84px; flex: 0 0 auto; }
+#rsi-chart { height: 112px; flex: 0 0 auto; }
 
 .dock-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; }
 .dock-tab {

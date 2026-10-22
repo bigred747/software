@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -93,4 +93,24 @@ test("pivot resistance follows the rising high and support stays under it", () =
   assert.ok(pivots.confirmLow >= pivots.support);
   assert.ok(pivots.riskOffLow >= pivots.confirmLow);
   assert.equal(pivots.fromHigh, 29);
+});
+
+test("true momentum stays inside the length and confirms arrows on a closed bar", () => {
+  const bars = [];
+  for (let index = 0; index < 40; index += 1) {
+    const close = index < 25 ? 100 + index : 130 - (index - 25) * 4;
+    const open = index < 25 ? close - 2 : close + 2;
+    bars.push(day("2024-04-" + String((index % 27) + 1).padStart(2, "0"), open, Math.max(open, close) + 1, Math.min(open, close) - 1, close));
+  }
+  const study = trueMomentum(bars, 14, 5, 3);
+  assert.equal(study.main.length, 40);
+  assert.equal(study.ob, 10);
+  assert.equal(study.os, -10);
+  study.main.forEach((value) => {
+    assert.ok(value <= 14.01 && value >= -14.01);
+  });
+  assert.equal(study.up[39], false);
+  assert.equal(study.down[39], false);
+  assert.equal(study.main[18], 14);
+  assert.equal(study.down[25], true);
 });

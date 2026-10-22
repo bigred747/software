@@ -38,7 +38,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.9";
+const VERSION = "1.9.10";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -409,7 +409,7 @@ function render(paper) {
   renderReadings();
   renderFrames();
   drawCandles();
-  drawRsi();
+  drawTmo();
 }
 
 function savedSymbol() {
@@ -522,7 +522,7 @@ function showChart() {
   requestAnimationFrame(() => {
     if (state.market && state.paper) {
       drawCandles();
-      drawRsi();
+      drawTmo();
     }
   });
 }
@@ -810,6 +810,7 @@ function renderReadings() {
     ["Averages", averageName],
     ["Resistance", pivotsText(PaperFrames.trendPivots(bars), "high")],
     ["Support", pivotsText(PaperFrames.trendPivots(bars), "low")],
+    ["TMO", tmoText(bars)],
   ].forEach(([name, value]) => {
     const row = document.createElement("div");
     const label = document.createElement("dt");
@@ -850,6 +851,15 @@ function fillTrades(body, trades) {
     });
     body.appendChild(row);
   });
+}
+
+function tmoText(bars) {
+  if (!bars.length) return "—";
+  const study = PaperFrames.trueMomentum(bars);
+  const last = study.main.length - 1;
+  if (study.main[last] == null || study.signal[last] == null) return "—";
+  const side = study.main[last] > study.signal[last] ? "Main above signal" : "Main below signal";
+  return side + " " + study.main[last].toFixed(1);
 }
 
 function pivotsText(pivots, side) {
@@ -1056,25 +1066,77 @@ function drawArrow(ctx, x, y, up) {
   ctx.stroke();
 }
 
-function drawRsi() {
+function drawTmo() {
   const canvas = $("rsi-chart");
-  const values = visible(state.market.rsi);
+  if (!state.market || !canvas) return;
+  const history = sliceToCursor(state.market.bars);
+  if (!history.length) return;
+  const study = PaperFrames.trueMomentum(history);
+  const count = Math.min(180, history.length);
+  const dropped = history.length - count;
+  const main = study.main.slice(dropped);
+  const signal = study.signal.slice(dropped);
+  const up = study.up.slice(dropped);
+  const down = study.down.slice(dropped);
   const ctx = prepare(canvas);
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   const pad = 28;
-  const y = (value) => pad / 2 + ((100 - value) / 100) * (height - pad);
-  ctx.strokeStyle = "#2d3640";
-  ctx.fillStyle = "#9aa6b2";
-  ctx.font = "12px Segoe UI, sans-serif";
-  [30, 70].forEach((level) => {
+  const limit = study.length;
+  const y = (value) => 10 + ((limit - value) / (limit * 2)) * (height - 18);
+  const slot = (width - pad * 2) / Math.max(1, main.length);
+  ctx.fillStyle = "rgba(255, 107, 122, 0.16)";
+  ctx.fillRect(pad, y(limit), width - pad - 8, Math.max(1, y(study.ob) - y(limit)));
+  ctx.fillStyle = "rgba(61, 220, 151, 0.16)";
+  ctx.fillRect(pad, y(study.os), width - pad - 8, Math.max(1, y(-limit) - y(study.os)));
+  ctx.font = "11px Segoe UI, sans-serif";
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = "#8b98a5";
+  [study.ob, 0, study.os].forEach((level) => {
     ctx.beginPath();
     ctx.moveTo(pad, y(level));
     ctx.lineTo(width - 8, y(level));
     ctx.stroke();
+    ctx.fillStyle = "#9aa6b2";
     ctx.fillText(String(level), 4, y(level) + 4);
   });
-  drawLine(ctx, values, y, pad, (width - pad * 2) / Math.max(1, values.length), "#c9d4e3");
+  ctx.setLineDash([]);
+  for (let index = 1; index < main.length; index += 1) {
+    if (main[index] == null || signal[index] == null) continue;
+    const left = pad + (index - 1) * slot + slot / 2;
+    const right = pad + index * slot + slot / 2;
+    const top = Math.min(y(main[index]), y(signal[index]));
+    const bottom = Math.max(y(main[index]), y(signal[index]));
+    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.55)" : "rgba(122, 28, 40, 0.55)";
+    ctx.fillRect(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
+  }
+  strokeOscillator(ctx, main, main, signal, y, pad, slot);
+  strokeOscillator(ctx, signal, main, signal, y, pad, slot);
+  up.forEach((mark, index) => {
+    if (!mark || main[index] == null) return;
+    ctx.fillStyle = "#67e8f9";
+    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) + 11, true);
+  });
+  down.forEach((mark, index) => {
+    if (!mark || main[index] == null) return;
+    ctx.fillStyle = "#ff6b7a";
+    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 11, false);
+  });
+  ctx.fillStyle = "#d7e2ea";
+  ctx.fillText("TMO", pad, 12);
+}
+
+function strokeOscillator(ctx, values, lead, other, y, pad, slot) {
+  ctx.lineWidth = 2;
+  for (let index = 1; index < values.length; index += 1) {
+    if (values[index] == null || values[index - 1] == null || lead[index] == null || other[index] == null) continue;
+    ctx.strokeStyle = lead[index] > other[index] ? "#3ddc97" : "#ff6b7a";
+    ctx.beginPath();
+    ctx.moveTo(pad + (index - 1) * slot + slot / 2, y(values[index - 1]));
+    ctx.lineTo(pad + index * slot + slot / 2, y(values[index]));
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
 }
 
 function drawLine(ctx, values, y, pad, slot, color, weight) {
@@ -1398,7 +1460,7 @@ document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
     document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item === button));
     if (state.market && state.paper) {
       drawCandles();
-      drawRsi();
+      drawTmo();
     }
   });
 });
@@ -1410,7 +1472,7 @@ document.querySelectorAll(".dock-tab").forEach((button) => {
 window.addEventListener("resize", () => {
   if (state.market && state.paper) {
     drawCandles();
-    drawRsi();
+    drawTmo();
   }
 });
 

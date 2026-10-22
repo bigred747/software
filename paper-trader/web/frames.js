@@ -203,6 +203,36 @@
     return "Off";
   }
 
+  function trueMomentum(bars, length, calcLength, smoothLength) {
+    const window = Math.max(2, Math.round(Number(length) || 14));
+    const calc = Math.max(1, Math.round(Number(calcLength) || 5));
+    const smooth = Math.max(1, Math.round(Number(smoothLength) || 3));
+    const count = bars.length;
+    const data = new Array(count).fill(0);
+    for (let index = 0; index < count; index += 1) {
+      let score = 0;
+      const close = bars[index].close;
+      for (let back = 0; back < window; back += 1) {
+        const open = bars[Math.max(0, index - back)].open;
+        if (close > open) score += 1;
+        else if (close < open) score -= 1;
+      }
+      data[index] = score;
+    }
+    const main = ema(ema(data, calc), smooth);
+    const signal = ema(main, smooth);
+    const up = new Array(count).fill(false);
+    const down = new Array(count).fill(false);
+    for (let index = 2; index < count; index += 1) {
+      const crossedUp = main[index - 1] > signal[index - 1] && main[index - 2] <= signal[index - 2];
+      const crossedDown = main[index - 1] < signal[index - 1] && main[index - 2] >= signal[index - 2];
+      if (crossedUp) up[index - 1] = true;
+      if (crossedDown) down[index - 1] = true;
+    }
+    const bound = Math.round(window * 0.7);
+    return { main, signal, up, down, length: window, ob: bound, os: -bound };
+  }
+
   function tickSize(price) {
     const abs = Math.abs(price) || 1;
     if (abs >= 1000) return 1;
@@ -534,5 +564,6 @@
     compression,
     trendPivots,
     paintPivots,
+    trueMomentum,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
