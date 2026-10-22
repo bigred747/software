@@ -53,7 +53,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.27";
+const VERSION = "1.9.28";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -114,10 +114,20 @@ function phoneCrypto(symbol, row) {
   return (row && row.category === "crypto") || /-USD$/.test(symbol || "");
 }
 
+function digitsFor(price) {
+  const value = Math.abs(Number(price));
+  if (!(value > 0)) return 2;
+  const text = value.toFixed(6).replace(/0+$/, "");
+  const dot = text.indexOf(".");
+  const frac = dot < 0 ? 0 : text.length - dot - 1;
+  return Math.max(2, Math.min(5, frac));
+}
+
 function stampQuote(bars) {
   if (!state.market) return;
   state.market.as_of = bars && bars.asOf ? bars.asOf : Math.floor(Date.now() / 1000);
   state.market.price = bars && bars.length ? bars[bars.length - 1].close : state.market.price;
+  if (state.market.price > 0) state.decimals = digitsFor(state.market.price);
   state.market.note = "Market quote. Paper orders stay on this device.";
 }
 
@@ -161,18 +171,14 @@ async function paperCall(path, body) {
 }
 
 async function refreshSymbols() {
+  const kind = $("category") ? $("category").value : "";
   let listed;
   if (state.offline) {
-    listed = PaperEngine.search(state.catalog, $("search").value.trim(), $("category").value, 40);
-    if (!listed.symbols.length && state.catalog.length) {
-      if ($("category")) $("category").value = "";
-      if ($("search")) $("search").value = "";
-      listed = PaperEngine.search(state.catalog, "", "", 40);
-    }
+    listed = PaperEngine.search(state.catalog, $("search").value.trim(), kind, 40);
   } else {
   const params = new URLSearchParams({
     q: $("search").value.trim(),
-    category: $("category").value,
+    category: kind,
     limit: "40",
   });
   listed = await getJSON("/api/symbols?" + params.toString());
@@ -180,9 +186,11 @@ async function refreshSymbols() {
   const list = $("symbol");
   const current = (state.paper && state.paper.symbol) || list.dataset.value || "";
   const rows = listed.symbols.slice();
-  if (current && !rows.some((item) => item.symbol === current)) {
+  const currentRow = state.catalog.find((item) => item.symbol === current);
+  const sameKind = !kind || (currentRow && currentRow.category === kind) || rows.some((item) => item.symbol === current);
+  if (current && sameKind && !rows.some((item) => item.symbol === current)) {
     const decimals = /-USD$/.test(current) ? 4 : 2;
-    rows.unshift({ symbol: current, name: "Current market", category: "", decimals });
+    rows.unshift({ symbol: current, name: "Current market", category: currentRow ? currentRow.category : "", decimals });
   }
   list.replaceChildren();
   rows.forEach((item) => {
@@ -207,8 +215,8 @@ async function refreshSymbols() {
   if (current) list.dataset.value = current;
   const chosen = rows.find((item) => item.symbol === current);
   if (chosen) state.decimals = Number(chosen.decimals || 2);
-  const total = Number(listed.total || 0).toLocaleString();
-  $("market-count").textContent = list.querySelectorAll("button").length + " listed · " + total + " markets";
+  const count = listed.matched != null ? Number(listed.matched) : Number(listed.total || 0);
+  $("market-count").textContent = list.querySelectorAll("button").length + " listed · " + count.toLocaleString() + " markets";
 }
 
 async function probeDesk() {
@@ -499,6 +507,7 @@ function phoneBuyReason(symbol) {
 }
 
 const SCAN_KEY = "paperTraderScan";
+const TYPE_KEY = "paperTraderType";
 const phoneBarCache = new Map();
 let phoneScanToken = 0;
 
@@ -508,6 +517,29 @@ function readScanOn() {
   } catch (error) {
     return true;
   }
+}
+
+function readType() {
+  try {
+    return localStorage.getItem(TYPE_KEY) || "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function writeType(value) {
+  try {
+    localStorage.setItem(TYPE_KEY, value || "");
+  } catch (error) {
+    return;
+  }
+}
+
+function restoreType() {
+  const select = $("category");
+  if (!select) return;
+  const saved = readType();
+  if (saved && [...select.options].some((option) => option.value === saved)) select.value = saved;
 }
 
 function writeScanOn(on) {
@@ -536,15 +568,32 @@ async function phoneDaily(symbol, category) {
   return bars;
 }
 
+function scanKindNote() {
+  const kind = $("category") && $("category").value;
+  if (kind === "stock") return "This phone scans live stocks.";
+  if (kind === "etf") return "This phone scans live ETFs.";
+  if (kind === "future") return "This phone scans live futures.";
+  return "This phone scans live crypto.";
+}
+
+function missNote(errors) {
+  if (!errors) return "";
+  return " " + errors + (errors === 1 ? " quote did not answer." : " quotes did not answer.");
+}
+
 function scanOrder() {
-  const crypto = state.catalog.filter((row) => phoneCrypto(row.symbol, row.category)).map((row) => row.symbol);
+  const kind = $("category") && $("category").value;
+  const pool = state.catalog.filter((row) => {
+    if (kind === "stock" || kind === "etf" || kind === "future" || kind === "crypto") return row.category === kind;
+    return phoneCrypto(row.symbol, row);
+  }).map((row) => row.symbol);
   const ranked = [];
   const current = (state.paper && state.paper.symbol) || "";
-  if (current && crypto.includes(current)) ranked.push(current);
+  if (current && pool.includes(current)) ranked.push(current);
   readPins().forEach((symbol) => {
-    if (crypto.includes(symbol) && !ranked.includes(symbol)) ranked.push(symbol);
+    if (pool.includes(symbol) && !ranked.includes(symbol)) ranked.push(symbol);
   });
-  crypto.forEach((symbol) => {
+  pool.forEach((symbol) => {
     if (!ranked.includes(symbol)) ranked.push(symbol);
   });
   return ranked;
@@ -602,7 +651,7 @@ async function scanPhone() {
   const symbols = scanOrder();
   if (!symbols.length) {
     state.scanDone = true;
-    state.scanNote = "This phone scans live crypto. No crypto markets are in the list.";
+    state.scanNote = scanKindNote() + " No markets are in this list.";
     renderScan();
     return;
   }
@@ -611,7 +660,7 @@ async function scanPhone() {
   state.scanDone = false;
   state.leaders = [];
   state.picks = [];
-  state.scanNote = "Scanned 0 of " + symbols.length + ". This phone scans live crypto.";
+  state.scanNote = "Scanned 0 of " + symbols.length + ". " + scanKindNote();
   state.pickNote = "";
   renderScan();
   renderToday();
@@ -623,8 +672,12 @@ async function scanPhone() {
     }
     const symbol = symbols[index];
     const row = state.catalog.find((item) => item.symbol === symbol);
+    const open = (state.paper && state.paper.symbol) || "";
     try {
-      const bars = await phoneDaily(symbol, row ? row.category : "");
+      const bars = symbol === open && phoneBarCache.has(symbol)
+        ? phoneBarCache.get(symbol)
+        : await PaperLive.daily(symbol, row ? row.category : "");
+      if (symbol !== open) phoneBarCache.delete(symbol);
       const lesson = PaperFrames.lesson(bars);
       const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(bars) : { kind: "", side: "" };
       const seen = Number(lesson && lesson.seen) || 0;
@@ -646,8 +699,8 @@ async function scanPhone() {
     state.picks = picks;
     const done = index + 1 === symbols.length;
     const score = leaders.length ? "Highest closed-bar scores. Not a forecast." : "No market cleared the bar yet. Not a forecast.";
-    const missed = errors ? " " + errors + " quotes did not answer." : "";
-    state.scanNote = "Scanned " + (index + 1) + " of " + symbols.length + ". This phone scans live crypto. " + score + missed;
+    const missed = missNote(errors);
+    state.scanNote = "Scanned " + (index + 1) + " of " + symbols.length + ". " + scanKindNote() + " " + score + missed;
     state.pickNote = picks.length
       ? "The strongest buy setups today. Three to five names, and no more. Not a forecast."
       : "No market cleared the bar today.";
@@ -689,11 +742,12 @@ async function loadCatalogText() {
 async function bootOffline() {
   const text = await loadCatalogText();
   state.catalog = PaperEngine.parseCatalog(text);
+  restoreType();
   const select = $("category");
   if (select) {
     const value = select.value;
     const visible = state.catalog.some((row) => !value || row.category === value);
-    if (!visible) select.value = "crypto";
+    if (!visible && state.catalog.some((row) => row.category === "crypto")) select.value = "crypto";
   }
   state.scanOn = readScanOn();
   renderPins();
@@ -753,8 +807,8 @@ async function bootOffline() {
     return;
   }
   $("status").textContent = inMicrosoftEdge()
-    ? "Opened in Microsoft Edge. Crypto quotes are live."
-    : "Mobile copy ready. Crypto quotes are live.";
+    ? "Opened in Microsoft Edge. Market quotes are live."
+    : "Mobile copy ready. Market quotes are live.";
 }
 
 async function boot() {
@@ -767,6 +821,7 @@ async function boot() {
     await bootOffline();
     return;
   }
+  restoreType();
   const paper = await getJSON("/api/paper");
   state.paper = paper;
   await refreshSymbols();
@@ -1931,7 +1986,7 @@ async function warnSqueeze() {
       for (let index = 0; index < symbols.length; index += 1) {
         const symbol = symbols[index];
         const row = state.catalog.find((item) => item.symbol === symbol);
-        if (!phoneCrypto(symbol, row) || typeof PaperLive === "undefined" || !PaperFrames.squeezeAlert) continue;
+        if (typeof PaperLive === "undefined" || !PaperFrames.squeezeAlert) continue;
         const bars = await PaperLive.daily(symbol, row ? row.category : "");
         const alert = PaperFrames.squeezeAlert(bars);
         if (!alert.side) continue;
@@ -1959,17 +2014,29 @@ async function autoTick() {
       const symbol = state.session.symbol;
       let bars = state.session.bars;
       if (bars && bars.length && PaperLive.lastTrade) {
-        const trade = await PaperLive.lastTrade(symbol);
+        const row = state.catalog.find((item) => item.symbol === symbol);
+        const trade = await PaperLive.lastTrade(symbol, row ? row.category : "");
         const last = bars[bars.length - 1];
         const live = Number(trade.price);
-        bars[bars.length - 1] = {
-          date: last.date,
-          open: last.open,
-          high: Math.max(last.high, live, last.open),
-          low: Math.min(last.low, live, last.open),
-          close: live,
-          volume: last.volume,
-        };
+        if (trade.date && last.date.length === 10 && last.date < trade.date && trade.open > 0) {
+          bars.push({
+            date: trade.date,
+            open: trade.open,
+            high: Math.max(trade.high || live, trade.open, live),
+            low: Math.min(trade.low || live, trade.open, live),
+            close: live,
+            volume: trade.volume || 0,
+          });
+        } else {
+          bars[bars.length - 1] = {
+            date: last.date,
+            open: last.open,
+            high: Math.max(last.high, live, last.open),
+            low: Math.min(last.low, live, last.open),
+            close: live,
+            volume: last.volume,
+          };
+        }
         if (trade.asOf > 0) bars.asOf = trade.asOf;
       } else {
         const row = state.catalog.find((item) => item.symbol === symbol);
@@ -2100,7 +2167,11 @@ function queueSearch() {
 }
 
 $("search").addEventListener("input", queueSearch);
-$("category").addEventListener("change", queueSearch);
+$("category").addEventListener("change", () => {
+  writeType($("category").value);
+  queueSearch();
+  if (state.offline && state.scanOn) scanPhone();
+});
 
 $("next").addEventListener("click", () => withBusy(async () => {
   render(await paperCall("/api/paper/step", { days: 1 }));
