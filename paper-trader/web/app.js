@@ -38,7 +38,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.2";
+const VERSION = "1.9.3";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -231,22 +231,23 @@ function noteEdge() {
   note.hidden = !(state.offline && !inMicrosoftEdge());
 }
 
+function signalRow(item) {
+  const row = document.createElement("li");
+  const dot = document.createElement("span");
+  dot.className = item.ok ? "dot on" : "dot";
+  const text = document.createElement("span");
+  text.textContent = item.name + " · " + item.detail;
+  row.append(dot, text);
+  return row;
+}
+
 function paintSignals(items) {
-  const list = $("signals");
-  list.replaceChildren();
-  items.forEach((item) => {
-    const row = document.createElement("li");
-    const dot = document.createElement("span");
-    dot.className = item.ok ? "dot on" : "dot";
-    const text = document.createElement("span");
-    text.textContent = item.name + " · " + item.detail;
-    row.append(dot, text);
-    list.appendChild(row);
+  ["signal-strip", "signals"].forEach((id) => {
+    const list = $(id);
+    if (!list) return;
+    list.replaceChildren();
+    items.forEach((item) => list.appendChild(signalRow(item)));
   });
-  if (items.length && items.every((item) => item.ok) && !state.signalsShown && !window.matchMedia("(max-width: 980px)").matches) {
-    state.signalsShown = true;
-    showDock("signals");
-  }
   const ready = items.length > 0 && items.every((item) => item.ok);
   const tab = document.querySelector('.dock-tab[data-dock="signals"]');
   if (tab) {
@@ -376,7 +377,8 @@ function render(paper) {
     ? paper.shares.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " @ " + formatPrice(paper.entry_price)
     : "Flat";
   $("through").textContent = paper.cursor + " / " + paper.total_bars;
-  $("chart-title").textContent = (paper.symbol || "Sample") + " · Daily session";
+  $("chart-title").textContent = (paper.symbol || "Chart") + " · Daily session";
+  paintChartRead(paper);
   renderQuote(paper);
   $("next").disabled = state.auto || paper.finished;
   $("run").disabled = state.auto || paper.finished;
@@ -474,6 +476,25 @@ function renderPins() {
   toggle.setAttribute("aria-pressed", pinned ? "true" : "false");
 }
 
+function paintChartRead(paper) {
+  const node = $("chart-read");
+  if (!node || !paper) return;
+  if (state.chartRead) {
+    node.textContent = state.chartRead;
+    return;
+  }
+  const price = state.market && state.market.symbol === paper.symbol && state.market.price
+    ? formatPrice(state.market.price)
+    : "";
+  node.textContent = price ? paper.symbol + " · " + price + " · click a candle" : "Click a ticker or a candle.";
+}
+
+function showRead(text) {
+  state.chartRead = text;
+  if (state.paper) paintChartRead(state.paper);
+  $("status").textContent = text;
+}
+
 function showChart() {
   const narrow = window.matchMedia("(max-width: 980px)").matches;
   if (narrow) {
@@ -512,9 +533,10 @@ function chooseSymbol(symbol) {
         render(state.paper);
       }
       showChart();
-      $("status").textContent = symbol + " is on the chart.";
+      showRead(symbol + " is on the chart.");
       return;
     }
+    state.chartRead = "";
     stopAuto();
     rememberSymbol(symbol);
     if (state.offline) {
@@ -528,7 +550,7 @@ function chooseSymbol(symbol) {
       rerunStudy();
       render(state.paper);
       showChart();
-      $("status").textContent = "Opened the live quote for " + symbol + ".";
+      showRead("Opened " + symbol + " on the chart.");
       return;
     }
     const paper = await paperCall("/api/paper/reset", { ...formParams(), symbol });
@@ -537,7 +559,7 @@ function chooseSymbol(symbol) {
     await loadMarket(paper.symbol);
     render(paper);
     showChart();
-    $("status").textContent = "Opened the market quote for " + paper.symbol + ".";
+    showRead("Opened " + paper.symbol + " on the chart.");
   });
 }
 
@@ -547,7 +569,7 @@ function renderQuote(paper) {
   const previous = bars.length > 1 ? bars[bars.length - 2] : null;
   const quote = $("quote");
   if (!quote) return;
-  $("quote-symbol").textContent = paper.symbol || "Sample";
+  $("quote-symbol").textContent = paper.symbol || "—";
   if (!last) {
     $("quote-last").textContent = "—";
     $("quote-change").textContent = "—";
@@ -810,8 +832,13 @@ function visible(values) {
   return sliced.length > 180 ? sliced.slice(sliced.length - 180) : sliced;
 }
 
-function drawCandles() {
+function drawCandles(retry) {
   const canvas = $("candles");
+  if (!state.market) return;
+  if ((canvas.clientWidth < 40 || canvas.clientHeight < 40) && !retry) {
+    requestAnimationFrame(() => drawCandles(true));
+    return;
+  }
   const bars = visible(state.market.bars);
   const fast = visible(state.market.fast);
   const slow = visible(state.market.slow);
@@ -1078,19 +1105,19 @@ $("paper").addEventListener("click", () => withBusy(async () => {
 $("quote").addEventListener("click", () => {
   if (!state.paper) return;
   showChart();
-  $("status").textContent = state.paper.symbol + " is on the chart.";
+  showRead(state.paper.symbol + " is on the chart.");
 });
 
 $("candles").addEventListener("click", (event) => {
   const map = state.chartMap;
   if (!map || !map.bars.length) {
-    $("status").textContent = "The chart has no bars yet.";
+    showRead("The chart has no bars yet.");
     return;
   }
   const index = Math.round((event.offsetX - map.pad) / map.slot - 0.5);
   const bar = map.bars[Math.max(0, Math.min(map.bars.length - 1, index))];
   showChart();
-  $("status").textContent = (map.symbol || "Chart") + " · " + bar.date + " · Open " + formatPrice(bar.open) + " · High " + formatPrice(bar.high) + " · Low " + formatPrice(bar.low) + " · Close " + formatPrice(bar.close);
+  showRead((map.symbol || "Chart") + " · " + bar.date + " · Open " + formatPrice(bar.open) + " · High " + formatPrice(bar.high) + " · Low " + formatPrice(bar.low) + " · Close " + formatPrice(bar.close));
 });
 
 $("pin-toggle").addEventListener("click", () => {

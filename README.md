@@ -57,7 +57,7 @@ The header shows the symbol, last price, change, and quote time. Bitcoin, Ether,
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/Paper-Trader.zip)
 
-SHA-256 `884b759732215ee53b5351cba636280644bb95c0c7ee7b53ff3f9247d6cb996d`
+SHA-256 `4f9f75cf61afad595f1d7b49f10eded70499677cf0ac72e8bcac619cd416edef`
 
 Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The phone and tablet page is `iphone/PaperTrader.html` inside the same zip.
 
@@ -65,6 +65,6 @@ Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The phone and table
 
 [PaperTrader.html](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/paper-trader/iphone/PaperTrader.html)
 
-Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.9.2 extracts the whole zip into Documents and opens that copy in Microsoft Edge. Signals show **1.9.2** when this copy is running. The Signals panel lists every check in green when that part is working.
+Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.9.3 extracts the whole zip into Documents and opens that copy in Microsoft Edge. The green signals sit on the chart and show **1.9.3** when this copy is running. Click a candle and that bar's prices appear on the chart.
 
 On a phone or tablet, install Microsoft Edge if it is not already there. Press and hold the HTML link, choose Download Linked File, and rename the file to `.html` if it saved as text. On iPhone or iPad, open the Files app, tap the Share button on `PaperTrader.html`, and tap Edge. On Android, open Files or Downloads, choose Open with, and tap Edge. The page cannot switch to Edge by itself. The mobile copy loads live crypto quotes. Stocks, ETFs, and futures load on the computer copy. Studies stay on the device.

@@ -211,6 +211,28 @@ button.quiet { background: transparent; }
 .chart-head, .legend { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .legend, .chart-note { margin: 0; font-size: 12px; }
 .chart-note { margin-top: 6px; }
+.chart-read {
+  margin: 6px 0 0;
+  min-height: 1.35em;
+  font-size: 15px;
+  font-weight: 640;
+  line-height: 1.35;
+  color: var(--text);
+  background: var(--panel);
+  overflow-wrap: anywhere;
+  flex: 0 0 auto;
+}
+.signal-strip {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 8px 0 2px;
+  padding: 0;
+  background: var(--panel);
+  flex: 0 0 auto;
+}
+.signal-strip li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 
 .frame-bar, .frame-list { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
 .frame-bar { flex-wrap: wrap; overflow: visible; }
