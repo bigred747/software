@@ -12,6 +12,7 @@ from paper_trader.guard import assert_safe_launch
 from paper_trader.install import install_newest
 from paper_trader.model import Params
 from paper_trader import quotes
+from paper_trader.learn import run_learner
 from paper_trader.server import serve
 
 STATE_PATH = Path(__file__).resolve().parents[1] / "paper_state.json"
@@ -28,6 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     server.add_argument("--no-browser", action="store_true")
     install = commands.add_parser("install", help="Keep only the newest copy in Documents")
     install.add_argument("--home", type=Path, default=None)
+    commands.add_parser("learn", help="Score closed bars all day on this computer")
     check = commands.add_parser("backtest", help="Replay one market's quotes and print the paper result")
     check.add_argument("--symbol", default="BTC-USD")
     check.add_argument("--fast", type=int, default=10)
@@ -53,6 +55,11 @@ def main(argv: list[str] | None = None) -> int:
             assert_safe_launch([install_root])
             serve(STATE_PATH, args.port, open_browser=not args.no_browser)
             return 0
+        if args.command == "learn":
+            install_root = Path(__file__).resolve().parents[1]
+            os.chdir(install_root)
+            assert_safe_launch([install_root])
+            return run_learner(STATE_PATH.with_name("learn_state.json"))
         params = Params(
             fast=args.fast,
             slow=args.slow,

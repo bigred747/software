@@ -43,7 +43,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.12";
+const VERSION = "1.9.13";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -228,7 +228,7 @@ function withHooks(items) {
   const edge = inMicrosoftEdge();
   applyHook(next, "Edge", edge, edge ? "This page is in Microsoft Edge" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
   if (!next.some((item) => item.name === "Learning")) {
-    setSignal(next, "Learning", true, state.offline ? "This symbol, while the page is open" : "Watching closed bars");
+    setSignal(next, "Learning", true, state.offline ? "This symbol, while the page is open" : "Starts when you open the desk, then keeps scoring after that window closes");
   }
   const tone = currentMood(bars);
   if (tone && tone.score != null) setSignal(next, "Fear and greed", true, tone.label + " " + tone.score);

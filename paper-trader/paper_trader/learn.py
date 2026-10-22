@@ -2,13 +2,22 @@
 
 The score uses bars that have already printed. It is not a forecast.
 The last bar never receives an arrow. Orders stay on the paper account.
+
+The scorer is its own process. Closing the desk window does not stop it.
+On Windows it starts again each time you sign in, and it keeps going while
+the computer is on and you are signed in.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
+import signal
+import subprocess
+import sys
 import threading
+import time
 from pathlib import Path
 
 from paper_trader.indicators import squeeze
@@ -18,8 +27,11 @@ from paper_trader import quotes
 WATCH = ("BTC-USD", "ETH-USD", "XRP-USD", "XLM-USD", "SOL-USD", "SPY", "QQQ")
 MIN_SEEN = 8
 INTERVAL = 60.0
+STALE_SECONDS = 180.0
 DEFAULT_RULE = "True momentum 5/3 with the candle"
 _SYMBOL = re.compile(r"^[A-Za-z0-9.^=-]{1,16}$")
+_WATCH_LOCK = threading.Lock()
+_DETACHED = 0x00000008 | 0x00000200 | 0x08000000
 
 
 def mood(bars: list[Bar], length: int = 20) -> dict:
@@ -129,106 +141,408 @@ def fit(bars: list[Bar]) -> dict:
     }
 
 
-class Watcher:
-    """Keep scoring a small book of markets while the desk window stays open."""
+def startup_folder() -> Path | None:
+    """The Windows sign-in folder. Empty on any other system."""
+    if os.name != "nt":
+        return None
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        return None
+    return Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
 
-    def __init__(self, path: Path) -> None:
-        self.path = path
-        self._lock = threading.Lock()
-        self._stop = threading.Event()
-        self._thread: threading.Thread | None = None
-        self._focus = "BTC-USD"
-        self._extra: tuple[str, ...] = ()
-        self._saved = _load(path)
 
-    def focus(self, symbol: str) -> None:
-        if _SYMBOL.fullmatch(symbol or ""):
-            with self._lock:
-                self._focus = symbol
+def startup_script(python: Path, launch: Path) -> str:
+    """Hidden sign-in launch. It does not change firewall, registry, or exclusions."""
+    command = f'"{python}" "{launch}" learn'
+    literal = '"' + command.replace('"', '""') + '"'
+    return 'Set shell = CreateObject("WScript.Shell")\r\n' f"shell.Run {literal}, 0, False\r\n"
 
-    def watch(self, symbols: list) -> None:
-        extra: list[str] = []
-        for symbol in list(symbols or []):
-            if not isinstance(symbol, str) or not _SYMBOL.fullmatch(symbol):
-                continue
-            if symbol not in extra:
-                extra.append(symbol)
-            if len(extra) >= 12:
-                break
-        with self._lock:
-            self._extra = tuple(extra)
 
-    def start(self) -> None:
-        if self._thread is not None and self._thread.is_alive():
+def write_startup(root: Path, folder: Path | None = None) -> Path | None:
+    destination = folder if folder is not None else startup_folder()
+    if destination is None:
+        return None
+    python = root / "runtime" / "python.exe"
+    program = python if python.is_file() else Path(sys.executable)
+    try:
+        destination.mkdir(parents=True, exist_ok=True)
+        path = destination / "Paper Trader Learn.vbs"
+        path.write_text(startup_script(program, root / "launch.py"), encoding="utf-8")
+    except OSError:
+        return None
+    return path
+
+
+def read_watch(path: Path) -> tuple[str, tuple[str, ...] | None]:
+    if not path.is_file():
+        return "", None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "", None
+    if not isinstance(raw, dict):
+        return "", None
+    focus = raw.get("focus") if isinstance(raw.get("focus"), str) else ""
+    if focus and not _SYMBOL.fullmatch(focus):
+        focus = ""
+    symbols = raw.get("symbols")
+    if not isinstance(symbols, list):
+        return focus, None
+    cleaned: list[str] = []
+    for symbol in symbols:
+        if isinstance(symbol, str) and _SYMBOL.fullmatch(symbol) and symbol not in cleaned:
+            cleaned.append(symbol)
+        if len(cleaned) >= 12:
+            break
+    return focus, tuple(cleaned)
+
+
+def write_watch(path: Path, focus: str, symbols: tuple[str, ...] | None) -> None:
+    current_focus, current_symbols = read_watch(path)
+    payload = {
+        "focus": focus or current_focus or "BTC-USD",
+        "symbols": list(symbols if symbols is not None else (current_symbols or ())),
+    }
+    _store(path, payload)
+
+
+def remember_focus(path: Path, symbol: str) -> None:
+    if not _SYMBOL.fullmatch(symbol or ""):
+        return
+    with _WATCH_LOCK:
+        _focus, extra = read_watch(path)
+        write_watch(path, symbol, extra)
+
+
+def remember_symbols(path: Path, symbols: list) -> None:
+    cleaned: list[str] = []
+    for symbol in list(symbols or []):
+        if not isinstance(symbol, str) or not _SYMBOL.fullmatch(symbol):
+            continue
+        if symbol not in cleaned:
+            cleaned.append(symbol)
+        if len(cleaned) >= 12:
+            break
+    with _WATCH_LOCK:
+        focus, _extra = read_watch(path)
+        write_watch(path, focus, tuple(cleaned))
+
+
+def _prepare_lock_file(fd: int) -> None:
+    if os.lseek(fd, 0, os.SEEK_END) < 1:
+        os.write(fd, b"\0")
+
+
+def _try_lock(fd: int) -> bool:
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            return True
+        import fcntl
+
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError:
+        return False
+
+
+def _unlock(fd: int) -> None:
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
             return
-        self._stop.clear()
-        self._thread = threading.Thread(target=self._loop, name="paper-trader-learn", daemon=True)
-        self._thread.start()
+        import fcntl
 
-    def stop(self) -> None:
-        self._stop.set()
+        fcntl.flock(fd, fcntl.LOCK_UN)
+    except OSError:
+        return
 
-    def running(self) -> bool:
-        return self._thread is not None and self._thread.is_alive()
 
-    def status(self) -> dict[str, str | bool]:
-        with self._lock:
-            error = str(self._saved.get("last_error") or "")
-            symbol = str(self._saved.get("last_symbol") or "")
-            passes = int(self._saved.get("passes") or 0)
-            row = dict((self._saved.get("symbols") or {}).get(symbol) or {})
-        if not self.running():
-            return {"ok": True, "detail": "Starts when the desk window is open"}
-        if error and passes < 1:
-            return {"ok": False, "detail": error}
-        if error:
-            return {"ok": False, "detail": error}
-        if passes < 1:
-            return {"ok": True, "detail": "Watching closed bars"}
+def _write_pid(fd: int, pid: int) -> None:
+    os.lseek(fd, 1, os.SEEK_SET)
+    os.write(fd, f"{pid}\n".encode("ascii"))
+
+
+def _read_pid(fd: int) -> int | None:
+    try:
+        os.lseek(fd, 1, os.SEEK_SET)
+        raw = os.read(fd, 32)
+        return int(raw.split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def lock_holder(lock_path: Path) -> int | None:
+    """The scorer's process id while its lock is held. None when it is not running."""
+    if not lock_path.is_file():
+        return None
+    try:
+        fd = os.open(str(lock_path), os.O_RDWR)
+    except OSError:
+        return None
+    try:
+        _prepare_lock_file(fd)
+        if _try_lock(fd):
+            _unlock(fd)
+            return None
+        return _read_pid(fd)
+    finally:
+        os.close(fd)
+
+
+def _fresh(saved: dict, now: float) -> bool:
+    try:
+        updated = float(saved.get("updated") or 0)
+    except (TypeError, ValueError):
+        return False
+    if updated <= 0:
+        return False
+    return (now - updated) <= STALE_SECONDS
+
+
+def learner_healthy(state_path: Path, now: float | None = None) -> bool:
+    holder = lock_holder(state_path.with_name("learn.lock"))
+    if not holder:
+        return False
+    saved = _load(state_path)
+    try:
+        pid = int(saved.get("pid") or 0)
+    except (TypeError, ValueError):
+        return False
+    return holder == pid and _fresh(saved, time.time() if now is None else now)
+
+
+def learning_report(state_path: Path, *, expect: bool, now: float | None = None) -> dict[str, str | bool]:
+    """Green only while the scorer process is alive and its heartbeat is fresh."""
+    saved = _load(state_path)
+    moment = time.time() if now is None else now
+    holder = lock_holder(state_path.with_name("learn.lock"))
+    fresh = _fresh(saved, moment)
+    try:
+        pid = int(saved.get("pid") or 0)
+    except (TypeError, ValueError):
+        pid = 0
+    running = bool(holder) and holder == pid and fresh
+    error = str(saved.get("last_error") or "")
+    symbol = str(saved.get("last_symbol") or "")
+    passes = int(saved.get("passes") or 0)
+    row = dict((saved.get("symbols") or {}).get(symbol) or {})
+    if running and error:
+        return {"ok": False, "running": True, "detail": error}
+    if running and passes < 1:
+        return {"ok": True, "running": True, "detail": "All day, all week"}
+    if running:
         tone = row.get("mood") or {}
         label = str(tone.get("label") or "")
         score = tone.get("score")
         mood_bit = f" · {label} {score}" if label and score is not None and label != "Waiting" else ""
-        return {"ok": True, "detail": f"Watching {symbol}{mood_bit}"}
+        return {"ok": True, "running": True, "detail": f"All day, all week · Watching {symbol}{mood_bit}"}
+    if holder and not fresh:
+        return {"ok": False, "running": False, "detail": "The all-day score stopped answering"}
+    if expect and error:
+        return {"ok": False, "running": False, "detail": error}
+    if expect:
+        return {"ok": False, "running": False, "detail": "The all-day score is not running"}
+    return {
+        "ok": True,
+        "running": False,
+        "detail": "Starts when you open the desk, then keeps scoring after that window closes",
+    }
 
-    def view(self) -> dict:
+
+def book_view(state_path: Path, *, expect: bool) -> dict:
+    saved = _load(state_path)
+    report = learning_report(state_path, expect=expect)
+    return {
+        "running": bool(report["running"]),
+        "passes": int(saved.get("passes") or 0),
+        "last_symbol": str(saved.get("last_symbol") or ""),
+        "last_error": str(saved.get("last_error") or ""),
+        "symbols": json.loads(json.dumps(saved.get("symbols") or {})),
+        "ok": bool(report["ok"]),
+        "detail": str(report["detail"]),
+    }
+
+
+def _terminate(pid: int) -> None:
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError:
+        return
+
+
+def stop_learner(state_path: Path, killer=None) -> int | None:
+    """Stop the scorer recorded in this folder. Leave every other process alone."""
+    lock_path = state_path.with_name("learn.lock")
+    pid = lock_holder(lock_path)
+    if not pid or pid == os.getpid():
+        return None
+    end = killer or _terminate
+    end(pid)
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        if lock_holder(lock_path) != pid:
+            return pid
+        time.sleep(0.05)
+    end(pid)
+    return pid
+
+
+def stop_learners(home: Path, source: Path | None = None, killer=None) -> list[int]:
+    from paper_trader.install import desk_folders
+
+    folders = list(desk_folders(home))
+    if source is not None:
+        folders.append(source)
+    stopped: list[int] = []
+    seen: set[Path] = set()
+    for folder in folders:
+        resolved = folder.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        pid = stop_learner(resolved / "learn_state.json", killer=killer)
+        if pid:
+            stopped.append(pid)
+    return stopped
+
+
+def spawn_learner(root: Path) -> None:
+    python = root / "runtime" / "python.exe"
+    program = str(python if python.is_file() else Path(sys.executable))
+    command = [program, str(root / "launch.py"), "learn"]
+    options: dict = {
+        "cwd": str(root),
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "close_fds": True,
+    }
+    if os.name == "nt":
+        options["creationflags"] = _DETACHED
+    else:
+        options["start_new_session"] = True
+    subprocess.Popen(command, **options)
+
+
+def ensure_learner(root: Path, state_path: Path, spawn=None, wait: float = 2.0) -> bool:
+    """Start the scorer when it is not already running. Leave a live one alone."""
+    write_startup(root)
+    if learner_healthy(state_path):
+        return True
+    if lock_holder(state_path.with_name("learn.lock")):
+        return False
+    start = spawn or (lambda: spawn_learner(root))
+    try:
+        start()
+    except OSError:
+        return False
+    deadline = time.monotonic() + wait
+    while time.monotonic() < deadline:
+        if learner_healthy(state_path):
+            return True
+        time.sleep(0.05)
+    return learner_healthy(state_path)
+
+
+def run_learner(state_path: Path) -> int:
+    watcher = Watcher(state_path)
+    if not watcher.acquire():
+        return 0
+    try:
+        watcher.run_forever()
+    except KeyboardInterrupt:
+        return 0
+    finally:
+        watcher.release()
+    return 0
+
+
+class Watcher:
+    """Score a small book of markets until this process is stopped."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.watch_path = path.with_name("learn_watch.json")
+        self.lock_path = path.with_name("learn.lock")
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._focus = "BTC-USD"
+        self._extra: tuple[str, ...] = ()
+        self._saved = _load(path)
+        self._lock_fd: int | None = None
+
+    def acquire(self) -> bool:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(self.lock_path), os.O_RDWR | os.O_CREAT, 0o644)
+        _prepare_lock_file(fd)
+        if not _try_lock(fd):
+            os.close(fd)
+            return False
+        _write_pid(fd, os.getpid())
+        self._lock_fd = fd
+        return True
+
+    def release(self) -> None:
         with self._lock:
-            symbols = json.loads(json.dumps(self._saved.get("symbols") or {}))
-            payload = {
-                "running": self.running(),
-                "passes": int(self._saved.get("passes") or 0),
-                "last_symbol": str(self._saved.get("last_symbol") or ""),
-                "last_error": str(self._saved.get("last_error") or ""),
-                "symbols": symbols,
-            }
-        report = self.status()
-        payload["ok"] = bool(report["ok"])
-        payload["detail"] = str(report["detail"])
-        return payload
+            if int(self._saved.get("pid") or 0) == os.getpid():
+                self._saved["pid"] = 0
+                self._saved["updated"] = time.time()
+                _store(self.path, self._saved)
+        if self._lock_fd is None:
+            return
+        _unlock(self._lock_fd)
+        os.close(self._lock_fd)
+        self._lock_fd = None
+
+    def run_forever(self) -> None:
+        self._beat()
+        self._loop()
+
+    def _beat(self) -> None:
+        with self._lock:
+            self._saved["pid"] = os.getpid()
+            self._saved["updated"] = time.time()
+            _store(self.path, self._saved)
 
     def _loop(self) -> None:
         for _ in range(len(WATCH)):
             if self._stop.is_set():
                 return
-            try:
-                self._once()
-            except (OSError, ValueError) as exc:
-                self._fail(str(exc) or "The quote feed did not answer.")
+            self._pass()
             if self._stop.wait(2):
                 return
         while not self._stop.is_set():
-            try:
-                self._once()
-            except (OSError, ValueError) as exc:
-                self._fail(str(exc) or "The quote feed did not answer.")
+            self._pass()
             if self._stop.wait(INTERVAL):
                 return
 
-    def _once(self) -> None:
+    def _pass(self) -> None:
+        try:
+            self._once()
+        except (OSError, ValueError) as exc:
+            self._fail(str(exc) or "The quote feed did not answer.")
+        except Exception as exc:
+            self._fail(str(exc) or "The score stopped on this market.")
+
+    def _targets(self) -> tuple[str, tuple[str, ...], int]:
+        focus, extra = read_watch(self.watch_path)
         with self._lock:
-            focus = self._focus
-            extra = self._extra
+            if focus:
+                self._focus = focus
+            if extra is not None:
+                self._extra = extra
             cursor = int(self._saved.get("cursor") or 0)
+            return self._focus, self._extra, cursor
+
+    def _once(self) -> None:
+        focus, extra, cursor = self._targets()
         queue = list(WATCH)
         for symbol in (focus,) + extra:
             if symbol and symbol not in queue:
@@ -261,6 +575,8 @@ class Watcher:
                 "cursor": cursor + 1,
                 "last_error": "",
                 "last_symbol": symbol,
+                "pid": os.getpid(),
+                "updated": time.time(),
                 "symbols": symbols,
             }
             _store(self.path, self._saved)
@@ -268,6 +584,8 @@ class Watcher:
     def _fail(self, message: str, symbol: str | None = None, cursor: int | None = None) -> None:
         with self._lock:
             self._saved["last_error"] = message
+            self._saved["pid"] = os.getpid()
+            self._saved["updated"] = time.time()
             if symbol:
                 self._saved["last_symbol"] = symbol
             if cursor is not None:
@@ -402,19 +720,34 @@ def _signals(bars: list[Bar]) -> dict[str, tuple[list[bool], list[bool]]]:
 
 def _load(path: Path) -> dict:
     if not path.is_file():
-        return {"version": 1, "passes": 0, "cursor": 0, "last_error": "", "last_symbol": "", "symbols": {}}
+        return _empty_book()
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"version": 1, "passes": 0, "cursor": 0, "last_error": "", "last_symbol": "", "symbols": {}}
+        return _empty_book()
     if not isinstance(raw, dict):
-        return {"version": 1, "passes": 0, "cursor": 0, "last_error": "", "last_symbol": "", "symbols": {}}
+        return _empty_book()
     raw.setdefault("symbols", {})
     raw.setdefault("passes", 0)
     raw.setdefault("cursor", 0)
     raw.setdefault("last_error", "")
     raw.setdefault("last_symbol", "")
+    raw.setdefault("pid", 0)
+    raw.setdefault("updated", 0)
     return raw
+
+
+def _empty_book() -> dict:
+    return {
+        "version": 1,
+        "passes": 0,
+        "cursor": 0,
+        "last_error": "",
+        "last_symbol": "",
+        "pid": 0,
+        "updated": 0,
+        "symbols": {},
+    }
 
 
 def _store(path: Path, payload: dict) -> None:

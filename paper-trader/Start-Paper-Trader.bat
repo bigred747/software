@@ -41,6 +41,7 @@ set "CMD=%TEMP%\paper-trader-run.bat"
 >> "%CMD%" echo title Paper Trader
 >> "%CMD%" echo cd /d "%RUN%"
 >> "%CMD%" echo echo Leave this window open. Microsoft Edge opens the desk.
+>> "%CMD%" echo echo The score keeps running after this window closes. It starts again when you sign in to Windows.
 >> "%CMD%" echo if not exist "%RUN%\runtime\python.exe" goto UsePy
 >> "%CMD%" echo "%RUN%\runtime\python.exe" "%RUN%\launch.py" serve
 >> "%CMD%" echo goto After
@@ -53,6 +54,7 @@ set "CMD=%TEMP%\paper-trader-run.bat"
 start "Paper Trader" cmd /c "%CMD%"
 echo Setup is done. Leave the window named Paper Trader open.
 echo Microsoft Edge opens when the desk answers. The header says Desk is working.
+echo The score keeps running after that window closes. It starts again when you sign in to Windows.
 echo Press any key to close this setup window.
 pause >nul
 exit /b 0

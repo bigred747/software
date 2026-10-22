@@ -8,3 +8,4 @@ Paper Trader on a phone or tablet
 6. Nothing is sent to a broker. This desk is not an app-store app. The page cannot switch to Edge by itself.
 
 The computer copy is started with Start-Paper-Trader.bat and opens in Microsoft Edge on 127.0.0.1.
+That computer keeps scoring after the Paper Trader window closes. It starts again when you sign in to Windows, while the computer is on and you are signed in.

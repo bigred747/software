@@ -263,7 +263,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.12", script)
+        self.assertIn(b"1.9.13", script)
         self.assertIn(b"Fear and greed", script)
         self.assertIn(b"Zoom in", page)
         self.assertIn(b"quote-mood", page)

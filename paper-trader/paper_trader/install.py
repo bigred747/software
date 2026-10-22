@@ -12,7 +12,7 @@ from paper_trader import __version__
 LAUNCHER = "Start-Paper-Trader.bat"
 PACKAGE = Path("paper_trader") / "__init__.py"
 SKIP_DIRS = {"__pycache__", "tests", ".git"}
-SKIP_FILES = {"paper_state.json", "learn_state.json"}
+SKIP_FILES = {"paper_state.json", "learn_state.json", "learn_watch.json"}
 
 
 def version_key(text: str) -> tuple[int, ...]:
@@ -108,6 +108,9 @@ def install_newest(source: Path, home: Path) -> tuple[Path, str]:
     source = source.resolve()
     if not is_install(source):
         raise ValueError("This folder is not a Paper Trader install")
+    from paper_trader.learn import stop_learners
+
+    stop_learners(home, source)
     stop_open_desks(home)
     dest = canonical_folder(home).resolve()
     dest_version = _installed_version(dest)
@@ -115,6 +118,7 @@ def install_newest(source: Path, home: Path) -> tuple[Path, str]:
     try:
         if source != dest and dest_version > source_version and is_install(dest):
             _remove_older(home, dest, source)
+            _resume_learner(dest)
             return dest, "remove-source"
         if source != dest:
             _replace_install(source, dest)
@@ -123,9 +127,22 @@ def install_newest(source: Path, home: Path) -> tuple[Path, str]:
         _remove_older(home, dest, source)
     except OSError as exc:
         raise ValueError("Could not replace the older copy. Opening the new copy instead.") from exc
+    _resume_learner(dest)
     if source == dest:
         return dest, "keep-source"
     return dest, "remove-source"
+
+
+def _resume_learner(dest: Path) -> None:
+    """Windows sign-in starts the score again. Other systems leave that to the desk window."""
+    if os.name != "nt":
+        return
+    from paper_trader.learn import ensure_learner
+
+    try:
+        ensure_learner(dest, dest / "learn_state.json")
+    except OSError:
+        return
 
 
 def single_copy_status(home: Path) -> dict[str, str | bool]:

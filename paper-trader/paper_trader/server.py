@@ -17,7 +17,7 @@ from paper_trader import __version__
 from paper_trader.backtest import present, run_backtest
 from paper_trader.install import single_copy_status
 from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
-from paper_trader.learn import Watcher, mood
+from paper_trader.learn import book_view, ensure_learner, mood, remember_focus, remember_symbols
 from paper_trader.model import params_from_dict
 from paper_trader import quotes
 from paper_trader.samples import catalog_size, search_symbols, warm
@@ -74,7 +74,9 @@ class Desk:
         self.state_path = state_path
         self.lock = threading.Lock()
         self.journal = load_journal(state_path)
-        self.watcher: Watcher | None = None
+        self.learn_path = state_path.with_name("learn_state.json")
+        self.watch_path = state_path.with_name("learn_watch.json")
+        self.expect_learner = False
 
     def snapshot(self) -> dict:
         with self.lock:
@@ -174,32 +176,18 @@ class Desk:
         return payload
 
     def market(self, symbol: str, raw: dict) -> dict:
-        if self.watcher is not None:
-            self.watcher.focus(symbol)
+        remember_focus(self.watch_path, symbol)
         params = params_from_dict(raw)
         return market_view(symbol, params)
 
     def watch(self, symbols: list) -> None:
-        if self.watcher is not None:
-            self.watcher.watch(symbols)
+        remember_symbols(self.watch_path, symbols)
 
     def learn_view(self) -> dict:
-        if self.watcher is None:
-            return {
-                "running": False,
-                "passes": 0,
-                "last_symbol": "",
-                "last_error": "",
-                "symbols": {},
-                "ok": True,
-                "detail": "Starts when the desk window is open",
-            }
-        return self.watcher.view()
+        return book_view(self.learn_path, expect=self.expect_learner)
 
     def _learning_check(self) -> dict[str, str | bool]:
-        if self.watcher is None:
-            return {"name": "Learning", "ok": True, "detail": "Starts when the desk window is open"}
-        report = self.watcher.status()
+        report = book_view(self.learn_path, expect=self.expect_learner)
         return {"name": "Learning", "ok": bool(report["ok"]), "detail": str(report["detail"])}
 
     def _mood_check(self, symbol: str, quote_ok: bool) -> dict[str, str | bool]:
@@ -469,23 +457,27 @@ def _probe_health(url: str) -> bool:
 
 
 def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None:
+    root = Path(__file__).resolve().parents[1]
+    learn_path = state_path.with_name("learn_state.json")
     try:
         server = create_server(state_path, port)
     except OSError as exc:
         busy = getattr(exc, "winerror", None) == 10048 or exc.errno in {98, 10048}
         if not busy:
             raise
+        ensure_learner(root, learn_path)
         print("Paper Trader is already open on this computer.")
         print("Close that window, then start Paper Trader again.")
+        print("The score keeps running after that window closes. It starts again when you sign in to Windows.")
         return
+    ensure_learner(root, learn_path)
+    server.desk.expect_learner = True
     host, bound = server.server_address[:2]
     url = f"http://{host}:{bound}/"
-    watcher = Watcher(state_path.with_name("learn_state.json"))
-    server.desk.watcher = watcher
-    watcher.start()
     print(f"Paper Trader is running at {url}")
     print("Market quotes. Paper orders only. Leave this window open.")
-    print("This window keeps scoring closed bars and the fear or greed of each market it watches.")
+    print("The score keeps running after this window closes. It starts again when you sign in to Windows.")
+    print("It runs while this computer is on and you are signed in.")
     worker = threading.Thread(target=server.serve_forever, name="paper-trader-http", daemon=True)
     worker.start()
     if open_browser and url.startswith("http://127.0.0.1:"):
@@ -501,5 +493,4 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
         server.shutdown()
         worker.join(2)
     finally:
-        watcher.stop()
         server.server_close()

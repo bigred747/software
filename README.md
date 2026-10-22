@@ -57,7 +57,7 @@ The header shows the symbol, last price, change, and quote time. Bitcoin, Ether,
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/Paper-Trader.zip)
 
-SHA-256 `7f37c562499501accd807885190cab47282131fd27bf99073e10f4f302c80715`
+SHA-256 `60ca1dd04104227f8286e5b6331eb9dac8393a56c28866149ad75a967c647a3d`
 
 Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The phone and tablet page is `iphone/PaperTrader.html` inside the same zip.
 
@@ -65,6 +65,6 @@ Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The phone and table
 
 [PaperTrader.html](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/paper-trader/iphone/PaperTrader.html)
 
-Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.9.12 extracts a fresh copy into Documents and opens a window named Paper Trader. Leave that window open. It keeps scoring closed bars, and fear or greed for each market it watches, until that window closes. Microsoft Edge opens when the desk answers. The header says Desk is working. The green signals sit on the chart and show **1.9.12** when this copy is running. Learning, Fear and greed, and Zoom each have a green dot. A clock in the header is the fear or greed pie, and its arrow points at the number. Candles are green or red. Resistance, support, the averages, momentum, squeeze dots, the true-momentum study, and the lesson arrows are on the chart. Zoom in and Zoom out change how many bars a chart shows. The setup window can close. Click a candle and that bar's prices appear on the chart. Download this zip.
+Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.9.13 extracts a fresh copy into Documents and opens a window named Paper Trader. Leave that window open so the desk stays on the screen. The score is its own process: closing that window does not stop it. It starts again when you sign in to Windows, and it keeps scoring while the computer is on and you are signed in. It does not run while the computer is off. Microsoft Edge opens when the desk answers. The header says Desk is working. The green signals sit on the chart and show **1.9.13** when this copy is running. Learning, Fear and greed, and Zoom each have a green dot. Learning says all day, all week while the score is running. A clock in the header is the fear or greed pie, and its arrow points at the number. Candles are green or red. Resistance, support, the averages, momentum, squeeze dots, the true-momentum study, and the lesson arrows are on the chart. Zoom in and Zoom out change how many bars a chart shows. The setup window can close. Click a candle and that bar's prices appear on the chart. Download this zip.
 
 On a phone or tablet, install Microsoft Edge if it is not already there. Press and hold the HTML link, choose Download Linked File, and rename the file to `.html` if it saved as text. On iPhone or iPad, open the Files app, tap the Share button on `PaperTrader.html`, and tap Edge. On Android, open Files or Downloads, choose Open with, and tap Edge. The page cannot switch to Edge by itself. The mobile copy loads live crypto quotes. Stocks, ETFs, and futures load on the computer copy. Studies stay on the device.
