@@ -160,7 +160,26 @@ class ServerTests(unittest.TestCase):
         self.assertFalse(is_temp_zip_extract(Path(r"C:\Users\rick\Documents\paper-trader")))
         with self.assertRaises(ValueError):
             assert_safe_launch([temp_zip])
+        program = Path(r"C:\Users\rick\Documents\Paper Trader")
+        self.assertFalse(is_temp_zip_extract(program))
+        assert_safe_launch([program])
         self.assertEqual(main(["serve", "--port", "80", "--no-browser"]), 2)
+
+    def test_serve_leaves_the_shell_folder_before_it_starts(self) -> None:
+        import os
+        from unittest.mock import patch
+
+        previous = os.getcwd()
+        try:
+            os.chdir("/tmp")
+            with patch("paper_trader.cli.serve") as serve:
+                self.assertEqual(main(["serve", "--no-browser"]), 0)
+            serve.assert_called_once()
+            self.assertEqual(Path.cwd().resolve(), ROOT.resolve())
+        finally:
+            os.chdir(previous)
+        cli = (ROOT / "paper_trader" / "cli.py").read_text(encoding="utf-8")
+        self.assertNotIn("Path.cwd()", cli)
 
     def test_package_does_not_ask_for_money_or_keys(self) -> None:
         banned = ("quantumtrade", "paypal", "seed phrase", "mnemonic", "guaranteed profit", "deposit")
@@ -187,6 +206,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn("serve", bat)
         self.assertIn("if not errorlevel 1", bat)
         self.assertIn("opening the new copy", bat)
+        self.assertIn('cd /d "%run%"', bat)
+        self.assertIn("paper-trader-run.bat", bat)
+        self.assertIn("close this setup window", bat)
         self.assertNotIn("goto badinstall", bat)
         self.assertNotIn("powershell", bat)
         self.assertNotIn("pip", bat)
@@ -241,7 +263,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.6", script)
+        self.assertIn(b"1.9.7", script)
         self.assertIn(b"Desk is working.", script)
         self.assertIn(b'id="signal-strip"', page)
         self.assertIn(b'id="chart-read"', page)

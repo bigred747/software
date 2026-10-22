@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -47,7 +48,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "serve":
             if not 1024 <= args.port <= 65535:
                 raise ValueError("Port must be from 1024 to 65535")
-            assert_safe_launch([Path(__file__).resolve(), Path.cwd()])
+            install_root = Path(__file__).resolve().parents[1]
+            os.chdir(install_root)
+            assert_safe_launch([install_root])
             serve(STATE_PATH, args.port, open_browser=not args.no_browser)
             return 0
         params = Params(

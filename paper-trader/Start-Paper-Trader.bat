@@ -36,14 +36,25 @@ set "VBS=%TEMP%\paper-trader-shortcut.vbs"
 >> "%VBS%" echo link.WorkingDirectory = "%RUN%"
 >> "%VBS%" echo link.Save
 cscript //nologo "%VBS%"
-if exist "%RUN%\runtime\python.exe" (
-  start "Paper Trader" "%RUN%\runtime\python.exe" "%RUN%\launch.py" serve
-) else (
-  start "Paper Trader" python "%RUN%\launch.py" serve
-)
-echo Paper Trader is opening. Leave the Paper Trader window open.
-echo Microsoft Edge opens the desk. The header says Desk is working.
-pause
+set "CMD=%TEMP%\paper-trader-run.bat"
+> "%CMD%" echo @echo off
+>> "%CMD%" echo title Paper Trader
+>> "%CMD%" echo cd /d "%RUN%"
+>> "%CMD%" echo echo Leave this window open. Microsoft Edge opens the desk.
+>> "%CMD%" echo if not exist "%RUN%\runtime\python.exe" goto UsePy
+>> "%CMD%" echo "%RUN%\runtime\python.exe" "%RUN%\launch.py" serve
+>> "%CMD%" echo goto After
+>> "%CMD%" echo :UsePy
+>> "%CMD%" echo python "%RUN%\launch.py" serve
+>> "%CMD%" echo :After
+>> "%CMD%" echo echo.
+>> "%CMD%" echo echo Paper Trader stopped. Read the message above.
+>> "%CMD%" echo pause
+start "Paper Trader" cmd /c "%CMD%"
+echo Setup is done. Leave the window named Paper Trader open.
+echo Microsoft Edge opens when the desk answers. The header says Desk is working.
+echo Press any key to close this setup window.
+pause >nul
 exit /b 0
 
 :NoZip
