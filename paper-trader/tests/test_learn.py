@@ -26,6 +26,7 @@ from paper_trader.learn import (
     mood,
     rank_leaders,
     rank_today,
+    remember_scan_switch,
     remember_symbols,
     scan_note,
     scan_report,
@@ -314,5 +315,26 @@ class ScanTests(unittest.TestCase):
                     self.assertEqual(fresh["day"], "2026-10-22")
                     self.assertNotIn("OLD", fresh["rows"])
                     self.assertIn("AAA", fresh["rows"])
+            finally:
+                watcher.release()
+
+    def test_scanner_off_does_not_fetch_or_advance(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "learn_state.json"
+            watcher = Watcher(path)
+            self.assertTrue(watcher.acquire())
+            try:
+                remember_scan_switch(watcher.scan_path, False)
+                watcher._scan["cursor"] = 3
+                watcher._scan["day"] = "2026-10-22"
+                with patch("paper_trader.learn.quotes.load_bars") as load:
+                    pause = watcher._scan_one()
+                load.assert_not_called()
+                self.assertEqual(pause, 2.0)
+                self.assertEqual(watcher._scan["cursor"], 3)
+                self.assertFalse(scan_report(watcher.scan_path)["on"])
+                self.assertEqual(scan_note(0, 0, False, 0, [], "", False), "Scanner is off.")
+                self.assertEqual(scan_note(3, 10, False, 0, [], "", False), "Scanner is off. Scanned 3 of 10.")
+                self.assertIn("Not a forecast", scan_note(4, 7504, False, 0, [{"symbol": "AAA"}]))
             finally:
                 watcher.release()

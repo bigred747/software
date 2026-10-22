@@ -221,7 +221,11 @@ def rank_leaders(rows: list[dict]) -> list[dict]:
     return kept
 
 
-def scan_note(scanned: int, total: int, done: bool, errors: int, leaders: list[dict], last_error: str = "") -> str:
+def scan_note(scanned: int, total: int, done: bool, errors: int, leaders: list[dict], last_error: str = "", enabled: bool = True) -> str:
+    if not enabled:
+        if scanned <= 0:
+            return "Scanner is off."
+        return f"Scanner is off. Scanned {scanned} of {total}."
     if total <= 0 and scanned <= 0:
         progress = "Daily scan has not started."
     elif done:
@@ -260,6 +264,27 @@ def scan_fields(lesson: dict, day: str) -> dict:
     }
 
 
+def _switch_path(scan_path: Path) -> Path:
+    return scan_path.with_name("scan_switch.json")
+
+
+def scan_is_on(scan_path: Path) -> bool:
+    path = _switch_path(scan_path)
+    if not path.is_file():
+        return True
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return True
+    if not isinstance(raw, dict) or "on" not in raw:
+        return True
+    return bool(raw.get("on"))
+
+
+def remember_scan_switch(scan_path: Path, on: bool) -> None:
+    _store(_switch_path(scan_path), {"on": bool(on)})
+
+
 def scan_report(path: Path) -> dict:
     raw = _load_scan(path)
     rows = raw.get("rows") if isinstance(raw.get("rows"), dict) else {}
@@ -269,6 +294,7 @@ def scan_report(path: Path) -> dict:
     done = bool(raw.get("done"))
     errors = int(raw.get("errors") or 0)
     last_error = str(raw.get("last_error") or "")
+    enabled = scan_is_on(path)
     return {
         "leaders": leaders,
         "rows": rows,
@@ -277,7 +303,8 @@ def scan_report(path: Path) -> dict:
         "done": done,
         "errors": errors,
         "last_error": last_error,
-        "note": scan_note(scanned, total, done, errors, leaders, last_error),
+        "on": enabled,
+        "note": scan_note(scanned, total, done, errors, leaders, last_error, enabled),
     }
 
 
@@ -868,6 +895,8 @@ class Watcher:
 
     def _scan_one(self) -> float:
         """Score the next catalog market. Returns how long to wait before the next one."""
+        if not scan_is_on(self.scan_path):
+            return 2.0
         day = desk_day()
         names = self._catalog_names()
         total = len(names)

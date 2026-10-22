@@ -29,6 +29,7 @@ from paper_trader.learn import (
     rank_today,
     remember_day_buy,
     remember_focus,
+    remember_scan_switch,
     remember_symbols,
     scan_report,
     score_row,
@@ -222,7 +223,12 @@ class Desk:
         book["scan_note"] = scan["note"]
         book["scanned"] = scan["scanned"]
         book["scan_total"] = scan["total"]
+        book["scan_on"] = bool(scan.get("on", True))
         return book
+
+    def set_scan(self, on: bool) -> dict:
+        remember_scan_switch(self._scan_path(), on)
+        return self.learn_view()
 
     def _day_path(self) -> Path:
         return self.state_path.with_name("day_buys.json")
@@ -434,6 +440,9 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._json(self.desk.backtest(raw))
             return
         body = self._body() if method == "POST" else {}
+        if method == "POST" and path == "/api/learn/scan":
+            self._json(self.desk.set_scan(bool(body.get("on"))))
+            return
         if method == "POST" and path == "/api/learn/watch":
             self.desk.watch(body.get("symbols") or [])
             self._json(self.desk.learn_view())

@@ -185,7 +185,10 @@ textarea {
 #candles { cursor: crosshair; }
 
 .scan-block { margin: 12px 0 4px; padding-top: 8px; border-top: 1px solid var(--line); }
-.scan-block h3 { margin: 0 0 4px; font-size: 15px; font-weight: 640; }
+.scan-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.scan-block h3 { margin: 0; font-size: 15px; font-weight: 640; }
+#scan-toggle { width: auto; min-height: 36px; padding: 6px 12px; }
+#scan-toggle.on { border-color: var(--accent); color: var(--accent); }
 .pins { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .pins button { width: auto; min-height: 32px; padding: 4px 8px; }
 .pins button.on { border-color: var(--accent); color: var(--accent); background: #1c3330; }
@@ -440,7 +443,10 @@ footer { display: none; }
       <div id="pins" class="pins" aria-label="Pinned markets"></div>
       <button id="pin-toggle" type="button" class="quiet">Pin this market</button>
       <div class="scan-block">
-        <h3>Daily scan</h3>
+        <div class="scan-head">
+          <h3>Daily scan</h3>
+          <button id="scan-toggle" type="button" aria-pressed="true">Scanner on</button>
+        </div>
         <p id="scan-note" class="muted"></p>
         <div id="scan" class="pins" aria-label="Daily scan"></div>
         <p id="today-note" class="muted"></p>
@@ -2637,6 +2643,7 @@ const state = {
   lesson: null,
   lessonKey: "",
   voice: true,
+  scanOn: true,
   picks: [],
   pickNote: "",
   leaders: [],
@@ -2672,7 +2679,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.24";
+const VERSION = "1.9.25";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -3091,6 +3098,7 @@ function phoneLeaders(rows, buysOnly) {
 }
 
 function phoneBuyReason(symbol) {
+  if (!state.scanOn && !state.scanDone) return "Turn the scanner on to fill today's five.";
   if (!state.scanDone) return "The daily scan is still walking live crypto.";
   if (!(state.picks || []).some((row) => row.symbol === symbol)) return "This market is not in today's five.";
   const bars = state.session && state.session.bars ? state.session.bars : [];
@@ -3099,11 +3107,108 @@ function phoneBuyReason(symbol) {
   return "";
 }
 
+const SCAN_KEY = "paperTraderScan";
+const phoneBarCache = new Map();
 let phoneScanToken = 0;
 
+function readScanOn() {
+  try {
+    return localStorage.getItem(SCAN_KEY) !== "off";
+  } catch (error) {
+    return true;
+  }
+}
+
+function writeScanOn(on) {
+  try {
+    localStorage.setItem(SCAN_KEY, on ? "on" : "off");
+  } catch (error) {
+    return;
+  }
+}
+
+function scannerOffNote() {
+  return (state.leaders || []).length
+    ? "Scanner is off. Scanned names stay listed. Not a forecast."
+    : "Scanner is off.";
+}
+
+async function phoneDaily(symbol, category) {
+  const open = state.market && state.market.symbol === symbol ? state.market.bars : null;
+  if (open && open.length) {
+    phoneBarCache.set(symbol, open);
+    return open;
+  }
+  if (phoneBarCache.has(symbol)) return phoneBarCache.get(symbol);
+  const bars = await PaperLive.daily(symbol, category || "");
+  phoneBarCache.set(symbol, bars);
+  return bars;
+}
+
+function scanOrder() {
+  const crypto = state.catalog.filter((row) => phoneCrypto(row.symbol, row.category)).map((row) => row.symbol);
+  const ranked = [];
+  const current = (state.paper && state.paper.symbol) || "";
+  if (current && crypto.includes(current)) ranked.push(current);
+  readPins().forEach((symbol) => {
+    if (crypto.includes(symbol) && !ranked.includes(symbol)) ranked.push(symbol);
+  });
+  crypto.forEach((symbol) => {
+    if (!ranked.includes(symbol)) ranked.push(symbol);
+  });
+  return ranked;
+}
+
+function renderScanToggle() {
+  const button = $("scan-toggle");
+  if (!button) return;
+  button.textContent = state.scanOn ? "Scanner on" : "Scanner off";
+  button.setAttribute("aria-pressed", state.scanOn ? "true" : "false");
+  button.classList.toggle("on", !!state.scanOn);
+}
+
+function applyScanBook(book) {
+  if (!book) return;
+  state.scanOn = book.scan_on !== false;
+  if (Array.isArray(book.picks)) state.picks = book.picks;
+  if (book.pick_note) state.pickNote = book.pick_note;
+  if (Array.isArray(book.leaders)) state.leaders = book.leaders;
+  state.scanNote = book.scan_note || "";
+  const scanned = Number(book.scanned) || 0;
+  const total = Number(book.scan_total) || 0;
+  state.scanDone = total > 0 && scanned >= total;
+  renderScanToggle();
+  renderToday();
+  renderScan();
+}
+
+async function setScanner(on) {
+  const next = !!on;
+  if (state.offline) {
+    state.scanOn = next;
+    writeScanOn(next);
+    renderScanToggle();
+    if (!next) {
+      phoneScanToken += 1;
+      state.scanNote = scannerOffNote();
+      renderScan();
+      return;
+    }
+    scanPhone();
+    return;
+  }
+  const book = await postJSON("/api/learn/scan", { on: next });
+  applyScanBook(book);
+}
+
 async function scanPhone() {
+  if (!state.scanOn) {
+    state.scanNote = scannerOffNote();
+    renderScan();
+    return;
+  }
   const token = ++phoneScanToken;
-  const symbols = state.catalog.filter((row) => phoneCrypto(row.symbol, row.category)).map((row) => row.symbol);
+  const symbols = scanOrder();
   if (!symbols.length) {
     state.scanDone = true;
     state.scanNote = "This phone scans live crypto. No crypto markets are in the list.";
@@ -3120,11 +3225,15 @@ async function scanPhone() {
   renderScan();
   renderToday();
   for (let index = 0; index < symbols.length; index += 1) {
-    if (token !== phoneScanToken) return;
+    if (token !== phoneScanToken || !state.scanOn) return;
+    while (typeof document !== "undefined" && document.hidden) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (token !== phoneScanToken || !state.scanOn) return;
+    }
     const symbol = symbols[index];
     const row = state.catalog.find((item) => item.symbol === symbol);
     try {
-      const bars = await PaperLive.daily(symbol, row ? row.category : "");
+      const bars = await phoneDaily(symbol, row ? row.category : "");
       const lesson = PaperFrames.lesson(bars);
       const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(bars) : { kind: "", side: "" };
       const seen = Number(lesson && lesson.seen) || 0;
@@ -3139,7 +3248,7 @@ async function scanPhone() {
     } catch (error) {
       errors += 1;
     }
-    if (token !== phoneScanToken) return;
+    if (token !== phoneScanToken || !state.scanOn) return;
     const leaders = phoneLeaders(scored, false).slice(0, 12);
     const picks = phoneLeaders(scored, true).slice(0, 5);
     state.leaders = leaders;
@@ -3195,8 +3304,9 @@ async function bootOffline() {
     const visible = state.catalog.some((row) => !value || row.category === value);
     if (!visible) select.value = "crypto";
   }
+  state.scanOn = readScanOn();
   renderPins();
-  state.scanNote = "Loading the live quote…";
+  state.scanNote = state.scanOn ? "Loading the live quote…" : "Scanner is off.";
   state.pickNote = "";
   renderScan();
   renderToday();
@@ -3223,7 +3333,7 @@ async function bootOffline() {
     }
   }
   if (!found) {
-    scanPhone();
+    if (state.scanOn) scanPhone();
     throw lastError || new Error("The quote feed did not answer. Check the connection.");
   }
   const bars = found.bars;
@@ -3239,7 +3349,11 @@ async function bootOffline() {
   noteEdge();
   deskLine("Desk is working.");
   showChart();
-  scanPhone();
+  if (state.scanOn) scanPhone();
+  else {
+    state.scanNote = "Scanner is off.";
+    renderScan();
+  }
   if (state.paper.paper === true) {
     state.auto = true;
     render(state.paper);
@@ -3292,10 +3406,14 @@ async function loadSignals() {
     Object.entries(book.symbols || {}).forEach(([symbol, row]) => {
       if (row && row.mood && symbol !== openSymbol) state.moods[symbol] = row.mood;
     });
+    state.scanOn = book.scan_on !== false;
     state.picks = Array.isArray(book.picks) ? book.picks : [];
     state.pickNote = book.pick_note || "";
     state.leaders = Array.isArray(book.leaders) ? book.leaders : [];
     state.scanNote = book.scan_note || "";
+    const scanned = Number(book.scanned) || 0;
+    const total = Number(book.scan_total) || 0;
+    state.scanDone = total > 0 && scanned >= total;
     renderPins();
     renderToday();
     renderScan();
@@ -3487,6 +3605,7 @@ function renderScoreButtons(bar, rows) {
 function renderScan() {
   const line = $("scan-note");
   const bar = $("scan");
+  renderScanToggle();
   if (!line || !bar) return;
   line.textContent = state.scanNote || "";
   renderScoreButtons(bar, state.leaders || []);
@@ -4541,6 +4660,16 @@ $("candles").addEventListener("click", (event) => {
   showChart();
   showRead((map.symbol || "Chart") + " · " + bar.date + " · Open " + formatPrice(bar.open) + " · High " + formatPrice(bar.high) + " · Low " + formatPrice(bar.low) + " · Close " + formatPrice(bar.close));
 });
+
+const scanToggle = $("scan-toggle");
+if (scanToggle) {
+  scanToggle.addEventListener("click", () => {
+    setScanner(!state.scanOn).catch(() => {
+      state.scanNote = "The scanner switch did not save.";
+      renderScan();
+    });
+  });
+}
 
 $("pin-toggle").addEventListener("click", () => {
   const current = state.paper && state.paper.symbol;

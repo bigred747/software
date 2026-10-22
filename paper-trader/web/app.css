@@ -171,7 +171,10 @@ textarea {
 #candles { cursor: crosshair; }
 
 .scan-block { margin: 12px 0 4px; padding-top: 8px; border-top: 1px solid var(--line); }
-.scan-block h3 { margin: 0 0 4px; font-size: 15px; font-weight: 640; }
+.scan-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.scan-block h3 { margin: 0; font-size: 15px; font-weight: 640; }
+#scan-toggle { width: auto; min-height: 36px; padding: 6px 12px; }
+#scan-toggle.on { border-color: var(--accent); color: var(--accent); }
 .pins { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .pins button { width: auto; min-height: 32px; padding: 4px 8px; }
 .pins button.on { border-color: var(--accent); color: var(--accent); background: #1c3330; }
