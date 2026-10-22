@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from paper_trader.install import canonical_folder, find_installs, install_newest, is_install
+from paper_trader.install import canonical_folder, find_installs, install_newest, is_install, running_desk_pids, stop_open_desks
 
 
 def make_install(folder: Path, version: str, marker: str = "") -> None:
@@ -68,6 +68,19 @@ class InstallTests(unittest.TestCase):
             self.assertTrue(documents.is_dir())
             self.assertTrue((documents / "Start-Paper-Trader.bat").is_file())
             self.assertTrue(is_install(dest))
+
+    def test_only_the_open_paper_trader_is_closed(self) -> None:
+        home = Path(r"C:\Users\rick")
+        images = [
+            (10, r"C:\Users\rick\Documents\paper-trader\runtime\python.exe"),
+            (11, r"C:\Users\rick\AppData\Local\Programs\Python\Python314\python.exe"),
+            (12, r"C:\Users\rick\Documents\Paper Trader\runtime\python.exe"),
+        ]
+        killed: list[int] = []
+        stopped = stop_open_desks(home, images, killed.append)
+        self.assertEqual(stopped, [10, 12])
+        self.assertEqual(killed, [10, 12])
+        self.assertEqual(running_desk_pids([(4, r"C:\Other\python.exe")], [home / "Documents" / "paper-trader"]), [])
 
 
 if __name__ == "__main__":

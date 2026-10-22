@@ -421,7 +421,15 @@ def _probe_health(url: str) -> bool:
 
 
 def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None:
-    server = create_server(state_path, port)
+    try:
+        server = create_server(state_path, port)
+    except OSError as exc:
+        busy = getattr(exc, "winerror", None) == 10048 or exc.errno in {98, 10048}
+        if not busy:
+            raise
+        print("Paper Trader is already open on this computer.")
+        print("Close that window, then start Paper Trader again.")
+        return
     host, bound = server.server_address[:2]
     url = f"http://{host}:{bound}/"
     print(f"Paper Trader is running at {url}")

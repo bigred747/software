@@ -13,7 +13,7 @@ Right-click `Paper-Trader.zip`, choose Extract All, and put the folder in Docume
 1. Double-click `1 Allow Paper Trader.bat`. That clears the download block, puts the newest copy in Documents, removes older Paper Trader folders from Documents, Desktop, and Downloads, and puts **Paper Trader** on the desktop.
 2. Double-click **Paper Trader** on the desktop. The desk opens, **Auto** starts, and the **Signals** list turns green for each part that is working. Click **Auto** again to stop.
 
-If a file is opened from inside the zip, this version extracts the whole zip into Documents and opens that copy. The green signals sit on the chart and show version 1.9.4 when this copy is running. The header says Desk is working when the page has started. Click a candle and that bar's prices appear on the chart. The desk opens in Microsoft Edge.
+If a file is opened from inside the zip, this version extracts the whole zip into Documents and opens that copy. The green signals sit on the chart and show version 1.9.5 when this copy is running. The header says Desk is working when the page has started. Opening the file from inside the zip unpacks a fresh copy, even when an older Paper Trader is still open. Click a candle and that bar's prices appear on the chart. The desk opens in Microsoft Edge.
 
 From a source checkout, Python 3.11 or newer is enough. The desk uses the Python standard library, so startup does not install packages.
 

@@ -11,10 +11,15 @@ set "ZIP="
 for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents") do for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
 if not defined ZIP goto NoZip
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
-tar -xf "!ZIP!" -C "%USERPROFILE%\Documents"
+taskkill /F /FI "WINDOWTITLE eq Paper Trader" >nul 2>&1
+set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup"
+if exist "%STAGE%" rmdir /s /q "%STAGE%"
+if exist "%STAGE%" set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup-%RANDOM%"
+mkdir "%STAGE%"
+tar -xf "!ZIP!" -C "%STAGE%"
 if errorlevel 1 goto BadZip
-if not exist "%USERPROFILE%\Documents\paper-trader\launch.py" goto BadZip
-start "" "%USERPROFILE%\Documents\paper-trader\1 Allow Paper Trader.bat"
+if not exist "%STAGE%\paper-trader\launch.py" goto BadZip
+start "" "%STAGE%\paper-trader\1 Allow Paper Trader.bat"
 echo The full copy is in Documents. Use the window that just opened.
 pause
 exit /b 0
