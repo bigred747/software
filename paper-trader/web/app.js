@@ -21,6 +21,7 @@ const state = {
   pickNote: "",
   leaders: [],
   scanNote: "",
+  scanDone: false,
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -51,7 +52,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.20";
+const VERSION = "1.9.21";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -140,6 +141,14 @@ async function paperCall(path, body) {
   }
   if (path === "/api/paper/trade") {
     await loadPhoneBars(state.session.symbol, state.session.params, false);
+    const preview = PaperEngine.view(state.session);
+    if (!(preview.shares > 0)) {
+      const reason = phoneBuyReason(state.session.symbol);
+      if (reason) throw new Error(reason);
+      const day = state.session.bars.length ? state.session.bars[state.session.bars.length - 1].date : "";
+      state.session.dayBuys = state.session.dayBuys || [];
+      state.session.dayBuys.push(day + "|" + state.session.symbol);
+    }
     return PaperEngine.trade(state.session);
   }
   if (path === "/api/paper/mode") return PaperEngine.view(state.session);
@@ -417,6 +426,80 @@ function showProblem(message) {
   if (status) status.textContent = message;
 }
 
+function phoneLeaders(rows, buysOnly) {
+  return rows
+    .filter((row) => row.seen >= 20 && row.seen > 0 && row.matched / row.seen >= 0.6 && (!buysOnly || row.setup === "buy"))
+    .sort((a, b) => b.rate - a.rate || b.seen - a.seen || a.symbol.localeCompare(b.symbol));
+}
+
+function phoneBuyReason(symbol) {
+  if (!state.scanDone) return "The daily scan is still walking live crypto.";
+  if (!(state.picks || []).some((row) => row.symbol === symbol)) return "This market is not in today's five.";
+  const bars = state.session && state.session.bars ? state.session.bars : [];
+  const day = bars.length ? bars[bars.length - 1].date : "";
+  if ((state.session.dayBuys || []).includes(day + "|" + symbol)) return "This market already has a paper buy today.";
+  return "";
+}
+
+let phoneScanToken = 0;
+
+async function scanPhone() {
+  const token = ++phoneScanToken;
+  const symbols = state.catalog.filter((row) => phoneCrypto(row.symbol, row.category)).map((row) => row.symbol);
+  if (!symbols.length) {
+    state.scanDone = true;
+    state.scanNote = "This phone scans live crypto. No crypto markets are in the list.";
+    renderScan();
+    return;
+  }
+  const scored = [];
+  let errors = 0;
+  state.scanDone = false;
+  state.leaders = [];
+  state.picks = [];
+  state.scanNote = "Scanned 0 of " + symbols.length + ". This phone scans live crypto.";
+  state.pickNote = "";
+  renderScan();
+  renderToday();
+  for (let index = 0; index < symbols.length; index += 1) {
+    if (token !== phoneScanToken) return;
+    const symbol = symbols[index];
+    const row = state.catalog.find((item) => item.symbol === symbol);
+    try {
+      const bars = await PaperLive.daily(symbol, row ? row.category : "");
+      const lesson = PaperFrames.lesson(bars);
+      const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(bars) : { kind: "", side: "" };
+      const seen = Number(lesson && lesson.seen) || 0;
+      const matched = Number(lesson && lesson.matched) || 0;
+      scored.push({
+        symbol,
+        seen,
+        matched,
+        rate: seen ? Math.round((matched / seen) * 100) : 0,
+        setup: alert.kind === "dots" && alert.side === "buy" ? "buy" : "",
+      });
+    } catch (error) {
+      errors += 1;
+    }
+    if (token !== phoneScanToken) return;
+    const leaders = phoneLeaders(scored, false).slice(0, 12);
+    const picks = phoneLeaders(scored, true).slice(0, 5);
+    state.leaders = leaders;
+    state.picks = picks;
+    const done = index + 1 === symbols.length;
+    const score = leaders.length ? "Highest closed-bar scores. Not a forecast." : "No market cleared the bar yet. Not a forecast.";
+    const missed = errors ? " " + errors + " quotes did not answer." : "";
+    state.scanNote = "Scanned " + (index + 1) + " of " + symbols.length + ". This phone scans live crypto. " + score + missed;
+    state.pickNote = picks.length
+      ? "Closed-bar score of the strongest markets today. At most 5. Not a forecast."
+      : "No market cleared the bar today.";
+    state.scanDone = done;
+    renderScan();
+    renderToday();
+    if (!done) await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+}
+
 async function bootOffline() {
   const text = globalThis.PAPER_CATALOG || await (await fetch("/catalog.txt")).text();
   state.catalog = PaperEngine.parseCatalog(text);
@@ -439,6 +522,7 @@ async function bootOffline() {
   rememberSymbol(state.paper.symbol);
   noteEdge();
   deskLine("Desk is working.");
+  scanPhone();
   if (state.paper.paper === true) {
     state.auto = true;
     render(state.paper);
@@ -791,6 +875,7 @@ function chooseSymbol(symbol) {
         state.market = PaperEngine.market(state.session);
         stampQuote(bars);
         render(PaperEngine.view(state.session));
+        renderLocalSignals();
       } else if (!state.offline) {
         await loadMarket(symbol);
         render(state.paper);
@@ -812,7 +897,14 @@ function chooseSymbol(symbol) {
       await refreshSymbols();
       rerunStudy();
       render(state.paper);
+      renderLocalSignals();
       showChart();
+      if (state.paper.paper === true) {
+        state.auto = true;
+        setTimeout(() => {
+          if (state.auto && !state.autoTimer) autoTick();
+        }, 0);
+      }
       showRead("Opened " + symbol + " on the chart.");
       return;
     }
