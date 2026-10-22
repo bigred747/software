@@ -146,7 +146,9 @@ class SampleTests(unittest.TestCase):
         self.assertEqual(bitcoin["symbols"][0]["symbol"], "BTC-USD")
         futures = search_symbols("es", "future")
         self.assertEqual(futures["symbols"][0]["symbol"], "ES")
-        self.assertEqual(search_symbols("", "stock")["total"], 7500)
+        self.assertEqual(search_symbols("", "stock")["total"], 7504)
+        self.assertEqual(search_symbols("vgt")["symbols"][0]["symbol"], "VGT")
+        self.assertEqual(search_symbols("uga")["symbols"][0]["symbol"], "UGA")
 
     def test_squeeze_releases_mark_a_direction(self) -> None:
         bars = load_symbol("XRP-USD")

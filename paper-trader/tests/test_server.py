@@ -125,6 +125,10 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         before = json.loads(raw)
         status, traded = self.open("/api/paper/trade", "POST", {})
+        if status == 400:
+            self.assertIn(b"today", traded)
+            self.assertEqual(json.loads(self.open("/api/paper")[1])["cursor"], before["cursor"])
+            return
         self.assertEqual(status, 200)
         payload = json.loads(traded)
         self.assertEqual(payload["mode"], "paper")
@@ -136,6 +140,43 @@ class ServerTests(unittest.TestCase):
             self.assertGreater(payload["shares"], 0)
         else:
             self.assertEqual(payload["shares"], 0)
+
+    def test_a_scanned_leader_can_buy_once_and_can_always_sell(self) -> None:
+        from datetime import date, timedelta
+
+        from paper_trader.model import Bar
+        from paper_trader.server import Desk
+
+        start = date(2024, 1, 1)
+        bars = []
+        for index in range(40):
+            bars.append(Bar((start + timedelta(days=index)).isoformat(), 100.0, 101.0, 99.0, 100.0, 1.0))
+        lesson = {
+            "rule": "Squeeze 20",
+            "seen": 20,
+            "matched": 16,
+            "as_of": bars[-1].date,
+            "setup": "buy",
+            "mood": {"label": "Neutral", "score": 50},
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=bars), patch(
+                "paper_trader.server.score_row", return_value=dict(lesson)
+            ):
+                bought = desk.trade()
+                self.assertEqual(bought["last_action"], "buy")
+                self.assertGreater(bought["shares"], 0)
+                sold = desk.trade()
+                self.assertEqual(sold["last_action"], "sell")
+                self.assertEqual(sold["shares"], 0)
+                with self.assertRaises(ValueError) as blocked:
+                    desk.trade()
+                self.assertIn("already has a paper buy today", str(blocked.exception))
+                view = desk.learn_view()
+                self.assertIn("leaders", view)
+                self.assertIn("Daily scan", view["scan_note"])
+                self.assertTrue(any(row["symbol"] == "BTC-USD" for row in view["leaders"]))
 
     def test_step_and_backtest(self) -> None:
         status, raw = self.open("/api/paper")
@@ -268,7 +309,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.19", script)
+        self.assertIn(b"1.9.20", script)
+        self.assertIn(b"Daily scan", page)
+        self.assertIn(b"id=\"scan\"", page)
         self.assertIn(b">Voice<", page)
         self.assertIn(b"/api/voice", script)
         self.assertIn(b"Five squeeze dots", script)

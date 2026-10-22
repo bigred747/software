@@ -156,6 +156,10 @@ XLU	State Street Utilities Select Sector SPDR ETF	etf
 XLRE	State Street Real Estate Select Sector SPDR ETF	etf
 VNQ	Vanguard Real Estate ETF	etf
 SMH	VanEck Semiconductor ETF	etf
+VGT	Vanguard Information Technology ETF	etf
+SPMO	Invesco S&P 500 Momentum ETF	etf
+MGK	Vanguard Mega Cap Growth ETF	etf
+UGA	United States Gasoline Fund	etf
 SOXX	iShares PHLX SOX Semiconductor Sector Index Fund	etf
 ARKK	ARK Innovation ETF	etf
 IEMG	iShares Core MSCI Emerging Markets ETF	etf

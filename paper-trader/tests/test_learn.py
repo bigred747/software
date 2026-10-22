@@ -14,14 +14,21 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from paper_trader.learn import (
+    SECTORS,
+    WATCH,
     Watcher,
+    allow_entry,
     choose,
     ensure_learner,
     fit,
     learner_command,
     learning_report,
     mood,
+    rank_leaders,
+    rank_today,
     remember_symbols,
+    scan_note,
+    scan_report,
     startup_script,
     stop_learner,
     write_startup,
@@ -210,7 +217,7 @@ class AlwaysOnTests(unittest.TestCase):
     def test_watch_list_drops_bad_symbols(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "learn_watch.json"
-            remember_symbols(path, ["BTC-USD", "bad symbol", "XRP-USD", "BTC-USD"] + [f"S{index}" for index in range(20)])
+            remember_symbols(path, ["BTC-USD", "bad symbol", "XRP-USD", "BTC-USD"] + [f"S{index}" for index in range(30)])
             from paper_trader.learn import read_watch
 
             _focus, symbols = read_watch(path)
@@ -218,7 +225,94 @@ class AlwaysOnTests(unittest.TestCase):
             assert symbols is not None
             self.assertNotIn("bad symbol", symbols)
             self.assertEqual(symbols[0], "BTC-USD")
-            self.assertEqual(len(symbols), 12)
+            self.assertEqual(len(symbols), 24)
             closed = learning_report(Path(folder) / "learn_state.json", expect=False)
             self.assertTrue(closed["ok"])
             self.assertIn("after that window closes", str(closed["detail"]))
+
+
+def _row(symbol: str, seen: int, matched: int, day: str = "2026-10-22", setup: str = "buy") -> dict:
+    return {
+        "symbol": symbol,
+        "seen": seen,
+        "matched": matched,
+        "as_of": day,
+        "setup": setup,
+        "rule": "Squeeze 20",
+    }
+
+
+class ScanTests(unittest.TestCase):
+    def test_sector_names_stay_on_the_watch(self) -> None:
+        for symbol in ("SMH", "VGT", "ARKW", "QQQ", "SPMO", "COPX", "ARKQ", "MGK", "CIBR", "UGA", "AIRR", "GRID"):
+            self.assertIn(symbol, SECTORS)
+            self.assertIn(symbol, WATCH)
+
+    def test_today_keeps_five_buy_setups_and_drops_the_rest(self) -> None:
+        rows = [
+            _row("LOW", 20, 11),
+            _row("SHORT", 19, 19),
+            _row("OLD", 40, 40, "2026-10-21"),
+            _row("FLAT", 30, 24, setup=""),
+            _row("A", 20, 16),
+            _row("B", 40, 32),
+            _row("C", 25, 20),
+            _row("D", 22, 16),
+            _row("E", 21, 15),
+            _row("F", 50, 40),
+        ]
+        picks = rank_today(rows)
+        self.assertEqual([row["symbol"] for row in picks], ["F", "B", "C", "A", "D"])
+        self.assertEqual(picks[0]["rate"], 80)
+        self.assertEqual(allow_entry("SPY", picks, False), "This market is not in today's five.")
+        self.assertEqual(allow_entry("F", picks, True), "This market already has a paper buy today.")
+        self.assertEqual(allow_entry("F", picks, False), "")
+
+    def test_leaders_are_the_highest_closed_bar_scores(self) -> None:
+        rows = [_row("SHORT", 8, 8), _row("WEAK", 20, 11, setup="")]
+        rows.extend(_row(f"S{index:02d}", 20, 12 + (index % 5), setup="" if index % 2 else "buy") for index in range(14))
+        leaders = rank_leaders(rows)
+        self.assertEqual(len(leaders), 12)
+        self.assertGreaterEqual(leaders[0]["rate"], leaders[-1]["rate"])
+        self.assertNotIn("SHORT", [row["symbol"] for row in leaders])
+        self.assertNotIn("WEAK", [row["symbol"] for row in leaders])
+        self.assertIn("Not a forecast", scan_note(4, 7504, False, 0, leaders))
+
+    def test_a_feed_miss_is_skipped_and_a_dead_feed_waits(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "learn_state.json"
+            watcher = Watcher(path)
+            self.assertTrue(watcher.acquire())
+            try:
+                def load(symbol: str, refresh: bool = False):
+                    if symbol == "BBB":
+                        raise ValueError("No market quote for BBB")
+                    if symbol == "CCC":
+                        raise ValueError("The quote feed did not answer.")
+                    return bars_from([100 + index * 0.1 for index in range(40)])
+
+                with patch("paper_trader.learn.desk_day", return_value="2026-10-22"), patch(
+                    "paper_trader.samples.all_symbols", return_value=["AAA", "BBB", "CCC"]
+                ), patch("paper_trader.learn.quotes.load_bars", side_effect=load):
+                    watcher._scan_one()
+                    watcher._scan_one()
+                    watcher._scan_one()
+                    stalled = scan_report(watcher.scan_path)
+                    self.assertEqual(stalled["scanned"], 2)
+                    self.assertEqual(stalled["errors"], 1)
+                    self.assertIn("did not answer", stalled["note"])
+                    self.assertIn("AAA", stalled["rows"])
+                    self.assertNotIn("BBB", stalled["rows"])
+                    watcher._scan["day"] = "2000-01-01"
+                    watcher._scan["rows"] = {"OLD": {"seen": 30, "matched": 20, "as_of": "2000-01-01", "setup": "buy", "scanned_on": "2000-01-01"}}
+                    watcher._scan["cursor"] = 9
+                    watcher._scan["done"] = True
+                    watcher._names_day = ""
+                    with patch("paper_trader.samples.all_symbols", return_value=["AAA"]):
+                        watcher._scan_one()
+                    fresh = watcher._scan
+                    self.assertEqual(fresh["day"], "2026-10-22")
+                    self.assertNotIn("OLD", fresh["rows"])
+                    self.assertIn("AAA", fresh["rows"])
+            finally:
+                watcher.release()

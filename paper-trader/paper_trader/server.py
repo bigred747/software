@@ -17,7 +17,23 @@ from paper_trader import __version__
 from paper_trader.backtest import present, run_backtest
 from paper_trader.install import keep_only_running, single_copy_status, write_desktop_opener
 from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
-from paper_trader.learn import book_view, ensure_learner, mood, remember_focus, remember_symbols
+from paper_trader.learn import (
+    allow_entry,
+    book_view,
+    bought_on,
+    desk_day,
+    ensure_learner,
+    mood,
+    pick_note,
+    rank_leaders,
+    rank_today,
+    remember_day_buy,
+    remember_focus,
+    remember_symbols,
+    scan_report,
+    score_row,
+    symbol_rows,
+)
 from paper_trader.model import params_from_dict
 from paper_trader.indicators import squeeze, squeeze_alert
 from paper_trader import quotes
@@ -151,6 +167,12 @@ class Desk:
             bars = quotes.load_bars(self.journal.symbol, refresh=True)
             held = view_journal(self.journal)["shares"] > 0
             side = "sell" if held else "buy"
+            if side == "buy":
+                day = bars[-1].date
+                reason = allow_entry(self.journal.symbol, self._picks(self.journal.symbol, bars), self._already_bought(day))
+                if reason:
+                    raise ValueError(reason)
+                remember_day_buy(self._day_path(), self.journal.symbol, day)
             self.journal.close_orders.append((bars[-1].date, side))
             save_journal(self.state_path, self.journal)
             payload = view_journal(self.journal)
@@ -185,7 +207,50 @@ class Desk:
         remember_symbols(self.watch_path, symbols)
 
     def learn_view(self) -> dict:
-        return book_view(self.learn_path, expect=self.expect_learner)
+        with self.lock:
+            symbol = self.journal.symbol
+        book = book_view(self.learn_path, expect=self.expect_learner)
+        try:
+            bars = quotes.load_bars(symbol)
+        except ValueError:
+            bars = []
+        rows = self._board(symbol, bars)
+        scan = scan_report(self._scan_path())
+        book["picks"] = rank_today(rows)
+        book["pick_note"] = pick_note(book["picks"])
+        book["leaders"] = rank_leaders(rows)
+        book["scan_note"] = scan["note"]
+        book["scanned"] = scan["scanned"]
+        book["scan_total"] = scan["total"]
+        return book
+
+    def _day_path(self) -> Path:
+        return self.state_path.with_name("day_buys.json")
+
+    def _already_bought(self, day: str) -> bool:
+        symbol = self.journal.symbol
+        if any(order_day == day and order_side == "buy" for order_day, order_side in self.journal.close_orders):
+            return True
+        return bought_on(self._day_path(), symbol, day)
+
+    def _scan_path(self) -> Path:
+        return self.state_path.with_name("scan_state.json")
+
+    def _board(self, symbol: str, bars: list) -> list[dict]:
+        scan = scan_report(self._scan_path())
+        board = dict(scan.get("rows") or {})
+        saved = book_view(self.learn_path, expect=self.expect_learner)
+        for name, row in dict(saved.get("symbols") or {}).items():
+            if isinstance(row, dict):
+                board.setdefault(str(name), row)
+        if bars and symbol:
+            live = score_row(bars)
+            live["scanned_on"] = desk_day()
+            board[symbol] = live
+        return symbol_rows(board)
+
+    def _picks(self, symbol: str, bars: list) -> list[dict]:
+        return rank_today(self._board(symbol, bars))
 
     def voice(self, symbols: list[str]) -> dict:
         """Daily squeeze warnings for the markets on the desk. Paper only."""
@@ -195,9 +260,9 @@ class Desk:
             symbol = str(raw or "").strip().upper()
             if not symbol or symbol in seen or not _ticker_ok(symbol):
                 continue
-            seen.add(symbol)
-            if len(seen) > 12:
+            if len(seen) >= 24:
                 break
+            seen.add(symbol)
             try:
                 bars = quotes.load_bars(symbol)
             except ValueError as exc:

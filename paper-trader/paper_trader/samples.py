@@ -45,6 +45,11 @@ def catalog_size() -> int:
     return len(_catalog())
 
 
+def all_symbols() -> list[str]:
+    """Every market in the catalog, in file order."""
+    return [str(row["symbol"]) for row in _catalog()]
+
+
 def symbols() -> list[dict[str, str | int]]:
     return search_symbols()["symbols"]
 

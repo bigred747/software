@@ -18,16 +18,28 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
-from paper_trader.indicators import squeeze
+from paper_trader.indicators import squeeze, squeeze_alert
 from paper_trader.model import Bar
 from paper_trader import quotes
 
-WATCH = ("BTC-USD", "ETH-USD", "XRP-USD", "XLM-USD", "SOL-USD", "SPY", "QQQ")
+SECTORS = ("SMH", "VGT", "ARKW", "QQQ", "SPMO", "COPX", "ARKQ", "MGK", "CIBR", "UGA", "AIRR", "GRID")
+WATCH = ("BTC-USD", "ETH-USD", "XRP-USD", "XLM-USD", "SOL-USD", "SPY") + SECTORS
 MIN_SEEN = 8
+PRECISE_SEEN = 20
+PRECISE_RATE = 0.60
+PICK_LIMIT = 5
+SCAN_LIMIT = 12
+WATCH_LIMIT = 24
+PICK_NOTE = "Closed-bar score of the strongest markets today. At most 5. Not a forecast."
+EMPTY_NOTE = "No market cleared the bar today."
+SCAN_PAUSE = 0.15
 INTERVAL = 60.0
 STALE_SECONDS = 180.0
+_DENVER = ZoneInfo("America/Denver")
 DEFAULT_RULE = "True momentum 5/3 with the candle"
 _SYMBOL = re.compile(r"^[A-Za-z0-9.^=-]{1,16}$")
 _WATCH_LOCK = threading.Lock()
@@ -59,6 +71,242 @@ def mood(bars: list[Bar], length: int = 20) -> dict:
         "label": label,
         "note": f"{label} {score}. The last close sits in the recent range. Not a forecast.",
     }
+
+
+def buy_setup(bars: list[Bar]) -> str:
+    """A daily buy only when five squeeze dots are on and momentum is rising.
+
+    A fade is an exit, so it does not count as a new buy setup.
+    """
+    if len(bars) < 5:
+        return ""
+    state = squeeze([bar.high for bar in bars], [bar.low for bar in bars], [bar.close for bar in bars])
+    alert = squeeze_alert(state["level"], state["momentum"])
+    if alert["kind"] == "dots" and alert["side"] == "buy":
+        return "buy"
+    return ""
+
+
+def score_row(bars: list[Bar]) -> dict:
+    """Closed-bar score plus today's setup. The last bar still gets no arrow."""
+    lesson = fit(bars)
+    return {
+        "rule": lesson["rule"],
+        "seen": lesson["seen"],
+        "matched": lesson["matched"],
+        "average": lesson["average"],
+        "squeeze": lesson["squeeze"],
+        "calc": lesson["calc"],
+        "smooth": lesson["smooth"],
+        "candle": lesson["candle"],
+        "mood": lesson["mood"],
+        "as_of": bars[-1].date if bars else "",
+        "setup": buy_setup(bars),
+    }
+
+
+def precise_rate(seen: int, matched: int) -> float | None:
+    """The past match rate once a reading has enough closed bars. Not a forecast."""
+    if seen < PRECISE_SEEN:
+        return None
+    rate = matched / seen
+    if rate < PRECISE_RATE:
+        return None
+    return rate
+
+
+def rank_today(rows: list[dict]) -> list[dict]:
+    """Keep today's buy setups that cleared the closed-bar bar. At most five."""
+    dated = _current_rows(rows)
+    if not dated:
+        return []
+    today = max(str(row.get("as_of") or "") for row in dated)
+    qualified: list[dict] = []
+    for row in dated:
+        if str(row.get("scanned_on") or "") == "" and str(row.get("as_of") or "") != today:
+            continue
+        if str(row.get("setup") or "") != "buy":
+            continue
+        symbol = str(row.get("symbol") or "")
+        if not symbol:
+            continue
+        seen = int(row.get("seen") or 0)
+        matched = int(row.get("matched") or 0)
+        rate = precise_rate(seen, matched)
+        if rate is None:
+            continue
+        qualified.append({
+            "symbol": symbol,
+            "rate": int(round(rate * 100)),
+            "seen": seen,
+            "matched": matched,
+            "as_of": today,
+            "rule": str(row.get("rule") or ""),
+            "setup": "buy",
+        })
+    qualified.sort(key=lambda item: (-int(item["rate"]), -int(item["seen"]), str(item["symbol"])))
+    kept: list[dict] = []
+    seen_names: set[str] = set()
+    for item in qualified:
+        if item["symbol"] in seen_names:
+            continue
+        seen_names.add(item["symbol"])
+        kept.append(item)
+        if len(kept) >= PICK_LIMIT:
+            break
+    return kept
+
+
+def pick_note(picks: list[dict]) -> str:
+    if picks:
+        return PICK_NOTE
+    return EMPTY_NOTE + " " + PICK_NOTE
+
+
+def desk_day(now: datetime | None = None) -> str:
+    """The paper desk's calendar day in America/Denver."""
+    moment = now or datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(_DENVER).date().isoformat()
+
+
+def _current_rows(rows: list[dict]) -> list[dict]:
+    """Rows from the newest scan day. Older saved rows stay out of the board."""
+    if any(str(row.get("scanned_on") or "") for row in rows):
+        day = max(str(row.get("scanned_on") or "") for row in rows)
+        return [row for row in rows if str(row.get("scanned_on") or "") == day]
+    dated = [row for row in rows if str(row.get("as_of") or "")]
+    if not dated:
+        return []
+    day = max(str(row.get("as_of") or "") for row in dated)
+    return [row for row in dated if str(row.get("as_of") or "") == day]
+
+
+def rank_leaders(rows: list[dict]) -> list[dict]:
+    """The strongest closed-bar scores from the daily scan. At most twelve.
+
+    A reading needs 20 closed bars and a match rate of at least 60 percent.
+    The number is the past match rate. It is not a forecast.
+    """
+    qualified: list[dict] = []
+    for row in _current_rows(rows):
+        symbol = str(row.get("symbol") or "")
+        if not symbol:
+            continue
+        seen = int(row.get("seen") or 0)
+        matched = int(row.get("matched") or 0)
+        rate = precise_rate(seen, matched)
+        if rate is None:
+            continue
+        qualified.append({
+            "symbol": symbol,
+            "rate": int(round(rate * 100)),
+            "seen": seen,
+            "matched": matched,
+            "as_of": str(row.get("as_of") or ""),
+            "rule": str(row.get("rule") or ""),
+            "setup": "buy" if str(row.get("setup") or "") == "buy" else "",
+        })
+    qualified.sort(key=lambda item: (-int(item["rate"]), -int(item["seen"]), str(item["symbol"])))
+    kept: list[dict] = []
+    seen_names: set[str] = set()
+    for item in qualified:
+        if item["symbol"] in seen_names:
+            continue
+        seen_names.add(item["symbol"])
+        kept.append(item)
+        if len(kept) >= SCAN_LIMIT:
+            break
+    return kept
+
+
+def scan_note(scanned: int, total: int, done: bool, errors: int, leaders: list[dict], last_error: str = "") -> str:
+    if total <= 0 and scanned <= 0:
+        progress = "Daily scan has not started."
+    elif done:
+        progress = f"Scanned {scanned} of {total}."
+    else:
+        progress = f"Scanned {scanned} of {total}. The daily scan is still walking the catalog."
+    if leaders:
+        score = "Highest closed-bar scores. Not a forecast."
+    else:
+        score = "No market cleared the bar yet. Not a forecast."
+    if last_error and not done:
+        return f"{progress} {last_error}"
+    extra = f" {errors} quotes did not answer." if errors else ""
+    return f"{progress} {score}{extra}"
+
+
+def symbol_rows(symbols: dict) -> list[dict]:
+    rows: list[dict] = []
+    for name, row in symbols.items():
+        if not isinstance(row, dict):
+            continue
+        item = dict(row)
+        item["symbol"] = str(name)
+        rows.append(item)
+    return rows
+
+
+def scan_fields(lesson: dict, day: str) -> dict:
+    return {
+        "rule": str(lesson.get("rule") or ""),
+        "seen": int(lesson.get("seen") or 0),
+        "matched": int(lesson.get("matched") or 0),
+        "as_of": str(lesson.get("as_of") or ""),
+        "setup": "buy" if lesson.get("setup") == "buy" else "",
+        "scanned_on": day,
+    }
+
+
+def scan_report(path: Path) -> dict:
+    raw = _load_scan(path)
+    rows = raw.get("rows") if isinstance(raw.get("rows"), dict) else {}
+    leaders = rank_leaders(symbol_rows(rows))
+    scanned = int(raw.get("cursor") or 0)
+    total = int(raw.get("total") or 0)
+    done = bool(raw.get("done"))
+    errors = int(raw.get("errors") or 0)
+    last_error = str(raw.get("last_error") or "")
+    return {
+        "leaders": leaders,
+        "rows": rows,
+        "scanned": scanned,
+        "total": total,
+        "done": done,
+        "errors": errors,
+        "last_error": last_error,
+        "note": scan_note(scanned, total, done, errors, leaders, last_error),
+    }
+
+
+def allow_entry(symbol: str, picks: list[dict], bought_today: bool) -> str:
+    """A new paper buy needs a seat in today's five, and only one buy per name per day."""
+    names = {str(row.get("symbol") or "") for row in picks}
+    if symbol not in names:
+        return "This market is not in today's five."
+    if bought_today:
+        return "This market already has a paper buy today."
+    return ""
+
+
+def bought_on(path: Path, symbol: str, day: str) -> bool:
+    raw = _load_day(path)
+    if str(raw.get("date") or "") != day:
+        return False
+    return symbol in [str(item) for item in list(raw.get("symbols") or [])]
+
+
+def remember_day_buy(path: Path, symbol: str, day: str) -> None:
+    raw = _load_day(path)
+    if str(raw.get("date") or "") == day:
+        symbols = [str(item) for item in list(raw.get("symbols") or [])]
+    else:
+        symbols = []
+    if symbol not in symbols:
+        symbols.append(symbol)
+    _store(path, {"date": day, "symbols": symbols})
 
 
 def choose(book: dict[str, dict[str, int]], default: str) -> tuple[str, dict[str, int]]:
@@ -201,7 +449,7 @@ def read_watch(path: Path) -> tuple[str, tuple[str, ...] | None]:
     for symbol in symbols:
         if isinstance(symbol, str) and _SYMBOL.fullmatch(symbol) and symbol not in cleaned:
             cleaned.append(symbol)
-        if len(cleaned) >= 12:
+        if len(cleaned) >= WATCH_LIMIT:
             break
     return focus, tuple(cleaned)
 
@@ -230,7 +478,7 @@ def remember_symbols(path: Path, symbols: list) -> None:
             continue
         if symbol not in cleaned:
             cleaned.append(symbol)
-        if len(cleaned) >= 12:
+        if len(cleaned) >= WATCH_LIMIT:
             break
     with _WATCH_LOCK:
         focus, _extra = read_watch(path)
@@ -485,7 +733,11 @@ class Watcher:
     def __init__(self, path: Path) -> None:
         self.path = path
         self.watch_path = path.with_name("learn_watch.json")
+        self.scan_path = path.with_name("scan_state.json")
         self.lock_path = path.with_name("learn.lock")
+        self._names_day = ""
+        self._names_list: list[str] = []
+        self._scan = _load_scan(self.scan_path)
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._focus = "BTC-USD"
@@ -527,16 +779,12 @@ class Watcher:
             _store(self.path, self._saved)
 
     def _loop(self) -> None:
-        for _ in range(len(WATCH)):
-            if self._stop.is_set():
-                return
-            self._pass()
-            if self._stop.wait(2):
-                return
         while not self._stop.is_set():
             self._pass()
-            if self._stop.wait(INTERVAL):
+            if self._stop.is_set():
                 return
+            gap = 2.0 if int(self._saved.get("passes") or 0) <= len(WATCH) else INTERVAL
+            self._scan_until(time.monotonic() + gap)
 
     def _pass(self) -> None:
         try:
@@ -565,7 +813,7 @@ class Watcher:
         symbol = queue[cursor % len(queue)]
         try:
             bars = quotes.load_bars(symbol, refresh=True)
-            lesson = fit(bars)
+            lesson = score_row(bars)
         except ValueError as exc:
             self._fail(str(exc), symbol, cursor + 1)
             return
@@ -579,7 +827,8 @@ class Watcher:
             "smooth": lesson["smooth"],
             "candle": lesson["candle"],
             "mood": lesson["mood"],
-            "as_of": bars[-1].date,
+            "as_of": lesson["as_of"],
+            "setup": lesson["setup"],
         }
         with self._lock:
             symbols = dict(self._saved.get("symbols") or {})
@@ -595,6 +844,84 @@ class Watcher:
                 "symbols": symbols,
             }
             _store(self.path, self._saved)
+
+    def _catalog_names(self) -> list[str]:
+        day = desk_day()
+        if self._names_day != day or not self._names_list:
+            from paper_trader.samples import all_symbols
+
+            self._names_list = all_symbols()
+            self._names_day = day
+        return self._names_list
+
+    def _scan_until(self, deadline: float) -> None:
+        while time.monotonic() < deadline and not self._stop.is_set():
+            if self._scan_finished():
+                return
+            pause = self._scan_one()
+            if self._stop.wait(pause):
+                return
+
+    def _scan_finished(self) -> bool:
+        raw = self._scan
+        return bool(raw.get("done")) and str(raw.get("day") or "") == desk_day()
+
+    def _scan_one(self) -> float:
+        """Score the next catalog market. Returns how long to wait before the next one."""
+        day = desk_day()
+        names = self._catalog_names()
+        total = len(names)
+        raw = self._scan
+        if str(raw.get("day") or "") != day:
+            raw = _empty_scan(day)
+        cursor = int(raw.get("cursor") or 0)
+        if total < 1 or cursor >= total:
+            raw["done"] = True
+            raw["day"] = day
+            raw["total"] = total
+            raw["cursor"] = cursor
+            raw["updated"] = time.time()
+            self._scan = raw
+            _store(self.scan_path, raw)
+            self._beat()
+            return SCAN_PAUSE
+        symbol = names[cursor]
+        row = None
+        stall = False
+        message = ""
+        try:
+            bars = quotes.load_bars(symbol, refresh=False)
+            row = scan_fields(score_row(bars), day)
+        except ValueError as exc:
+            message = str(exc) or "The quote feed did not answer."
+            stall = "did not answer" in message or "unexpected response" in message
+        if stall:
+            raw["last_error"] = message
+            raw["total"] = total
+            raw["updated"] = time.time()
+            raw["day"] = day
+            self._scan = raw
+            _store(self.scan_path, raw)
+            self._beat()
+            return 5.0
+        rows = dict(raw.get("rows") or {})
+        if row:
+            rows[symbol] = row
+            raw["last_error"] = ""
+        else:
+            raw["errors"] = int(raw.get("errors") or 0) + 1
+            raw["last_error"] = ""
+        raw["rows"] = rows
+        raw["cursor"] = cursor + 1
+        raw["total"] = total
+        raw["done"] = raw["cursor"] >= total
+        raw["day"] = day
+        raw["updated"] = time.time()
+        self._scan = raw
+        if raw["done"] or raw["cursor"] <= 5 or raw["cursor"] % 25 == 0:
+            _store(self.scan_path, raw)
+        self._beat()
+        return SCAN_PAUSE
 
     def _fail(self, message: str, symbol: str | None = None, cursor: int | None = None) -> None:
         with self._lock:
@@ -731,6 +1058,45 @@ def _signals(bars: list[Bar]) -> dict[str, tuple[list[bool], list[bool]]]:
         add(name, (up, down))
         add(name + " with the candle", _with_candle(up, down, bars))
     return signals
+
+
+def _empty_scan(day: str) -> dict:
+    return {
+        "day": day,
+        "cursor": 0,
+        "total": 0,
+        "done": False,
+        "errors": 0,
+        "last_error": "",
+        "updated": 0,
+        "rows": {},
+    }
+
+
+def _load_scan(path: Path) -> dict:
+    if not path.is_file():
+        return _empty_scan("")
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return _empty_scan("")
+    if not isinstance(raw, dict):
+        return _empty_scan("")
+    if not isinstance(raw.get("rows"), dict):
+        raw["rows"] = {}
+    return raw
+
+
+def _load_day(path: Path) -> dict:
+    if not path.is_file():
+        return {"date": "", "symbols": []}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"date": "", "symbols": []}
+    if not isinstance(raw, dict):
+        return {"date": "", "symbols": []}
+    return raw
 
 
 def _load(path: Path) -> dict:

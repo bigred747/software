@@ -17,12 +17,19 @@ const state = {
   lesson: null,
   lessonKey: "",
   voice: true,
+  picks: [],
+  pickNote: "",
+  leaders: [],
+  scanNote: "",
 };
 
 const STUDY_KEY = "paperTraderStudies";
 const PIN_KEY = "paperTraderPins";
 const SYMBOL_KEY = "paperTraderSymbol";
-const DEFAULT_PINS = ["BTC-USD", "ETH-USD", "XRP-USD", "XLM-USD", "SOL-USD", "SPY"];
+const SECTORS = ["SMH", "VGT", "ARKW", "QQQ", "SPMO", "COPX", "ARKQ", "MGK", "CIBR", "UGA", "AIRR", "GRID"];
+const PIN_LIMIT = 24;
+const DEFAULT_PINS = ["BTC-USD", "ETH-USD", "XRP-USD", "XLM-USD", "SOL-USD", "SPY"].concat(SECTORS);
+const SECTOR_KEY = "paperTraderSectors";
 
 const notes = {
   BUY: "The paper account would open a long on the next bar.",
@@ -44,7 +51,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.19";
+const VERSION = "1.9.20";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -482,7 +489,13 @@ async function loadSignals() {
     Object.entries(book.symbols || {}).forEach(([symbol, row]) => {
       if (row && row.mood && symbol !== openSymbol) state.moods[symbol] = row.mood;
     });
+    state.picks = Array.isArray(book.picks) ? book.picks : [];
+    state.pickNote = book.pick_note || "";
+    state.leaders = Array.isArray(book.leaders) ? book.leaders : [];
+    state.scanNote = book.scan_note || "";
     renderPins();
+    renderToday();
+    renderScan();
     document.querySelectorAll("#symbol button").forEach((button) => {
       const symbol = button.dataset.symbol;
       const row = state.moods[symbol];
@@ -591,6 +604,8 @@ function render(paper) {
   fillTrades($("journal-body"), paper.trades || []);
   renderResult(paper);
   renderPins();
+  renderToday();
+  renderScan();
   renderReadings();
   renderFrames();
   drawCandles();
@@ -618,8 +633,18 @@ function rememberSymbol(symbol) {
 function readPins() {
   try {
     const parsed = JSON.parse(localStorage.getItem(PIN_KEY) || "null");
-    if (!Array.isArray(parsed)) return DEFAULT_PINS.slice();
-    return parsed.filter((item) => typeof item === "string" && item.length > 0 && item.length < 24).slice(0, 12);
+    let pins = Array.isArray(parsed)
+      ? parsed.filter((item) => typeof item === "string" && item.length > 0 && item.length < 24).slice(0, PIN_LIMIT)
+      : DEFAULT_PINS.slice();
+    if (!localStorage.getItem(SECTOR_KEY)) {
+      SECTORS.forEach((symbol) => {
+        if (!pins.includes(symbol)) pins.push(symbol);
+      });
+      pins = pins.slice(0, PIN_LIMIT);
+      localStorage.setItem(SECTOR_KEY, "1");
+      localStorage.setItem(PIN_KEY, JSON.stringify(pins));
+    }
+    return pins;
   } catch (error) {
     return DEFAULT_PINS.slice();
   }
@@ -627,7 +652,7 @@ function readPins() {
 
 function writePins(pins) {
   try {
-    localStorage.setItem(PIN_KEY, JSON.stringify(pins.slice(0, 12)));
+    localStorage.setItem(PIN_KEY, JSON.stringify(pins.slice(0, PIN_LIMIT)));
   } catch (error) {
     return;
   }
@@ -635,6 +660,41 @@ function writePins(pins) {
 
 function pinLabel(symbol) {
   return symbol.endsWith("-USD") ? symbol.slice(0, -4) : symbol;
+}
+
+function renderScoreButtons(bar, rows) {
+  const current = (state.paper && state.paper.symbol) || "";
+  bar.replaceChildren();
+  (rows || []).forEach((row) => {
+    if (!row || !row.symbol) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    const ready = row.setup === "buy" ? " buy" : "";
+    button.textContent = pinLabel(row.symbol) + " " + row.rate + "%" + ready;
+    button.title = row.matched + " of " + row.seen + " closed bars. Not a forecast.";
+    if (row.symbol === current) {
+      button.className = "on";
+      button.setAttribute("aria-pressed", "true");
+    }
+    button.addEventListener("click", () => chooseSymbol(row.symbol));
+    bar.appendChild(button);
+  });
+}
+
+function renderScan() {
+  const line = $("scan-note");
+  const bar = $("scan");
+  if (!line || !bar) return;
+  line.textContent = state.scanNote || "";
+  renderScoreButtons(bar, state.leaders || []);
+}
+
+function renderToday() {
+  const line = $("today-note");
+  const bar = $("today");
+  if (!line || !bar) return;
+  line.textContent = state.pickNote || "";
+  renderScoreButtons(bar, state.picks || []);
 }
 
 function renderResult(paper) {
@@ -1667,7 +1727,7 @@ $("pin-toggle").addEventListener("click", () => {
   const current = state.paper && state.paper.symbol;
   if (!current) return;
   const pins = readPins();
-  const next = pins.includes(current) ? pins.filter((symbol) => symbol !== current) : [current].concat(pins).slice(0, 12);
+  const next = pins.includes(current) ? pins.filter((symbol) => symbol !== current) : [current].concat(pins).slice(0, PIN_LIMIT);
   writePins(next);
   renderPins();
 });

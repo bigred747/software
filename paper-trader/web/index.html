@@ -39,11 +39,18 @@
       <h2>Markets</h2>
       <div id="pins" class="pins" aria-label="Pinned markets"></div>
       <button id="pin-toggle" type="button" class="quiet">Pin this market</button>
+      <div class="scan-block">
+        <h3>Daily scan</h3>
+        <p id="scan-note" class="muted"></p>
+        <div id="scan" class="pins" aria-label="Daily scan"></div>
+        <p id="today-note" class="muted"></p>
+        <div id="today" class="pins" aria-label="Today's five"></div>
+      </div>
       <label for="search">Find a market</label>
       <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
       <label for="category">Type</label>
       <select id="category">
-        <option value="">All 7,500</option>
+        <option value="">All markets</option>
         <option value="crypto">Crypto</option>
         <option value="stock">Stocks</option>
         <option value="etf">ETFs</option>
