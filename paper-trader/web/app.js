@@ -52,7 +52,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.21";
+const VERSION = "1.9.22";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -301,12 +301,13 @@ function paintSignals(items) {
 }
 
 function renderLocalSignals() {
+  const liveNames = state.catalog.filter((row) => phoneCrypto(row.symbol, row)).length;
   paintSignals(withHooks([
     { name: "This device", ok: true, detail: "Mobile copy" },
     { name: "Paper", ok: true, detail: "On" },
     { name: "Auto", ok: true, detail: "Ready" },
     { name: "Trade", ok: true, detail: "Ready" },
-    { name: "Markets", ok: state.catalog.length >= 7500, detail: state.catalog.length + " markets" },
+    { name: "Markets", ok: liveNames > 0, detail: liveNames + " live crypto" },
     { name: "Quotes", ok: !!(state.market && state.market.price), detail: state.market && state.market.price ? "Live crypto" : "Waiting on the quote" },
     { name: "Squeeze", ok: !!(state.market && (state.market.squeeze || []).length), detail: "Ready" },
     { name: "Arrows", ok: true, detail: "Ready" },
@@ -418,12 +419,44 @@ function deskLine(text) {
   if (node) node.textContent = text;
 }
 
+function paintCanvasNote(message) {
+  const canvas = document.querySelector("#candles");
+  if (!canvas || !canvas.getContext) return;
+  const ctx = prepare(canvas, 300, 240);
+  const width = canvas.paperWidth;
+  const height = canvas.paperHeight;
+  ctx.fillStyle = "#e7edf3";
+  ctx.font = "16px Segoe UI, sans-serif";
+  ctx.textBaseline = "top";
+  const words = String(message || "").split(/\s+/).filter(Boolean);
+  let line = "";
+  let y = 28;
+  words.forEach((word) => {
+    const next = line ? line + " " + word : word;
+    if (ctx.measureText(next).width > Math.max(40, width - 32) && line) {
+      ctx.fillText(line, 16, y);
+      line = word;
+      y += 22;
+    } else {
+      line = next;
+    }
+  });
+  if (line && y < height - 8) ctx.fillText(line, 16, y);
+}
+
 function showProblem(message) {
   deskLine(message);
+  const help = document.querySelector("#open-help");
+  if (help) {
+    help.hidden = false;
+    help.textContent = message;
+  }
   const read = document.querySelector("#chart-read");
   if (read) read.textContent = message;
   const status = document.querySelector("#status");
   if (status) status.textContent = message;
+  paintCanvasNote(message);
+  drawMoodClock(null, "");
 }
 
 function phoneLeaders(rows, buysOnly) {
@@ -500,8 +533,36 @@ async function scanPhone() {
   }
 }
 
+const PHONE_NAMES = [
+  ["BTC-USD", "Bitcoin"],
+  ["ETH-USD", "Ether"],
+  ["XRP-USD", "XRP"],
+  ["XLM-USD", "Stellar"],
+  ["SOL-USD", "Solana"],
+];
+
+function phoneCatalogFallback() {
+  return PHONE_NAMES.map((row) => row[0] + "\t" + row[1] + "\tcrypto").join("\n") + "\n";
+}
+
+async function loadCatalogText() {
+  if (globalThis.PAPER_CATALOG) return globalThis.PAPER_CATALOG;
+  const paths = ["catalog.txt", "../paper_trader/catalog.txt", "/catalog.txt"];
+  for (const path of paths) {
+    try {
+      const response = await fetch(path);
+      if (!response.ok) continue;
+      const text = await response.text();
+      if (text && text.includes("BTC-USD")) return text;
+    } catch (error) {
+      continue;
+    }
+  }
+  return phoneCatalogFallback();
+}
+
 async function bootOffline() {
-  const text = globalThis.PAPER_CATALOG || await (await fetch("/catalog.txt")).text();
+  const text = await loadCatalogText();
   state.catalog = PaperEngine.parseCatalog(text);
   const saved = savedSymbol();
   let symbol = state.catalog.some((row) => row.symbol === saved) ? saved : "BTC-USD";
@@ -536,6 +597,8 @@ async function bootOffline() {
 }
 
 async function boot() {
+  const help = document.querySelector("#open-help");
+  if (help) help.hidden = true;
   deskLine("Starting the desk…");
   restoreStudies();
   state.offline = !(await probeDesk());
@@ -1305,11 +1368,14 @@ function visible(values) {
 
 function drawCandles(retry) {
   const canvas = $("candles");
-  if (!state.market) return;
-  if ((canvas.clientWidth < 40 || canvas.clientHeight < 40) && !retry) {
-    requestAnimationFrame(() => drawCandles(true));
+  if (!canvas || !state.market) return;
+  const waits = typeof retry === "number" ? retry : 0;
+  if ((canvas.clientWidth < 40 || canvas.clientHeight < 40) && waits < 24) {
+    requestAnimationFrame(() => drawCandles(waits + 1));
     return;
   }
+  if (canvas.clientWidth < 40) canvas.style.width = "100%";
+  if (canvas.clientHeight < 40) canvas.style.minHeight = "240px";
   const history = sliceToCursor(state.market.bars);
   const fitted = currentLesson(history);
   const view = PaperFrames.zoomBars(history, state.zoom);
@@ -1327,10 +1393,10 @@ function drawCandles(retry) {
   const squeeze = compressed.level.slice(dropped);
   const allMomentum = compressed.momentum;
   const momentum = allMomentum.slice(dropped);
-  const ctx = prepare(canvas);
+  const ctx = prepare(canvas, 300, 240);
   if (!bars.length) return;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
+  const width = canvas.paperWidth;
+  const height = canvas.paperHeight;
   const pad = 64;
   const rightGap = Math.max(120, Math.round(width * 0.16));
   const priceBottom = Math.min(height - 48, Math.max(80, Math.round(height * 0.7)));
@@ -1616,15 +1682,17 @@ function drawLine(ctx, values, y, pad, slot, color, weight) {
   ctx.lineWidth = 1;
 }
 
-function prepare(canvas) {
+function prepare(canvas, fallbackWidth, fallbackHeight) {
   const ratio = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth || 300;
-  const height = canvas.clientHeight || 100;
-  canvas.width = Math.floor(width * ratio);
-  canvas.height = Math.floor(height * ratio);
+  const width = canvas.clientWidth >= 40 ? canvas.clientWidth : (fallbackWidth || canvas.clientWidth || 300);
+  const height = canvas.clientHeight >= 40 ? canvas.clientHeight : (fallbackHeight || canvas.clientHeight || 100);
+  canvas.width = Math.floor(Math.max(width, 1) * ratio);
+  canvas.height = Math.floor(Math.max(height, 1) * ratio);
   const ctx = canvas.getContext("2d");
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
+  canvas.paperWidth = width;
+  canvas.paperHeight = height;
   return ctx;
 }
 

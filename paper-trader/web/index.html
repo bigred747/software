@@ -8,10 +8,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
   <title>Paper Trader</title>
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" href="/icon.png">
-  <link rel="apple-touch-icon" href="/icon.png">
-  <link rel="stylesheet" href="/app.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="app.css">
 </head>
 <body data-tab="chart">
   <header class="top">
@@ -30,7 +30,8 @@
       <span id="quote-asof" class="muted">Market quote</span>
       <span id="quote-mood" class="mood">—</span>
     </div>
-    <p id="lede" class="lede">If this line stays here, the charts are off. On iPhone, download this file, open Files, tap Share, then Edge. Opening the GitHub link in the browser leaves this page blank.</p>
+    <p id="lede" class="lede">Charts are off until this file runs in Edge.</p>
+    <p id="open-help" class="open-help">The chart, the fear and greed clock, and the scanner stay off until this file runs in Edge. On iPhone, press and hold the link, choose Download Linked File, and rename it to PaperTrader.html if the name ends in .txt. Open the Files app, tap Share, then Edge. Opening the GitHub link in the browser leaves this page blank.</p>
     <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
   </header>
 
@@ -217,10 +218,22 @@ plot Sell = close crosses below baseline;</textarea>
   <footer>
     Orders stay on the paper account. Quotes are market prices and are not a forecast.
   </footer>
-  <script src="/live.js"></script>
-  <script src="/engine.js"></script>
-  <script src="/study.js"></script>
-  <script src="/frames.js"></script>
-  <script src="/app.js"></script>
+  <script>
+  window.addEventListener("error", function (event) {
+    var lede = document.getElementById("lede");
+    var help = document.getElementById("open-help");
+    var message = (event && event.message) || "The desk did not start.";
+    if (lede) lede.textContent = message;
+    if (help) {
+      help.hidden = false;
+      help.textContent = message;
+    }
+  });
+  </script>
+  <script src="live.js"></script>
+  <script src="engine.js"></script>
+  <script src="study.js"></script>
+  <script src="frames.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

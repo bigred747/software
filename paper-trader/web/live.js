@@ -30,11 +30,17 @@
 
   async function coinbase(symbol, granularity, withTime) {
     const url = "https://api.exchange.coinbase.com/products/" + encodeURIComponent(symbol) + "/candles?granularity=" + granularity;
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = setTimeout(function () {
+      if (controller) controller.abort();
+    }, 8000);
     let response;
     try {
-      response = await fetch(url);
+      response = await fetch(url, controller ? { signal: controller.signal } : undefined);
     } catch (error) {
       throw new Error("The quote feed did not answer. Check the connection.");
+    } finally {
+      clearTimeout(timer);
     }
     if (!response.ok) throw new Error("No live quote for " + symbol);
     const rows = await response.json();
