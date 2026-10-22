@@ -38,7 +38,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.3";
+const VERSION = "1.9.4";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -273,6 +273,19 @@ function renderLocalSignals() {
   ]));
 }
 
+function deskLine(text) {
+  const node = document.querySelector("#lede");
+  if (node) node.textContent = text;
+}
+
+function showProblem(message) {
+  deskLine(message);
+  const read = document.querySelector("#chart-read");
+  if (read) read.textContent = message;
+  const status = document.querySelector("#status");
+  if (status) status.textContent = message;
+}
+
 async function bootOffline() {
   const text = globalThis.PAPER_CATALOG || await (await fetch("/catalog.txt")).text();
   state.catalog = PaperEngine.parseCatalog(text);
@@ -294,6 +307,7 @@ async function bootOffline() {
   renderLocalSignals();
   rememberSymbol(state.paper.symbol);
   noteEdge();
+  deskLine("Desk is working.");
   if (state.paper.paper === true) {
     state.auto = true;
     render(state.paper);
@@ -307,6 +321,7 @@ async function bootOffline() {
 }
 
 async function boot() {
+  deskLine("Starting the desk…");
   restoreStudies();
   state.offline = !(await probeDesk());
   if (state.offline) {
@@ -321,6 +336,7 @@ async function boot() {
   render(paper);
   await loadSignals();
   rememberSymbol(paper.symbol);
+  deskLine("Desk is working.");
   if (paper.paper === true) {
     state.auto = true;
     render(paper);
@@ -1308,5 +1324,5 @@ window.addEventListener("resize", () => {
 });
 
 boot().catch((error) => {
-  $("status").textContent = error.message;
+  showProblem(error && error.message ? error.message : "The desk did not start.");
 });

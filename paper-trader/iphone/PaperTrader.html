@@ -33,7 +33,11 @@
 html, body { height: 100%; }
 
 body {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
   margin: 0;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   font: 16px/1.4 "Segoe UI", system-ui, sans-serif;
@@ -41,6 +45,7 @@ body {
 
 .top {
   display: flex;
+  flex: 0 0 auto;
   justify-content: space-between;
   align-items: center;
   gap: 18px;
@@ -101,10 +106,11 @@ h2 { font-size: 15px; }
 
 .workspace {
   display: grid;
+  flex: 1 1 auto;
   grid-template-columns: 280px minmax(0, 1fr) 280px;
-  grid-template-rows: minmax(360px, 1fr) minmax(220px, 34vh);
+  grid-template-rows: minmax(280px, 1fr) minmax(160px, 28vh);
   gap: 8px;
-  height: calc(100dvh - 59px);
+  min-height: 0;
   padding: 8px;
 }
 
@@ -280,7 +286,7 @@ canvas {
   border-radius: 8px;
   margin-top: 8px;
 }
-#candles { flex: 1; min-height: 220px; height: auto; }
+#candles { flex: 1 1 auto; min-height: 240px; height: auto; }
 #rsi-chart { height: 84px; flex: 0 0 auto; }
 
 .dock-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; }
@@ -339,7 +345,10 @@ footer { display: none; }
   .lede { max-width: none; }
   .workspace {
     display: block;
+    flex: 1 1 auto;
     height: auto;
+    min-height: 0;
+    overflow: auto;
     padding: 8px 8px calc(64px + var(--safe-bottom));
   }
   .watch, .chart-panel, .ticket, .dock { display: none; margin: 0; }
@@ -351,7 +360,7 @@ footer { display: none; }
   body[data-tab="trade"] .ticket,
   body[data-tab="study"] .dock { display: block; }
   body[data-tab="chart"] .chart-panel { display: flex; min-height: calc(100dvh - 150px); }
-  #candles { height: 46dvh; }
+  #candles { height: 48dvh; min-height: 240px; }
   .tabbar {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -383,7 +392,7 @@ footer { display: none; }
       <span id="quote-change">—</span>
       <span id="quote-asof" class="muted">Market quote</span>
     </div>
-    <p class="lede">Paper orders only. Quotes are the market.</p>
+    <p id="lede" class="lede">Starting the desk…</p>
     <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
   </header>
 
@@ -1825,7 +1834,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.3";
+const VERSION = "1.9.4";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -2060,6 +2069,19 @@ function renderLocalSignals() {
   ]));
 }
 
+function deskLine(text) {
+  const node = document.querySelector("#lede");
+  if (node) node.textContent = text;
+}
+
+function showProblem(message) {
+  deskLine(message);
+  const read = document.querySelector("#chart-read");
+  if (read) read.textContent = message;
+  const status = document.querySelector("#status");
+  if (status) status.textContent = message;
+}
+
 async function bootOffline() {
   const text = globalThis.PAPER_CATALOG || await (await fetch("/catalog.txt")).text();
   state.catalog = PaperEngine.parseCatalog(text);
@@ -2081,6 +2103,7 @@ async function bootOffline() {
   renderLocalSignals();
   rememberSymbol(state.paper.symbol);
   noteEdge();
+  deskLine("Desk is working.");
   if (state.paper.paper === true) {
     state.auto = true;
     render(state.paper);
@@ -2094,6 +2117,7 @@ async function bootOffline() {
 }
 
 async function boot() {
+  deskLine("Starting the desk…");
   restoreStudies();
   state.offline = !(await probeDesk());
   if (state.offline) {
@@ -2108,6 +2132,7 @@ async function boot() {
   render(paper);
   await loadSignals();
   rememberSymbol(paper.symbol);
+  deskLine("Desk is working.");
   if (paper.paper === true) {
     state.auto = true;
     render(paper);
@@ -3095,7 +3120,7 @@ window.addEventListener("resize", () => {
 });
 
 boot().catch((error) => {
-  $("status").textContent = error.message;
+  showProblem(error && error.message ? error.message : "The desk did not start.");
 });
 
 </script>

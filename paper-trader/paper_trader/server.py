@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -377,18 +378,46 @@ def _launch_edge(url: str, commands: list[list[str]], which, popen) -> str:
             continue
         if not named and program != "cmd" and not os.path.isfile(program):
             continue
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
         try:
-            popen(command, close_fds=True, creationflags=flags)
-        except OSError:
+            popen(command, close_fds=True, creationflags=_window_flags(program))
+        except (OSError, ValueError):
             continue
         return "Microsoft Edge"
-    webbrowser.open(url)
+    try:
+        webbrowser.open(url)
+    except OSError:
+        return "the default browser. Microsoft Edge was not found"
     return "the default browser. Microsoft Edge was not found"
+
+
+def _window_flags(program: str, platform: str | None = None) -> int:
+    system = platform or sys.platform
+    if system == "win32" and program == "cmd":
+        return int(getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000))
+    return 0
+
+
+def _wait_for_desk(url: str, probe, sleep, tries: int = 25) -> bool:
+    health = url.rstrip("/") + "/api/health"
+    for _ in range(tries):
+        try:
+            if probe(health):
+                return True
+        except OSError:
+            pass
+        sleep(0.1)
+    return False
 
 
 def open_edge(url: str) -> str:
     return _launch_edge(url, _edge_commands(url), shutil.which, subprocess.Popen)
+
+
+def _probe_health(url: str) -> bool:
+    from urllib.request import urlopen
+
+    with urlopen(url, timeout=0.4) as response:
+        return response.status == 200
 
 
 def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None:
@@ -396,12 +425,20 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
     host, bound = server.server_address[:2]
     url = f"http://{host}:{bound}/"
     print(f"Paper Trader is running at {url}")
-    print("Market quotes. Paper orders only. Close this window to stop the desk.")
+    print("Market quotes. Paper orders only. Leave this window open.")
+    worker = threading.Thread(target=server.serve_forever, name="paper-trader-http", daemon=True)
+    worker.start()
     if open_browser and url.startswith("http://127.0.0.1:"):
-        print("Opening in " + open_edge(url) + ".")
+        if _wait_for_desk(url, _probe_health, time.sleep):
+            print("Opening in " + open_edge(url) + ".")
+        else:
+            print("The desk did not answer. Open " + url + " in Microsoft Edge.")
     try:
-        server.serve_forever()
+        while worker.is_alive():
+            worker.join(0.5)
     except KeyboardInterrupt:
         print("\nStopped.")
+        server.shutdown()
+        worker.join(2)
     finally:
         server.server_close()

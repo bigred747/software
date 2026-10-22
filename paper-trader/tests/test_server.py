@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from paper_trader.cli import main
 from paper_trader.guard import assert_safe_launch, is_temp_zip_extract
-from paper_trader.server import _edge_commands, _launch_edge, create_server
+from paper_trader.server import _edge_commands, _launch_edge, _wait_for_desk, _window_flags, create_server
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -238,7 +238,8 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.3", script)
+        self.assertIn(b"1.9.4", script)
+        self.assertIn(b"Desk is working.", script)
         self.assertIn(b'id="signal-strip"', page)
         self.assertIn(b'id="chart-read"', page)
         self.assertIn(b'id="edge-note"', phone)
@@ -248,6 +249,25 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"choose Open with, then tap Edge", note)
         self.assertNotIn(b"choose Safari", note)
         self.assertIn(b"microsoft-edge:", desk)
+
+    def test_edge_window_stays_visible_and_the_desk_answers_first(self) -> None:
+        self.assertEqual(_window_flags(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe", "win32"), 0)
+        self.assertEqual(_window_flags("msedge", "win32"), 0)
+        self.assertEqual(_window_flags("cmd", "win32"), 0x08000000)
+        self.assertEqual(_window_flags("microsoft-edge", "linux"), 0)
+        calls = []
+
+        def probe(url: str) -> bool:
+            calls.append(url)
+            return len(calls) >= 2
+
+        self.assertTrue(_wait_for_desk("http://127.0.0.1:8765/", probe, lambda _seconds: None, tries=4))
+        self.assertEqual(calls, ["http://127.0.0.1:8765/api/health", "http://127.0.0.1:8765/api/health"])
+
+        def fail(url: str) -> bool:
+            raise OSError("down")
+
+        self.assertFalse(_wait_for_desk("http://127.0.0.1:9/", fail, lambda _seconds: None, tries=2))
 
     def test_windows_edge_commands_name_edge_and_stay_local(self) -> None:
         url = "http://127.0.0.1:8765/"
