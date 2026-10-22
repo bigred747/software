@@ -52,7 +52,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.23";
+const VERSION = "1.9.24";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -163,6 +163,11 @@ async function refreshSymbols() {
   let listed;
   if (state.offline) {
     listed = PaperEngine.search(state.catalog, $("search").value.trim(), $("category").value, 40);
+    if (!listed.symbols.length && state.catalog.length) {
+      if ($("category")) $("category").value = "";
+      if ($("search")) $("search").value = "";
+      listed = PaperEngine.search(state.catalog, "", "", 40);
+    }
   } else {
   const params = new URLSearchParams({
     q: $("search").value.trim(),

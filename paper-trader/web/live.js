@@ -71,7 +71,7 @@
   async function pull(url) {
     let response;
     try {
-      response = await timed(fetch(url, { credentials: "omit", cache: "no-store" }));
+      response = await timed(fetch(url));
     } catch (error) {
       throw new Error("The quote feed did not answer. Check the connection.");
     }
@@ -146,14 +146,42 @@
     return bars;
   }
 
+  async function bitstamp(symbol, frameId, withTime) {
+    const scale = { "1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "4h": 14400, "1D": 86400 };
+    const step = scale[frameId];
+    if (!step) throw new Error("Unknown timeframe");
+    const pair = symbol.replace("-", "").toLowerCase();
+    const payload = await pull("https://www.bitstamp.net/api/v2/ohlc/" + pair + "/?step=" + step + "&limit=300");
+    const rows = payload && payload.data && payload.data.ohlc;
+    if (!Array.isArray(rows)) throw new Error("No live quote for " + symbol);
+    return fromRows(rows, withTime, (row) => {
+      if (!row) return null;
+      return {
+        unix: Number(row.timestamp),
+        open: Number(row.open),
+        high: Number(row.high),
+        low: Number(row.low),
+        close: Number(row.close),
+        volume: Number(row.volume || 0),
+      };
+    });
+  }
+
+  const feeds = [gemini, kraken, coinbase, bitstamp];
+  let preferredFeed = null;
+
   async function candles(symbol, frameId, withTime) {
-    const attempts = [gemini, kraken, coinbase];
+    const attempts = preferredFeed ? [preferredFeed].concat(feeds.filter((feed) => feed !== preferredFeed)) : feeds;
     let last = new Error("The quote feed did not answer. Check the connection.");
     for (let index = 0; index < attempts.length; index += 1) {
       try {
         const bars = await attempts[index](symbol, frameId, withTime);
-        if (bars && bars.length) return bars;
+        if (bars && bars.length) {
+          preferredFeed = attempts[index];
+          return bars;
+        }
       } catch (error) {
+        if (attempts[index] === preferredFeed) preferredFeed = null;
         last = error instanceof Error ? error : last;
       }
     }
