@@ -115,6 +115,21 @@ textarea {
 }
 
 #symbol { margin-bottom: 4px; }
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0e1318;
+}
+.results button { width: 100%; text-align: left; min-height: 36px; }
+.results button.on { border-color: var(--accent); color: var(--accent); background: #1c3330; }
+.quote { cursor: pointer; }
+#candles { cursor: crosshair; }
 
 .pins { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .pins button { width: auto; min-height: 32px; padding: 4px 8px; }
@@ -165,7 +180,7 @@ button.quiet { background: transparent; }
 .status { min-height: 1.2em; color: var(--slow); font-size: 14px; }
 
 .signals-title { margin: 0 0 8px; font-size: 15px; }
-.signals { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.signals { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 16px; }
 .readings { display: grid; gap: 4px; }
 .readings div { display: flex; justify-content: space-between; gap: 12px; }
 .readings dt { color: var(--muted); }
@@ -229,6 +244,15 @@ canvas {
   white-space: nowrap;
 }
 .dock-tab.on { border-color: var(--accent); color: var(--accent); }
+.dock-tab.ready::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--up);
+  display: inline-block;
+}
 .dock-page { display: none; }
 .dock-page.on { display: block; overflow: auto; flex: 1; min-height: 0; }
 .dock-page.on[data-dock-page="frames"] { display: flex; flex-direction: column; overflow: hidden; }

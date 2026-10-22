@@ -38,9 +38,17 @@ async function getJSON(url, options) {
   return payload;
 }
 
+const VERSION = "1.9.1";
+
+function selectedSymbol() {
+  const node = $("symbol");
+  if (node && node.dataset.value) return node.dataset.value;
+  return (state.paper && state.paper.symbol) || "";
+}
+
 function formParams() {
   return {
-    symbol: $("symbol").value,
+    symbol: selectedSymbol(),
     fast: Number($("fast").value),
     slow: Number($("slow").value),
     rsi: Number($("rsi").value),
@@ -123,7 +131,7 @@ async function paperCall(path, body) {
   }
   if (path === "/api/paper/mode") return PaperEngine.view(state.session);
   if (path === "/api/paper/reset") {
-    const symbol = params.symbol || $("symbol").value;
+    const symbol = params.symbol || selectedSymbol();
     return loadPhoneBars(symbol, { ...formParams(), ...params }, true);
   }
   throw new Error("That action stays on this device");
@@ -141,27 +149,34 @@ async function refreshSymbols() {
   });
   listed = await getJSON("/api/symbols?" + params.toString());
   }
-  const select = $("symbol");
-  const current = (state.paper && state.paper.symbol) || select.value;
+  const list = $("symbol");
+  const current = (state.paper && state.paper.symbol) || list.dataset.value || "";
   const rows = listed.symbols.slice();
   if (current && !rows.some((item) => item.symbol === current)) {
     const decimals = /-USD$/.test(current) ? 4 : 2;
     rows.unshift({ symbol: current, name: "Current market", category: "", decimals });
   }
-  select.replaceChildren();
+  list.replaceChildren();
   rows.forEach((item) => {
-    const option = document.createElement("option");
-    option.value = item.symbol;
-    option.dataset.decimals = String(item.decimals);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.symbol = item.symbol;
+    button.dataset.decimals = String(item.decimals);
     const kind = item.category ? " · " + item.category : "";
-    option.textContent = item.symbol + " · " + item.name + kind;
-    select.appendChild(option);
+    button.textContent = item.symbol + " · " + item.name + kind;
+    if (item.symbol === current) button.className = "on";
+    button.addEventListener("click", () => {
+      state.decimals = Number(item.decimals || 2);
+      list.dataset.value = item.symbol;
+      chooseSymbol(item.symbol);
+    });
+    list.appendChild(button);
   });
-  if (current) select.value = current;
-  const chosen = [...select.options].find((item) => item.value === select.value);
-  if (chosen) state.decimals = Number(chosen.dataset.decimals || 2);
+  if (current) list.dataset.value = current;
+  const chosen = rows.find((item) => item.symbol === current);
+  if (chosen) state.decimals = Number(chosen.decimals || 2);
   const total = Number(listed.total || 0).toLocaleString();
-  $("market-count").textContent = select.options.length + " listed · " + total + " markets";
+  $("market-count").textContent = list.querySelectorAll("button").length + " listed · " + total + " markets";
 }
 
 async function probeDesk() {
@@ -174,32 +189,75 @@ async function probeDesk() {
   }
 }
 
-function renderLocalSignals() {
-  const items = [
-    ["This device", true, state.offline ? "Phone copy" : "127.0.0.1"],
-    ["Paper", true, "On"],
-    ["Auto", true, "Ready"],
-    ["Trade", true, "Ready"],
-    ["Markets", state.catalog.length >= 7500, state.catalog.length + " markets"],
-    ["Squeeze", true, "Ready"],
-    ["Arrows", true, "Ready"],
-    ["Study", true, "On this device"],
-    ["Timeframes", true, "10 windows"],
-    ["Broker", true, "Not connected"],
-    ["Quotes", true, "Live crypto"],
-    ["Version", true, "1.9.0"],
-  ];
+function applyHook(items, name, ok, detail) {
+  const found = items.find((item) => item.name === name);
+  if (!found) {
+    items.push({ name, ok, detail });
+    return;
+  }
+  if (found.ok === false) return;
+  found.ok = ok;
+  found.detail = detail;
+}
+
+function withHooks(items) {
+  const next = items.map((item) => ({ name: item.name, ok: item.ok !== false, detail: String(item.detail || "") }));
+  const bars = (state.market && state.market.bars) || [];
+  const canvas = $("candles");
+  const chartOk = bars.length >= 40 && !!(canvas && (canvas.clientHeight > 40 || canvas.height > 40));
+  const list = $("symbol");
+  const tickerOk = !!(list && list.querySelector("button") && state.paper && list.dataset.value === state.paper.symbol);
+  const frames = document.querySelectorAll("#frame-bar button").length;
+  applyHook(next, "Ticker", tickerOk, tickerOk ? "Click opens the chart" : "The ticker list is not ready");
+  applyHook(next, "Chart", chartOk, chartOk ? "Click a bar to read it" : "The chart has no bars");
+  applyHook(next, "Auto", true, state.auto ? "Refreshing the quote" : "Ready");
+  if (frames) applyHook(next, "Timeframes", frames === 10, frames + " windows");
+  const quoteOk = !!(state.market && state.market.price && state.paper);
+  if (quoteOk && next.some((item) => item.name === "Quotes" && item.ok)) {
+    applyHook(next, "Quotes", true, state.offline ? "Live crypto" : "Market quote");
+  }
+  return next;
+}
+
+function paintSignals(items) {
   const list = $("signals");
   list.replaceChildren();
-  items.forEach(([name, ok, detail]) => {
+  items.forEach((item) => {
     const row = document.createElement("li");
     const dot = document.createElement("span");
-    dot.className = ok ? "dot on" : "dot";
+    dot.className = item.ok ? "dot on" : "dot";
     const text = document.createElement("span");
-    text.textContent = name + " · " + detail;
+    text.textContent = item.name + " · " + item.detail;
     row.append(dot, text);
     list.appendChild(row);
   });
+  if (items.length && items.every((item) => item.ok) && !state.signalsShown && !window.matchMedia("(max-width: 980px)").matches) {
+    state.signalsShown = true;
+    showDock("signals");
+  }
+  const ready = items.length > 0 && items.every((item) => item.ok);
+  const tab = document.querySelector('.dock-tab[data-dock="signals"]');
+  if (tab) {
+    tab.classList.toggle("ready", ready);
+    tab.title = ready ? "All checks are green" : "A check needs attention";
+  }
+}
+
+function renderLocalSignals() {
+  paintSignals(withHooks([
+    { name: "This device", ok: true, detail: "Phone copy" },
+    { name: "Paper", ok: true, detail: "On" },
+    { name: "Auto", ok: true, detail: "Ready" },
+    { name: "Trade", ok: true, detail: "Ready" },
+    { name: "Markets", ok: state.catalog.length >= 7500, detail: state.catalog.length + " markets" },
+    { name: "Quotes", ok: !!(state.market && state.market.price), detail: state.market && state.market.price ? "Live crypto" : "Waiting on the quote" },
+    { name: "Squeeze", ok: !!(state.market && (state.market.squeeze || []).length), detail: "Ready" },
+    { name: "Arrows", ok: true, detail: "Ready" },
+    { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
+    { name: "Timeframes", ok: typeof PaperFrames !== "undefined" && PaperFrames.FRAMES.length === 10, detail: "10 windows" },
+    { name: "Broker", ok: true, detail: "Not connected" },
+    { name: "Version", ok: true, detail: VERSION },
+  ]));
 }
 
 async function bootOffline() {
@@ -259,17 +317,8 @@ async function boot() {
 
 async function loadSignals() {
   const report = await getJSON("/api/checks");
-  const list = $("signals");
-  list.replaceChildren();
-  report.items.forEach((item) => {
-    const row = document.createElement("li");
-    const dot = document.createElement("span");
-    dot.className = item.ok ? "dot on" : "dot";
-    const text = document.createElement("span");
-    text.textContent = item.name + " · " + item.detail;
-    row.append(dot, text);
-    list.appendChild(row);
-  });
+  paintSignals(withHooks(report.items));
+  requestAnimationFrame(() => paintSignals(withHooks(report.items)));
 }
 
 function rerunStudy() {
@@ -410,9 +459,47 @@ function renderPins() {
   toggle.setAttribute("aria-pressed", pinned ? "true" : "false");
 }
 
+function showChart() {
+  const narrow = window.matchMedia("(max-width: 980px)").matches;
+  if (narrow) {
+    document.body.dataset.tab = "chart";
+    document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
+      button.classList.toggle("on", button.dataset.tab === "chart");
+    });
+  }
+  requestAnimationFrame(() => {
+    if (state.market && state.paper) {
+      drawCandles();
+      drawRsi();
+    }
+  });
+}
+
 function chooseSymbol(symbol) {
-  if (!symbol || (state.paper && state.paper.symbol === symbol)) return;
+  if (!symbol) return;
+  if (state.busy) {
+    state.pendingSymbol = symbol;
+    $("status").textContent = "Opening " + symbol + "…";
+    return;
+  }
+  const same = state.paper && state.paper.symbol === symbol;
   return withBusy(async () => {
+    if (same) {
+      if (state.offline && state.session) {
+        const row = state.catalog.find((item) => item.symbol === symbol);
+        const bars = await PaperLive.daily(symbol, row ? row.category : "");
+        PaperEngine.replaceBars(state.session, bars);
+        state.market = PaperEngine.market(state.session);
+        stampQuote(bars);
+        render(PaperEngine.view(state.session));
+      } else if (!state.offline) {
+        await loadMarket(symbol);
+        render(state.paper);
+      }
+      showChart();
+      $("status").textContent = symbol + " is on the chart.";
+      return;
+    }
     stopAuto();
     rememberSymbol(symbol);
     if (state.offline) {
@@ -425,6 +512,7 @@ function chooseSymbol(symbol) {
       await refreshSymbols();
       rerunStudy();
       render(state.paper);
+      showChart();
       $("status").textContent = "Opened the live quote for " + symbol + ".";
       return;
     }
@@ -433,6 +521,7 @@ function chooseSymbol(symbol) {
     await refreshSymbols();
     await loadMarket(paper.symbol);
     render(paper);
+    showChart();
     $("status").textContent = "Opened the market quote for " + paper.symbol + ".";
   });
 }
@@ -724,6 +813,7 @@ function drawCandles() {
   high += span * 0.14;
   const y = (price) => pad + ((high - price) / (high - low)) * (height - pad * 2);
   const slot = (width - pad * 2) / bars.length;
+  state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.strokeStyle = "#2d3640";
   ctx.fillStyle = "#9aa6b2";
   ctx.font = "12px Segoe UI, sans-serif";
@@ -872,6 +962,13 @@ function prepare(canvas) {
   return ctx;
 }
 
+function releaseBusy() {
+  state.busy = false;
+  const next = state.pendingSymbol;
+  state.pendingSymbol = "";
+  if (next) chooseSymbol(next);
+}
+
 async function withBusy(action) {
   if (state.busy) return;
   state.busy = true;
@@ -880,9 +977,9 @@ async function withBusy(action) {
     await action();
   } catch (error) {
     $("status").textContent = error.message;
-    if (state.paper && $("symbol").value !== state.paper.symbol) $("symbol").value = state.paper.symbol;
+    if (state.paper) $("symbol").dataset.value = state.paper.symbol;
   } finally {
-    state.busy = false;
+    releaseBusy();
   }
 }
 
@@ -926,7 +1023,7 @@ async function autoTick() {
     $("status").textContent = error.message;
     return;
   } finally {
-    state.busy = false;
+    releaseBusy();
   }
   if (state.auto) state.autoTimer = setTimeout(autoTick, delay);
 }
@@ -963,10 +1060,22 @@ $("paper").addEventListener("click", () => withBusy(async () => {
   $("status").textContent = "Paper is on. Orders stay simulated on this computer.";
 }));
 
-$("symbol").addEventListener("change", () => {
-  const chosen = $("symbol").selectedOptions[0];
-  if (chosen) state.decimals = Number(chosen.dataset.decimals || 2);
-  chooseSymbol($("symbol").value);
+$("quote").addEventListener("click", () => {
+  if (!state.paper) return;
+  showChart();
+  $("status").textContent = state.paper.symbol + " is on the chart.";
+});
+
+$("candles").addEventListener("click", (event) => {
+  const map = state.chartMap;
+  if (!map || !map.bars.length) {
+    $("status").textContent = "The chart has no bars yet.";
+    return;
+  }
+  const index = Math.round((event.offsetX - map.pad) / map.slot - 0.5);
+  const bar = map.bars[Math.max(0, Math.min(map.bars.length - 1, index))];
+  showChart();
+  $("status").textContent = (map.symbol || "Chart") + " · " + bar.date + " · Open " + formatPrice(bar.open) + " · High " + formatPrice(bar.high) + " · Low " + formatPrice(bar.low) + " · Close " + formatPrice(bar.close);
 });
 
 $("pin-toggle").addEventListener("click", () => {

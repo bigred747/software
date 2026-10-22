@@ -57,7 +57,7 @@ The header shows the symbol, last price, change, and quote time. Bitcoin, Ether,
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/Paper-Trader.zip)
 
-SHA-256 `2fec294c2f8a2c40208e84ea6573aecce643a21cd88de94b20008a52c35a9bf9`
+SHA-256 `2f1c46b469eb71ea7636f79b6e701d55dd139d7fff5111cb4ba8acd2fe73a783`
 
 Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The iPhone page is `iphone/PaperTrader.html` inside the same zip.
 
@@ -65,6 +65,6 @@ Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The iPhone page is 
 
 [PaperTrader.html](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/paper-trader/iphone/PaperTrader.html)
 
-Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.9.0 extracts the whole zip into Documents and opens that copy. Signals show **1.9.0** when this copy is running.
+Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.9.1 extracts the whole zip into Documents and opens that copy. Signals show **1.9.1** when this copy is running. The Signals panel lists every check in green when that part is working.
 
 On an iPhone, press and hold the HTML link, choose Download Linked File, then open `PaperTrader.html` from the Files app in Safari. If it saves as a text file, rename it to `.html`. The phone loads live crypto quotes. Stocks, ETFs, and futures load on the computer copy. Studies stay on the device.

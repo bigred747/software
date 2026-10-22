@@ -111,7 +111,7 @@ class ServerTests(unittest.TestCase):
         payload = json.loads(raw)
         self.assertTrue(payload["ok"])
         names = {item["name"] for item in payload["items"]}
-        for name in ("Paper", "Auto", "Trade", "Markets", "Broker", "Install"):
+        for name in ("Paper", "Auto", "Trade", "Ticker", "Chart", "Markets", "Broker", "Install"):
             self.assertIn(name, names)
         for item in payload["items"]:
             self.assertTrue(item["ok"])

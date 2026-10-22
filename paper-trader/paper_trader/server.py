@@ -55,6 +55,14 @@ _SECURITY_HEADERS = (
 )
 
 
+def _ticker_ok(symbol: str) -> bool:
+    if not symbol:
+        return False
+    found = search_symbols(symbol, "", 8)
+    rows = found.get("symbols")
+    return isinstance(rows, list) and any(row.get("symbol") == symbol for row in rows)
+
+
 class Desk:
     def __init__(self, state_path: Path) -> None:
         self.state_path = state_path
@@ -86,12 +94,18 @@ class Desk:
             {"name": "Paper", "ok": view.get("paper") is True and view.get("mode") == "paper", "detail": "On"},
             {"name": "Auto", "ok": True, "detail": "Ready"},
             {"name": "Trade", "ok": quote_ok and view.get("paper") is True, "detail": "Ready" if quote_ok else "Waiting on the quote"},
+            {"name": "Ticker", "ok": _ticker_ok(str(view.get("symbol") or "")), "detail": "Click opens the chart"},
+            {
+                "name": "Chart",
+                "ok": quote_ok and int(view.get("total_bars") or 0) >= 40,
+                "detail": f"{int(view.get('total_bars') or 0)} bars" if quote_ok else "Waiting on the quote",
+            },
             {"name": "Markets", "ok": listed >= 7500, "detail": f"{listed} markets"},
             {"name": "Quotes", "ok": quote_ok, "detail": quote_detail},
             {"name": "Squeeze", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
             {"name": "Arrows", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
             {"name": "Study", "ok": True, "detail": "On this device"},
-            {"name": "Timeframes", "ok": True, "detail": "10 windows"},
+            {"name": "Timeframes", "ok": len(quotes.frame_ids()) == 10, "detail": f"{len(quotes.frame_ids())} windows"},
             {"name": "Phone", "ok": True, "detail": "Layout adapts"},
             {"name": "Broker", "ok": True, "detail": "Not connected"},
             {"name": "Version", "ok": True, "detail": __version__},

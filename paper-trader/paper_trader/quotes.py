@@ -31,6 +31,10 @@ _FRAMES = {
 }
 
 
+def frame_ids() -> tuple[str, ...]:
+    return tuple(_FRAMES)
+
+
 def yahoo_symbol(symbol: str) -> str:
     row = market_row(symbol)
     if str(row["category"]) == "future":
