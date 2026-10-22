@@ -16,6 +16,7 @@ const state = {
   moods: {},
   lesson: null,
   lessonKey: "",
+  voice: true,
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -43,7 +44,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.17";
+const VERSION = "1.9.19";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -1179,6 +1180,7 @@ function drawCandles(retry) {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   const pad = 64;
+  const rightGap = Math.max(120, Math.round(width * 0.16));
   const priceBottom = Math.min(height - 48, Math.max(80, Math.round(height * 0.7)));
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
@@ -1201,7 +1203,8 @@ function drawCandles(retry) {
   low -= span * 0.08;
   high += span * 0.08;
   const y = (price) => 18 + ((high - price) / (high - low)) * (priceBottom - 36);
-  const slot = (width - pad * 2) / bars.length;
+  const slot = (width - pad - rightGap) / bars.length;
+  const plotRight = width - rightGap;
   state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.strokeStyle = "#2d3640";
   ctx.fillStyle = "#9aa6b2";
@@ -1211,7 +1214,7 @@ function drawCandles(retry) {
     const line = y(price);
     ctx.beginPath();
     ctx.moveTo(pad, line);
-    ctx.lineTo(width - 8, line);
+    ctx.lineTo(plotRight, line);
     ctx.stroke();
     ctx.fillText(formatPrice(price), 4, line - 2);
   }
@@ -1248,7 +1251,7 @@ function drawCandles(retry) {
   ctx.strokeStyle = "#2d3640";
   ctx.beginPath();
   ctx.moveTo(pad, zero);
-  ctx.lineTo(width - 8, zero);
+  ctx.lineTo(plotRight, zero);
   ctx.stroke();
   momentum.forEach((value, index) => {
     if (value == null) return;
@@ -1305,6 +1308,15 @@ function drawCandles(retry) {
     const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 36 : y(bar.high) - 36));
     drawArrow(ctx, x, point, up);
   });
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
+  ctx.beginPath();
+  ctx.moveTo(pad + last * slot + slot / 2, y(lastBar.close));
+  ctx.lineTo(width - 12, y(lastBar.close));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.fillText(formatPrice(lastBar.close), plotRight + 8, Math.max(16, y(lastBar.close) - 4));
 }
 
 function drawStudy(ctx, bars, y, pad, slot) {
@@ -1371,20 +1383,22 @@ function drawTmo() {
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   const pad = 28;
+  const rightGap = Math.max(120, Math.round(width * 0.16));
   const limit = study.length;
   const y = (value) => 10 + ((limit - value) / (limit * 2)) * (height - 18);
-  const slot = (width - pad * 2) / Math.max(1, main.length);
+  const slot = (width - pad - rightGap) / Math.max(1, main.length);
+  const plotRight = width - rightGap;
   ctx.fillStyle = "rgba(255, 107, 122, 0.16)";
-  ctx.fillRect(pad, y(limit), width - pad - 8, Math.max(1, y(study.ob) - y(limit)));
+  ctx.fillRect(pad, y(limit), plotRight - pad, Math.max(1, y(study.ob) - y(limit)));
   ctx.fillStyle = "rgba(61, 220, 151, 0.16)";
-  ctx.fillRect(pad, y(study.os), width - pad - 8, Math.max(1, y(-limit) - y(study.os)));
+  ctx.fillRect(pad, y(study.os), plotRight - pad, Math.max(1, y(-limit) - y(study.os)));
   ctx.font = "11px Segoe UI, sans-serif";
   ctx.setLineDash([3, 3]);
   ctx.strokeStyle = "#8b98a5";
   [study.ob, 0, study.os].forEach((level) => {
     ctx.beginPath();
     ctx.moveTo(pad, y(level));
-    ctx.lineTo(width - 8, y(level));
+    ctx.lineTo(plotRight, y(level));
     ctx.stroke();
     ctx.fillStyle = "#9aa6b2";
     ctx.fillText(String(level), 4, y(level) + 4);
@@ -1493,6 +1507,60 @@ function stopAuto(message) {
   if (message) $("status").textContent = message;
 }
 
+function speakWarning(item) {
+  if (!state.voice || !item || (item.side !== "buy" && item.side !== "sell") || !item.detail) return;
+  const key = [item.symbol, item.date, item.kind, item.side].join("|");
+  let heard = [];
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem("paperTraderHeard") || "[]");
+    if (Array.isArray(parsed)) heard = parsed.filter((row) => typeof row === "string").slice(-40);
+  } catch (error) {
+    heard = [];
+  }
+  if (heard.indexOf(key) >= 0) return;
+  heard.push(key);
+  try {
+    sessionStorage.setItem("paperTraderHeard", JSON.stringify(heard));
+  } catch (error) {
+    /* The warning still shows on the desk. */
+  }
+  $("status").textContent = item.detail;
+  if (!window.speechSynthesis) return;
+  const message = new SpeechSynthesisUtterance(item.detail);
+  message.lang = "en-US";
+  window.speechSynthesis.speak(message);
+}
+
+async function warnSqueeze() {
+  if (!state.voice) return;
+  const symbols = readPins();
+  const current = state.paper && state.paper.symbol;
+  if (current && symbols.indexOf(current) < 0) symbols.push(current);
+  if (!symbols.length) return;
+  try {
+    if (state.offline) {
+      for (let index = 0; index < symbols.length; index += 1) {
+        const symbol = symbols[index];
+        const row = state.catalog.find((item) => item.symbol === symbol);
+        if (!phoneCrypto(symbol, row) || typeof PaperLive === "undefined" || !PaperFrames.squeezeAlert) continue;
+        const bars = await PaperLive.daily(symbol, row ? row.category : "");
+        const alert = PaperFrames.squeezeAlert(bars);
+        if (!alert.side) continue;
+        const name = pinLabel(symbol);
+        const detail = alert.kind === "steam"
+          ? "Sell. " + name + ". The daily squeeze ran out of steam."
+          : (alert.side === "buy" ? "Buy warning. " : "Sell warning. ") + name + ". Five squeeze dots on the daily.";
+        speakWarning({ symbol, date: bars[alert.index] ? bars[alert.index].date : "", kind: alert.kind, side: alert.side, detail });
+      }
+      return;
+    }
+    const report = await getJSON("/api/voice?symbols=" + encodeURIComponent(symbols.join(",")));
+    (report.items || []).forEach(speakWarning);
+  } catch (error) {
+    return;
+  }
+}
+
 async function autoTick() {
   if (!state.auto || state.busy) return;
   state.busy = true;
@@ -1532,6 +1600,17 @@ async function autoTick() {
     releaseBusy();
   }
   if (state.auto) state.autoTimer = setTimeout(autoTick, delay);
+}
+
+const voiceButton = $("voice");
+if (voiceButton) {
+  voiceButton.addEventListener("click", () => {
+    state.voice = !state.voice;
+    voiceButton.setAttribute("aria-pressed", state.voice ? "true" : "false");
+    if (!state.voice && window.speechSynthesis) window.speechSynthesis.cancel();
+    $("status").textContent = state.voice ? "Voice is on. Daily squeeze warnings." : "Voice is off.";
+    if (state.voice) warnSqueeze();
+  });
 }
 
 $("auto").addEventListener("click", () => {
@@ -1790,6 +1869,9 @@ bindZoom($("candles"), "chart");
 bindZoom($("rsi-chart"), "chart");
 bindZoom($("frame-preview"), "preview");
 
-boot().catch((error) => {
+boot().then(() => {
+  warnSqueeze();
+  setInterval(warnSqueeze, 20000);
+}).catch((error) => {
   showProblem(error && error.message ? error.message : "The desk did not start.");
 });

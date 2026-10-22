@@ -15,10 +15,11 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from paper_trader import __version__
 from paper_trader.backtest import present, run_backtest
-from paper_trader.install import single_copy_status
+from paper_trader.install import keep_only_running, single_copy_status, write_desktop_opener
 from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
 from paper_trader.learn import book_view, ensure_learner, mood, remember_focus, remember_symbols
 from paper_trader.model import params_from_dict
+from paper_trader.indicators import squeeze, squeeze_alert
 from paper_trader import quotes
 from paper_trader.samples import catalog_size, search_symbols, warm
 
@@ -186,6 +187,37 @@ class Desk:
     def learn_view(self) -> dict:
         return book_view(self.learn_path, expect=self.expect_learner)
 
+    def voice(self, symbols: list[str]) -> dict:
+        """Daily squeeze warnings for the markets on the desk. Paper only."""
+        items: list[dict[str, str | int]] = []
+        seen: set[str] = set()
+        for raw in symbols:
+            symbol = str(raw or "").strip().upper()
+            if not symbol or symbol in seen or not _ticker_ok(symbol):
+                continue
+            seen.add(symbol)
+            if len(seen) > 12:
+                break
+            try:
+                bars = quotes.load_bars(symbol)
+            except ValueError as exc:
+                items.append({"symbol": symbol, "side": "", "kind": "", "dots": 0, "date": "", "detail": str(exc)})
+                continue
+            state = squeeze([bar.high for bar in bars], [bar.low for bar in bars], [bar.close for bar in bars])
+            alert = squeeze_alert(state["level"], state["momentum"])
+            index = int(alert["index"])
+            date = bars[index].date if 0 <= index < len(bars) else ""
+            detail = _voice_line(symbol, str(alert["side"]), str(alert["kind"]), int(alert["dots"]))
+            items.append({
+                "symbol": symbol,
+                "side": alert["side"],
+                "kind": alert["kind"],
+                "dots": alert["dots"],
+                "date": date,
+                "detail": detail,
+            })
+        return {"frame": "1D", "items": items}
+
     def _learning_check(self) -> dict[str, str | bool]:
         report = book_view(self.learn_path, expect=self.expect_learner)
         return {"name": "Learning", "ok": bool(report["ok"]), "detail": str(report["detail"])}
@@ -200,6 +232,19 @@ class Desk:
         if row["score"] is None:
             return {"name": "Fear and greed", "ok": False, "detail": str(row["note"])}
         return {"name": "Fear and greed", "ok": True, "detail": f"{row['label']} {row['score']}"}
+
+
+def _voice_line(symbol: str, side: str, kind: str, dots: int) -> str:
+    name = symbol[:-4] if symbol.endswith("-USD") else symbol
+    if kind == "steam" and side == "sell":
+        return f"Sell. {name}. The daily squeeze ran out of steam."
+    if kind == "dots" and side == "buy":
+        return f"Buy warning. {name}. Five squeeze dots on the daily."
+    if kind == "dots" and side == "sell":
+        return f"Sell warning. {name}. Five squeeze dots on the daily."
+    if dots > 0:
+        return f"{name} has {dots} squeeze dots."
+    return ""
 
 
 def _local_host(header: str) -> bool:
@@ -295,6 +340,10 @@ class DeskHandler(BaseHTTPRequestHandler):
             return
         if method == "GET" and path == "/api/learn":
             self._json(self.desk.learn_view())
+            return
+        if method == "GET" and path == "/api/voice":
+            symbols = [part for part in str(query.get("symbols") or "").split(",")]
+            self._json(self.desk.voice(symbols))
             return
         if method == "GET" and path == "/api/symbols":
             try:
@@ -472,6 +521,13 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
         return
     ensure_learner(root, learn_path)
     server.desk.expect_learner = True
+    try:
+        keep_only_running(Path.home(), root)
+        shortcuts = write_desktop_opener(root, Path.home())
+    except OSError:
+        shortcuts = []
+    if shortcuts:
+        print("Paper Trader.bat is on the desktop.")
     host, bound = server.server_address[:2]
     url = f"http://{host}:{bound}/"
     print(f"Paper Trader is running at {url}")

@@ -190,7 +190,7 @@ dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spa
 dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
 
 .modes, .actions, .study-actions { display: grid; gap: 8px; }
-.modes { grid-template-columns: 1fr 1fr 1fr; margin-bottom: 8px; }
+.modes { grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom: 8px; }
 .study-actions { grid-template-columns: 1fr auto; margin-top: 8px; }
 
 #trade { background: #3a2a14; border-color: var(--slow); color: var(--slow); }

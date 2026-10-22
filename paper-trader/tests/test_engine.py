@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from paper_trader.backtest import max_drawdown, run_backtest
-from paper_trader.indicators import rsi, sma
+from paper_trader.indicators import rsi, sma, squeeze_alert
 from paper_trader.journal import load_journal, save_journal, view_journal
 from paper_trader.model import Bar, Params
 from paper_trader.indicators import squeeze_marks
@@ -42,6 +42,28 @@ class IndicatorTests(unittest.TestCase):
         falling = list(range(18, 0, -1))
         self.assertEqual(rsi(rising, 14)[-1], 100)
         self.assertEqual(rsi(falling, 14)[-1], 0)
+
+    def test_five_squeeze_dots_warn_before_a_release(self) -> None:
+        levels = [0, 1, 1, 2, 3, 3]
+        rising = [None, 0.1, 0.2, 0.3, 0.4, 0.5]
+        warning = squeeze_alert(levels, rising)
+        self.assertEqual(warning["kind"], "dots")
+        self.assertEqual(warning["side"], "buy")
+        self.assertEqual(warning["index"], 5)
+        falling = [None, -0.1, -0.2, -0.2, -0.3, -0.4]
+        self.assertEqual(squeeze_alert(levels, falling)["side"], "sell")
+        self.assertEqual(squeeze_alert(levels + [3], rising + [0.6])["index"], 5)
+
+    def test_a_fade_after_strength_is_the_sell(self) -> None:
+        levels = [0, 3, 3, 3, 2]
+        peaked = [0.1, 0.4, 0.8, 0.5, 0.2]
+        first = squeeze_alert(levels[:4], peaked[:4])
+        self.assertEqual(first["kind"], "steam")
+        self.assertEqual(first["side"], "sell")
+        later = squeeze_alert(levels, peaked)
+        self.assertEqual(later["side"], "")
+        quiet = squeeze_alert([0, 0, 0, 0], [0.2, 0.4, 0.3, 0.1])
+        self.assertEqual(quiet["side"], "")
 
     def test_drawdown(self) -> None:
         self.assertAlmostEqual(max_drawdown([100, 120, 90]), 0.25)

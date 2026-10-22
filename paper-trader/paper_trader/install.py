@@ -145,6 +145,99 @@ def _resume_learner(dest: Path) -> None:
         return
 
 
+def desktop_folders(home: Path) -> list[Path]:
+    names = [home / "Desktop", home / "OneDrive" / "Desktop"]
+    one_drive = os.environ.get("OneDrive")
+    if one_drive:
+        names.append(Path(one_drive) / "Desktop")
+    public = os.environ.get("PUBLIC")
+    if public:
+        names.append(Path(public) / "Desktop")
+    found: list[Path] = []
+    seen: set[Path] = set()
+    for folder in names:
+        if not folder.is_dir():
+            continue
+        resolved = folder.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        found.append(folder)
+    return found
+
+
+def write_desktop_opener(install: Path, home: Path) -> list[Path]:
+    """A visible desktop file that opens this copy. No script host and no PowerShell."""
+    opener = install / "2 Open Paper Trader.bat"
+    if not opener.is_file():
+        return []
+    script = (
+        "@echo off\r\n"
+        f'cd /d "{install}"\r\n'
+        "title Paper Trader\r\n"
+        'call "2 Open Paper Trader.bat"\r\n'
+    )
+    written: list[Path] = []
+    for folder in desktop_folders(home):
+        path = folder / "Paper Trader.bat"
+        try:
+            path.write_text(script, encoding="utf-8")
+        except OSError:
+            continue
+        written.append(path)
+    return written
+
+
+def keep_only_running(home: Path, running: Path) -> list[Path]:
+    """Remove older Paper Trader folders once the newest copy is the one open."""
+    running = running.resolve()
+    copies = find_installs(home)
+    if running not in copies and is_install(running):
+        copies.append(running)
+    if not copies:
+        return []
+    canonical = canonical_folder(home).resolve()
+    keeper = max(copies, key=lambda folder: (_installed_version(folder), folder == canonical, folder == running))
+    if keeper != running:
+        return []
+    from paper_trader.learn import stop_learner
+
+    removed: list[Path] = []
+    for folder in copies:
+        if folder == keeper or not _safe_to_remove(folder, home, keeper):
+            continue
+        stop_learner(folder / "learn_state.json")
+        try:
+            shutil.rmtree(folder)
+        except OSError:
+            continue
+        removed.append(folder)
+    _remove_setup_shells(home)
+    return removed
+
+
+def _remove_setup_shells(home: Path) -> None:
+    documents = home / "Documents"
+    if not documents.is_dir():
+        return
+    try:
+        children = list(documents.iterdir())
+    except OSError:
+        return
+    for child in children:
+        if not child.is_dir():
+            continue
+        if child.name != "PaperTrader-setup" and not child.name.startswith("PaperTrader-setup-"):
+            continue
+        try:
+            installs = [path for path in [child, *child.rglob("*")] if path.is_dir() and is_install(path)]
+        except OSError:
+            continue
+        if installs:
+            continue
+        shutil.rmtree(child, ignore_errors=True)
+
+
 def single_copy_status(home: Path) -> dict[str, str | bool]:
     copies = find_installs(home)
     if len(copies) <= 1:

@@ -197,6 +197,25 @@
     return "#3ddc97";
   }
 
+  function squeezeAlert(bars) {
+    const study = compression(bars || [], 20);
+    const level = study.level || [];
+    const momentum = study.momentum || [];
+    let dots = 0;
+    for (let index = level.length - 1; index >= 0 && level[index] > 0; index -= 1) dots += 1;
+    const recent = dots > 0 || (level.length >= 2 && level[level.length - 2] > 0);
+    const now = momentum[momentum.length - 1];
+    const previous = momentum[momentum.length - 2];
+    const older = momentum.length >= 3 ? momentum[momentum.length - 3] : null;
+    const fading = now != null && previous != null && previous > 0 && now < previous && !(older != null && older > 0 && previous < older);
+    if (recent && fading) return { side: "sell", kind: "steam", dots, index: Math.max(0, level.length - 1) };
+    if (dots >= 5) {
+      const side = now != null && previous != null && now > 0 && now >= previous ? "buy" : "sell";
+      return { side, kind: "dots", dots, index: level.length - dots + 4 };
+    }
+    return { side: "", kind: "", dots, index: -1 };
+  }
+
   function squeezeName(level) {
     if (level >= 3) return "High";
     if (level === 2) return "Mid";
@@ -717,7 +736,8 @@
     const padLeft = Math.max(44, Math.ceil(ctx.measureText(high.toFixed(high >= 100 ? 2 : 4)).width) + 12);
     const padTop = height < 150 ? 8 : 22;
     const y = (price) => padTop + ((high - price) / (high - low)) * (priceBottom - padTop);
-    const slot = (width - padLeft - 10) / bars.length;
+    const padRight = Math.max(72, Math.round(width * 0.16));
+    const slot = (width - padLeft - padRight) / bars.length;
     const xAt = (index) => padLeft + index * slot + slot / 2;
     ctx.strokeStyle = "#2a3340";
     ctx.fillStyle = "#93a0ad";
@@ -727,7 +747,7 @@
       const line = y(price);
       ctx.beginPath();
       ctx.moveTo(padLeft, line);
-      ctx.lineTo(width - 8, line);
+      ctx.lineTo(width - padRight, line);
       ctx.stroke();
       ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
     }
@@ -777,7 +797,7 @@
       ctx.strokeStyle = "#2a3340";
       ctx.beginPath();
       ctx.moveTo(padLeft, zero);
-      ctx.lineTo(width - 8, zero);
+      ctx.lineTo(width - padRight, zero);
       ctx.stroke();
       study.momentum.forEach((value, index) => {
         if (value == null) return;
@@ -818,6 +838,7 @@
     momentumTone,
     squeezeTone,
     squeezeName,
+    squeezeAlert,
     candlePlace,
     compression,
     trendPivots,

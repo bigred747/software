@@ -82,13 +82,16 @@ if /I "!ACTION!"=="remove-source" echo The older copy is no longer the one that 
 exit /b 0
 
 :DeskLink
-set "LINK=%USERPROFILE%\Desktop"
-if not exist "%LINK%" if exist "%USERPROFILE%\OneDrive\Desktop" set "LINK=%USERPROFILE%\OneDrive\Desktop"
-if not exist "%LINK%" if defined OneDrive if exist "%OneDrive%\Desktop" set "LINK=%OneDrive%\Desktop"
-if not exist "%LINK%" exit /b 0
-> "%LINK%\Paper Trader.bat" echo @echo off
->> "%LINK%\Paper Trader.bat" echo cd /d "%~1"
->> "%LINK%\Paper Trader.bat" echo title Paper Trader
->> "%LINK%\Paper Trader.bat" echo call "2 Open Paper Trader.bat"
-echo Paper Trader.bat is on the desktop.
+call :WriteLink "%USERPROFILE%\Desktop" "%~1"
+call :WriteLink "%USERPROFILE%\OneDrive\Desktop" "%~1"
+if defined OneDrive call :WriteLink "%OneDrive%\Desktop" "%~1"
+echo Paper Trader.bat is on the desktop. Double-click it to open the desk.
+exit /b 0
+
+:WriteLink
+if not exist "%~1" exit /b 0
+> "%~1\Paper Trader.bat" echo @echo off
+>> "%~1\Paper Trader.bat" echo cd /d "%~2"
+>> "%~1\Paper Trader.bat" echo title Paper Trader
+>> "%~1\Paper Trader.bat" echo call "2 Open Paper Trader.bat"
 exit /b 0

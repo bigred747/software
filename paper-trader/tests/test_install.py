@@ -10,7 +10,16 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from paper_trader.install import canonical_folder, find_installs, install_newest, is_install, running_desk_pids, stop_open_desks
+from paper_trader.install import (
+    canonical_folder,
+    find_installs,
+    install_newest,
+    is_install,
+    keep_only_running,
+    running_desk_pids,
+    stop_open_desks,
+    write_desktop_opener,
+)
 
 
 def make_install(folder: Path, version: str, marker: str = "") -> None:
@@ -86,6 +95,50 @@ class InstallTests(unittest.TestCase):
     def test_install_does_not_walk_every_python_process(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             self.assertEqual(stop_open_desks(Path(folder)), [])
+
+    def test_the_open_newest_copy_removes_the_other_one(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            setup = home / "Documents" / "PaperTrader-setup" / "paper-trader"
+            dest = canonical_folder(home)
+            notes = home / "Documents" / "taxes"
+            make_install(setup, "1.9.17")
+            make_install(dest, "1.9.18")
+            notes.mkdir()
+            (notes / "keep.txt").write_text("leave\n", encoding="utf-8")
+            removed = keep_only_running(home, dest)
+            self.assertEqual(removed, [setup.resolve()])
+            self.assertFalse((home / "Documents" / "PaperTrader-setup").exists())
+            self.assertTrue(is_install(dest))
+            self.assertEqual((notes / "keep.txt").read_text(encoding="utf-8"), "leave\n")
+            self.assertEqual(find_installs(home), [dest.resolve()])
+
+    def test_an_older_open_copy_leaves_the_newer_one_in_place(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            setup = home / "Documents" / "PaperTrader-setup" / "paper-trader"
+            dest = canonical_folder(home)
+            make_install(setup, "1.9.17")
+            make_install(dest, "1.9.18")
+            self.assertEqual(keep_only_running(home, setup), [])
+            self.assertTrue(is_install(dest))
+            self.assertTrue(is_install(setup))
+
+    def test_desktop_opener_is_a_plain_file_on_each_desktop(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            dest = canonical_folder(home)
+            make_install(dest, "1.9.18")
+            (dest / "2 Open Paper Trader.bat").write_text("@echo off\r\n", encoding="utf-8")
+            (home / "Desktop").mkdir()
+            (home / "OneDrive" / "Desktop").mkdir(parents=True)
+            written = write_desktop_opener(dest, home)
+            self.assertEqual(len(written), 2)
+            text = (home / "Desktop" / "Paper Trader.bat").read_text(encoding="utf-8").lower()
+            self.assertIn("2 open paper trader.bat", text)
+            self.assertIn(str(dest).lower(), text)
+            self.assertNotIn("powershell", text)
+            self.assertNotIn("wscript", text)
 
     def test_a_locked_folder_reports_a_clean_failure(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

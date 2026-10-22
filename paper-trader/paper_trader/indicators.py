@@ -84,6 +84,51 @@ def squeeze(highs: list[float], lows: list[float], closes: list[float], length: 
     return {"momentum": momentum, "level": level}
 
 
+def squeeze_alert(level: list[int], momentum: list[float | None]) -> dict[str, str | int]:
+    """A warning before the release, and a sell when momentum turns down.
+
+    Five squeeze dots means compression has built up. The warning is the fifth
+    dot, before the squeeze releases. A later fade, while the dots are still on
+    or on the bar after they turn off, is the squeeze running out of steam.
+    """
+    dots = 0
+    for value in reversed(level):
+        if int(value) <= 0:
+            break
+        dots += 1
+    recent = dots > 0 or (len(level) >= 2 and int(level[-2]) > 0)
+    if recent and _momentum_fading(momentum):
+        return {"side": "sell", "kind": "steam", "dots": dots, "index": max(0, len(level) - 1)}
+    if dots >= 5:
+        side = "buy" if _momentum_rising(momentum) else "sell"
+        index = len(level) - dots + 4
+        return {"side": side, "kind": "dots", "dots": dots, "index": index}
+    return {"side": "", "kind": "", "dots": dots, "index": -1}
+
+
+def _momentum_rising(momentum: list[float | None]) -> bool:
+    if len(momentum) < 2:
+        return False
+    now = momentum[-1]
+    previous = momentum[-2]
+    return now is not None and previous is not None and now > 0 and now >= previous
+
+
+def _momentum_fading(momentum: list[float | None]) -> bool:
+    """True on the first bar where positive momentum turns down."""
+    if len(momentum) < 2:
+        return False
+    now = momentum[-1]
+    previous = momentum[-2]
+    if now is None or previous is None or not (previous > 0 and now < previous):
+        return False
+    if len(momentum) >= 3:
+        older = momentum[-3]
+        if older is not None and older > 0 and previous < older:
+            return False
+    return True
+
+
 def squeeze_marks(
     highs: list[float], lows: list[float], closes: list[float], length: int = 20
 ) -> tuple[set[int], set[int], dict[str, list]]:
