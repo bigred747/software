@@ -146,6 +146,8 @@ textarea {
 }
 .results button { width: 100%; text-align: left; min-height: 36px; }
 .results button.on { border-color: var(--accent); color: var(--accent); background: #1c3330; }
+.results button.fear:not(.on), .pins button.fear:not(.on) { color: var(--down); }
+.results button.greed:not(.on), .pins button.greed:not(.on) { color: var(--up); }
 .quote { cursor: pointer; }
 #candles { cursor: crosshair; }
 
@@ -277,6 +279,12 @@ canvas {
 }
 #candles { flex: 1 1 auto; min-height: 240px; height: auto; }
 #rsi-chart { height: 112px; flex: 0 0 auto; }
+.zoom-bar { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.zoom-bar button { width: auto; min-height: 36px; padding: 6px 12px; }
+.mood { font-weight: 650; }
+.mood.fear { color: var(--down); }
+.mood.greed { color: var(--up); }
+.mood.neutral, .mood.waiting { color: var(--muted); }
 
 .dock-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; }
 .dock-tab {

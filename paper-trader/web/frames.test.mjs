@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -113,4 +113,29 @@ test("true momentum stays inside the length and confirms arrows on a closed bar"
   assert.equal(study.down[39], false);
   assert.equal(study.main[18], 14);
   assert.equal(study.down[25], true);
+});
+
+test("zoom keeps the latest bar and fear or greed follows the range", () => {
+  const bars = [];
+  for (let index = 0; index < 200; index += 1) {
+    const close = 100 + index;
+    bars.push(day("2024-05-" + String((index % 27) + 1).padStart(2, "0"), close - 1, close + 1, close - 2, close));
+  }
+  const view = zoomBars(bars, 4);
+  assert.equal(view.size, 180);
+  assert.equal(view.bars[view.bars.length - 1].close, bars[199].close);
+  assert.equal(zoomStep(4, -1, 200), 3);
+  assert.equal(zoomStep(0, -1, 200), 0);
+  assert.equal(zoomStep(4, 1, 50), 4);
+  const greed = mood(bars);
+  assert.equal(greed.label, "Greed");
+  assert.ok(greed.score >= 65);
+  const falling = bars.map((bar, index) => day(bar.date, 300 - index + 1, 300 - index + 2, 300 - index - 1, 300 - index));
+  assert.equal(mood(falling).label, "Fear");
+  const fitted = lesson(bars);
+  assert.equal(fitted.arrows.some((mark) => mark.index === bars.length - 1), false);
+  assert.ok(fitted.note.includes("Not a forecast"));
+  const nudged = bars.slice(0, -1).concat([day(bars[199].date, bars[199].open, bars[199].high, bars[199].low, bars[199].close * 0.5)]);
+  const again = lesson(nudged);
+  assert.deepEqual(JSON.parse(JSON.stringify(fitted.arrows)), JSON.parse(JSON.stringify(again.arrows)));
 });

@@ -11,6 +11,11 @@ const state = {
   study: null,
   studyCode: "",
   frameId: "1D",
+  zoom: 4,
+  previewZoom: 4,
+  moods: {},
+  lesson: null,
+  lessonKey: "",
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -38,7 +43,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.10";
+const VERSION = "1.9.11";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -163,7 +168,11 @@ async function refreshSymbols() {
     button.dataset.symbol = item.symbol;
     button.dataset.decimals = String(item.decimals);
     const kind = item.category ? " · " + item.category : "";
-    button.textContent = item.symbol + " · " + item.name + kind;
+    const label = item.symbol + " · " + item.name + kind;
+    const mood = state.moods[item.symbol];
+    button.dataset.label = label;
+    button.textContent = mood && mood.score != null ? label + " · " + mood.label + " " + mood.score : label;
+    if (mood && mood.label) button.classList.add(mood.label.toLowerCase());
     if (item.symbol === current) button.className = "on";
     button.addEventListener("click", () => {
       state.decimals = Number(item.decimals || 2);
@@ -267,10 +276,19 @@ function renderLocalSignals() {
     { name: "Squeeze", ok: !!(state.market && (state.market.squeeze || []).length), detail: "Ready" },
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
+    { name: "Learning", ok: true, detail: "This symbol, while the page is open" },
+    { name: "Mood", ok: !!(state.market && state.market.bars && state.market.bars.length >= 20), detail: phoneMood() },
     { name: "Timeframes", ok: typeof PaperFrames !== "undefined" && PaperFrames.FRAMES.length === 10, detail: "10 windows" },
     { name: "Broker", ok: true, detail: "Not connected" },
     { name: "Version", ok: true, detail: VERSION },
   ]));
+}
+
+function phoneMood() {
+  const bars = (state.market && state.market.bars) || [];
+  if (bars.length < 20 || typeof PaperFrames === "undefined" || !PaperFrames.mood) return "Waiting on the quote";
+  const row = PaperFrames.mood(bars);
+  return row.score == null ? row.note : row.label + " " + row.score;
 }
 
 function deskLine(text) {
@@ -351,6 +369,67 @@ async function loadSignals() {
   const report = await getJSON("/api/checks");
   paintSignals(withHooks(report.items));
   requestAnimationFrame(() => paintSignals(withHooks(report.items)));
+  try {
+    await postJSON("/api/learn/watch", { symbols: readPins().concat([state.paper && state.paper.symbol].filter(Boolean)) });
+    const book = await getJSON("/api/learn");
+    const openSymbol = state.paper && state.paper.symbol;
+    Object.entries(book.symbols || {}).forEach(([symbol, row]) => {
+      if (row && row.mood && symbol !== openSymbol) state.moods[symbol] = row.mood;
+    });
+    renderPins();
+    document.querySelectorAll("#symbol button").forEach((button) => {
+      const symbol = button.dataset.symbol;
+      const row = state.moods[symbol];
+      const label = button.dataset.label || button.textContent;
+      if (!button.dataset.label) button.dataset.label = label;
+      button.textContent = row && row.score != null ? button.dataset.label + " · " + row.label + " " + row.score : button.dataset.label;
+      button.classList.remove("fear", "greed", "neutral");
+      if (row && row.label) button.classList.add(row.label.toLowerCase());
+    });
+  } catch (error) {
+    return;
+  }
+}
+
+async function postJSON(url, body) {
+  return getJSON(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+function paintZoom(count) {
+  const view = PaperFrames.zoomBars(new Array(Math.max(0, count)), state.zoom);
+  const inn = $("zoom-in");
+  const out = $("zoom-out");
+  const label = $("zoom-label");
+  if (inn) inn.disabled = view.atMin;
+  if (out) out.disabled = view.atMax;
+  if (label) label.textContent = view.size + " bars";
+  const previewCount = ((state.frames || []).find((row) => row.id === state.frameId) || {}).count || 0;
+  const preview = PaperFrames.zoomBars(new Array(previewCount), state.previewZoom);
+  const previewIn = $("preview-zoom-in");
+  const previewOut = $("preview-zoom-out");
+  const previewLabel = $("preview-zoom-label");
+  if (previewIn) previewIn.disabled = preview.atMin;
+  if (previewOut) previewOut.disabled = preview.atMax;
+  if (previewLabel) previewLabel.textContent = preview.size ? preview.size + " bars" : "";
+}
+
+function stepZoom(which, direction) {
+  if (which === "preview") {
+    const row = (state.frames || []).find((item) => item.id === state.frameId);
+    const count = row && row.bars ? row.bars.length : 0;
+    state.previewZoom = PaperFrames.zoomStep(state.previewZoom, direction, count);
+    renderFrames();
+    return;
+  }
+  const count = seenBars().length;
+  state.zoom = PaperFrames.zoomStep(state.zoom, direction, count);
+  drawCandles();
+  drawTmo();
+  paintZoom(count);
 }
 
 function rerunStudy() {
@@ -476,8 +555,10 @@ function renderPins() {
   pins.forEach((symbol) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = pinLabel(symbol);
-    button.title = symbol;
+    const row = state.moods[symbol] || (state.market && state.market.symbol === symbol ? currentMood(seenBars()) : null);
+    button.textContent = pinLabel(symbol) + (row && row.label && row.label !== "Waiting" ? " · " + row.label : "");
+    button.title = symbol + (row && row.score != null ? " · " + row.label + " " + row.score : "");
+    if (row && row.label) button.classList.add(row.label.toLowerCase());
     if (symbol === current) {
       button.className = "on";
       button.setAttribute("aria-pressed", "true");
@@ -590,6 +671,11 @@ function renderQuote(paper) {
     $("quote-last").textContent = "—";
     $("quote-change").textContent = "—";
     $("quote-asof").textContent = "Market quote";
+    const empty = $("quote-mood");
+    if (empty) {
+      empty.textContent = "—";
+      empty.className = "mood";
+    }
     quote.className = "quote";
     return;
   }
@@ -605,6 +691,13 @@ function renderQuote(paper) {
     ? "Market quote · " + new Date(asOf * 1000).toLocaleString()
     : "Market quote · " + (last.date || "");
   quote.className = "quote " + (change > 0 ? "up" : change < 0 ? "down" : "flat");
+  const tone = currentMood(bars);
+  const badge = $("quote-mood");
+  if (badge) {
+    badge.textContent = tone && tone.score != null ? tone.label + " " + tone.score : "—";
+    badge.className = "mood " + (tone && tone.label ? tone.label.toLowerCase() : "");
+  }
+  if (paper.symbol && tone && tone.score != null) state.moods[paper.symbol] = tone;
 }
 
 function seenBars() {
@@ -663,7 +756,8 @@ function renderFrames() {
       ? selected.label + " preview · " + selected.bias + " · " + change + " · " + selected.count + " market bars"
       : selected.label + " opens market bars in its own window";
   }
-  PaperFrames.draw($("frame-preview"), selected.bars);
+  PaperFrames.draw($("frame-preview"), selected ? selected.bars : [], state.previewZoom);
+  paintZoom(seenBars().length);
 }
 
 function openFrameWindow(frameId) {
@@ -685,14 +779,40 @@ function writeOfflineFrame(win, frameId) {
   const row = (state.frames || []).find((item) => item.id === frame.id);
   const bars = row ? row.bars : [];
   const heading = (state.paper.symbol || "Sample") + " · " + frame.label;
+  const tone = bars.length ? PaperFrames.mood(bars) : null;
+  const moodLine = tone && tone.score != null ? " " + tone.label + " " + tone.score + "." : "";
   win.document.open();
   const quoteLine = bars.length ? "Market quote." : "Loading the market quote.";
-  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + "</p><canvas id=\"c\" style=\"width:100%;height:78vh\"></canvas></body>");
+  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px 0\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + moodLine + "</p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
   win.document.close();
+  let zoomStop = PaperFrames.DEFAULT_ZOOM;
   const paint = () => {
     const canvas = win.document.getElementById("c");
-    if (canvas) PaperFrames.draw(canvas, bars);
+    if (canvas) PaperFrames.draw(canvas, bars, zoomStop);
+    const view = PaperFrames.zoomBars(bars, zoomStop);
+    const label = win.document.getElementById("label");
+    const inn = win.document.getElementById("in");
+    const out = win.document.getElementById("out");
+    if (label) label.textContent = view.size + " bars";
+    if (inn) inn.disabled = view.atMin;
+    if (out) out.disabled = view.atMax;
   };
+  const inn = win.document.getElementById("in");
+  const out = win.document.getElementById("out");
+  if (inn) inn.addEventListener("click", () => {
+    zoomStop = PaperFrames.zoomStep(zoomStop, -1, bars.length);
+    paint();
+  });
+  if (out) out.addEventListener("click", () => {
+    zoomStop = PaperFrames.zoomStep(zoomStop, 1, bars.length);
+    paint();
+  });
+  const canvas = win.document.getElementById("c");
+  if (canvas) canvas.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    zoomStop = PaperFrames.zoomStep(zoomStop, event.deltaY > 0 ? 1 : -1, bars.length);
+    paint();
+  }, { passive: false });
   paint();
   win.addEventListener("resize", paint);
 }
@@ -811,6 +931,8 @@ function renderReadings() {
     ["Resistance", pivotsText(PaperFrames.trendPivots(bars), "high")],
     ["Support", pivotsText(PaperFrames.trendPivots(bars), "low")],
     ["TMO", tmoText(bars)],
+    ["Lesson", lessonText(bars)],
+    ["Mood", moodText(bars)],
   ].forEach(([name, value]) => {
     const row = document.createElement("div");
     const label = document.createElement("dt");
@@ -853,9 +975,52 @@ function fillTrades(body, trades) {
   });
 }
 
+function currentLesson(bars) {
+  const remote = state.market && state.market.lesson;
+  if (remote && remote.rule) return remote;
+  const last = bars.length ? bars[bars.length - 1] : null;
+  const key = bars.length + ":" + (last ? last.date + ":" + last.close : "");
+  if (state.lessonKey === key && state.lesson) return state.lesson;
+  state.lesson = PaperFrames.lesson(bars);
+  state.lessonKey = key;
+  return state.lesson;
+}
+
+function currentMood(bars) {
+  const remote = state.market && state.market.mood;
+  if (remote && remote.label) return remote;
+  if (!bars.length || !PaperFrames.mood) return null;
+  return PaperFrames.mood(bars);
+}
+
+function lessonText(bars) {
+  if (!bars.length) return "—";
+  const fitted = currentLesson(bars);
+  if (!fitted) return "—";
+  return fitted.matched + " of " + fitted.seen + " · " + fitted.rule;
+}
+
+function moodText(bars) {
+  const tone = currentMood(bars);
+  if (!tone || tone.score == null) return tone && tone.note ? tone.note : "—";
+  return tone.label + " " + tone.score;
+}
+
+function lessonMarks(lesson, bars) {
+  if (!lesson || !lesson.arrows) return [];
+  if (lesson.arrows.length && lesson.arrows[0].date) {
+    const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
+    return lesson.arrows
+      .map((mark) => ({ index: byDate.get(mark.date), side: mark.side }))
+      .filter((mark) => Number.isInteger(mark.index));
+  }
+  return lesson.arrows.filter((mark) => Number.isInteger(mark.index));
+}
+
 function tmoText(bars) {
   if (!bars.length) return "—";
-  const study = PaperFrames.trueMomentum(bars);
+  const fitted = currentLesson(bars);
+  const study = PaperFrames.trueMomentum(bars, 14, fitted.calc, fitted.smooth);
   const last = study.main.length - 1;
   if (study.main[last] == null || study.signal[last] == null) return "—";
   const side = study.main[last] > study.signal[last] ? "Main above signal" : "Main below signal";
@@ -875,7 +1040,7 @@ function sliceToCursor(values) {
 
 function visible(values) {
   const sliced = sliceToCursor(values);
-  return sliced.length > 180 ? sliced.slice(sliced.length - 180) : sliced;
+  return PaperFrames.zoomBars(sliced, state.zoom).bars;
 }
 
 function drawCandles(retry) {
@@ -886,17 +1051,21 @@ function drawCandles(retry) {
     return;
   }
   const history = sliceToCursor(state.market.bars);
-  const bars = history.length > 180 ? history.slice(history.length - 180) : history;
-  const dropped = history.length - bars.length;
-  const studyLines = PaperFrames.averages(history);
+  const fitted = currentLesson(history);
+  const view = PaperFrames.zoomBars(history, state.zoom);
+  const bars = view.bars;
+  const dropped = view.start;
+  const studyLines = PaperFrames.averages(history, fitted.average);
+  paintZoom(history.length);
   const highLine = studyLines.high.slice(dropped);
   const midLine = studyLines.close.slice(dropped);
   const lowLine = studyLines.low.slice(dropped);
   const pivots = PaperFrames.trendPivots(history);
   const fast = visible(state.market.fast);
   const slow = visible(state.market.slow);
-  const squeeze = visible(state.market.squeeze);
-  const allMomentum = sliceToCursor(state.market.momentum || []);
+  const compressed = PaperFrames.compression(history, fitted.squeeze);
+  const squeeze = compressed.level.slice(dropped);
+  const allMomentum = compressed.momentum;
   const momentum = allMomentum.slice(dropped);
   const ctx = prepare(canvas);
   if (!bars.length) return;
@@ -998,6 +1167,7 @@ function drawCandles(retry) {
     ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
     ["Momentum " + (lastMomentum == null ? "—" : lastRising ? "rising" : "falling"), PaperFrames.momentumTone(lastMomentum, priorMomentum) || "#9aa6b2"],
     [PaperFrames.candlePlace(lastBar, highLine[last], lowLine[last]), "#d7e2ea"],
+    [fitted.mood && fitted.mood.score != null ? fitted.mood.label + " " + fitted.mood.score : "Mood", fitted.mood && fitted.mood.label === "Fear" ? "#ff6b7a" : fitted.mood && fitted.mood.label === "Greed" ? "#3ddc97" : "#d7e2ea"],
   ];
   const keyWidth = Math.max(...key.map((row) => ctx.measureText(row[0]).width)) + 16;
   const keyLeft = pad + 6;
@@ -1016,6 +1186,16 @@ function drawCandles(retry) {
     const up = marker.side === "buy";
     ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
     const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 16 : y(bar.high) - 16));
+    drawArrow(ctx, x, point, up);
+  });
+  lessonMarks(fitted, history).forEach((mark) => {
+    const index = mark.index - dropped;
+    if (index < 0 || index >= bars.length) return;
+    const bar = bars[index];
+    const x = pad + index * slot + slot / 2;
+    const up = mark.side === "buy";
+    ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
+    const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 36 : y(bar.high) - 36));
     drawArrow(ctx, x, point, up);
   });
 }
@@ -1071,9 +1251,11 @@ function drawTmo() {
   if (!state.market || !canvas) return;
   const history = sliceToCursor(state.market.bars);
   if (!history.length) return;
-  const study = PaperFrames.trueMomentum(history);
-  const count = Math.min(180, history.length);
-  const dropped = history.length - count;
+  const fitted = currentLesson(history);
+  const study = PaperFrames.trueMomentum(history, 14, fitted.calc, fitted.smooth);
+  const view = PaperFrames.zoomBars(history, state.zoom);
+  const count = view.size;
+  const dropped = view.start;
   const main = study.main.slice(dropped);
   const signal = study.signal.slice(dropped);
   const up = study.up.slice(dropped);
@@ -1216,11 +1398,17 @@ async function autoTick() {
       state.market = PaperEngine.market(state.session);
       stampQuote(bars);
       render(paper);
+      renderLocalSignals();
     } else {
       const paper = await paperCall("/api/paper/step", { days: 1 });
       state.paper = paper;
       await loadMarket(paper.symbol);
       render(paper);
+      try {
+        await loadSignals();
+      } catch (error) {
+        $("status").textContent = error.message;
+      }
     }
     if (state.paper && state.paper.paper !== true) {
       state.auto = false;
@@ -1475,6 +1663,22 @@ window.addEventListener("resize", () => {
     drawTmo();
   }
 });
+
+function bindZoom(canvas, which) {
+  if (!canvas) return;
+  canvas.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    stepZoom(which, event.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+}
+
+[["zoom-in", "chart", -1], ["zoom-out", "chart", 1], ["preview-zoom-in", "preview", -1], ["preview-zoom-out", "preview", 1]].forEach(([id, which, direction]) => {
+  const button = $(id);
+  if (button) button.addEventListener("click", () => stepZoom(which, direction));
+});
+bindZoom($("candles"), "chart");
+bindZoom($("rsi-chart"), "chart");
+bindZoom($("frame-preview"), "preview");
 
 boot().catch((error) => {
   showProblem(error && error.message ? error.message : "The desk did not start.");

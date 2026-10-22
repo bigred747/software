@@ -12,7 +12,7 @@ from paper_trader import __version__
 LAUNCHER = "Start-Paper-Trader.bat"
 PACKAGE = Path("paper_trader") / "__init__.py"
 SKIP_DIRS = {"__pycache__", "tests", ".git"}
-SKIP_FILES = {"paper_state.json"}
+SKIP_FILES = {"paper_state.json", "learn_state.json"}
 
 
 def version_key(text: str) -> tuple[int, ...]:
@@ -162,11 +162,14 @@ def _child_dirs(folder: Path) -> list[Path]:
 
 
 def _replace_install(source: Path, dest: Path) -> None:
-    state_path = dest / "paper_state.json"
-    saved_state = state_path.read_bytes() if state_path.is_file() else None
+    saved = {}
     if dest.exists():
+        for name in SKIP_FILES:
+            path = dest / name
+            if path.is_file():
+                saved[name] = path.read_bytes()
         for child in list(dest.iterdir()):
-            if child.name == "paper_state.json":
+            if child.name in SKIP_FILES:
                 continue
             if child.is_dir():
                 shutil.rmtree(child)
@@ -184,8 +187,8 @@ def _replace_install(source: Path, dest: Path) -> None:
         target = dest / path.relative_to(source)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, target)
-    if saved_state is not None:
-        state_path.write_bytes(saved_state)
+    for name, payload in saved.items():
+        (dest / name).write_bytes(payload)
 
 
 def _remove_older(home: Path, keep: Path, source: Path) -> None:

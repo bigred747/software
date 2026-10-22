@@ -17,6 +17,7 @@ from paper_trader import __version__
 from paper_trader.backtest import present, run_backtest
 from paper_trader.install import single_copy_status
 from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
+from paper_trader.learn import Watcher, mood
 from paper_trader.model import params_from_dict
 from paper_trader import quotes
 from paper_trader.samples import catalog_size, search_symbols, warm
@@ -73,6 +74,7 @@ class Desk:
         self.state_path = state_path
         self.lock = threading.Lock()
         self.journal = load_journal(state_path)
+        self.watcher: Watcher | None = None
 
     def snapshot(self) -> dict:
         with self.lock:
@@ -110,6 +112,8 @@ class Desk:
             {"name": "Squeeze", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
             {"name": "Arrows", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
             {"name": "Study", "ok": True, "detail": "On this device"},
+            self._learning_check(),
+            self._mood_check(str(view.get("symbol") or ""), quote_ok),
             {"name": "Timeframes", "ok": len(quotes.frame_ids()) == 10, "detail": f"{len(quotes.frame_ids())} windows"},
             {"name": "Phone", "ok": True, "detail": "Layout adapts"},
             {"name": "Broker", "ok": True, "detail": "Not connected"},
@@ -169,8 +173,44 @@ class Desk:
         return payload
 
     def market(self, symbol: str, raw: dict) -> dict:
+        if self.watcher is not None:
+            self.watcher.focus(symbol)
         params = params_from_dict(raw)
         return market_view(symbol, params)
+
+    def watch(self, symbols: list) -> None:
+        if self.watcher is not None:
+            self.watcher.watch(symbols)
+
+    def learn_view(self) -> dict:
+        if self.watcher is None:
+            return {
+                "running": False,
+                "passes": 0,
+                "last_symbol": "",
+                "last_error": "",
+                "symbols": {},
+                "ok": True,
+                "detail": "Starts when the desk window is open",
+            }
+        return self.watcher.view()
+
+    def _learning_check(self) -> dict[str, str | bool]:
+        if self.watcher is None:
+            return {"name": "Learning", "ok": True, "detail": "Starts when the desk window is open"}
+        report = self.watcher.status()
+        return {"name": "Learning", "ok": bool(report["ok"]), "detail": str(report["detail"])}
+
+    def _mood_check(self, symbol: str, quote_ok: bool) -> dict[str, str | bool]:
+        if not quote_ok or not symbol:
+            return {"name": "Mood", "ok": False, "detail": "Waiting on the quote"}
+        try:
+            row = mood(quotes.load_bars(symbol))
+        except ValueError as exc:
+            return {"name": "Mood", "ok": False, "detail": str(exc)}
+        if row["score"] is None:
+            return {"name": "Mood", "ok": False, "detail": str(row["note"])}
+        return {"name": "Mood", "ok": True, "detail": f"{row['label']} {row['score']}"}
 
 
 def _local_host(header: str) -> bool:
@@ -264,6 +304,9 @@ class DeskHandler(BaseHTTPRequestHandler):
         if method == "GET" and path == "/api/checks":
             self._json(self.desk.checks())
             return
+        if method == "GET" and path == "/api/learn":
+            self._json(self.desk.learn_view())
+            return
         if method == "GET" and path == "/api/symbols":
             try:
                 limit = int(query.get("limit", "40"))
@@ -288,6 +331,10 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._json(self.desk.backtest(raw))
             return
         body = self._body() if method == "POST" else {}
+        if method == "POST" and path == "/api/learn/watch":
+            self.desk.watch(body.get("symbols") or [])
+            self._json(self.desk.learn_view())
+            return
         if method == "POST" and path == "/api/paper/mode":
             if str(body.get("mode") or "") != "paper":
                 raise ValueError("This desk only runs in paper mode")
@@ -432,8 +479,12 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
         return
     host, bound = server.server_address[:2]
     url = f"http://{host}:{bound}/"
+    watcher = Watcher(state_path.with_name("learn_state.json"))
+    server.desk.watcher = watcher
+    watcher.start()
     print(f"Paper Trader is running at {url}")
     print("Market quotes. Paper orders only. Leave this window open.")
+    print("This window keeps scoring closed bars and the fear or greed of each market it watches.")
     worker = threading.Thread(target=server.serve_forever, name="paper-trader-http", daemon=True)
     worker.start()
     if open_browser and url.startswith("http://127.0.0.1:"):
@@ -449,4 +500,5 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
         server.shutdown()
         worker.join(2)
     finally:
+        watcher.stop()
         server.server_close()

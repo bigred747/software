@@ -2,6 +2,7 @@ const params = new URLSearchParams(location.search);
 const symbol = params.get("symbol") || "BTC-USD";
 const frameId = params.get("frame") || "1D";
 let cached = null;
+let zoomStop = PaperFrames.DEFAULT_ZOOM;
 
 function title(text) {
   document.title = text;
@@ -12,8 +13,18 @@ function title(text) {
 function paint() {
   if (!cached) return;
   const note = document.getElementById("frame-note");
-  if (note) note.textContent = cached.note;
-  PaperFrames.draw(document.getElementById("frame-chart"), cached.bars);
+  const tone = PaperFrames.mood(cached.bars);
+  const fitted = PaperFrames.lesson(cached.bars);
+  const moodLine = tone.score == null ? "" : " " + tone.label + " " + tone.score + ".";
+  if (note) note.textContent = cached.note + moodLine + " Lesson: " + fitted.rule + ".";
+  PaperFrames.draw(document.getElementById("frame-chart"), cached.bars, zoomStop);
+  const view = PaperFrames.zoomBars(cached.bars, zoomStop);
+  const label = document.getElementById("zoom-label");
+  const inn = document.getElementById("zoom-in");
+  const out = document.getElementById("zoom-out");
+  if (label) label.textContent = view.size + " bars";
+  if (inn) inn.disabled = view.atMin;
+  if (out) out.disabled = view.atMax;
 }
 
 async function main() {
@@ -41,5 +52,19 @@ main().catch((error) => {
   const note = document.getElementById("frame-note");
   if (note) note.textContent = error.message;
 });
+
+document.getElementById("zoom-in").addEventListener("click", () => {
+  zoomStop = PaperFrames.zoomStep(zoomStop, -1, cached ? cached.bars.length : 0);
+  paint();
+});
+document.getElementById("zoom-out").addEventListener("click", () => {
+  zoomStop = PaperFrames.zoomStep(zoomStop, 1, cached ? cached.bars.length : 0);
+  paint();
+});
+document.getElementById("frame-chart").addEventListener("wheel", (event) => {
+  event.preventDefault();
+  zoomStop = PaperFrames.zoomStep(zoomStop, event.deltaY > 0 ? 1 : -1, cached ? cached.bars.length : 0);
+  paint();
+}, { passive: false });
 
 window.addEventListener("resize", paint);

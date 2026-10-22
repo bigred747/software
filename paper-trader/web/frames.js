@@ -172,11 +172,12 @@
     return out;
   }
 
-  function averages(bars) {
+  function averages(bars, length) {
+    const window = Math.max(2, Math.round(Number(length) || 34));
     return {
-      high: ema(bars.map((bar) => bar.high), 34),
-      close: ema(bars.map((bar) => bar.close), 34),
-      low: ema(bars.map((bar) => bar.low), 34),
+      high: ema(bars.map((bar) => bar.high), window),
+      close: ema(bars.map((bar) => bar.close), window),
+      low: ema(bars.map((bar) => bar.low), window),
     };
   }
 
@@ -449,8 +450,224 @@
     ctx.lineWidth = 1;
   }
 
-  function draw(canvas, bars) {
+  const ZOOM_STOPS = [30, 50, 80, 120, 180, 260, 400, 700];
+  const DEFAULT_ZOOM = 4;
+  const lessonCache = new WeakMap();
+
+  function zoomIndex(stop) {
+    const parsed = Number(stop);
+    const index = Number.isFinite(parsed) ? Math.round(parsed) : DEFAULT_ZOOM;
+    return Math.max(0, Math.min(ZOOM_STOPS.length - 1, index));
+  }
+
+  function zoomBars(bars, stop) {
+    const count = bars ? bars.length : 0;
+    const index = zoomIndex(stop);
+    const size = Math.min(count, ZOOM_STOPS[index]);
+    const start = Math.max(0, count - size);
+    return {
+      bars: (bars || []).slice(start),
+      start,
+      size,
+      stop: index,
+      atMin: index <= 0,
+      atMax: ZOOM_STOPS[index] >= count,
+    };
+  }
+
+  function zoomStep(stop, direction, count) {
+    const index = zoomIndex(stop);
+    if (direction > 0 && ZOOM_STOPS[index] >= count) return index;
+    const next = index + direction;
+    if (next < 0 || next >= ZOOM_STOPS.length) return index;
+    return next;
+  }
+
+  function mood(bars, length) {
+    const window = Math.max(5, Math.round(Number(length) || 20));
+    if (!bars || bars.length < window) {
+      return { score: null, label: "Waiting", note: "Not enough closed bars for a fear or greed score." };
+    }
+    const recent = bars.slice(bars.length - window);
+    let high = -Infinity;
+    let low = Infinity;
+    recent.forEach((bar) => {
+      if (bar.high > high) high = bar.high;
+      if (bar.low < low) low = bar.low;
+    });
+    const span = high - low;
+    const last = recent[recent.length - 1].close;
+    const position = span > 0 ? (last - low) / span : 0.5;
+    const earlier = recent[0].close;
+    const change = earlier ? (last - earlier) / earlier : 0;
+    const thrust = Math.max(0, Math.min(1, 0.5 + change / 0.3));
+    const score = Math.round(100 * (0.65 * position + 0.35 * thrust));
+    const label = score <= 35 ? "Fear" : score >= 65 ? "Greed" : "Neutral";
+    return { score, label, note: label + " " + score + ". The last close sits in the recent range. Not a forecast." };
+  }
+
+  function choose(book, fallback) {
+    let winner = fallback;
+    let bestRate = -1;
+    let bestSeen = -1;
+    Object.keys(book).forEach((name) => {
+      const row = book[name];
+      if (row.seen < 8) return;
+      const rate = row.matched / row.seen;
+      if (rate <= 0.5) return;
+      if (rate > bestRate || (rate === bestRate && row.seen > bestSeen)) {
+        winner = name;
+        bestRate = rate;
+        bestSeen = row.seen;
+      }
+    });
+    const row = book[winner] || { seen: 0, matched: 0 };
+    return { name: winner, seen: row.seen, matched: row.matched };
+  }
+
+  function withCandle(up, down, bars) {
+    return [
+      up.map((flag, index) => flag && bars[index].close >= bars[index].open),
+      down.map((flag, index) => flag && bars[index].close < bars[index].open),
+    ];
+  }
+
+  function averageMarks(bars, length) {
+    const lines = averages(bars, length);
+    const up = bars.map(() => false);
+    const down = bars.map(() => false);
+    for (let index = 1; index < bars.length; index += 1) {
+      if (lines.high[index] == null || lines.high[index - 1] == null || lines.low[index] == null) continue;
+      if (bars[index].close > lines.high[index] && bars[index - 1].close <= lines.high[index - 1]) up[index] = true;
+      if (bars[index].close < lines.low[index] && bars[index - 1].close >= lines.low[index - 1]) down[index] = true;
+    }
+    return [up, down];
+  }
+
+  function squeezeMarks(bars, length) {
+    const study = compression(bars, length);
+    const up = bars.map(() => false);
+    const down = bars.map(() => false);
+    for (let index = 1; index < bars.length; index += 1) {
+      const now = study.momentum[index];
+      const previous = study.momentum[index - 1];
+      if (now == null || previous == null) continue;
+      const released = study.level[index - 1] > 0 && study.level[index] === 0;
+      if (released && now > 0 && now > previous) up[index] = true;
+      if (previous >= 0 && now < 0) down[index] = true;
+      else if (released && now < 0 && now < previous) down[index] = true;
+    }
+    return [up, down];
+  }
+
+  function parseRule(name) {
+    const candle = name.endsWith(" with the candle");
+    const parts = name.split(" ");
+    if (name.startsWith("True momentum") && parts[2] && parts[2].includes("/")) {
+      const [calc, smooth] = parts[2].split("/").map((value) => Number(value));
+      return { calc, smooth, candle };
+    }
+    if (name.startsWith("Squeeze") && parts[1]) return { squeeze: Number(parts[1]), candle };
+    if (name.startsWith("Average") && parts[1]) return { average: Number(parts[1]), candle };
+    return { candle };
+  }
+
+  function lesson(bars) {
+    const count = bars.length;
+    const last = count ? bars[count - 1] : null;
+    const stamp = count + ":" + (last ? last.close : "");
+    const cached = lessonCache.get(bars);
+    if (cached && cached.stamp === stamp) return cached.value;
+    const signals = {};
+    const add = (name, pair) => {
+      signals[name] = pair;
+    };
+    const base = trueMomentum(bars, 14, 5, 3);
+    add("True momentum 5/3", [base.up, base.down]);
+    add("True momentum 5/3 with the candle", withCandle(base.up, base.down, bars));
+    [3, 5, 8].forEach((calc) => {
+      [2, 3, 5].forEach((smooth) => {
+        if (calc === 5 && smooth === 3) return;
+        const study = trueMomentum(bars, 14, calc, smooth);
+        const name = "True momentum " + calc + "/" + smooth;
+        add(name, [study.up, study.down]);
+        add(name + " with the candle", withCandle(study.up, study.down, bars));
+      });
+    });
+    [20, 14, 30].forEach((length) => {
+      const pair = squeezeMarks(bars, length);
+      const name = "Squeeze " + length;
+      add(name, pair);
+      add(name + " with the candle", withCandle(pair[0], pair[1], bars));
+    });
+    [34, 21, 55].forEach((length) => {
+      const pair = averageMarks(bars, length);
+      const name = "Average " + length;
+      add(name, pair);
+      add(name + " with the candle", withCandle(pair[0], pair[1], bars));
+    });
+    const book = {};
+    Object.keys(signals).forEach((name) => {
+      book[name] = { seen: 0, matched: 0 };
+    });
+    const choice = [];
+    for (let index = 0; index < count; index += 1) {
+      choice.push(choose(book, "True momentum 5/3 with the candle").name);
+      if (index < 1) continue;
+      const earlier = index - 1;
+      const move = bars[index].close - bars[earlier].close;
+      Object.keys(signals).forEach((name) => {
+        const up = signals[name][0][earlier];
+        const down = signals[name][1][earlier];
+        const side = up && !down ? 1 : down && !up ? -1 : 0;
+        if (!side) return;
+        book[name].seen += 1;
+        if ((side > 0 && move > 0) || (side < 0 && move < 0)) book[name].matched += 1;
+      });
+    }
+    const picked = choose(book, "True momentum 5/3 with the candle");
+    const tmoBook = {};
+    const squeezeBook = {};
+    const averageBook = {};
+    Object.keys(book).forEach((name) => {
+      if (name.startsWith("True momentum")) tmoBook[name] = book[name];
+      else if (name.startsWith("Squeeze")) squeezeBook[name] = book[name];
+      else if (name.startsWith("Average")) averageBook[name] = book[name];
+    });
+    const tmo = parseRule(choose(tmoBook, "True momentum 5/3 with the candle").name);
+    const squeezeChoice = parseRule(choose(squeezeBook, "Squeeze 20").name);
+    const average = parseRule(choose(averageBook, "Average 34").name);
+    const arrows = [];
+    for (let index = 0; index < count - 1; index += 1) {
+      const pair = signals[choice[index]];
+      if (!pair) continue;
+      if (pair[0][index] && !pair[1][index]) arrows.push({ index, side: "buy" });
+      else if (pair[1][index] && !pair[0][index]) arrows.push({ index, side: "sell" });
+    }
+    const value = {
+      rule: picked.name,
+      seen: picked.seen,
+      matched: picked.matched,
+      calc: tmo.calc || 5,
+      smooth: tmo.smooth || 3,
+      squeeze: squeezeChoice.squeeze || 20,
+      average: average.average || 34,
+      candle: picked.name.endsWith(" with the candle"),
+      arrows,
+      mood: mood(bars),
+      note: picked.matched + " of " + picked.seen + " next closes matched " + picked.name + ". Score of bars already printed. Not a forecast.",
+    };
+    lessonCache.set(bars, { stamp, value });
+    return value;
+  }
+
+  function draw(canvas, bars, zoomStop) {
     if (!canvas || !bars || !bars.length) return;
+    const history = bars;
+    const fitted = lesson(history);
+    const view = zoomBars(history, zoomStop);
+    bars = view.bars;
+    const dropped = view.start;
     const ratio = root.devicePixelRatio || 1;
     const width = canvas.clientWidth || 640;
     const height = canvas.clientHeight || 280;
@@ -459,8 +676,23 @@
     const ctx = canvas.getContext("2d");
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    const lines = averages(bars);
-    const pivots = trendPivots(bars);
+    const fullLines = averages(history, fitted.average);
+    const lines = {
+      high: fullLines.high.slice(dropped),
+      close: fullLines.close.slice(dropped),
+      low: fullLines.low.slice(dropped),
+    };
+    const pivotsFull = trendPivots(history);
+    const pivots = pivotsFull ? {
+      ...pivotsFull,
+      fromHigh: Math.max(0, pivotsFull.fromHigh - dropped),
+      fromLow: Math.max(0, pivotsFull.fromLow - dropped),
+    } : null;
+    const fullSqueeze = compression(history, fitted.squeeze);
+    const study = {
+      momentum: fullSqueeze.momentum.slice(dropped),
+      level: fullSqueeze.level.slice(dropped),
+    };
     const lower = height >= 220;
     const priceBottom = lower ? Math.round(height * 0.7) : height - (height < 150 ? 8 : 18);
     let low = Math.min(...bars.map((bar) => bar.low));
@@ -516,8 +748,28 @@
     strokeSeries(ctx, lines.close, xAt, y, "#5b9dff", 2);
     strokeSeries(ctx, lines.low, xAt, y, "#ff6b7a", 2);
     paintPivots(ctx, pivots, xAt, y, bars.length - 1);
+    fitted.arrows.forEach((mark) => {
+      const index = mark.index - dropped;
+      if (index < 0 || index >= bars.length) return;
+      const bar = bars[index];
+      const x = xAt(index);
+      const up = mark.side === "buy";
+      ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
+      const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 18 : y(bar.high) - 18));
+      ctx.beginPath();
+      if (up) {
+        ctx.moveTo(x, point - 8);
+        ctx.lineTo(x - 6, point + 5);
+        ctx.lineTo(x + 6, point + 5);
+      } else {
+        ctx.moveTo(x, point + 8);
+        ctx.lineTo(x - 6, point - 5);
+        ctx.lineTo(x + 6, point - 5);
+      }
+      ctx.closePath();
+      ctx.fill();
+    });
     if (lower) {
-      const study = compression(bars);
       const histoTop = priceBottom + 10;
       const histoBottom = height - 10;
       const zero = (histoTop + histoBottom) / 2;
@@ -539,6 +791,12 @@
         ctx.arc(x, zero, Math.max(2, Math.min(4, slot * 0.22)), 0, Math.PI * 2);
         ctx.fill();
       });
+    }
+    const tone = fitted.mood;
+    if (tone && tone.score != null && height >= 150) {
+      const moodText = tone.label + " " + tone.score;
+      ctx.fillStyle = tone.label === "Fear" ? "#ff6b7a" : tone.label === "Greed" ? "#3ddc97" : "#d7e2ea";
+      ctx.fillText(moodText, Math.max(padLeft, (width - ctx.measureText(moodText).width) / 2), 14);
     }
     ctx.fillStyle = "#93a0ad";
     if (height >= 150) {
@@ -565,5 +823,11 @@
     trendPivots,
     paintPivots,
     trueMomentum,
+    zoomBars,
+    zoomStep,
+    ZOOM_STOPS,
+    DEFAULT_ZOOM,
+    mood,
+    lesson,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
