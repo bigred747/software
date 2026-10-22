@@ -6,6 +6,9 @@ if not errorlevel 1 goto FromZip
 goto Normal
 
 :FromZip
+echo Unblock
+echo If Windows shows an Unblock box, check Unblock and open this file.
+echo That box lets this copy open. It stays on this computer.
 echo This file was opened inside the zip. Extracting the whole Paper Trader now.
 set "ZIP="
 for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents") do for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
@@ -22,8 +25,10 @@ mkdir "%STAGE%\paper-trader\web" 2>nul
 mkdir "%STAGE%\paper-trader\tools" 2>nul
 mkdir "%STAGE%\paper-trader\iphone" 2>nul
 mkdir "%STAGE%\paper-trader\runtime" 2>nul
+if defined ZIP del /f /a "!ZIP!:Zone.Identifier" >nul 2>&1
 tar -xf "!ZIP!" -C "%STAGE%"
 if errorlevel 1 goto BadZip
+for /r "%STAGE%" %%F in (*) do del /f /a "%%F:Zone.Identifier" >nul 2>&1
 if not exist "%STAGE%\paper-trader\launch.py" goto BadZip
 start "" "%STAGE%\paper-trader\1 Allow Paper Trader.bat"
 echo The full copy is in Documents. Use the window that just opened.
@@ -44,7 +49,13 @@ pause
 exit /b 1
 
 :Normal
+echo Unblock
+echo If Windows shows an Unblock box, check Unblock and open this file.
+echo That box lets this copy open. It stays on this computer.
 echo Step 1 of 2. Install the newest Paper Trader and remove older copies.
+set "HERE=%~dp0"
+if "!HERE:~-1!"=="\" set "HERE=!HERE:~0,-1!"
+for /r "%HERE%" %%F in (*) do del /f /a "%%F:Zone.Identifier" >nul 2>&1
 powershell -NoProfile -Command "Get-ChildItem -LiteralPath $env:CD -Recurse -File | Unblock-File"
 set "PY=%~dp0runtime\python.exe"
 if not exist "%PY%" set "PY=python"
@@ -68,6 +79,8 @@ if not defined DEST (
   pause
   exit /b 1
 )
+for /r "%DEST%" %%F in (*) do del /f /a "%%F:Zone.Identifier" >nul 2>&1
+powershell -NoProfile -Command "Get-ChildItem -LiteralPath $env:DEST -Recurse -File -ErrorAction SilentlyContinue | Unblock-File"
 powershell -NoProfile -Command "$dest = $env:DEST; $desk = [Environment]::GetFolderPath('Desktop'); $lnk = Join-Path $desk 'Paper Trader.lnk'; $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk); $sc.TargetPath = (Join-Path $dest '2 Open Paper Trader.bat'); $sc.WorkingDirectory = $dest; $sc.WindowStyle = 1; $sc.Description = 'Open Paper Trader'; $sc.Save()"
 if errorlevel 1 (
   echo Windows did not allow the folder. Right-click this file, open Properties, check Unblock, click OK, and run this file again.

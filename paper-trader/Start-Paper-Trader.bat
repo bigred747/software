@@ -6,6 +6,9 @@ if not errorlevel 1 goto FromZip
 goto Normal
 
 :FromZip
+echo Unblock
+echo If Windows shows an Unblock box, check Unblock and open this file.
+echo That box lets this copy open. It stays on this computer.
 echo This file was opened inside the zip. Extracting the whole Paper Trader now.
 set "ZIP="
 for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents") do for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
@@ -22,8 +25,10 @@ mkdir "%STAGE%\paper-trader\web" 2>nul
 mkdir "%STAGE%\paper-trader\tools" 2>nul
 mkdir "%STAGE%\paper-trader\iphone" 2>nul
 mkdir "%STAGE%\paper-trader\runtime" 2>nul
+if defined ZIP del /f /a "!ZIP!:Zone.Identifier" >nul 2>&1
 tar -xf "!ZIP!" -C "%STAGE%"
 if errorlevel 1 goto BadZip
+for /r "%STAGE%" %%F in (*) do del /f /a "%%F:Zone.Identifier" >nul 2>&1
 if not exist "%STAGE%\paper-trader\launch.py" goto BadZip
 set "RUN=%STAGE%\paper-trader"
 set "PY=%RUN%\runtime\python.exe"
@@ -79,6 +84,12 @@ pause
 exit /b 1
 
 :Normal
+echo Unblock
+echo If Windows shows an Unblock box, check Unblock and open this file.
+echo That box lets this copy open. It stays on this computer.
+set "HERE=%~dp0"
+if "!HERE:~-1!"=="\" set "HERE=!HERE:~0,-1!"
+for /r "%HERE%" %%F in (*) do del /f /a "%%F:Zone.Identifier" >nul 2>&1
 echo Paper Trader stays on this computer. It loads market quotes and does not place broker orders.
 echo Microsoft Edge opens the desk.
 if exist "%~dp0runtime\python.exe" (
