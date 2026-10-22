@@ -264,6 +264,9 @@ button.quiet { background: transparent; }
 }
 .swatch.fast { background: var(--fast); }
 .swatch.slow { background: var(--slow); }
+.swatch.high { background: #3ddc97; }
+.swatch.close { background: #5b9dff; }
+.swatch.low { background: #ff6b7a; }
 
 canvas {
   display: block;

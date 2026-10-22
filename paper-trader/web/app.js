@@ -38,7 +38,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.7";
+const VERSION = "1.9.8";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -687,8 +687,14 @@ function writeOfflineFrame(win, frameId) {
   const heading = (state.paper.symbol || "Sample") + " · " + frame.label;
   win.document.open();
   const quoteLine = bars.length ? "Market quote." : "Loading the market quote.";
-  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + "</p><canvas id=\"c\" style=\"width:100%;height:78vh\"></canvas><script>const bars = " + JSON.stringify(bars) + ";const canvas=document.getElementById('c');function paint(){const width=canvas.clientWidth||640;const height=canvas.clientHeight||360;canvas.width=width;canvas.height=height;const ctx=canvas.getContext('2d');if(!bars.length)return;const pad=28;let low=Math.min(...bars.map(b=>b.low));let high=Math.max(...bars.map(b=>b.high));const span=high-low||1;low-=span*0.08;high+=span*0.08;const y=p=>pad+((high-p)/(high-low))*(height-pad*2);const slot=(width-pad*2)/bars.length;bars.forEach((bar,index)=>{const x=pad+index*slot+slot/2;const up=bar.close>=bar.open;ctx.strokeStyle=up?'#3ddc97':'#ff6b7a';ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(x,y(bar.high));ctx.lineTo(x,y(bar.low));ctx.stroke();const top=y(Math.max(bar.open,bar.close));const bottom=y(Math.min(bar.open,bar.close));ctx.fillRect(x-2,top,4,Math.max(1,bottom-top));});}paint();addEventListener('resize',paint);<" + "/script></body>");
+  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + "</p><canvas id=\"c\" style=\"width:100%;height:78vh\"></canvas></body>");
   win.document.close();
+  const paint = () => {
+    const canvas = win.document.getElementById("c");
+    if (canvas) PaperFrames.draw(canvas, bars);
+  };
+  paint();
+  win.addEventListener("resize", paint);
 }
 
 async function openFrame(frameId) {
@@ -780,20 +786,26 @@ function renderReadings() {
   const cursor = state.paper ? state.paper.cursor : 0;
   const index = Math.max(0, cursor - 1);
   const market = state.market || {};
+  const bars = (market.bars || []).slice(0, index + 1);
+  const bar = bars[index];
+  const lines = bars.length ? PaperFrames.averages(bars) : { high: [], low: [] };
   const level = (market.squeeze || [])[index] || 0;
   const momentum = (market.momentum || [])[index];
+  const previous = index > 0 ? (market.momentum || [])[index - 1] : null;
   const rsiValue = (market.rsi || [])[index];
   const fast = (market.fast || [])[index];
   const slow = (market.slow || [])[index];
-  const squeezeName = level >= 3 ? "Tight" : level === 2 ? "Normal" : level === 1 ? "Wide" : "Off";
-  const momentumName = momentum == null ? "—" : momentum >= 0 ? "Up " + Number(momentum).toFixed(2) : "Down " + Number(momentum).toFixed(2);
+  const rising = momentum != null && (previous == null ? momentum >= 0 : momentum > previous);
+  const momentumName = momentum == null ? "—" : (rising ? "Rising " : "Falling ") + Number(momentum).toFixed(2);
   const rsiName = rsiValue == null ? "—" : Number(rsiValue).toFixed(1);
   const averageName = fast == null || slow == null ? "—" : fast >= slow ? "Fast above slow" : "Fast below slow";
   const list = $("readings");
   list.replaceChildren();
   [
-    ["Squeeze", squeezeName],
+    ["Candle", bar ? (bar.close >= bar.open ? "Green" : "Red") : "—"],
+    ["Squeeze", PaperFrames.squeezeName(level)],
     ["Momentum", momentumName],
+    ["Price", PaperFrames.candlePlace(bar, lines.high[index], lines.low[index])],
     ["RSI", rsiName],
     ["Averages", averageName],
   ].forEach(([name, value]) => {
@@ -855,21 +867,37 @@ function drawCandles(retry) {
     requestAnimationFrame(() => drawCandles(true));
     return;
   }
-  const bars = visible(state.market.bars);
+  const history = sliceToCursor(state.market.bars);
+  const bars = history.length > 180 ? history.slice(history.length - 180) : history;
+  const dropped = history.length - bars.length;
+  const studyLines = PaperFrames.averages(history);
+  const highLine = studyLines.high.slice(dropped);
+  const midLine = studyLines.close.slice(dropped);
+  const lowLine = studyLines.low.slice(dropped);
   const fast = visible(state.market.fast);
   const slow = visible(state.market.slow);
   const squeeze = visible(state.market.squeeze);
+  const allMomentum = sliceToCursor(state.market.momentum || []);
+  const momentum = allMomentum.slice(dropped);
   const ctx = prepare(canvas);
   if (!bars.length) return;
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   const pad = 64;
+  const priceBottom = Math.min(height - 48, Math.max(80, Math.round(height * 0.7)));
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
+  [highLine, midLine, lowLine, fast, slow].forEach((series) => {
+    series.forEach((value) => {
+      if (value == null) return;
+      if (value < low) low = value;
+      if (value > high) high = value;
+    });
+  });
   const span = high - low || 1;
-  low -= span * 0.14;
-  high += span * 0.14;
-  const y = (price) => pad + ((high - price) / (high - low)) * (height - pad * 2);
+  low -= span * 0.08;
+  high += span * 0.08;
+  const y = (price) => 18 + ((high - price) / (high - low)) * (priceBottom - 36);
   const slot = (width - pad * 2) / bars.length;
   state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.strokeStyle = "#2d3640";
@@ -897,14 +925,53 @@ function drawCandles(retry) {
     const bottom = y(Math.min(bar.open, bar.close));
     ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
   });
-  drawLine(ctx, fast, y, pad, slot, "#7eb6ff");
-  drawLine(ctx, slow, y, pad, slot, "#e2b15a");
+  drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
+  drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
+  drawLine(ctx, highLine, y, pad, slot, "#3ddc97", 2);
+  drawLine(ctx, midLine, y, pad, slot, "#5b9dff", 2);
+  drawLine(ctx, lowLine, y, pad, slot, "#ff6b7a", 2);
   drawStudy(ctx, bars, y, pad, slot);
-  squeeze.forEach((level, index) => {
-    if (!level) return;
+  const histoTop = priceBottom + 8;
+  const histoBottom = height - 8;
+  const zero = (histoTop + histoBottom) / 2;
+  const scale = Math.max(...momentum.map((value) => Math.abs(value || 0)), 1e-9);
+  ctx.strokeStyle = "#2d3640";
+  ctx.beginPath();
+  ctx.moveTo(pad, zero);
+  ctx.lineTo(width - 8, zero);
+  ctx.stroke();
+  momentum.forEach((value, index) => {
+    if (value == null) return;
     const x = pad + index * slot + slot / 2;
-    ctx.fillStyle = level >= 3 ? "#7eb6ff" : level === 2 ? "#e2b15a" : "#9aa6b2";
-    ctx.fillRect(x - 2.5, height - 12, 5, 5);
+    const previous = index === 0 ? allMomentum[dropped - 1] : momentum[index - 1];
+    const tone = PaperFrames.momentumTone(value, previous == null ? null : previous);
+    const room = Math.max(4, (histoBottom - histoTop) / 2 - 6);
+    const barHeight = (Math.abs(value) / scale) * room;
+    ctx.fillStyle = tone;
+    ctx.fillRect(x - Math.max(1, slot * 0.28), value >= 0 ? zero - barHeight : zero, Math.max(2, slot * 0.56), Math.max(1, barHeight));
+    ctx.fillStyle = PaperFrames.squeezeTone(squeeze[index] || 0);
+    ctx.beginPath();
+    ctx.arc(x, zero, Math.max(2, Math.min(3.5, slot * 0.18)), 0, Math.PI * 2);
+    ctx.fill();
+  });
+  const last = bars.length - 1;
+  const lastBar = bars[last];
+  const lastMomentum = momentum[last];
+  const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
+  const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
+  const key = [
+    [lastBar.close >= lastBar.open ? "Candle green" : "Candle red", lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a"],
+    ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
+    ["Momentum " + (lastMomentum == null ? "—" : lastRising ? "rising" : "falling"), PaperFrames.momentumTone(lastMomentum, priorMomentum) || "#9aa6b2"],
+    [PaperFrames.candlePlace(lastBar, highLine[last], lowLine[last]), "#d7e2ea"],
+  ];
+  const keyWidth = Math.max(...key.map((row) => ctx.measureText(row[0]).width)) + 16;
+  const keyLeft = pad + 6;
+  ctx.fillStyle = "rgba(13, 17, 22, 0.92)";
+  ctx.fillRect(keyLeft, 4, keyWidth, key.length * 15 + 8);
+  key.forEach((row, index) => {
+    ctx.fillStyle = row[1];
+    ctx.fillText(row[0], keyLeft + 8, 18 + index * 15);
   });
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
   (state.paper.markers || []).forEach((marker) => {
@@ -914,7 +981,7 @@ function drawCandles(retry) {
     const x = pad + index * slot + slot / 2;
     const up = marker.side === "buy";
     ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
-    const point = up ? y(bar.low) + 16 : y(bar.high) - 16;
+    const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 16 : y(bar.high) - 16));
     drawArrow(ctx, x, point, up);
   });
 }
@@ -986,7 +1053,7 @@ function drawRsi() {
   drawLine(ctx, values, y, pad, (width - pad * 2) / Math.max(1, values.length), "#c9d4e3");
 }
 
-function drawLine(ctx, values, y, pad, slot, color) {
+function drawLine(ctx, values, y, pad, slot, color, weight) {
   ctx.beginPath();
   let drawing = false;
   values.forEach((value, index) => {
@@ -1003,7 +1070,7 @@ function drawLine(ctx, values, y, pad, slot, color) {
     }
   });
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = weight || 1.5;
   ctx.stroke();
   ctx.lineWidth = 1;
 }

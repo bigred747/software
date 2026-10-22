@@ -52,14 +52,14 @@
     <section id="view-chart" class="panel chart-panel" aria-label="Chart">
       <div class="chart-head">
         <h2 id="chart-title">Chart</h2>
-        <p class="legend"><span class="swatch fast"></span> Fast <span class="swatch slow"></span> Slow</p>
+        <p class="legend"><span class="swatch fast"></span> Fast <span class="swatch slow"></span> Slow <span class="swatch high"></span> High <span class="swatch close"></span> Close <span class="swatch low"></span> Low</p>
       </div>
       <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
       <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
       <canvas id="candles" width="800" height="360"></canvas>
       <canvas id="rsi-chart" width="800" height="88" aria-label="RSI"></canvas>
-      <p class="muted chart-note">The chart shows the latest market bars. Green arrows are paper buys. Red arrows are paper sells. Squares show squeeze compression. Study lines stay on this device.</p>
+      <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The lower panel is momentum. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows are paper orders.</p>
     </section>
 
     <section id="view-trade" class="panel ticket" aria-label="Session">

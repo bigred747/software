@@ -13,7 +13,7 @@ Right-click `Paper-Trader.zip`, choose Extract All, and put the folder in Docume
 1. Double-click `1 Allow Paper Trader.bat`. That clears the download block, puts the newest copy in Documents, removes older Paper Trader folders from Documents, Desktop, and Downloads, and puts **Paper Trader** on the desktop.
 2. Double-click **Paper Trader** on the desktop. The desk opens, **Auto** starts, and the **Signals** list turns green for each part that is working. Click **Auto** again to stop.
 
-If a file is opened from inside the zip, version 1.9.7 extracts the whole zip into Documents and opens a window named Paper Trader. Leave that window open. Microsoft Edge opens when the desk answers. The header says Desk is working when the page has started. The green signals sit on the chart and show version 1.9.7 when this copy is running. The setup window can close. When the older folder is still locked, the new copy opens from Documents\PaperTrader-setup anyway. Click a candle and that bar's prices appear on the chart.
+If a file is opened from inside the zip, version 1.9.8 extracts the whole zip into Documents and opens a window named Paper Trader. Leave that window open. Microsoft Edge opens when the desk answers. The header says Desk is working when the page has started. The green signals sit on the chart and show version 1.9.8 when this copy is running. Candles are green or red. The high, close, and low averages are on the chart, with momentum and squeeze dots underneath. The setup window can close. When the older folder is still locked, the new copy opens from Documents\PaperTrader-setup anyway. Click a candle and that bar's prices appear on the chart.
 
 From a source checkout, Python 3.11 or newer is enough. The desk uses the Python standard library, so startup does not install packages.
 
@@ -56,7 +56,7 @@ The mobile file loads live crypto quotes, including Bitcoin, Ether, XRP, Stellar
 
 Long only. A squeeze release with rising momentum opens a simulated position. Momentum turning down closes it. The fast average crossing above the slow average can also open a simulated position when RSI is under 70. A cross back down, RSI at 75 or above, or the stop closes it. The default stop is 8 percent. Set the stop or RSI length to 0 to turn that rule off. The default fee is 5 basis points.
 
-B4 readings are the four numbers under the chart: Squeeze, Momentum, RSI, and Averages. Green arrows are simulated buys. Red arrows are simulated sells. Squares under the candles show squeeze compression.
+Candles are green when the close is at or above the open, and red when it is below. The chart also draws the 34-bar high, close, and low averages. Momentum is the lower panel. Dots show squeeze compression. B4 readings list the candle color, squeeze, momentum, price versus those averages, RSI, and the fast and slow averages. Green arrows are simulated buys. Red arrows are simulated sells.
 
 A **Trade** click fills at the latest quote's close on the paper account.
 

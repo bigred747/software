@@ -278,6 +278,9 @@ button.quiet { background: transparent; }
 }
 .swatch.fast { background: var(--fast); }
 .swatch.slow { background: var(--slow); }
+.swatch.high { background: #3ddc97; }
+.swatch.close { background: #5b9dff; }
+.swatch.low { background: #ff6b7a; }
 
 canvas {
   display: block;
@@ -419,14 +422,14 @@ footer { display: none; }
     <section id="view-chart" class="panel chart-panel" aria-label="Chart">
       <div class="chart-head">
         <h2 id="chart-title">Chart</h2>
-        <p class="legend"><span class="swatch fast"></span> Fast <span class="swatch slow"></span> Slow</p>
+        <p class="legend"><span class="swatch fast"></span> Fast <span class="swatch slow"></span> Slow <span class="swatch high"></span> High <span class="swatch close"></span> Close <span class="swatch low"></span> Low</p>
       </div>
       <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
       <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
       <canvas id="candles" width="800" height="360"></canvas>
       <canvas id="rsi-chart" width="800" height="88" aria-label="RSI"></canvas>
-      <p class="muted chart-note">The chart shows the latest market bars. Green arrows are paper buys. Red arrows are paper sells. Squares show squeeze compression. Study lines stay on this device.</p>
+      <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The lower panel is momentum. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows are paper orders.</p>
     </section>
 
     <section id="view-trade" class="panel ticket" aria-label="Session">
@@ -1735,6 +1738,145 @@ plot Sell = close crosses below baseline;</textarea>
     };
   }
 
+  function ema(values, length) {
+    const out = new Array(values.length).fill(null);
+    if (length < 1) return out;
+    const alpha = 2 / (length + 1);
+    let previous = null;
+    values.forEach((value, index) => {
+      if (value == null || Number.isNaN(value)) return;
+      previous = previous == null ? value : value * alpha + previous * (1 - alpha);
+      out[index] = previous;
+    });
+    return out;
+  }
+
+  function averages(bars) {
+    return {
+      high: ema(bars.map((bar) => bar.high), 34),
+      close: ema(bars.map((bar) => bar.close), 34),
+      low: ema(bars.map((bar) => bar.low), 34),
+    };
+  }
+
+  function momentumTone(current, previous) {
+    if (current == null) return null;
+    const rising = previous == null ? current >= 0 : current > previous;
+    if (rising && current >= 0) return "#00e5ff";
+    if (rising && current < 0) return "#ffe14a";
+    if (current >= 0) return "#3b6cff";
+    return "#ff4d4d";
+  }
+
+  function squeezeTone(level) {
+    if (level >= 3) return "#ff9f1c";
+    if (level === 2) return "#ff4d4d";
+    if (level === 1) return "#c5d0dc";
+    return "#3ddc97";
+  }
+
+  function squeezeName(level) {
+    if (level >= 3) return "High";
+    if (level === 2) return "Mid";
+    if (level === 1) return "Wide";
+    return "Off";
+  }
+
+  function candlePlace(bar, highLine, lowLine) {
+    if (!bar || highLine == null || lowLine == null) return "Waiting";
+    if (bar.close > highLine) return "Above the high average";
+    if (bar.close < lowLine) return "Below the low average";
+    return "Between the averages";
+  }
+
+  function compression(bars, length) {
+    const window = length || 20;
+    const count = bars.length;
+    const momentum = new Array(count).fill(null);
+    const level = new Array(count).fill(0);
+    if (window < 5 || count < window) return { momentum, level };
+    const closes = bars.map((bar) => bar.close);
+    const highs = bars.map((bar) => bar.high);
+    const lows = bars.map((bar) => bar.low);
+    const basis = [];
+    let total = 0;
+    for (let index = 0; index < count; index += 1) {
+      total += closes[index];
+      if (index >= window) total -= closes[index - window];
+      basis[index] = index >= window - 1 ? total / window : null;
+    }
+    const ranges = closes.map((close, index) => {
+      const span = highs[index] - lows[index];
+      if (index === 0) return span;
+      return Math.max(span, Math.abs(highs[index] - closes[index - 1]), Math.abs(lows[index] - closes[index - 1]));
+    });
+    const width = [];
+    let rangeTotal = 0;
+    for (let index = 0; index < count; index += 1) {
+      rangeTotal += ranges[index];
+      if (index >= window) rangeTotal -= ranges[index - window];
+      width[index] = index >= window - 1 ? rangeTotal / window : null;
+    }
+    const delta = new Array(count).fill(0);
+    for (let index = window - 1; index < count; index += 1) {
+      const mean = basis[index];
+      let variance = 0;
+      let highest = -Infinity;
+      let lowest = Infinity;
+      for (let cursor = index - window + 1; cursor <= index; cursor += 1) {
+        variance += (closes[cursor] - mean) ** 2;
+        if (highs[cursor] > highest) highest = highs[cursor];
+        if (lows[cursor] < lowest) lowest = lows[cursor];
+      }
+      const deviation = Math.sqrt(variance / window);
+      delta[index] = closes[index] - ((highest + lowest) / 2 + mean) / 2;
+      const upper = mean + 2 * deviation;
+      const lower = mean - 2 * deviation;
+      const band = width[index];
+      let squeezeLevel = 0;
+      [[2, 1], [1.5, 2], [1, 3]].forEach(([multiple, code]) => {
+        if (upper < mean + multiple * band && lower > mean - multiple * band) squeezeLevel = code;
+      });
+      level[index] = squeezeLevel;
+    }
+    const sumX = (window * (window - 1)) / 2;
+    const sumX2 = ((window - 1) * window * (2 * window - 1)) / 6;
+    const denominator = window * sumX2 - sumX * sumX;
+    for (let index = window - 1; index < count; index += 1) {
+      let sumY = 0;
+      let sumXY = 0;
+      for (let offset = 0; offset < window; offset += 1) {
+        const value = delta[index - window + 1 + offset];
+        sumY += value;
+        sumXY += offset * value;
+      }
+      const slope = (window * sumXY - sumX * sumY) / denominator;
+      const intercept = (sumY - slope * sumX) / window;
+      momentum[index] = intercept + slope * (window - 1);
+    }
+    return { momentum, level };
+  }
+
+  function strokeSeries(ctx, values, xAt, y, color, weight) {
+    ctx.beginPath();
+    let drawing = false;
+    values.forEach((value, index) => {
+      if (value == null) {
+        drawing = false;
+        return;
+      }
+      const x = xAt(index);
+      if (!drawing) {
+        ctx.moveTo(x, y(value));
+        drawing = true;
+      } else ctx.lineTo(x, y(value));
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = weight;
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+
   function draw(canvas, bars) {
     if (!canvas || !bars || !bars.length) return;
     const ratio = root.devicePixelRatio || 1;
@@ -1745,17 +1887,27 @@ plot Sell = close crosses below baseline;</textarea>
     const ctx = canvas.getContext("2d");
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
+    const lines = averages(bars);
+    const lower = height >= 220;
+    const priceBottom = lower ? Math.round(height * 0.7) : height - (height < 150 ? 8 : 18);
     let low = Math.min(...bars.map((bar) => bar.low));
     let high = Math.max(...bars.map((bar) => bar.high));
+    [lines.high, lines.close, lines.low].forEach((series) => {
+      series.forEach((value) => {
+        if (value == null) return;
+        if (value < low) low = value;
+        if (value > high) high = value;
+      });
+    });
     const span = high - low || 1;
     low -= span * 0.08;
     high += span * 0.08;
     ctx.font = "12px Segoe UI, sans-serif";
     const padLeft = Math.max(44, Math.ceil(ctx.measureText(high.toFixed(high >= 100 ? 2 : 4)).width) + 12);
     const padTop = height < 150 ? 8 : 22;
-    const padBottom = height < 150 ? 8 : 18;
-    const y = (price) => padTop + ((high - price) / (high - low)) * (height - padTop - padBottom);
+    const y = (price) => padTop + ((high - price) / (high - low)) * (priceBottom - padTop);
     const slot = (width - padLeft - 10) / bars.length;
+    const xAt = (index) => padLeft + index * slot + slot / 2;
     ctx.strokeStyle = "#2a3340";
     ctx.fillStyle = "#93a0ad";
     const grids = height < 150 ? 2 : 4;
@@ -1769,9 +1921,9 @@ plot Sell = close crosses below baseline;</textarea>
       ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
     }
     bars.forEach((bar, index) => {
-      const x = padLeft + index * slot + slot / 2;
-      const up = bar.close >= bar.open;
-      ctx.strokeStyle = up ? "#3ddc97" : "#ff6b7a";
+      const x = xAt(index);
+      const rising = bar.close >= bar.open;
+      ctx.strokeStyle = rising ? "#3ddc97" : "#ff6b7a";
       ctx.fillStyle = ctx.strokeStyle;
       ctx.beginPath();
       ctx.moveTo(x, y(bar.high));
@@ -1781,6 +1933,33 @@ plot Sell = close crosses below baseline;</textarea>
       const bottom = y(Math.min(bar.open, bar.close));
       ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
     });
+    strokeSeries(ctx, lines.high, xAt, y, "#3ddc97", 2);
+    strokeSeries(ctx, lines.close, xAt, y, "#5b9dff", 2);
+    strokeSeries(ctx, lines.low, xAt, y, "#ff6b7a", 2);
+    if (lower) {
+      const study = compression(bars);
+      const histoTop = priceBottom + 10;
+      const histoBottom = height - 10;
+      const zero = (histoTop + histoBottom) / 2;
+      const scale = Math.max(...study.momentum.map((value) => Math.abs(value || 0)), 1e-9);
+      ctx.strokeStyle = "#2a3340";
+      ctx.beginPath();
+      ctx.moveTo(padLeft, zero);
+      ctx.lineTo(width - 8, zero);
+      ctx.stroke();
+      study.momentum.forEach((value, index) => {
+        if (value == null) return;
+        const x = xAt(index);
+        const tone = momentumTone(value, index > 0 ? study.momentum[index - 1] : null);
+        const barHeight = (Math.abs(value) / scale) * ((histoBottom - histoTop) / 2 - 6);
+        ctx.fillStyle = tone;
+        ctx.fillRect(x - Math.max(1, slot * 0.28), value >= 0 ? zero - barHeight : zero, Math.max(2, slot * 0.56), Math.max(1, barHeight));
+        ctx.fillStyle = squeezeTone(study.level[index] || 0);
+        ctx.beginPath();
+        ctx.arc(x, zero, Math.max(2, Math.min(4, slot * 0.22)), 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
     ctx.fillStyle = "#93a0ad";
     if (height >= 150) {
       ctx.fillText(bars[0].date, padLeft, 14);
@@ -1789,7 +1968,21 @@ plot Sell = close crosses below baseline;</textarea>
     }
   }
 
-  root.PaperFrames = { FRAMES, frameById, barsFor, analyze, brief, draw, intradayDay };
+  root.PaperFrames = {
+    FRAMES,
+    frameById,
+    barsFor,
+    analyze,
+    brief,
+    draw,
+    intradayDay,
+    averages,
+    momentumTone,
+    squeezeTone,
+    squeezeName,
+    candlePlace,
+    compression,
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
 </script>
@@ -1834,7 +2027,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.7";
+const VERSION = "1.9.8";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -2483,8 +2676,14 @@ function writeOfflineFrame(win, frameId) {
   const heading = (state.paper.symbol || "Sample") + " · " + frame.label;
   win.document.open();
   const quoteLine = bars.length ? "Market quote." : "Loading the market quote.";
-  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + "</p><canvas id=\"c\" style=\"width:100%;height:78vh\"></canvas><script>const bars = " + JSON.stringify(bars) + ";const canvas=document.getElementById('c');function paint(){const width=canvas.clientWidth||640;const height=canvas.clientHeight||360;canvas.width=width;canvas.height=height;const ctx=canvas.getContext('2d');if(!bars.length)return;const pad=28;let low=Math.min(...bars.map(b=>b.low));let high=Math.max(...bars.map(b=>b.high));const span=high-low||1;low-=span*0.08;high+=span*0.08;const y=p=>pad+((high-p)/(high-low))*(height-pad*2);const slot=(width-pad*2)/bars.length;bars.forEach((bar,index)=>{const x=pad+index*slot+slot/2;const up=bar.close>=bar.open;ctx.strokeStyle=up?'#3ddc97':'#ff6b7a';ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(x,y(bar.high));ctx.lineTo(x,y(bar.low));ctx.stroke();const top=y(Math.max(bar.open,bar.close));const bottom=y(Math.min(bar.open,bar.close));ctx.fillRect(x-2,top,4,Math.max(1,bottom-top));});}paint();addEventListener('resize',paint);<" + "/script></body>");
+  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + "</p><canvas id=\"c\" style=\"width:100%;height:78vh\"></canvas></body>");
   win.document.close();
+  const paint = () => {
+    const canvas = win.document.getElementById("c");
+    if (canvas) PaperFrames.draw(canvas, bars);
+  };
+  paint();
+  win.addEventListener("resize", paint);
 }
 
 async function openFrame(frameId) {
@@ -2576,20 +2775,26 @@ function renderReadings() {
   const cursor = state.paper ? state.paper.cursor : 0;
   const index = Math.max(0, cursor - 1);
   const market = state.market || {};
+  const bars = (market.bars || []).slice(0, index + 1);
+  const bar = bars[index];
+  const lines = bars.length ? PaperFrames.averages(bars) : { high: [], low: [] };
   const level = (market.squeeze || [])[index] || 0;
   const momentum = (market.momentum || [])[index];
+  const previous = index > 0 ? (market.momentum || [])[index - 1] : null;
   const rsiValue = (market.rsi || [])[index];
   const fast = (market.fast || [])[index];
   const slow = (market.slow || [])[index];
-  const squeezeName = level >= 3 ? "Tight" : level === 2 ? "Normal" : level === 1 ? "Wide" : "Off";
-  const momentumName = momentum == null ? "—" : momentum >= 0 ? "Up " + Number(momentum).toFixed(2) : "Down " + Number(momentum).toFixed(2);
+  const rising = momentum != null && (previous == null ? momentum >= 0 : momentum > previous);
+  const momentumName = momentum == null ? "—" : (rising ? "Rising " : "Falling ") + Number(momentum).toFixed(2);
   const rsiName = rsiValue == null ? "—" : Number(rsiValue).toFixed(1);
   const averageName = fast == null || slow == null ? "—" : fast >= slow ? "Fast above slow" : "Fast below slow";
   const list = $("readings");
   list.replaceChildren();
   [
-    ["Squeeze", squeezeName],
+    ["Candle", bar ? (bar.close >= bar.open ? "Green" : "Red") : "—"],
+    ["Squeeze", PaperFrames.squeezeName(level)],
     ["Momentum", momentumName],
+    ["Price", PaperFrames.candlePlace(bar, lines.high[index], lines.low[index])],
     ["RSI", rsiName],
     ["Averages", averageName],
   ].forEach(([name, value]) => {
@@ -2651,21 +2856,37 @@ function drawCandles(retry) {
     requestAnimationFrame(() => drawCandles(true));
     return;
   }
-  const bars = visible(state.market.bars);
+  const history = sliceToCursor(state.market.bars);
+  const bars = history.length > 180 ? history.slice(history.length - 180) : history;
+  const dropped = history.length - bars.length;
+  const studyLines = PaperFrames.averages(history);
+  const highLine = studyLines.high.slice(dropped);
+  const midLine = studyLines.close.slice(dropped);
+  const lowLine = studyLines.low.slice(dropped);
   const fast = visible(state.market.fast);
   const slow = visible(state.market.slow);
   const squeeze = visible(state.market.squeeze);
+  const allMomentum = sliceToCursor(state.market.momentum || []);
+  const momentum = allMomentum.slice(dropped);
   const ctx = prepare(canvas);
   if (!bars.length) return;
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   const pad = 64;
+  const priceBottom = Math.min(height - 48, Math.max(80, Math.round(height * 0.7)));
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
+  [highLine, midLine, lowLine, fast, slow].forEach((series) => {
+    series.forEach((value) => {
+      if (value == null) return;
+      if (value < low) low = value;
+      if (value > high) high = value;
+    });
+  });
   const span = high - low || 1;
-  low -= span * 0.14;
-  high += span * 0.14;
-  const y = (price) => pad + ((high - price) / (high - low)) * (height - pad * 2);
+  low -= span * 0.08;
+  high += span * 0.08;
+  const y = (price) => 18 + ((high - price) / (high - low)) * (priceBottom - 36);
   const slot = (width - pad * 2) / bars.length;
   state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.strokeStyle = "#2d3640";
@@ -2693,14 +2914,53 @@ function drawCandles(retry) {
     const bottom = y(Math.min(bar.open, bar.close));
     ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
   });
-  drawLine(ctx, fast, y, pad, slot, "#7eb6ff");
-  drawLine(ctx, slow, y, pad, slot, "#e2b15a");
+  drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
+  drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
+  drawLine(ctx, highLine, y, pad, slot, "#3ddc97", 2);
+  drawLine(ctx, midLine, y, pad, slot, "#5b9dff", 2);
+  drawLine(ctx, lowLine, y, pad, slot, "#ff6b7a", 2);
   drawStudy(ctx, bars, y, pad, slot);
-  squeeze.forEach((level, index) => {
-    if (!level) return;
+  const histoTop = priceBottom + 8;
+  const histoBottom = height - 8;
+  const zero = (histoTop + histoBottom) / 2;
+  const scale = Math.max(...momentum.map((value) => Math.abs(value || 0)), 1e-9);
+  ctx.strokeStyle = "#2d3640";
+  ctx.beginPath();
+  ctx.moveTo(pad, zero);
+  ctx.lineTo(width - 8, zero);
+  ctx.stroke();
+  momentum.forEach((value, index) => {
+    if (value == null) return;
     const x = pad + index * slot + slot / 2;
-    ctx.fillStyle = level >= 3 ? "#7eb6ff" : level === 2 ? "#e2b15a" : "#9aa6b2";
-    ctx.fillRect(x - 2.5, height - 12, 5, 5);
+    const previous = index === 0 ? allMomentum[dropped - 1] : momentum[index - 1];
+    const tone = PaperFrames.momentumTone(value, previous == null ? null : previous);
+    const room = Math.max(4, (histoBottom - histoTop) / 2 - 6);
+    const barHeight = (Math.abs(value) / scale) * room;
+    ctx.fillStyle = tone;
+    ctx.fillRect(x - Math.max(1, slot * 0.28), value >= 0 ? zero - barHeight : zero, Math.max(2, slot * 0.56), Math.max(1, barHeight));
+    ctx.fillStyle = PaperFrames.squeezeTone(squeeze[index] || 0);
+    ctx.beginPath();
+    ctx.arc(x, zero, Math.max(2, Math.min(3.5, slot * 0.18)), 0, Math.PI * 2);
+    ctx.fill();
+  });
+  const last = bars.length - 1;
+  const lastBar = bars[last];
+  const lastMomentum = momentum[last];
+  const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
+  const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
+  const key = [
+    [lastBar.close >= lastBar.open ? "Candle green" : "Candle red", lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a"],
+    ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
+    ["Momentum " + (lastMomentum == null ? "—" : lastRising ? "rising" : "falling"), PaperFrames.momentumTone(lastMomentum, priorMomentum) || "#9aa6b2"],
+    [PaperFrames.candlePlace(lastBar, highLine[last], lowLine[last]), "#d7e2ea"],
+  ];
+  const keyWidth = Math.max(...key.map((row) => ctx.measureText(row[0]).width)) + 16;
+  const keyLeft = pad + 6;
+  ctx.fillStyle = "rgba(13, 17, 22, 0.92)";
+  ctx.fillRect(keyLeft, 4, keyWidth, key.length * 15 + 8);
+  key.forEach((row, index) => {
+    ctx.fillStyle = row[1];
+    ctx.fillText(row[0], keyLeft + 8, 18 + index * 15);
   });
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
   (state.paper.markers || []).forEach((marker) => {
@@ -2710,7 +2970,7 @@ function drawCandles(retry) {
     const x = pad + index * slot + slot / 2;
     const up = marker.side === "buy";
     ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
-    const point = up ? y(bar.low) + 16 : y(bar.high) - 16;
+    const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 16 : y(bar.high) - 16));
     drawArrow(ctx, x, point, up);
   });
 }
@@ -2782,7 +3042,7 @@ function drawRsi() {
   drawLine(ctx, values, y, pad, (width - pad * 2) / Math.max(1, values.length), "#c9d4e3");
 }
 
-function drawLine(ctx, values, y, pad, slot, color) {
+function drawLine(ctx, values, y, pad, slot, color, weight) {
   ctx.beginPath();
   let drawing = false;
   values.forEach((value, index) => {
@@ -2799,7 +3059,7 @@ function drawLine(ctx, values, y, pad, slot, color) {
     }
   });
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = weight || 1.5;
   ctx.stroke();
   ctx.lineWidth = 1;
 }

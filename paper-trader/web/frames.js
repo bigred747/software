@@ -159,6 +159,145 @@
     };
   }
 
+  function ema(values, length) {
+    const out = new Array(values.length).fill(null);
+    if (length < 1) return out;
+    const alpha = 2 / (length + 1);
+    let previous = null;
+    values.forEach((value, index) => {
+      if (value == null || Number.isNaN(value)) return;
+      previous = previous == null ? value : value * alpha + previous * (1 - alpha);
+      out[index] = previous;
+    });
+    return out;
+  }
+
+  function averages(bars) {
+    return {
+      high: ema(bars.map((bar) => bar.high), 34),
+      close: ema(bars.map((bar) => bar.close), 34),
+      low: ema(bars.map((bar) => bar.low), 34),
+    };
+  }
+
+  function momentumTone(current, previous) {
+    if (current == null) return null;
+    const rising = previous == null ? current >= 0 : current > previous;
+    if (rising && current >= 0) return "#00e5ff";
+    if (rising && current < 0) return "#ffe14a";
+    if (current >= 0) return "#3b6cff";
+    return "#ff4d4d";
+  }
+
+  function squeezeTone(level) {
+    if (level >= 3) return "#ff9f1c";
+    if (level === 2) return "#ff4d4d";
+    if (level === 1) return "#c5d0dc";
+    return "#3ddc97";
+  }
+
+  function squeezeName(level) {
+    if (level >= 3) return "High";
+    if (level === 2) return "Mid";
+    if (level === 1) return "Wide";
+    return "Off";
+  }
+
+  function candlePlace(bar, highLine, lowLine) {
+    if (!bar || highLine == null || lowLine == null) return "Waiting";
+    if (bar.close > highLine) return "Above the high average";
+    if (bar.close < lowLine) return "Below the low average";
+    return "Between the averages";
+  }
+
+  function compression(bars, length) {
+    const window = length || 20;
+    const count = bars.length;
+    const momentum = new Array(count).fill(null);
+    const level = new Array(count).fill(0);
+    if (window < 5 || count < window) return { momentum, level };
+    const closes = bars.map((bar) => bar.close);
+    const highs = bars.map((bar) => bar.high);
+    const lows = bars.map((bar) => bar.low);
+    const basis = [];
+    let total = 0;
+    for (let index = 0; index < count; index += 1) {
+      total += closes[index];
+      if (index >= window) total -= closes[index - window];
+      basis[index] = index >= window - 1 ? total / window : null;
+    }
+    const ranges = closes.map((close, index) => {
+      const span = highs[index] - lows[index];
+      if (index === 0) return span;
+      return Math.max(span, Math.abs(highs[index] - closes[index - 1]), Math.abs(lows[index] - closes[index - 1]));
+    });
+    const width = [];
+    let rangeTotal = 0;
+    for (let index = 0; index < count; index += 1) {
+      rangeTotal += ranges[index];
+      if (index >= window) rangeTotal -= ranges[index - window];
+      width[index] = index >= window - 1 ? rangeTotal / window : null;
+    }
+    const delta = new Array(count).fill(0);
+    for (let index = window - 1; index < count; index += 1) {
+      const mean = basis[index];
+      let variance = 0;
+      let highest = -Infinity;
+      let lowest = Infinity;
+      for (let cursor = index - window + 1; cursor <= index; cursor += 1) {
+        variance += (closes[cursor] - mean) ** 2;
+        if (highs[cursor] > highest) highest = highs[cursor];
+        if (lows[cursor] < lowest) lowest = lows[cursor];
+      }
+      const deviation = Math.sqrt(variance / window);
+      delta[index] = closes[index] - ((highest + lowest) / 2 + mean) / 2;
+      const upper = mean + 2 * deviation;
+      const lower = mean - 2 * deviation;
+      const band = width[index];
+      let squeezeLevel = 0;
+      [[2, 1], [1.5, 2], [1, 3]].forEach(([multiple, code]) => {
+        if (upper < mean + multiple * band && lower > mean - multiple * band) squeezeLevel = code;
+      });
+      level[index] = squeezeLevel;
+    }
+    const sumX = (window * (window - 1)) / 2;
+    const sumX2 = ((window - 1) * window * (2 * window - 1)) / 6;
+    const denominator = window * sumX2 - sumX * sumX;
+    for (let index = window - 1; index < count; index += 1) {
+      let sumY = 0;
+      let sumXY = 0;
+      for (let offset = 0; offset < window; offset += 1) {
+        const value = delta[index - window + 1 + offset];
+        sumY += value;
+        sumXY += offset * value;
+      }
+      const slope = (window * sumXY - sumX * sumY) / denominator;
+      const intercept = (sumY - slope * sumX) / window;
+      momentum[index] = intercept + slope * (window - 1);
+    }
+    return { momentum, level };
+  }
+
+  function strokeSeries(ctx, values, xAt, y, color, weight) {
+    ctx.beginPath();
+    let drawing = false;
+    values.forEach((value, index) => {
+      if (value == null) {
+        drawing = false;
+        return;
+      }
+      const x = xAt(index);
+      if (!drawing) {
+        ctx.moveTo(x, y(value));
+        drawing = true;
+      } else ctx.lineTo(x, y(value));
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = weight;
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+
   function draw(canvas, bars) {
     if (!canvas || !bars || !bars.length) return;
     const ratio = root.devicePixelRatio || 1;
@@ -169,17 +308,27 @@
     const ctx = canvas.getContext("2d");
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
+    const lines = averages(bars);
+    const lower = height >= 220;
+    const priceBottom = lower ? Math.round(height * 0.7) : height - (height < 150 ? 8 : 18);
     let low = Math.min(...bars.map((bar) => bar.low));
     let high = Math.max(...bars.map((bar) => bar.high));
+    [lines.high, lines.close, lines.low].forEach((series) => {
+      series.forEach((value) => {
+        if (value == null) return;
+        if (value < low) low = value;
+        if (value > high) high = value;
+      });
+    });
     const span = high - low || 1;
     low -= span * 0.08;
     high += span * 0.08;
     ctx.font = "12px Segoe UI, sans-serif";
     const padLeft = Math.max(44, Math.ceil(ctx.measureText(high.toFixed(high >= 100 ? 2 : 4)).width) + 12);
     const padTop = height < 150 ? 8 : 22;
-    const padBottom = height < 150 ? 8 : 18;
-    const y = (price) => padTop + ((high - price) / (high - low)) * (height - padTop - padBottom);
+    const y = (price) => padTop + ((high - price) / (high - low)) * (priceBottom - padTop);
     const slot = (width - padLeft - 10) / bars.length;
+    const xAt = (index) => padLeft + index * slot + slot / 2;
     ctx.strokeStyle = "#2a3340";
     ctx.fillStyle = "#93a0ad";
     const grids = height < 150 ? 2 : 4;
@@ -193,9 +342,9 @@
       ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
     }
     bars.forEach((bar, index) => {
-      const x = padLeft + index * slot + slot / 2;
-      const up = bar.close >= bar.open;
-      ctx.strokeStyle = up ? "#3ddc97" : "#ff6b7a";
+      const x = xAt(index);
+      const rising = bar.close >= bar.open;
+      ctx.strokeStyle = rising ? "#3ddc97" : "#ff6b7a";
       ctx.fillStyle = ctx.strokeStyle;
       ctx.beginPath();
       ctx.moveTo(x, y(bar.high));
@@ -205,6 +354,33 @@
       const bottom = y(Math.min(bar.open, bar.close));
       ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
     });
+    strokeSeries(ctx, lines.high, xAt, y, "#3ddc97", 2);
+    strokeSeries(ctx, lines.close, xAt, y, "#5b9dff", 2);
+    strokeSeries(ctx, lines.low, xAt, y, "#ff6b7a", 2);
+    if (lower) {
+      const study = compression(bars);
+      const histoTop = priceBottom + 10;
+      const histoBottom = height - 10;
+      const zero = (histoTop + histoBottom) / 2;
+      const scale = Math.max(...study.momentum.map((value) => Math.abs(value || 0)), 1e-9);
+      ctx.strokeStyle = "#2a3340";
+      ctx.beginPath();
+      ctx.moveTo(padLeft, zero);
+      ctx.lineTo(width - 8, zero);
+      ctx.stroke();
+      study.momentum.forEach((value, index) => {
+        if (value == null) return;
+        const x = xAt(index);
+        const tone = momentumTone(value, index > 0 ? study.momentum[index - 1] : null);
+        const barHeight = (Math.abs(value) / scale) * ((histoBottom - histoTop) / 2 - 6);
+        ctx.fillStyle = tone;
+        ctx.fillRect(x - Math.max(1, slot * 0.28), value >= 0 ? zero - barHeight : zero, Math.max(2, slot * 0.56), Math.max(1, barHeight));
+        ctx.fillStyle = squeezeTone(study.level[index] || 0);
+        ctx.beginPath();
+        ctx.arc(x, zero, Math.max(2, Math.min(4, slot * 0.22)), 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
     ctx.fillStyle = "#93a0ad";
     if (height >= 150) {
       ctx.fillText(bars[0].date, padLeft, 14);
@@ -213,5 +389,19 @@
     }
   }
 
-  root.PaperFrames = { FRAMES, frameById, barsFor, analyze, brief, draw, intradayDay };
+  root.PaperFrames = {
+    FRAMES,
+    frameById,
+    barsFor,
+    analyze,
+    brief,
+    draw,
+    intradayDay,
+    averages,
+    momentumTone,
+    squeezeTone,
+    squeezeName,
+    candlePlace,
+    compression,
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);

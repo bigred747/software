@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -56,4 +56,25 @@ test("weekly bars join the days", () => {
   assert.equal(weeks[0].close, 10);
   assert.equal(weeks[1].open, 10);
   assert.equal(weeks[1].close, 9);
+});
+
+test("averages and squeeze stay with green or red candles", () => {
+  const source = fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8");
+  assert.equal(source.includes("hollow"), false);
+  assert.equal(source.includes("#67e8f9"), false);
+  const bars = [];
+  for (let index = 0; index < 40; index += 1) {
+    const close = 100 + index;
+    bars.push(day("2024-02-" + String((index % 27) + 1).padStart(2, "0"), close - 1, close + 2, close - 2, close));
+  }
+  const lines = averages(bars);
+  assert.equal(lines.high.length, 40);
+  assert.ok(lines.close[39] > lines.close[20]);
+  assert.equal(candlePlace(bars[39], lines.high[39], lines.low[39]), "Above the high average");
+  const study = compression(bars);
+  assert.equal(study.level.length, 40);
+  assert.equal(study.momentum[19] == null, false);
+  study.level.forEach((level) => assert.ok(level >= 0 && level <= 3));
+  assert.equal(squeezeName(3), "High");
+  assert.equal(squeezeName(0), "Off");
 });
