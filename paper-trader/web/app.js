@@ -38,7 +38,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.5";
+const VERSION = "1.9.6";
 
 function selectedSymbol() {
   const node = $("symbol");

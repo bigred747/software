@@ -19,26 +19,30 @@ mkdir "%STAGE%"
 tar -xf "!ZIP!" -C "%STAGE%"
 if errorlevel 1 goto BadZip
 if not exist "%STAGE%\paper-trader\launch.py" goto BadZip
-if exist "%STAGE%\paper-trader\runtime\python.exe" (
-  "%STAGE%\paper-trader\runtime\python.exe" "%STAGE%\paper-trader\launch.py" install
-) else (
-  python "%STAGE%\paper-trader\launch.py" install
+set "RUN=%STAGE%\paper-trader"
+set "PY=%RUN%\runtime\python.exe"
+if not exist "%PY%" set "PY=python"
+"%PY%" "%RUN%\launch.py" install > "%TEMP%\paper-trader-install.txt" 2>&1
+if not errorlevel 1 if exist "%USERPROFILE%\Documents\Paper Trader\runtime\python.exe" set "RUN=%USERPROFILE%\Documents\Paper Trader"
+if errorlevel 1 (
+  echo The older folder stayed in place. Opening the new copy.
+  type "%TEMP%\paper-trader-install.txt"
 )
-if errorlevel 1 goto BadInstall
 set "VBS=%TEMP%\paper-trader-shortcut.vbs"
 > "%VBS%" echo Set shell = CreateObject("WScript.Shell"^)
 >> "%VBS%" echo desk = shell.SpecialFolders("Desktop"^)
 >> "%VBS%" echo Set link = shell.CreateShortcut(desk ^& "\Paper Trader.lnk"^)
->> "%VBS%" echo link.TargetPath = "%USERPROFILE%\Documents\Paper Trader\2 Open Paper Trader.bat"
->> "%VBS%" echo link.WorkingDirectory = "%USERPROFILE%\Documents\Paper Trader"
+>> "%VBS%" echo link.TargetPath = "%RUN%\2 Open Paper Trader.bat"
+>> "%VBS%" echo link.WorkingDirectory = "%RUN%"
 >> "%VBS%" echo link.Save
 cscript //nologo "%VBS%"
-if exist "%USERPROFILE%\Documents\Paper Trader\runtime\python.exe" (
-  start "Paper Trader" "%USERPROFILE%\Documents\Paper Trader\runtime\python.exe" "%USERPROFILE%\Documents\Paper Trader\launch.py" serve
+if exist "%RUN%\runtime\python.exe" (
+  start "Paper Trader" "%RUN%\runtime\python.exe" "%RUN%\launch.py" serve
 ) else (
-  start "Paper Trader" python "%USERPROFILE%\Documents\Paper Trader\launch.py" serve
+  start "Paper Trader" python "%RUN%\launch.py" serve
 )
-echo Paper Trader is opening from Documents. You can close this window.
+echo Paper Trader is opening. Leave the Paper Trader window open.
+echo Microsoft Edge opens the desk. The header says Desk is working.
 pause
 exit /b 0
 
@@ -50,12 +54,6 @@ exit /b 1
 
 :BadZip
 echo Could not extract Paper-Trader.zip.
-pause
-exit /b 1
-
-:BadInstall
-echo Could not replace the older copy.
-echo Close any open Paper Trader window, then double-click this file again.
 pause
 exit /b 1
 

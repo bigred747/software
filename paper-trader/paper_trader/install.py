@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import time
 from pathlib import Path
 
 from paper_trader import __version__
@@ -78,17 +77,13 @@ def running_desk_pids(images: list[tuple[int, str]], roots: list[Path]) -> list[
 
 
 def stop_open_desks(home: Path, images: list[tuple[int, str]] | None = None, killer=None) -> list[int]:
-    own_lookup = images is None
     if images is None:
-        if os.name != "nt":
-            return []
-        images = _windows_python_images()
+        _close_titled_window()
+        return []
     pids = running_desk_pids(images, desk_folders(home))
     end = killer or _taskkill
     for pid in pids:
         end(pid)
-    if own_lookup and pids:
-        time.sleep(0.4)
     return pids
 
 
@@ -96,66 +91,17 @@ def _taskkill(pid: int) -> None:
     subprocess.run(["taskkill", "/F", "/PID", str(pid)], check=False, capture_output=True)
 
 
-def _windows_python_images() -> list[tuple[int, str]]:
-    import ctypes
-    from ctypes import wintypes
-
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-    snapshot_flags = 0x00000002
-    query_flag = 0x1000
-
-    class PROCESSENTRY32W(ctypes.Structure):
-        _fields_ = [
-            ("dwSize", wintypes.DWORD),
-            ("cntUsage", wintypes.DWORD),
-            ("th32ProcessID", wintypes.DWORD),
-            ("th32DefaultHeapID", ctypes.c_size_t),
-            ("th32ModuleID", wintypes.DWORD),
-            ("cntThreads", wintypes.DWORD),
-            ("th32ParentProcessID", wintypes.DWORD),
-            ("pcPriClassBase", wintypes.LONG),
-            ("dwFlags", wintypes.DWORD),
-            ("szExeFile", wintypes.WCHAR * 260),
-        ]
-
-    kernel.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-    kernel.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
-    kernel.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
-    kernel.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
-    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-    kernel.OpenProcess.restype = wintypes.HANDLE
-    kernel.QueryFullProcessImageNameW.argtypes = [
-        wintypes.HANDLE,
-        wintypes.DWORD,
-        wintypes.LPWSTR,
-        ctypes.POINTER(wintypes.DWORD),
-    ]
-    kernel.QueryFullProcessImageNameW.restype = wintypes.BOOL
-    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
-    snapshot = kernel.CreateToolhelp32Snapshot(snapshot_flags, 0)
-    if not snapshot or snapshot == wintypes.HANDLE(-1).value:
-        return []
-    found: list[tuple[int, str]] = []
+def _close_titled_window() -> None:
+    if os.name != "nt":
+        return
     try:
-        entry = PROCESSENTRY32W()
-        entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
-        ok = kernel.Process32FirstW(snapshot, ctypes.byref(entry))
-        while ok:
-            name = entry.szExeFile.lower()
-            if name in {"python.exe", "pythonw.exe"}:
-                handle = kernel.OpenProcess(query_flag, False, int(entry.th32ProcessID))
-                if handle:
-                    try:
-                        size = wintypes.DWORD(32768)
-                        buf = ctypes.create_unicode_buffer(size.value)
-                        if kernel.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
-                            found.append((int(entry.th32ProcessID), buf.value))
-                    finally:
-                        kernel.CloseHandle(handle)
-            ok = kernel.Process32NextW(snapshot, ctypes.byref(entry))
-    finally:
-        kernel.CloseHandle(snapshot)
-    return found
+        subprocess.run(
+            ["taskkill", "/F", "/FI", "WINDOWTITLE eq Paper Trader"],
+            check=False,
+            capture_output=True,
+        )
+    except OSError:
+        return
 
 
 def install_newest(source: Path, home: Path) -> tuple[Path, str]:
@@ -166,14 +112,17 @@ def install_newest(source: Path, home: Path) -> tuple[Path, str]:
     dest = canonical_folder(home).resolve()
     dest_version = _installed_version(dest)
     source_version = version_key(__version__)
-    if source != dest and dest_version > source_version and is_install(dest):
+    try:
+        if source != dest and dest_version > source_version and is_install(dest):
+            _remove_older(home, dest, source)
+            return dest, "remove-source"
+        if source != dest:
+            _replace_install(source, dest)
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
         _remove_older(home, dest, source)
-        return dest, "remove-source"
-    if source != dest:
-        _replace_install(source, dest)
-    dest.mkdir(parents=True, exist_ok=True)
-    (dest / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
-    _remove_older(home, dest, source)
+    except OSError as exc:
+        raise ValueError("Could not replace the older copy. Opening the new copy instead.") from exc
     if source == dest:
         return dest, "keep-source"
     return dest, "remove-source"

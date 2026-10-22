@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -81,6 +82,21 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(stopped, [10, 12])
         self.assertEqual(killed, [10, 12])
         self.assertEqual(running_desk_pids([(4, r"C:\Other\python.exe")], [home / "Documents" / "paper-trader"]), [])
+
+    def test_install_does_not_walk_every_python_process(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(stop_open_desks(Path(folder)), [])
+
+    def test_a_locked_folder_reports_a_clean_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            source = home / "Desktop" / "paper-trader"
+            make_install(source, "1.9.6")
+            (home / "Documents").mkdir()
+            with patch("paper_trader.install._replace_install", side_effect=PermissionError("locked")):
+                with self.assertRaises(ValueError) as caught:
+                    install_newest(source, home)
+            self.assertIn("Opening the new copy instead.", str(caught.exception))
 
 
 if __name__ == "__main__":
