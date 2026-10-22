@@ -43,7 +43,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.11";
+const VERSION = "1.9.12";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -227,7 +227,25 @@ function withHooks(items) {
   }
   const edge = inMicrosoftEdge();
   applyHook(next, "Edge", edge, edge ? "This page is in Microsoft Edge" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
+  if (!next.some((item) => item.name === "Learning")) {
+    setSignal(next, "Learning", true, state.offline ? "This symbol, while the page is open" : "Watching closed bars");
+  }
+  const tone = currentMood(bars);
+  if (tone && tone.score != null) setSignal(next, "Fear and greed", true, tone.label + " " + tone.score);
+  else if (!next.some((item) => item.name === "Fear and greed")) setSignal(next, "Fear and greed", false, "Waiting on the quote");
+  const zoomOk = !!($("zoom-in") && $("zoom-out"));
+  setSignal(next, "Zoom", zoomOk, zoomOk ? "In and out" : "The zoom buttons are missing");
   return next;
+}
+
+function setSignal(items, name, ok, detail) {
+  const found = items.find((item) => item.name === name);
+  if (!found) {
+    items.push({ name, ok, detail });
+    return;
+  }
+  found.ok = ok;
+  found.detail = detail;
 }
 
 function inMicrosoftEdge() {
@@ -277,11 +295,98 @@ function renderLocalSignals() {
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
     { name: "Learning", ok: true, detail: "This symbol, while the page is open" },
-    { name: "Mood", ok: !!(state.market && state.market.bars && state.market.bars.length >= 20), detail: phoneMood() },
+    { name: "Fear and greed", ok: !!(state.market && state.market.bars && state.market.bars.length >= 20), detail: phoneMood() },
+    { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
     { name: "Timeframes", ok: typeof PaperFrames !== "undefined" && PaperFrames.FRAMES.length === 10, detail: "10 windows" },
     { name: "Broker", ok: true, detail: "Not connected" },
     { name: "Version", ok: true, detail: VERSION },
   ]));
+}
+
+function drawMoodClock(score, label) {
+  const canvas = $("mood-clock");
+  if (!canvas) return;
+  const size = 112;
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = Math.floor(size * ratio);
+  canvas.height = Math.floor(size * ratio);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, size, size);
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = 40;
+  const start = Math.PI * 0.75;
+  const sweep = Math.PI * 1.5;
+  const value = score == null || Number.isNaN(Number(score)) ? null : Math.max(0, Math.min(100, Math.round(Number(score))));
+  const tone = value == null ? "#5c6770" : value <= 35 ? "#ff6b7a" : value >= 65 ? "#3ddc97" : "#e2b15a";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
+  ctx.fillStyle = "#101318";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, radius, start, start + sweep);
+  ctx.closePath();
+  ctx.fillStyle = "#1c2430";
+  ctx.fill();
+  if (value != null) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, start, start + sweep * (value / 100));
+    ctx.closePath();
+    ctx.fillStyle = tone;
+    ctx.fill();
+  }
+  ctx.font = "10px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (let mark = 0; mark <= 100; mark += 5) {
+    const angle = start + sweep * (mark / 100);
+    const major = mark % 25 === 0;
+    ctx.strokeStyle = major ? "#d7e2ea" : "#5c6770";
+    ctx.lineWidth = major ? 2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(angle) * (radius - (major ? 8 : 4)), cy + Math.sin(angle) * (radius - (major ? 8 : 4)));
+    ctx.lineTo(cx + Math.cos(angle) * (radius + 1), cy + Math.sin(angle) * (radius + 1));
+    ctx.stroke();
+    if (major) {
+      ctx.fillStyle = "#9aa6b2";
+      ctx.fillText(String(mark), cx + Math.cos(angle) * (radius + 11), cy + Math.sin(angle) * (radius + 11));
+    }
+  }
+  if (value != null) {
+    const angle = start + sweep * (value / 100);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.fillStyle = "#f4f7fb";
+    ctx.beginPath();
+    ctx.moveTo(radius - 6, 0);
+    ctx.lineTo(-12, 4);
+    ctx.lineTo(-7, 0);
+    ctx.lineTo(-12, -4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+  ctx.fillStyle = "#141920";
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = tone;
+  ctx.stroke();
+  ctx.fillStyle = "#f4f7fb";
+  ctx.font = "700 15px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(value == null ? "—" : String(value), cx, cy);
+  const word = $("mood-clock-label");
+  if (word) {
+    word.textContent = value == null ? "" : String(label || "");
+    word.className = "mood-clock-label " + (label ? String(label).toLowerCase() : "");
+  }
 }
 
 function phoneMood() {
@@ -677,6 +782,7 @@ function renderQuote(paper) {
       empty.className = "mood";
     }
     quote.className = "quote";
+    drawMoodClock(null, "");
     return;
   }
   const change = previous ? last.close - previous.close : 0;
@@ -697,6 +803,7 @@ function renderQuote(paper) {
     badge.textContent = tone && tone.score != null ? tone.label + " " + tone.score : "—";
     badge.className = "mood " + (tone && tone.label ? tone.label.toLowerCase() : "");
   }
+  drawMoodClock(tone && tone.score, tone && tone.label);
   if (paper.symbol && tone && tone.score != null) state.moods[paper.symbol] = tone;
 }
 
@@ -932,7 +1039,7 @@ function renderReadings() {
     ["Support", pivotsText(PaperFrames.trendPivots(bars), "low")],
     ["TMO", tmoText(bars)],
     ["Lesson", lessonText(bars)],
-    ["Mood", moodText(bars)],
+    ["Fear and greed", moodText(bars)],
   ].forEach(([name, value]) => {
     const row = document.createElement("div");
     const label = document.createElement("dt");
@@ -1661,6 +1768,9 @@ window.addEventListener("resize", () => {
   if (state.market && state.paper) {
     drawCandles();
     drawTmo();
+    const bars = seenBars();
+    const tone = currentMood(bars);
+    drawMoodClock(tone && tone.score, tone && tone.label);
   }
 });
 

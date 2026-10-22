@@ -41,13 +41,20 @@ body {
   background: #141920;
 }
 
+.mood-clock { display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; margin-left: auto; }
+#mood-clock { width: 112px; height: 112px; margin: 0; background: transparent; }
+.mood-clock-label { font-size: 12px; font-weight: 650; min-height: 1em; }
+.mood-clock-label.fear { color: var(--down); }
+.mood-clock-label.greed { color: var(--up); }
+.mood-clock-label.neutral, .mood-clock-label.waiting { color: var(--muted); }
+
 .quote {
   display: grid;
   grid-template-columns: auto auto auto;
   grid-template-rows: auto auto;
   column-gap: 14px;
   align-items: baseline;
-  margin-left: auto;
+  margin-left: 0;
   font-variant-numeric: tabular-nums;
 }
 

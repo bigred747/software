@@ -114,6 +114,7 @@ class Desk:
             {"name": "Study", "ok": True, "detail": "On this device"},
             self._learning_check(),
             self._mood_check(str(view.get("symbol") or ""), quote_ok),
+            {"name": "Zoom", "ok": True, "detail": "In and out"},
             {"name": "Timeframes", "ok": len(quotes.frame_ids()) == 10, "detail": f"{len(quotes.frame_ids())} windows"},
             {"name": "Phone", "ok": True, "detail": "Layout adapts"},
             {"name": "Broker", "ok": True, "detail": "Not connected"},
@@ -203,14 +204,14 @@ class Desk:
 
     def _mood_check(self, symbol: str, quote_ok: bool) -> dict[str, str | bool]:
         if not quote_ok or not symbol:
-            return {"name": "Mood", "ok": False, "detail": "Waiting on the quote"}
+            return {"name": "Fear and greed", "ok": False, "detail": "Waiting on the quote"}
         try:
             row = mood(quotes.load_bars(symbol))
         except ValueError as exc:
-            return {"name": "Mood", "ok": False, "detail": str(exc)}
+            return {"name": "Fear and greed", "ok": False, "detail": str(exc)}
         if row["score"] is None:
-            return {"name": "Mood", "ok": False, "detail": str(row["note"])}
-        return {"name": "Mood", "ok": True, "detail": f"{row['label']} {row['score']}"}
+            return {"name": "Fear and greed", "ok": False, "detail": str(row["note"])}
+        return {"name": "Fear and greed", "ok": True, "detail": f"{row['label']} {row['score']}"}
 
 
 def _local_host(header: str) -> bool:

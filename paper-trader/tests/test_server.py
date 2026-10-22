@@ -114,7 +114,7 @@ class ServerTests(unittest.TestCase):
         payload = json.loads(raw)
         self.assertTrue(payload["ok"])
         names = {item["name"] for item in payload["items"]}
-        for name in ("Paper", "Auto", "Trade", "Ticker", "Chart", "Markets", "Broker", "Install"):
+        for name in ("Paper", "Auto", "Trade", "Ticker", "Chart", "Markets", "Broker", "Install", "Learning", "Fear and greed", "Zoom"):
             self.assertIn(name, names)
         for item in payload["items"]:
             self.assertTrue(item["ok"])
@@ -263,9 +263,11 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.11", script)
+        self.assertIn(b"1.9.12", script)
+        self.assertIn(b"Fear and greed", script)
         self.assertIn(b"Zoom in", page)
         self.assertIn(b"quote-mood", page)
+        self.assertIn(b"mood-clock", page)
         self.assertIn(b"true momentum", page)
         self.assertIn(b"Candles are green when the close is at or above the open", page)
         self.assertIn(b"Desk is working.", script)
