@@ -13,7 +13,7 @@ Right-click `Paper-Trader.zip`, choose Extract All, and put the folder in Docume
 1. Double-click `1 Allow Paper Trader.bat`. That clears the download block, puts the newest copy in Documents, removes older Paper Trader folders from Documents, Desktop, and Downloads, and puts **Paper Trader** on the desktop.
 2. Double-click **Paper Trader** on the desktop. The desk opens, **Auto** starts, and the **Signals** list turns green for each part that is working. Click **Auto** again to stop.
 
-If a file is opened from inside the zip, this version extracts the whole zip into Documents and opens that copy. The green Signals list shows version 1.7.0 when this copy is running.
+If a file is opened from inside the zip, this version extracts the whole zip into Documents and opens that copy. The green Signals list shows version 1.8.0 when this copy is running.
 
 From a source checkout, Python 3.11 or newer is enough. The desk uses the Python standard library, so startup does not install packages and does not wait on a download.
 
@@ -32,7 +32,9 @@ The browser opens to `http://127.0.0.1:8765/`.
 - **Reset session** starts again and applies the strategy settings.
 - **Run full backtest** replays the whole sample without moving the session day.
 
-The catalog has 7,500 sample markets: stocks, ETFs, futures, and crypto. Bitcoin, XRP, and Stellar are included. Search the list. These series are generated on this computer. They are not live quotes.
+The catalog has 7,500 sample markets: stocks, ETFs, futures, and crypto. Bitcoin, XRP, and Stellar are included. Search the list, or tap a pinned name. Bitcoin, Ether, XRP, Stellar, Solana, and SPY start pinned. Pin keeps the market you are on, and Unpin removes it. The phone copy remembers the last market you opened. These series are generated on this device. They are not live quotes.
+
+The ticket shows the paper result against the starting cash, plus how many simulated trades have closed and how many of those made money.
 
 The desk is a wide layout on a computer: markets on the left, the daily session chart in the center, the paper ticket on the right, and tools along the bottom. The header shows the sample symbol, last price, and change. On a phone the same page uses a bottom bar: Markets, Chart, Trade, and Study.
 

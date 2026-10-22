@@ -116,6 +116,13 @@ textarea {
 
 #symbol { margin-bottom: 4px; }
 
+.pins { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.pins button { width: auto; min-height: 32px; padding: 4px 8px; }
+.pins button.on { border-color: var(--accent); color: var(--accent); background: #1c3330; }
+#pin-toggle { width: 100%; min-height: 36px; }
+
+.result { margin: 0 0 10px; font-variant-numeric: tabular-nums; font-size: 14px; }
+
 .fields label { font-size: 13px; }
 
 .signal {

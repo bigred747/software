@@ -14,6 +14,9 @@ const state = {
 };
 
 const STUDY_KEY = "paperTraderStudies";
+const PIN_KEY = "paperTraderPins";
+const SYMBOL_KEY = "paperTraderSymbol";
+const DEFAULT_PINS = ["BTC-USD", "ETH-USD", "XRP-USD", "XLM-USD", "SOL-USD", "SPY"];
 
 const notes = {
   BUY: "The next sample day would open a simulated long at that day's open.",
@@ -154,7 +157,7 @@ function renderLocalSignals() {
     ["Study", true, "On this device"],
     ["Timeframes", true, "10 windows"],
     ["Broker", true, "Not connected"],
-    ["Version", true, "1.7.0"],
+    ["Version", true, "1.8.0"],
   ];
   const list = $("signals");
   list.replaceChildren();
@@ -172,13 +175,16 @@ function renderLocalSignals() {
 async function bootOffline() {
   const text = globalThis.PAPER_CATALOG || await (await fetch("/catalog.txt")).text();
   state.catalog = PaperEngine.parseCatalog(text);
-  state.session = PaperEngine.open(state.catalog, "BTC-USD", {});
+  const saved = savedSymbol();
+  const symbol = state.catalog.some((row) => row.symbol === saved) ? saved : "BTC-USD";
+  state.session = PaperEngine.open(state.catalog, symbol, {});
   state.paper = PaperEngine.view(state.session);
   await refreshSymbols();
   fillForm(state.paper.params);
   state.market = PaperEngine.market(state.session);
   render(state.paper);
   renderLocalSignals();
+  rememberSymbol(state.paper.symbol);
   if (state.paper.paper === true && !state.paper.finished) {
     state.auto = true;
     render(state.paper);
@@ -203,6 +209,7 @@ async function boot() {
   await loadMarket();
   render(paper);
   await loadSignals();
+  rememberSymbol(paper.symbol);
   if (paper.paper === true && !paper.finished) {
     state.auto = true;
     render(paper);
@@ -272,10 +279,106 @@ function render(paper) {
   $("paper").disabled = false;
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
   fillTrades($("journal-body"), paper.trades || []);
+  renderResult(paper);
+  renderPins();
   renderReadings();
   renderFrames();
   drawCandles();
   drawRsi();
+}
+
+function savedSymbol() {
+  try {
+    const value = localStorage.getItem(SYMBOL_KEY) || "";
+    return value.length > 0 && value.length < 24 ? value : "";
+  } catch (error) {
+    return "";
+  }
+}
+
+function rememberSymbol(symbol) {
+  if (!symbol) return;
+  try {
+    localStorage.setItem(SYMBOL_KEY, symbol);
+  } catch (error) {
+    return;
+  }
+}
+
+function readPins() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PIN_KEY) || "null");
+    if (!Array.isArray(parsed)) return DEFAULT_PINS.slice();
+    return parsed.filter((item) => typeof item === "string" && item.length > 0 && item.length < 24).slice(0, 12);
+  } catch (error) {
+    return DEFAULT_PINS.slice();
+  }
+}
+
+function writePins(pins) {
+  try {
+    localStorage.setItem(PIN_KEY, JSON.stringify(pins.slice(0, 12)));
+  } catch (error) {
+    return;
+  }
+}
+
+function pinLabel(symbol) {
+  return symbol.endsWith("-USD") ? symbol.slice(0, -4) : symbol;
+}
+
+function renderResult(paper) {
+  const node = $("result");
+  if (!node) return;
+  const start = Number(paper.params && paper.params.cash) || 0;
+  const result = Number(paper.equity) - start;
+  const percent = start ? (result / start) * 100 : 0;
+  const trades = paper.trades || [];
+  const wins = trades.filter((trade) => Number(trade.pnl) > 0).length;
+  const sign = result > 0 ? "+" : "";
+  const closed = trades.length ? trades.length + " closed · " + wins + " wins" : "No closed trades";
+  const money = formatMoney(result);
+  node.textContent = (result > 0 ? "+" + money : money) + " · " + sign + percent.toFixed(1) + "% · " + closed;
+  node.className = "result " + (result > 0 ? "up" : result < 0 ? "down" : "");
+}
+
+function renderPins() {
+  const bar = $("pins");
+  if (!bar) return;
+  const current = (state.paper && state.paper.symbol) || "";
+  const pins = readPins();
+  bar.replaceChildren();
+  pins.forEach((symbol) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = pinLabel(symbol);
+    button.title = symbol;
+    if (symbol === current) {
+      button.className = "on";
+      button.setAttribute("aria-pressed", "true");
+    }
+    button.addEventListener("click", () => chooseSymbol(symbol));
+    bar.appendChild(button);
+  });
+  const toggle = $("pin-toggle");
+  if (!toggle || !current) return;
+  const pinned = pins.includes(current);
+  toggle.textContent = pinned ? "Unpin " + pinLabel(current) : "Pin " + pinLabel(current);
+  toggle.setAttribute("aria-pressed", pinned ? "true" : "false");
+}
+
+function chooseSymbol(symbol) {
+  if (!symbol || (state.paper && state.paper.symbol === symbol)) return;
+  return withBusy(async () => {
+    stopAuto();
+    rememberSymbol(symbol);
+    const paper = await paperCall("/api/paper/reset", { ...formParams(), symbol });
+    state.paper = paper;
+    await refreshSymbols();
+    await loadMarket();
+    render(paper);
+    $("status").textContent = "Started a new sample session for " + paper.symbol + ".";
+  });
 }
 
 function renderQuote(paper) {
@@ -740,17 +843,20 @@ $("paper").addEventListener("click", () => withBusy(async () => {
   $("status").textContent = "Paper is on. Orders stay simulated on this computer.";
 }));
 
-$("symbol").addEventListener("change", () => withBusy(async () => {
-  stopAuto();
+$("symbol").addEventListener("change", () => {
   const chosen = $("symbol").selectedOptions[0];
   if (chosen) state.decimals = Number(chosen.dataset.decimals || 2);
-  const paper = await paperCall("/api/paper/reset", formParams());
-  state.paper = paper;
-  await refreshSymbols();
-  await loadMarket();
-  render(paper);
-  $("status").textContent = "Started a new sample session for " + paper.symbol + ".";
-}));
+  chooseSymbol($("symbol").value);
+});
+
+$("pin-toggle").addEventListener("click", () => {
+  const current = state.paper && state.paper.symbol;
+  if (!current) return;
+  const pins = readPins();
+  const next = pins.includes(current) ? pins.filter((symbol) => symbol !== current) : [current].concat(pins).slice(0, 12);
+  writePins(next);
+  renderPins();
+});
 
 let searchTimer = 0;
 function queueSearch() {
