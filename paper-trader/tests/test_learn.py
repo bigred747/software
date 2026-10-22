@@ -185,11 +185,14 @@ class AlwaysOnTests(unittest.TestCase):
         self.assertIn(str(python), script)
         self.assertNotIn("wscript", script.lower())
         self.assertNotIn("powershell", script.lower())
+        self.assertNotIn("/min", script.lower())
         for blocked in ("reg add", "netsh", "pip", "schtasks"):
             self.assertNotIn(blocked, script.lower())
         source = (Path(__file__).resolve().parents[1] / "paper_trader" / "learn.py").read_text(encoding="utf-8")
         self.assertNotIn("WScript", source)
         self.assertNotIn("shell.Run", source)
+        self.assertNotIn("0x08000000", source)
+        self.assertNotIn("/MIN", source)
         with tempfile.TemporaryDirectory() as folder:
             folder_path = Path(folder)
             (folder_path / "Paper Trader Learn.vbs").write_text("old\r\n", encoding="utf-8")

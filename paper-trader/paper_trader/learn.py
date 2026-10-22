@@ -160,7 +160,7 @@ def startup_script(python: Path, launch: Path) -> str:
         "@echo off\r\n"
         f'cd /d "{root}"\r\n'
         "title Paper Trader Learn\r\n"
-        f'start "Paper Trader Learn" /MIN "{python}" "{launch}" learn\r\n'
+        f'start "Paper Trader Learn" "{python}" "{launch}" learn\r\n'
     )
 
 
@@ -428,7 +428,7 @@ def learner_command(root: Path, windows: bool | None = None) -> list[str]:
     program = str(python if python.is_file() else Path(sys.executable))
     launch = str(root / "launch.py")
     if os.name == "nt" if windows is None else windows:
-        return ["cmd", "/c", "start", "Paper Trader Learn", "/MIN", program, launch, "learn"]
+        return ["cmd", "/c", "start", "Paper Trader Learn", program, launch, "learn"]
     return [program, launch, "learn"]
 
 
@@ -441,9 +441,7 @@ def spawn_learner(root: Path) -> None:
         "stderr": subprocess.DEVNULL,
         "close_fds": True,
     }
-    if os.name == "nt":
-        options["creationflags"] = 0x08000000
-    else:
+    if os.name != "nt":
         options["start_new_session"] = True
     subprocess.Popen(command, **options)
 

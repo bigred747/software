@@ -15,7 +15,6 @@ for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Doc
 if not defined ZIP if defined OneDrive for %%R in ("%OneDrive%\Downloads" "%OneDrive%\Desktop" "%OneDrive%\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
 if not defined ZIP goto NoZip
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
-taskkill /F /FI "WINDOWTITLE eq Paper Trader" >nul 2>&1
 set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup"
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
 if exist "%STAGE%" set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup-%RANDOM%"
@@ -26,10 +25,8 @@ mkdir "%STAGE%\paper-trader\web" 2>nul
 mkdir "%STAGE%\paper-trader\tools" 2>nul
 mkdir "%STAGE%\paper-trader\iphone" 2>nul
 mkdir "%STAGE%\paper-trader\runtime" 2>nul
-if defined ZIP del /f /a "!ZIP!:Zone.Identifier" >nul 2>&1
 tar -xf "!ZIP!" -C "%STAGE%"
 if errorlevel 1 goto BadZip
-for /r "%STAGE%" %%F in (*) do del /f /a "%%F:Zone.Identifier" >nul 2>&1
 if not exist "%STAGE%\paper-trader\launch.py" goto BadZip
 start "" "%STAGE%\paper-trader\1 Allow Paper Trader.bat"
 echo The full copy is in Documents. Use the window that just opened.
@@ -54,13 +51,10 @@ echo Unblock
 echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
 echo Step 1 of 2. Install the newest Paper Trader and remove older copies.
-set "HERE=%~dp0"
-if "!HERE:~-1!"=="\" set "HERE=!HERE:~0,-1!"
-for /r "%HERE%" %%F in (*) do del /f /a "%%F:Zone.Identifier" >nul 2>&1
-powershell -NoProfile -Command "Get-ChildItem -LiteralPath $env:CD -Recurse -File | Unblock-File"
 set "PY=%~dp0runtime\python.exe"
 if not exist "%PY%" set "PY=python"
-"%PY%" "%~dp0launch.py" install > "%TEMP%\paper-trader-install.txt"
+if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
+"%PY%" "%~dp0launch.py" install > "%USERPROFILE%\Documents\paper-trader-install.txt"
 if errorlevel 1 (
   echo Could not install the newest copy.
   pause
@@ -68,7 +62,7 @@ if errorlevel 1 (
 )
 set "DEST="
 set "ACTION="
-for /f "usebackq delims=" %%A in ("%TEMP%\paper-trader-install.txt") do (
+for /f "usebackq delims=" %%A in ("%USERPROFILE%\Documents\paper-trader-install.txt") do (
   if not defined DEST (
     set "DEST=%%A"
   ) else if not defined ACTION (
@@ -80,21 +74,21 @@ if not defined DEST (
   pause
   exit /b 1
 )
-for /r "%DEST%" %%F in (*) do del /f /a "%%F:Zone.Identifier" >nul 2>&1
-powershell -NoProfile -Command "Get-ChildItem -LiteralPath $env:DEST -Recurse -File -ErrorAction SilentlyContinue | Unblock-File"
-powershell -NoProfile -Command "$dest = $env:DEST; $desk = [Environment]::GetFolderPath('Desktop'); $lnk = Join-Path $desk 'Paper Trader.lnk'; $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk); $sc.TargetPath = (Join-Path $dest '2 Open Paper Trader.bat'); $sc.WorkingDirectory = $dest; $sc.WindowStyle = 1; $sc.Description = 'Open Paper Trader'; $sc.Save()"
-if errorlevel 1 (
-  echo Windows did not allow the folder. Right-click this file, open Properties, check Unblock, click OK, and run this file again.
-  pause
-  exit /b 1
-)
+call :DeskLink "%DEST%"
 echo The newest Paper Trader is the only copy in Documents.
-echo Step 2 of 2: click Paper Trader on the desktop.
+echo Step 2 of 2: double-click Paper Trader.bat on the desktop.
 pause
-if /I "!ACTION!"=="remove-source" (
-  set "OLD=%~dp0"
-  if "!OLD:~-1!"=="\" set "OLD=!OLD:~0,-1!"
-  > "%TEMP%\remove-old-paper-trader.bat" echo @echo off
-  >> "%TEMP%\remove-old-paper-trader.bat" echo rd /s /q "!OLD!"
-  start "" cmd /c "timeout /t 1 /nobreak >nul & call \"%TEMP%\remove-old-paper-trader.bat\""
-)
+if /I "!ACTION!"=="remove-source" echo The older copy is no longer the one that opens.
+exit /b 0
+
+:DeskLink
+set "LINK=%USERPROFILE%\Desktop"
+if not exist "%LINK%" if exist "%USERPROFILE%\OneDrive\Desktop" set "LINK=%USERPROFILE%\OneDrive\Desktop"
+if not exist "%LINK%" if defined OneDrive if exist "%OneDrive%\Desktop" set "LINK=%OneDrive%\Desktop"
+if not exist "%LINK%" exit /b 0
+> "%LINK%\Paper Trader.bat" echo @echo off
+>> "%LINK%\Paper Trader.bat" echo cd /d "%~1"
+>> "%LINK%\Paper Trader.bat" echo title Paper Trader
+>> "%LINK%\Paper Trader.bat" echo call "2 Open Paper Trader.bat"
+echo Paper Trader.bat is on the desktop.
+exit /b 0
