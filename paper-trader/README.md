@@ -13,7 +13,7 @@ Right-click `Paper-Trader.zip`, choose Extract All, and put the folder in Docume
 1. Double-click `1 Allow Paper Trader.bat`. That clears the download block, puts the newest copy in Documents, removes older Paper Trader folders from Documents, Desktop, and Downloads, and puts **Paper Trader** on the desktop.
 2. Double-click **Paper Trader** on the desktop. The desk opens, **Auto** starts, and the **Signals** list turns green for each part that is working. Click **Auto** again to stop.
 
-If a file is opened from inside the zip, this version extracts the whole zip into Documents and opens that copy. The green Signals list shows version 1.9.1 when this copy is running.
+If a file is opened from inside the zip, this version extracts the whole zip into Documents and opens that copy. The green Signals list shows version 1.9.2 when this copy is running. The desk opens in Microsoft Edge.
 
 From a source checkout, Python 3.11 or newer is enough. The desk uses the Python standard library, so startup does not install packages.
 
@@ -22,7 +22,7 @@ cd paper-trader
 python -m paper_trader serve
 ```
 
-The browser opens to `http://127.0.0.1:8765/`.
+Microsoft Edge opens to `http://127.0.0.1:8765/`.
 
 - **Auto** starts with the desk and refreshes the market quote. Click it again to stop. Each fill stays simulated.
 - **Trade** places one simulated order on the paper account at the latest quote. It buys when the account is flat and sells when a position is open. It does not send an order to a broker.
@@ -30,7 +30,7 @@ The browser opens to `http://127.0.0.1:8765/`.
 - **Reset session** starts again on the latest quote and applies the strategy settings.
 - **Run full backtest** replays the loaded market history without leaving the latest quote.
 
-The catalog has 7,500 markets: stocks, ETFs, futures, and crypto. Bitcoin, XRP, and Stellar are included. Search the list, or tap a pinned name. Bitcoin, Ether, XRP, Stellar, Solana, and SPY start pinned. Pin keeps the market you are on, and Unpin removes it. The phone copy remembers the last crypto you opened.
+The catalog has 7,500 markets: stocks, ETFs, futures, and crypto. Bitcoin, XRP, and Stellar are included. Search the list, or tap a pinned name. Bitcoin, Ether, XRP, Stellar, Solana, and SPY start pinned. Pin keeps the market you are on, and Unpin removes it. The mobile copy remembers the last crypto you opened.
 
 The ticket shows the paper result against the starting cash, plus how many simulated trades have closed and how many of those made money.
 
@@ -46,11 +46,11 @@ Open **Study**, paste a formula, and click **Install study**. The formula runs i
 
 A formula can use `input`, `def`, `plot`, `if/then/else`, bar offsets such as `close[1]`, and math such as `Average`, `ExpAverage`, `RSI`, `ATR`, `Highest`, `Lowest`, `Sum`, and `crosses above`. An `AddOrder` line only paints a paper arrow. Fold, profile, and brokerage calls are refused.
 
-## iPhone
+## Phone and tablet
 
-The zip contains `iphone/PaperTrader.html`. Copy that one file to the iPhone, open it from the Files app in Safari, and the desk runs there. There is no app-store install and no broker connection.
+The zip contains `iphone/PaperTrader.html`. That one file is the mobile copy for an iPhone, iPad, Android phone, or other tablet. Install Microsoft Edge from the App Store or the Play Store if it is not already on the device. Copy the file over. On iPhone or iPad, open the Files app, tap the Share button on `PaperTrader.html`, and tap Edge. On Android, open Files or Downloads, choose Open with, and tap Edge. The page cannot switch to Edge by itself. There is no app-store install of this desk and no broker connection.
 
-The phone file loads live crypto quotes, including Bitcoin, Ether, XRP, Stellar, and Solana. Stocks, ETFs, and futures need the computer copy, because those quotes are loaded by the desk on 127.0.0.1 and the phone file cannot reach that address. If a crypto quote does not load, the phone shows the error and does not invent a price.
+The mobile file loads live crypto quotes, including Bitcoin, Ether, XRP, Stellar, and Solana. Stocks, ETFs, and futures need the computer copy, because those quotes are loaded by the desk on 127.0.0.1 and the mobile file cannot reach that address. If a crypto quote does not load, the page shows the error and does not invent a price.
 
 ## Rules
 

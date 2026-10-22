@@ -38,7 +38,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.1";
+const VERSION = "1.9.2";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -216,7 +216,19 @@ function withHooks(items) {
   if (quoteOk && next.some((item) => item.name === "Quotes" && item.ok)) {
     applyHook(next, "Quotes", true, state.offline ? "Live crypto" : "Market quote");
   }
+  const edge = inMicrosoftEdge();
+  applyHook(next, "Edge", edge, edge ? "This page is in Microsoft Edge" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
   return next;
+}
+
+function inMicrosoftEdge() {
+  return /Edg(?:e|iOS|A)?\//.test(navigator.userAgent || "");
+}
+
+function noteEdge() {
+  const note = $("edge-note");
+  if (!note) return;
+  note.hidden = !(state.offline && !inMicrosoftEdge());
 }
 
 function paintSignals(items) {
@@ -245,7 +257,7 @@ function paintSignals(items) {
 
 function renderLocalSignals() {
   paintSignals(withHooks([
-    { name: "This device", ok: true, detail: "Phone copy" },
+    { name: "This device", ok: true, detail: "Mobile copy" },
     { name: "Paper", ok: true, detail: "On" },
     { name: "Auto", ok: true, detail: "Ready" },
     { name: "Trade", ok: true, detail: "Ready" },
@@ -280,6 +292,7 @@ async function bootOffline() {
   render(state.paper);
   renderLocalSignals();
   rememberSymbol(state.paper.symbol);
+  noteEdge();
   if (state.paper.paper === true) {
     state.auto = true;
     render(state.paper);
@@ -287,7 +300,9 @@ async function bootOffline() {
     autoTick();
     return;
   }
-  $("status").textContent = "Phone copy ready. Crypto quotes are live.";
+  $("status").textContent = inMicrosoftEdge()
+    ? "Opened in Microsoft Edge. Crypto quotes are live."
+    : "Mobile copy ready. Crypto quotes are live.";
 }
 
 async function boot() {

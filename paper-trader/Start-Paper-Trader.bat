@@ -50,6 +50,7 @@ exit /b 1
 
 :Normal
 echo Paper Trader stays on this computer. It loads market quotes and does not place broker orders.
+echo Microsoft Edge opens the desk.
 if exist "%~dp0runtime\python.exe" (
   "%~dp0runtime\python.exe" "%~dp0launch.py" serve
   goto done

@@ -1,4 +1,4 @@
-"""Build the single-file phone page. It runs in Safari with no server and no broker."""
+"""Build the single-file mobile page. It runs in Microsoft Edge with no server and no broker."""
 
 from __future__ import annotations
 
@@ -37,14 +37,16 @@ def build() -> Path:
     note.write_text(
         "\n".join(
             [
-                "Paper Trader on iPhone",
+                "Paper Trader on a phone or tablet",
                 "",
-                "1. Copy PaperTrader.html onto the iPhone (AirDrop, Files, or a cable).",
-                "2. Open the Files app, tap PaperTrader.html, and choose Safari.",
-                "3. The desk runs in Safari. Crypto quotes are live. Stocks, ETFs, and futures load on the computer copy.",
-                "4. Nothing is sent to a broker. There is no app-store install.",
+                "1. Install Microsoft Edge if it is not already on the device. Use the App Store on iPhone or iPad, or the Play Store on Android.",
+                "2. Copy PaperTrader.html onto the device. If it arrives as a text file, rename it to PaperTrader.html.",
+                "3. On iPhone or iPad, open the Files app, tap the Share button on PaperTrader.html, then tap Edge.",
+                "4. On Android or another phone or tablet, open Files or Downloads, tap PaperTrader.html, choose Open with, then tap Edge.",
+                "5. The desk runs in Edge. Crypto quotes are live. Stocks, ETFs, and futures load on the computer copy.",
+                "6. Nothing is sent to a broker. This desk is not an app-store app. The page cannot switch to Edge by itself.",
                 "",
-                "The computer copy is started with Start-Paper-Trader.bat and stays on 127.0.0.1.",
+                "The computer copy is started with Start-Paper-Trader.bat and opens in Microsoft Edge on 127.0.0.1.",
                 "",
             ]
         ),

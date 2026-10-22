@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -343,16 +347,58 @@ class DeskHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None:
+def _edge_commands(url: str, platform: str | None = None) -> list[list[str]]:
+    system = platform or sys.platform
+    commands: list[list[str]] = []
+    if system == "win32":
+        roots = [
+            os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)"),
+            os.environ.get("PROGRAMFILES", r"C:\Program Files"),
+            os.environ.get("LOCALAPPDATA", ""),
+        ]
+        for root in roots:
+            if root:
+                commands.append([os.path.join(root, "Microsoft", "Edge", "Application", "msedge.exe"), url])
+        commands.append(["msedge", url])
+        commands.append(["cmd", "/c", "start", "", "microsoft-edge:" + url])
+        return commands
+    for name in ("microsoft-edge", "microsoft-edge-stable", "msedge"):
+        commands.append([name, url])
+    return commands
+
+
+def _launch_edge(url: str, commands: list[list[str]], which, popen) -> str:
     import webbrowser
 
+    for command in commands:
+        program = command[0]
+        named = program in {"msedge", "microsoft-edge", "microsoft-edge-stable"}
+        if named and which(program) is None:
+            continue
+        if not named and program != "cmd" and not os.path.isfile(program):
+            continue
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
+        try:
+            popen(command, close_fds=True, creationflags=flags)
+        except OSError:
+            continue
+        return "Microsoft Edge"
+    webbrowser.open(url)
+    return "the default browser. Microsoft Edge was not found"
+
+
+def open_edge(url: str) -> str:
+    return _launch_edge(url, _edge_commands(url), shutil.which, subprocess.Popen)
+
+
+def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None:
     server = create_server(state_path, port)
     host, bound = server.server_address[:2]
     url = f"http://{host}:{bound}/"
     print(f"Paper Trader is running at {url}")
     print("Market quotes. Paper orders only. Close this window to stop the desk.")
     if open_browser and url.startswith("http://127.0.0.1:"):
-        webbrowser.open(url)
+        print("Opening in " + open_edge(url) + ".")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

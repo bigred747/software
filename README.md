@@ -57,14 +57,14 @@ The header shows the symbol, last price, change, and quote time. Bitcoin, Ether,
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/Paper-Trader.zip)
 
-SHA-256 `2f1c46b469eb71ea7636f79b6e701d55dd139d7fff5111cb4ba8acd2fe73a783`
+SHA-256 `884b759732215ee53b5351cba636280644bb95c0c7ee7b53ff3f9247d6cb996d`
 
-Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The iPhone page is `iphone/PaperTrader.html` inside the same zip.
+Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The phone and tablet page is `iphone/PaperTrader.html` inside the same zip.
 
-**iPhone file only:**
+**Phone or tablet file:**
 
 [PaperTrader.html](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/paper-trader/iphone/PaperTrader.html)
 
-Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.9.1 extracts the whole zip into Documents and opens that copy. Signals show **1.9.1** when this copy is running. The Signals panel lists every check in green when that part is working.
+Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.9.2 extracts the whole zip into Documents and opens that copy in Microsoft Edge. Signals show **1.9.2** when this copy is running. The Signals panel lists every check in green when that part is working.
 
-On an iPhone, press and hold the HTML link, choose Download Linked File, then open `PaperTrader.html` from the Files app in Safari. If it saves as a text file, rename it to `.html`. The phone loads live crypto quotes. Stocks, ETFs, and futures load on the computer copy. Studies stay on the device.
+On a phone or tablet, install Microsoft Edge if it is not already there. Press and hold the HTML link, choose Download Linked File, and rename the file to `.html` if it saved as text. On iPhone or iPad, open the Files app, tap the Share button on `PaperTrader.html`, and tap Edge. On Android, open Files or Downloads, choose Open with, and tap Edge. The page cannot switch to Edge by itself. The mobile copy loads live crypto quotes. Stocks, ETFs, and futures load on the computer copy. Studies stay on the device.

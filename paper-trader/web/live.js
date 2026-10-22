@@ -1,4 +1,4 @@
-/* Live crypto quotes for the phone page. The computer desk loads every market through its own quote feed. */
+/* Live crypto quotes for the mobile page. The computer desk loads every market through its own quote feed. */
 (function (root) {
   function stamp(unix, withTime) {
     const moment = new Date(unix * 1000);
@@ -71,14 +71,14 @@
 
   async function daily(symbol, category) {
     if (!crypto(symbol, category)) {
-      throw new Error(symbol + " loads on the computer desk. This phone loads live crypto quotes.");
+      throw new Error(symbol + " loads on the computer desk. This device loads live crypto quotes.");
     }
     return coinbase(symbol, 86400, false);
   }
 
   async function frame(symbol, category, frameId) {
     if (!crypto(symbol, category)) {
-      throw new Error(symbol + " loads on the computer desk. This phone loads live crypto quotes.");
+      throw new Error(symbol + " loads on the computer desk. This device loads live crypto quotes.");
     }
     if (frameId === "30m") return group(await coinbase(symbol, 900, true), 2);
     if (frameId === "4h") return group(await coinbase(symbol, 3600, true), 4);

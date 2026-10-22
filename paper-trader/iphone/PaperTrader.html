@@ -87,6 +87,18 @@ h2 { font-size: 15px; }
 
 .lede { margin: 0; font-size: 13px; max-width: 460px; }
 
+.edge-note {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 640px;
+}
+.edge-note[hidden] { display: none; }
+
 .workspace {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr) 280px;
@@ -350,6 +362,7 @@ footer { display: none; }
       <span id="quote-asof" class="muted">Market quote</span>
     </div>
     <p class="lede">Paper orders only. Quotes are the market.</p>
+    <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
   </header>
 
   <div class="workspace">
@@ -516,7 +529,7 @@ plot Sell = close crosses below baseline;</textarea>
     Orders stay on the paper account. Quotes are market prices and are not a forecast.
   </footer>
   <script>
-/* Live crypto quotes for the phone page. The computer desk loads every market through its own quote feed. */
+/* Live crypto quotes for the mobile page. The computer desk loads every market through its own quote feed. */
 (function (root) {
   function stamp(unix, withTime) {
     const moment = new Date(unix * 1000);
@@ -589,14 +602,14 @@ plot Sell = close crosses below baseline;</textarea>
 
   async function daily(symbol, category) {
     if (!crypto(symbol, category)) {
-      throw new Error(symbol + " loads on the computer desk. This phone loads live crypto quotes.");
+      throw new Error(symbol + " loads on the computer desk. This device loads live crypto quotes.");
     }
     return coinbase(symbol, 86400, false);
   }
 
   async function frame(symbol, category, frameId) {
     if (!crypto(symbol, category)) {
-      throw new Error(symbol + " loads on the computer desk. This phone loads live crypto quotes.");
+      throw new Error(symbol + " loads on the computer desk. This device loads live crypto quotes.");
     }
     if (frameId === "30m") return group(await coinbase(symbol, 900, true), 2);
     if (frameId === "4h") return group(await coinbase(symbol, 3600, true), 4);
@@ -1788,7 +1801,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.1";
+const VERSION = "1.9.2";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -1966,7 +1979,19 @@ function withHooks(items) {
   if (quoteOk && next.some((item) => item.name === "Quotes" && item.ok)) {
     applyHook(next, "Quotes", true, state.offline ? "Live crypto" : "Market quote");
   }
+  const edge = inMicrosoftEdge();
+  applyHook(next, "Edge", edge, edge ? "This page is in Microsoft Edge" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
   return next;
+}
+
+function inMicrosoftEdge() {
+  return /Edg(?:e|iOS|A)?\//.test(navigator.userAgent || "");
+}
+
+function noteEdge() {
+  const note = $("edge-note");
+  if (!note) return;
+  note.hidden = !(state.offline && !inMicrosoftEdge());
 }
 
 function paintSignals(items) {
@@ -1995,7 +2020,7 @@ function paintSignals(items) {
 
 function renderLocalSignals() {
   paintSignals(withHooks([
-    { name: "This device", ok: true, detail: "Phone copy" },
+    { name: "This device", ok: true, detail: "Mobile copy" },
     { name: "Paper", ok: true, detail: "On" },
     { name: "Auto", ok: true, detail: "Ready" },
     { name: "Trade", ok: true, detail: "Ready" },
@@ -2030,6 +2055,7 @@ async function bootOffline() {
   render(state.paper);
   renderLocalSignals();
   rememberSymbol(state.paper.symbol);
+  noteEdge();
   if (state.paper.paper === true) {
     state.auto = true;
     render(state.paper);
@@ -2037,7 +2063,9 @@ async function bootOffline() {
     autoTick();
     return;
   }
-  $("status").textContent = "Phone copy ready. Crypto quotes are live.";
+  $("status").textContent = inMicrosoftEdge()
+    ? "Opened in Microsoft Edge. Crypto quotes are live."
+    : "Mobile copy ready. Crypto quotes are live.";
 }
 
 async function boot() {
