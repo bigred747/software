@@ -38,7 +38,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.8";
+const VERSION = "1.9.9";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -808,6 +808,8 @@ function renderReadings() {
     ["Price", PaperFrames.candlePlace(bar, lines.high[index], lines.low[index])],
     ["RSI", rsiName],
     ["Averages", averageName],
+    ["Resistance", pivotsText(PaperFrames.trendPivots(bars), "high")],
+    ["Support", pivotsText(PaperFrames.trendPivots(bars), "low")],
   ].forEach(([name, value]) => {
     const row = document.createElement("div");
     const label = document.createElement("dt");
@@ -850,6 +852,12 @@ function fillTrades(body, trades) {
   });
 }
 
+function pivotsText(pivots, side) {
+  if (!pivots) return "—";
+  if (side === "high") return formatPrice(pivots.resistance) + " · confirm " + formatPrice(pivots.confirmHigh);
+  return formatPrice(pivots.support) + " · confirm " + formatPrice(pivots.confirmLow);
+}
+
 function sliceToCursor(values) {
   const cursor = state.paper ? state.paper.cursor : 0;
   return (values || []).slice(0, cursor);
@@ -874,6 +882,7 @@ function drawCandles(retry) {
   const highLine = studyLines.high.slice(dropped);
   const midLine = studyLines.close.slice(dropped);
   const lowLine = studyLines.low.slice(dropped);
+  const pivots = PaperFrames.trendPivots(history);
   const fast = visible(state.market.fast);
   const slow = visible(state.market.slow);
   const squeeze = visible(state.market.squeeze);
@@ -894,6 +903,14 @@ function drawCandles(retry) {
       if (value > high) high = value;
     });
   });
+  if (pivots) {
+    const room = (high - low) * 0.25 || 1;
+    [pivots.resistance, pivots.support, pivots.confirmHigh, pivots.confirmLow, pivots.riskOffHigh, pivots.riskOffLow].forEach((price) => {
+      if (price < low - room || price > high + room) return;
+      if (price < low) low = price;
+      if (price > high) high = price;
+    });
+  }
   const span = high - low || 1;
   low -= span * 0.08;
   high += span * 0.08;
@@ -930,6 +947,13 @@ function drawCandles(retry) {
   drawLine(ctx, highLine, y, pad, slot, "#3ddc97", 2);
   drawLine(ctx, midLine, y, pad, slot, "#5b9dff", 2);
   drawLine(ctx, lowLine, y, pad, slot, "#ff6b7a", 2);
+  if (pivots) {
+    PaperFrames.paintPivots(ctx, {
+      ...pivots,
+      fromHigh: Math.max(0, pivots.fromHigh - dropped),
+      fromLow: Math.max(0, pivots.fromLow - dropped),
+    }, (index) => pad + index * slot + slot / 2, y, bars.length - 1);
+  }
   drawStudy(ctx, bars, y, pad, slot);
   const histoTop = priceBottom + 8;
   const histoBottom = height - 8;

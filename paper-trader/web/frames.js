@@ -203,6 +203,127 @@
     return "Off";
   }
 
+  function tickSize(price) {
+    const abs = Math.abs(price) || 1;
+    if (abs >= 1000) return 1;
+    if (abs >= 1) return 0.01;
+    if (abs >= 0.1) return 0.0001;
+    return 0.00001;
+  }
+
+  function roundTick(value, tick) {
+    return Math.round(value / tick) * tick;
+  }
+
+  function trendPivots(bars, length, multiple) {
+    const window = Math.max(2, Math.round(Number(length) || 5));
+    const factor = Number.isFinite(Number(multiple)) ? Number(multiple) : 0.7;
+    const count = bars.length;
+    if (count < 2) return null;
+    const tick = tickSize(bars[count - 1].close);
+    const range = bars.map((bar, index) => {
+      const span = bar.high - bar.low;
+      if (index === 0) return span;
+      const previous = bars[index - 1].close;
+      return Math.max(span, Math.abs(bar.high - previous), Math.abs(bar.low - previous));
+    });
+    let resistance = bars[0].high;
+    let support = bars[0].low;
+    let fromHigh = 0;
+    let fromLow = 0;
+    let highRange = range[0];
+    let lowRange = range[0];
+    let priorLow = bars[0].low;
+    let priorHigh = bars[0].high;
+    for (let index = 1; index < count; index += 1) {
+      let higherHighs = 0;
+      let higherLows = 0;
+      let lowerLows = 0;
+      let lowerHighs = 0;
+      const steps = Math.min(window, index);
+      for (let step = 0; step < steps; step += 1) {
+        const cursor = index - step;
+        if (bars[cursor].high > bars[cursor - 1].high) higherHighs += 1;
+        if (bars[cursor].low > bars[cursor - 1].low) higherLows += 1;
+        if (bars[cursor].low < bars[cursor - 1].low) lowerLows += 1;
+        if (bars[cursor].high < bars[cursor - 1].high) lowerHighs += 1;
+      }
+      if (index >= window && higherHighs >= window && higherLows >= window - 1) resistance = bars[index].high;
+      else if (bars[index].high > resistance) resistance = bars[index].high;
+      if (bars[index].high === resistance) {
+        fromHigh = index;
+        const used = Math.min(window, index + 1);
+        let sum = 0;
+        for (let step = 0; step < used; step += 1) sum += range[index - step];
+        highRange = roundTick(sum / used, tick);
+        priorLow = bars[index - 1].low;
+      }
+      if (index >= window && lowerLows >= window && lowerHighs >= window - 1) support = bars[index].low;
+      else if (bars[index].low < support) support = bars[index].low;
+      if (bars[index].low === support) {
+        fromLow = index;
+        const used = Math.min(window, index + 1);
+        let sum = 0;
+        for (let step = 0; step < used; step += 1) sum += range[index - step];
+        lowRange = roundTick(sum / used, tick);
+        priorHigh = bars[index - 1].high;
+      }
+    }
+    const confirmHigh = roundTick(Math.max(priorLow, resistance - highRange * factor), tick);
+    const confirmLow = roundTick(Math.min(priorHigh, support + lowRange * factor), tick);
+    return {
+      resistance,
+      support,
+      confirmHigh,
+      confirmLow,
+      riskOffHigh: roundTick(confirmHigh - Math.min(highRange, tick * 16), tick),
+      riskOffLow: roundTick(confirmLow + Math.min(lowRange, tick * 16), tick),
+      fromHigh,
+      fromLow,
+    };
+  }
+
+  function paintPivots(ctx, pivots, xAt, y, lastIndex) {
+    if (!pivots) return;
+    const bands = [
+      [pivots.fromHigh, pivots.confirmHigh, pivots.resistance, "rgba(255, 107, 122, 0.16)"],
+      [pivots.fromLow, pivots.support, pivots.confirmLow, "rgba(61, 220, 151, 0.16)"],
+    ];
+    bands.forEach(([from, first, second, color]) => {
+      const x1 = xAt(Math.max(0, from));
+      const x2 = xAt(lastIndex);
+      const y1 = y(first);
+      const y2 = y(second);
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.max(1, Math.abs(y2 - y1)));
+    });
+    const lines = [
+      [pivots.fromHigh, pivots.resistance, "#ff6b7a", false, "Resistance"],
+      [pivots.fromHigh, pivots.confirmHigh, "#ff8f9a", false, "Confirm"],
+      [pivots.fromHigh, pivots.riskOffHigh, "#d7e2ea", true, "Risk off"],
+      [pivots.fromLow, pivots.support, "#3ddc97", false, "Support"],
+      [pivots.fromLow, pivots.confirmLow, "#8ee8bf", false, "Confirm"],
+      [pivots.fromLow, pivots.riskOffLow, "#d7e2ea", true, "Risk off"],
+    ];
+    ctx.save();
+    ctx.font = "11px Segoe UI, sans-serif";
+    lines.forEach(([from, price, color, dashed, label]) => {
+      if (dashed && lines.some((other) => !other[3] && Math.abs(y(other[1]) - y(price)) < 8 && other[0] === from)) return;
+      const x1 = xAt(Math.max(0, from));
+      const x2 = xAt(lastIndex);
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = dashed ? 1 : 1.75;
+      ctx.setLineDash(dashed ? [4, 4] : []);
+      ctx.beginPath();
+      ctx.moveTo(x1, y(price));
+      ctx.lineTo(x2, y(price));
+      ctx.stroke();
+      if (!dashed) ctx.fillText(label, x2 - ctx.measureText(label).width - 4, y(price) - 3);
+    });
+    ctx.restore();
+  }
+
   function candlePlace(bar, highLine, lowLine) {
     if (!bar || highLine == null || lowLine == null) return "Waiting";
     if (bar.close > highLine) return "Above the high average";
@@ -309,6 +430,7 @@
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
     const lines = averages(bars);
+    const pivots = trendPivots(bars);
     const lower = height >= 220;
     const priceBottom = lower ? Math.round(height * 0.7) : height - (height < 150 ? 8 : 18);
     let low = Math.min(...bars.map((bar) => bar.low));
@@ -320,6 +442,12 @@
         if (value > high) high = value;
       });
     });
+    if (pivots) {
+      [pivots.resistance, pivots.support, pivots.confirmHigh, pivots.confirmLow, pivots.riskOffHigh, pivots.riskOffLow].forEach((price) => {
+        if (price < low) low = price;
+        if (price > high) high = price;
+      });
+    }
     const span = high - low || 1;
     low -= span * 0.08;
     high += span * 0.08;
@@ -357,6 +485,7 @@
     strokeSeries(ctx, lines.high, xAt, y, "#3ddc97", 2);
     strokeSeries(ctx, lines.close, xAt, y, "#5b9dff", 2);
     strokeSeries(ctx, lines.low, xAt, y, "#ff6b7a", 2);
+    paintPivots(ctx, pivots, xAt, y, bars.length - 1);
     if (lower) {
       const study = compression(bars);
       const histoTop = priceBottom + 10;
@@ -403,5 +532,7 @@
     squeezeName,
     candlePlace,
     compression,
+    trendPivots,
+    paintPivots,
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

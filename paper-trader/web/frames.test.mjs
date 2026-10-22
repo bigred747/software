@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -77,4 +77,20 @@ test("averages and squeeze stay with green or red candles", () => {
   study.level.forEach((level) => assert.ok(level >= 0 && level <= 3));
   assert.equal(squeezeName(3), "High");
   assert.equal(squeezeName(0), "Off");
+});
+
+test("pivot resistance follows the rising high and support stays under it", () => {
+  const bars = [];
+  for (let index = 0; index < 30; index += 1) {
+    const close = 100 + index;
+    bars.push(day("2024-03-" + String((index % 27) + 1).padStart(2, "0"), close - 1, close + 1, close - 2, close));
+  }
+  const pivots = trendPivots(bars, 5, 0.7);
+  assert.equal(pivots.resistance, bars[29].high);
+  assert.ok(pivots.confirmHigh <= pivots.resistance);
+  assert.ok(pivots.riskOffHigh <= pivots.confirmHigh);
+  assert.ok(pivots.support <= bars[0].low);
+  assert.ok(pivots.confirmLow >= pivots.support);
+  assert.ok(pivots.riskOffLow >= pivots.confirmLow);
+  assert.equal(pivots.fromHigh, 29);
 });
