@@ -11,7 +11,8 @@ echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
 echo This file was opened inside the zip. Extracting the whole Paper Trader now.
 set "ZIP="
-for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents") do for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
+for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents" "%USERPROFILE%\OneDrive\Downloads" "%USERPROFILE%\OneDrive\Desktop" "%USERPROFILE%\OneDrive\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
+if not defined ZIP if defined OneDrive for %%R in ("%OneDrive%\Downloads" "%OneDrive%\Desktop" "%OneDrive%\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
 if not defined ZIP goto NoZip
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
 taskkill /F /FI "WINDOWTITLE eq Paper Trader" >nul 2>&1
@@ -66,12 +67,15 @@ start "Paper Trader" cmd /c "%CMD%"
 echo Setup is done. Leave the window named Paper Trader open.
 echo Microsoft Edge opens when the desk answers. The header says Desk is working.
 echo The score keeps running after that window closes. It starts again when you sign in to Windows.
+echo The desk folder is:
+echo %RUN%
+call :MakePhone "%RUN%"
 echo Press any key to close this setup window.
 pause >nul
 exit /b 0
 
 :NoZip
-echo Could not find Paper-Trader.zip in Downloads, Desktop, or Documents.
+echo Could not find Paper-Trader.zip in Downloads, Desktop, Documents, or OneDrive.
 echo Save the zip in Downloads, then double-click this file again.
 pause
 exit /b 1
@@ -92,6 +96,7 @@ if "!HERE:~-1!"=="\" set "HERE=!HERE:~0,-1!"
 for /r "%HERE%" %%F in (*) do del /f /a "%%F:Zone.Identifier" >nul 2>&1
 echo Paper Trader stays on this computer. It loads market quotes and does not place broker orders.
 echo Microsoft Edge opens the desk.
+call :MakePhone "%~dp0"
 if exist "%~dp0runtime\python.exe" (
   "%~dp0runtime\python.exe" "%~dp0launch.py" serve
   goto done
@@ -109,3 +114,21 @@ if not errorlevel 1 (
 echo Python was not found. Extract Paper-Trader.zip again, then run 1 Allow Paper Trader.bat.
 :done
 pause
+exit /b 0
+
+:MakePhone
+set "PHONE=%USERPROFILE%\Documents\iPhone"
+if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
+if not exist "%PHONE%" mkdir "%PHONE%"
+set "SRC=%~1"
+if "!SRC:~-1!"=="\" set "SRC=!SRC:~0,-1!"
+if exist "%SRC%\iphone\PaperTrader.html" copy /y "%SRC%\iphone\PaperTrader.html" "%PHONE%\PaperTrader.html" >nul
+if exist "%SRC%\iphone\README.txt" copy /y "%SRC%\iphone\README.txt" "%PHONE%\README.txt" >nul
+if exist "%PHONE%\PaperTrader.html" (
+  echo The iPhone folder is open.
+  echo %PHONE%
+  start "" explorer "%PHONE%"
+) else (
+  echo The iPhone file was not in this copy.
+)
+exit /b 0
