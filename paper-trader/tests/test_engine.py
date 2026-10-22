@@ -140,16 +140,24 @@ class SampleTests(unittest.TestCase):
         self.assertEqual(full.trades[: len(partial.trades)], partial.trades)
 
     def test_journal_round_trip(self) -> None:
-        with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder) / "paper_state.json"
-            journal = load_journal(path)
-            journal.cursor += 5
-            save_journal(path, journal)
-            loaded = load_journal(path)
-            self.assertEqual(loaded.cursor, journal.cursor)
-            view = view_journal(loaded)
-            self.assertEqual(view["symbol"], "BTC-USD")
-            self.assertEqual(view["cursor"], loaded.cursor)
+        from paper_trader import quotes
+
+        original = quotes.load_bars
+        quotes.load_bars = lambda symbol, refresh=False: load_symbol(symbol)
+        try:
+            with tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / "paper_state.json"
+                journal = load_journal(path)
+                journal.cursor += 5
+                save_journal(path, journal)
+                loaded = load_journal(path)
+                self.assertEqual(loaded.cursor, journal.cursor)
+                view = view_journal(loaded)
+                self.assertEqual(view["symbol"], "BTC-USD")
+                self.assertEqual(view["cursor"], len(load_symbol("BTC-USD")))
+                self.assertEqual(view["quote"], "market")
+        finally:
+            quotes.load_bars = original
 
 
 class StudyAndPhoneTests(unittest.TestCase):

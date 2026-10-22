@@ -24,7 +24,7 @@ test("ten timeframes and a brief", () => {
   assert.deepEqual(rows.map((row) => row.id), ["1m", "5m", "15m", "30m", "1h", "4h", "1D", "1W", "1M", "1Q"]);
   const note = brief("TEST", rows);
   assert.equal(note.lines.length, 10);
-  assert.match(note.lead, /of 10 timeframes/);
+  assert.match(note.lead, /higher timeframes/);
 });
 
 test("intraday bars stay inside the daily sample", () => {

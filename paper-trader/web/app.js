@@ -19,10 +19,10 @@ const SYMBOL_KEY = "paperTraderSymbol";
 const DEFAULT_PINS = ["BTC-USD", "ETH-USD", "XRP-USD", "XLM-USD", "SOL-USD", "SPY"];
 
 const notes = {
-  BUY: "The next sample day would open a simulated long at that day's open.",
-  SELL: "The next sample day would close the simulated long at that day's open.",
-  "HOLD LONG": "A simulated long is open. No exit signal on this close.",
-  HOLD: "Flat. No new simulated order on this close.",
+  BUY: "The paper account would open a long on the next bar.",
+  SELL: "The paper account would close the long on the next bar.",
+  "HOLD LONG": "A paper long is open. No exit signal on this bar.",
+  HOLD: "Flat. No new paper order on this bar.",
 };
 
 function $(id) {
@@ -87,16 +87,44 @@ function post(url, body) {
   });
 }
 
+function phoneCrypto(symbol, row) {
+  return (row && row.category === "crypto") || /-USD$/.test(symbol || "");
+}
+
+function stampQuote(bars) {
+  if (!state.market) return;
+  state.market.as_of = bars && bars.asOf ? bars.asOf : Math.floor(Date.now() / 1000);
+  state.market.price = bars && bars.length ? bars[bars.length - 1].close : state.market.price;
+  state.market.note = "Market quote. Paper orders stay on this device.";
+}
+
+async function loadPhoneBars(symbol, params, fresh) {
+  const row = state.catalog.find((item) => item.symbol === symbol);
+  const bars = await PaperLive.daily(symbol, row ? row.category : "");
+  if (fresh || !state.session || state.session.symbol !== symbol) {
+    state.session = PaperEngine.sessionFromBars(symbol, bars, params || {});
+  } else {
+    PaperEngine.replaceBars(state.session, bars);
+  }
+  state.market = PaperEngine.market(state.session);
+  stampQuote(bars);
+  return PaperEngine.view(state.session);
+}
+
 async function paperCall(path, body) {
   if (!state.offline) return post(path, body);
   const params = body || {};
-  if (path === "/api/paper/step") return PaperEngine.step(state.session, params.days || 1);
-  if (path === "/api/paper/run") return PaperEngine.run(state.session);
-  if (path === "/api/paper/trade") return PaperEngine.trade(state.session);
+  if (path === "/api/paper/step" || path === "/api/paper/run") {
+    return loadPhoneBars(state.session.symbol, state.session.params, false);
+  }
+  if (path === "/api/paper/trade") {
+    await loadPhoneBars(state.session.symbol, state.session.params, false);
+    return PaperEngine.trade(state.session);
+  }
   if (path === "/api/paper/mode") return PaperEngine.view(state.session);
   if (path === "/api/paper/reset") {
-    state.session = PaperEngine.reset(state.catalog, { ...formParams(), ...params });
-    return PaperEngine.view(state.session);
+    const symbol = params.symbol || $("symbol").value;
+    return loadPhoneBars(symbol, { ...formParams(), ...params }, true);
   }
   throw new Error("That action stays on this device");
 }
@@ -117,7 +145,8 @@ async function refreshSymbols() {
   const current = (state.paper && state.paper.symbol) || select.value;
   const rows = listed.symbols.slice();
   if (current && !rows.some((item) => item.symbol === current)) {
-    rows.unshift({ symbol: current, name: "Current sample", category: "", decimals: state.decimals });
+    const decimals = /-USD$/.test(current) ? 4 : 2;
+    rows.unshift({ symbol: current, name: "Current market", category: "", decimals });
   }
   select.replaceChildren();
   rows.forEach((item) => {
@@ -132,7 +161,7 @@ async function refreshSymbols() {
   const chosen = [...select.options].find((item) => item.value === select.value);
   if (chosen) state.decimals = Number(chosen.dataset.decimals || 2);
   const total = Number(listed.total || 0).toLocaleString();
-  $("market-count").textContent = select.options.length + " listed · " + total + " sample markets";
+  $("market-count").textContent = select.options.length + " listed · " + total + " markets";
 }
 
 async function probeDesk() {
@@ -151,13 +180,14 @@ function renderLocalSignals() {
     ["Paper", true, "On"],
     ["Auto", true, "Ready"],
     ["Trade", true, "Ready"],
-    ["Markets", state.catalog.length >= 7500, state.catalog.length + " samples"],
+    ["Markets", state.catalog.length >= 7500, state.catalog.length + " markets"],
     ["Squeeze", true, "Ready"],
     ["Arrows", true, "Ready"],
     ["Study", true, "On this device"],
     ["Timeframes", true, "10 windows"],
     ["Broker", true, "Not connected"],
-    ["Version", true, "1.8.0"],
+    ["Quotes", true, "Live crypto"],
+    ["Version", true, "1.9.0"],
   ];
   const list = $("signals");
   list.replaceChildren();
@@ -176,23 +206,30 @@ async function bootOffline() {
   const text = globalThis.PAPER_CATALOG || await (await fetch("/catalog.txt")).text();
   state.catalog = PaperEngine.parseCatalog(text);
   const saved = savedSymbol();
-  const symbol = state.catalog.some((row) => row.symbol === saved) ? saved : "BTC-USD";
-  state.session = PaperEngine.open(state.catalog, symbol, {});
+  let symbol = state.catalog.some((row) => row.symbol === saved) ? saved : "BTC-USD";
+  let row = state.catalog.find((item) => item.symbol === symbol);
+  if (!phoneCrypto(symbol, row)) {
+    symbol = "BTC-USD";
+    row = state.catalog.find((item) => item.symbol === symbol);
+  }
+  const bars = await PaperLive.daily(symbol, row ? row.category : "");
+  state.session = PaperEngine.sessionFromBars(symbol, bars, {});
   state.paper = PaperEngine.view(state.session);
   await refreshSymbols();
   fillForm(state.paper.params);
   state.market = PaperEngine.market(state.session);
+  stampQuote(bars);
   render(state.paper);
   renderLocalSignals();
   rememberSymbol(state.paper.symbol);
-  if (state.paper.paper === true && !state.paper.finished) {
+  if (state.paper.paper === true) {
     state.auto = true;
     render(state.paper);
-    $("status").textContent = "Auto is on. Simulated sample days only.";
+    $("status").textContent = "Auto is on. Refreshing the market quote.";
     autoTick();
     return;
   }
-  $("status").textContent = "Phone copy ready. Sample prices stay on this device.";
+  $("status").textContent = "Phone copy ready. Crypto quotes are live.";
 }
 
 async function boot() {
@@ -206,18 +243,18 @@ async function boot() {
   state.paper = paper;
   await refreshSymbols();
   fillForm(paper.params);
-  await loadMarket();
+  await loadMarket(paper.symbol);
   render(paper);
   await loadSignals();
   rememberSymbol(paper.symbol);
-  if (paper.paper === true && !paper.finished) {
+  if (paper.paper === true) {
     state.auto = true;
     render(paper);
-    $("status").textContent = "Auto is on. Simulated sample days only.";
+    $("status").textContent = "Auto is on. Refreshing the market quote.";
     autoTick();
     return;
   }
-  $("status").textContent = "Sample session ready.";
+  $("status").textContent = "Market quote ready.";
 }
 
 async function loadSignals() {
@@ -245,14 +282,20 @@ function rerunStudy() {
   }
 }
 
-async function loadMarket() {
+async function loadMarket(symbol) {
   if (state.offline) {
     state.market = PaperEngine.market(state.session);
+    stampQuote(state.session.bars);
     rerunStudy();
     return;
   }
   const params = new URLSearchParams(formParams());
+  const chosen = symbol || (state.paper && state.paper.symbol) || params.get("symbol");
+  if (chosen) params.set("symbol", chosen);
   state.market = await getJSON("/api/market?" + params.toString());
+  if (chosen && state.market.symbol !== chosen) {
+    throw new Error("The quote for " + chosen + " did not load");
+  }
   rerunStudy();
 }
 
@@ -273,8 +316,8 @@ function render(paper) {
   renderQuote(paper);
   $("next").disabled = state.auto || paper.finished;
   $("run").disabled = state.auto || paper.finished;
-  $("trade").disabled = Boolean(paper.finished);
-  $("auto").disabled = Boolean(paper.finished);
+  $("trade").disabled = false;
+  $("auto").disabled = false;
   $("auto").setAttribute("aria-pressed", state.auto ? "true" : "false");
   $("paper").disabled = false;
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
@@ -372,12 +415,25 @@ function chooseSymbol(symbol) {
   return withBusy(async () => {
     stopAuto();
     rememberSymbol(symbol);
+    if (state.offline) {
+      const row = state.catalog.find((item) => item.symbol === symbol);
+      const bars = await PaperLive.daily(symbol, row ? row.category : "");
+      state.session = PaperEngine.sessionFromBars(symbol, bars, formParams());
+      state.paper = PaperEngine.view(state.session);
+      state.market = PaperEngine.market(state.session);
+      stampQuote(bars);
+      await refreshSymbols();
+      rerunStudy();
+      render(state.paper);
+      $("status").textContent = "Opened the live quote for " + symbol + ".";
+      return;
+    }
     const paper = await paperCall("/api/paper/reset", { ...formParams(), symbol });
     state.paper = paper;
     await refreshSymbols();
-    await loadMarket();
+    await loadMarket(paper.symbol);
     render(paper);
-    $("status").textContent = "Started a new sample session for " + paper.symbol + ".";
+    $("status").textContent = "Opened the market quote for " + paper.symbol + ".";
   });
 }
 
@@ -391,16 +447,21 @@ function renderQuote(paper) {
   if (!last) {
     $("quote-last").textContent = "—";
     $("quote-change").textContent = "—";
-    $("quote-asof").textContent = "Sample session";
+    $("quote-asof").textContent = "Market quote";
     quote.className = "quote";
     return;
   }
   const change = previous ? last.close - previous.close : 0;
   const percent = previous && previous.close ? (change / previous.close) * 100 : 0;
   const sign = change > 0 ? "+" : "";
-  $("quote-last").textContent = formatPrice(last.close);
+  const sameMarket = state.market && state.market.symbol === paper.symbol;
+  const livePrice = sameMarket && state.market.price != null ? state.market.price : last.close;
+  $("quote-last").textContent = formatPrice(livePrice);
   $("quote-change").textContent = sign + formatPrice(change) + "  " + sign + percent.toFixed(2) + "%";
-  $("quote-asof").textContent = "Through " + (last.date || paper.last_date || "the sample") + " · not a live quote";
+  const asOf = sameMarket && state.market.as_of;
+  $("quote-asof").textContent = asOf
+    ? "Market quote · " + new Date(asOf * 1000).toLocaleString()
+    : "Market quote · " + (last.date || "");
   quote.className = "quote " + (change > 0 ? "up" : change < 0 ? "down" : "flat");
 }
 
@@ -456,7 +517,9 @@ function renderFrames() {
   const caption = $("frame-preview-caption");
   if (caption && selected) {
     const change = (selected.change >= 0 ? "+" : "") + selected.change.toFixed(2) + "%";
-    caption.textContent = selected.label + " preview · " + selected.bias + " · " + change + " · " + selected.count + " sample bars";
+    caption.textContent = selected.count
+      ? selected.label + " preview · " + selected.bias + " · " + change + " · " + selected.count + " market bars"
+      : selected.label + " opens market bars in its own window";
   }
   PaperFrames.draw($("frame-preview"), selected.bars);
 }
@@ -481,13 +544,29 @@ function writeOfflineFrame(win, frameId) {
   const bars = row ? row.bars : [];
   const heading = (state.paper.symbol || "Sample") + " · " + frame.label;
   win.document.open();
-  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p style=\"padding:12px 16px\">" + heading + " is " + (row ? row.bias : "flat") + ". Sample bars, not a live quote.</p><canvas id=\"c\" style=\"width:100%;height:78vh\"></canvas><script>const bars = " + JSON.stringify(bars) + ";const canvas=document.getElementById('c');function paint(){const width=canvas.clientWidth||640;const height=canvas.clientHeight||360;canvas.width=width;canvas.height=height;const ctx=canvas.getContext('2d');if(!bars.length)return;const pad=28;let low=Math.min(...bars.map(b=>b.low));let high=Math.max(...bars.map(b=>b.high));const span=high-low||1;low-=span*0.08;high+=span*0.08;const y=p=>pad+((high-p)/(high-low))*(height-pad*2);const slot=(width-pad*2)/bars.length;bars.forEach((bar,index)=>{const x=pad+index*slot+slot/2;const up=bar.close>=bar.open;ctx.strokeStyle=up?'#3ddc97':'#ff6b7a';ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(x,y(bar.high));ctx.lineTo(x,y(bar.low));ctx.stroke();const top=y(Math.max(bar.open,bar.close));const bottom=y(Math.min(bar.open,bar.close));ctx.fillRect(x-2,top,4,Math.max(1,bottom-top));});}paint();addEventListener('resize',paint);<" + "/script></body>");
+  const quoteLine = bars.length ? "Market quote." : "Loading the market quote.";
+  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + "</p><canvas id=\"c\" style=\"width:100%;height:78vh\"></canvas><script>const bars = " + JSON.stringify(bars) + ";const canvas=document.getElementById('c');function paint(){const width=canvas.clientWidth||640;const height=canvas.clientHeight||360;canvas.width=width;canvas.height=height;const ctx=canvas.getContext('2d');if(!bars.length)return;const pad=28;let low=Math.min(...bars.map(b=>b.low));let high=Math.max(...bars.map(b=>b.high));const span=high-low||1;low-=span*0.08;high+=span*0.08;const y=p=>pad+((high-p)/(high-low))*(height-pad*2);const slot=(width-pad*2)/bars.length;bars.forEach((bar,index)=>{const x=pad+index*slot+slot/2;const up=bar.close>=bar.open;ctx.strokeStyle=up?'#3ddc97':'#ff6b7a';ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(x,y(bar.high));ctx.lineTo(x,y(bar.low));ctx.stroke();const top=y(Math.max(bar.open,bar.close));const bottom=y(Math.min(bar.open,bar.close));ctx.fillRect(x-2,top,4,Math.max(1,bottom-top));});}paint();addEventListener('resize',paint);<" + "/script></body>");
   win.document.close();
 }
 
-function openFrame(frameId) {
+async function openFrame(frameId) {
   state.frameId = frameId;
+  let liveBars = null;
+  if (state.offline && state.paper && typeof PaperLive !== "undefined") {
+    const row = state.catalog.find((item) => item.symbol === state.paper.symbol);
+    try {
+      liveBars = await PaperLive.frame(state.paper.symbol, row ? row.category : "", frameId);
+    } catch (error) {
+      $("status").textContent = error.message;
+      renderFrames();
+      return false;
+    }
+  }
   renderFrames();
+  if (liveBars) {
+    const match = (state.frames || []).find((item) => item.id === frameId);
+    if (match) match.bars = liveBars;
+  }
   const win = openFrameWindow(frameId);
   if (!win) {
     showDock("frames");
@@ -501,14 +580,41 @@ function openFrame(frameId) {
 
 function openAllFrames() {
   let opened = 0;
+  const openedWindows = [];
   PaperFrames.FRAMES.forEach((frame) => {
     const win = openFrameWindow(frame.id);
-    if (win) opened += 1;
+    if (win) {
+      opened += 1;
+      openedWindows.push({ id: frame.id, win });
+    }
   });
+  if (state.offline) {
+    openedWindows.forEach(({ id, win }) => {
+      paintPhoneFrame(win, id);
+    });
+  }
   showDock("frames");
   $("status").textContent = opened
     ? "Opened " + opened + " of 10 windows. A blocked window stays listed in this panel."
     : "The browser blocked the windows. Each timeframe is listed in this panel.";
+}
+
+async function paintPhoneFrame(win, frameId) {
+  const row = state.catalog.find((item) => item.symbol === (state.paper && state.paper.symbol));
+  try {
+    const bars = await PaperLive.frame(state.paper.symbol, row ? row.category : "", frameId);
+    if (!win || win.closed) return;
+    const match = (state.frames || []).find((item) => item.id === frameId);
+    if (match) match.bars = bars;
+    writeOfflineFrame(win, frameId);
+    const note = win.document.getElementById("note");
+    if (note) note.textContent = state.paper.symbol + " · " + PaperFrames.frameById(frameId).label + ". Market quote · " + bars.length + " bars.";
+  } catch (error) {
+    if (win && !win.closed) {
+      const note = win.document.getElementById("note");
+      if (note) note.textContent = error.message;
+    }
+  }
 }
 
 function openBrief() {
@@ -523,7 +629,7 @@ function openBrief() {
   }
   const body = [note.lead].concat(note.lines).map((line) => "<p>" + line.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch])) + "</p>").join("");
   win.document.open();
-  win.document.write("<!DOCTYPE html><title>" + note.title + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:18px/1.5 Segoe UI,sans-serif\"><article style=\"max-width:640px;padding:28px\"><p style=\"letter-spacing:.08em;text-transform:uppercase;color:#8fd0c4;font-size:12px\">Brief</p><h1 style=\"font-size:28px\">" + note.title + "</h1>" + body + "<p style=\"color:#93a0ad\">Sample prices are not live quotes and are not a forecast.</p></article></body>");
+  win.document.write("<!DOCTYPE html><title>" + note.title + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:18px/1.5 Segoe UI,sans-serif\"><article style=\"max-width:640px;padding:28px\"><p style=\"letter-spacing:.08em;text-transform:uppercase;color:#8fd0c4;font-size:12px\">Brief</p><h1 style=\"font-size:28px\">" + note.title + "</h1>" + body + "<p style=\"color:#93a0ad\">Market quotes are not a forecast. Paper orders stay on this device.</p></article></body>");
   win.document.close();
   $("status").textContent = "The brief opened in its own window.";
 }
@@ -595,12 +701,17 @@ function sliceToCursor(values) {
   return (values || []).slice(0, cursor);
 }
 
+function visible(values) {
+  const sliced = sliceToCursor(values);
+  return sliced.length > 180 ? sliced.slice(sliced.length - 180) : sliced;
+}
+
 function drawCandles() {
   const canvas = $("candles");
-  const bars = sliceToCursor(state.market.bars);
-  const fast = sliceToCursor(state.market.fast);
-  const slow = sliceToCursor(state.market.slow);
-  const squeeze = sliceToCursor(state.market.squeeze);
+  const bars = visible(state.market.bars);
+  const fast = visible(state.market.fast);
+  const slow = visible(state.market.slow);
+  const squeeze = visible(state.market.squeeze);
   const ctx = prepare(canvas);
   if (!bars.length) return;
   const width = canvas.clientWidth;
@@ -665,7 +776,7 @@ function drawStudy(ctx, bars, y, pad, slot) {
   const colors = ["#d7e2ea", "#7dcec4", "#d2b4f0", "#e6c36a"];
   let line = 0;
   state.study.plots.forEach((plot) => {
-    const values = sliceToCursor(plot.values);
+    const values = visible(plot.values);
     const numeric = values.filter((value) => value != null);
     const binary = numeric.length > 0 && numeric.every((value) => value === 0 || value === 1);
     const side = plot.side || (/sell|short|down/i.test(plot.name) ? "sell" : /buy|long|up/i.test(plot.name) ? "buy" : "");
@@ -708,7 +819,7 @@ function drawArrow(ctx, x, y, up) {
 
 function drawRsi() {
   const canvas = $("rsi-chart");
-  const values = sliceToCursor(state.market.rsi);
+  const values = visible(state.market.rsi);
   const ctx = prepare(canvas);
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
@@ -769,6 +880,7 @@ async function withBusy(action) {
     await action();
   } catch (error) {
     $("status").textContent = error.message;
+    if (state.paper && $("symbol").value !== state.paper.symbol) $("symbol").value = state.paper.symbol;
   } finally {
     state.busy = false;
   }
@@ -787,18 +899,27 @@ function stopAuto(message) {
 async function autoTick() {
   if (!state.auto || state.busy) return;
   state.busy = true;
+  let delay = 15000;
   try {
-    const paper = await paperCall("/api/paper/step", { days: 1 });
-    render(paper);
-    if (paper.finished || paper.paper !== true) {
-      state.auto = false;
+    if (state.offline && state.session) {
+      const row = state.catalog.find((item) => item.symbol === state.session.symbol);
+      const bars = await PaperLive.daily(state.session.symbol, row ? row.category : "");
+      const paper = PaperEngine.replaceBars(state.session, bars);
+      state.market = PaperEngine.market(state.session);
+      stampQuote(bars);
       render(paper);
-      $("status").textContent = paper.finished
-        ? "Auto stopped. The sample is finished."
-        : "Auto stopped. Paper is off.";
+    } else {
+      const paper = await paperCall("/api/paper/step", { days: 1 });
+      state.paper = paper;
+      await loadMarket(paper.symbol);
+      render(paper);
+    }
+    if (state.paper && state.paper.paper !== true) {
+      state.auto = false;
+      $("status").textContent = "Auto stopped. Paper is off.";
       return;
     }
-    $("status").textContent = "Auto is on. This step is a simulated sample day.";
+    $("status").textContent = "Auto is on. Refreshing the market quote.";
   } catch (error) {
     state.auto = false;
     if (state.paper) render(state.paper);
@@ -807,15 +928,14 @@ async function autoTick() {
   } finally {
     state.busy = false;
   }
-  if (state.auto) state.autoTimer = setTimeout(autoTick, 200);
+  if (state.auto) state.autoTimer = setTimeout(autoTick, delay);
 }
 
 $("auto").addEventListener("click", () => {
   if (!state.paper || state.paper.paper !== true) {
-    $("status").textContent = "Turn Paper on first. Auto only replays the sample.";
+    $("status").textContent = "Turn Paper on first. Auto only refreshes the quote.";
     return;
   }
-  if (state.paper.finished) return;
   state.auto = !state.auto;
   render(state.paper);
   if (!state.auto) {
@@ -824,7 +944,7 @@ $("auto").addEventListener("click", () => {
     $("status").textContent = "Auto is off.";
     return;
   }
-  $("status").textContent = "Auto is on. Simulated sample days only.";
+  $("status").textContent = "Auto is on. Refreshing the market quote.";
   autoTick();
 });
 
@@ -878,20 +998,21 @@ $("next").addEventListener("click", () => withBusy(async () => {
 $("run").addEventListener("click", () => withBusy(async () => {
   stopAuto();
   render(await paperCall("/api/paper/run", {}));
-  $("status").textContent = "Sample session finished.";
+  $("status").textContent = "The quote is current.";
 }));
 
 $("reset").addEventListener("click", () => withBusy(async () => {
   stopAuto();
   const paper = await paperCall("/api/paper/reset", formParams());
-  await loadMarket();
+  state.paper = paper;
+  await loadMarket(paper.symbol);
   render(paper);
-  $("status").textContent = "Session reset with the settings above.";
+  $("status").textContent = "Session reset on the latest quote.";
 }));
 
 $("full").addEventListener("click", () => withBusy(async () => {
   if (state.offline) {
-    $("backtest-summary").textContent = "On the phone, Run remaining days replays the sample. The separate full-sample report is on the computer copy.";
+    $("backtest-summary").textContent = "On the phone, the quote stays current. The full history report is on the computer copy.";
     showDock("backtest");
     return;
   }

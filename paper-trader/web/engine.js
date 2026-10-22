@@ -1,4 +1,4 @@
-/* Sample prices and a paper session for this page. No network and no broker. */
+/* Paper session for this page. Quotes are supplied by the caller. No broker orders. */
 (function (root) {
   const ANCHORS = {
     "BTC-USD": [42000, 2], "ETH-USD": [2300, 2], "XRP-USD": [0.58, 4], "XLM-USD": [0.11, 4],
@@ -174,7 +174,7 @@
     }
     return {
       symbol: session.symbol,
-      note: "Built-in sample prices. Not live quotes.",
+      note: "Market quote. Paper orders stay on this device.",
       bars,
       fast: sma(closes, session.params.fast),
       slow: sma(closes, session.params.slow),
@@ -297,6 +297,36 @@
     },
     trade(session) {
       return fill(session, session.shares > 0 ? "sell" : "buy");
+    },
+    sessionFromBars(symbol, bars, params) {
+      const settings = {
+        fast: Number((params || {}).fast) || 10,
+        slow: Number((params || {}).slow) || 30,
+        rsi_period: Number((params || {}).rsi_period ?? (params || {}).rsi ?? 14),
+        cash: Number((params || {}).cash) || 10000,
+        fee_bps: Number((params || {}).fee_bps) || 0,
+        stop_pct: Number((params || {}).stop_pct) || 0,
+      };
+      const last = bars.length ? bars[bars.length - 1].close : 1;
+      return {
+        symbol,
+        row: { symbol, name: symbol, category: "crypto", decimals: last < 2 ? 4 : 2, start: bars[0] ? bars[0].open : 1 },
+        params: settings,
+        bars,
+        cursor: bars.length,
+        cash: settings.cash,
+        shares: 0,
+        entryPrice: null,
+        entryDate: null,
+        cost: 0,
+        trades: [],
+        lastAction: "",
+      };
+    },
+    replaceBars(session, bars) {
+      session.bars = bars;
+      session.cursor = bars.length;
+      return view(session);
     },
     reset(rows, params) {
       return this.open(rows, params.symbol, {

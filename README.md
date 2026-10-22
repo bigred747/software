@@ -49,18 +49,22 @@ A product is 95–100 when it has **supported brand + ASIN + price + primary ima
 
 ## Paper Trader
 
-Local sample trading desk in [paper-trader](paper-trader/README.md). It replays 7,500 built-in markets (stocks, ETFs, futures, and crypto, including Bitcoin, XRP, and Stellar), shows squeeze compression and buy/sell arrows, and keeps a simulated account. **Auto** steps the sample. **Trade** places one simulated order. **Paper** stays on. It does not place broker orders, collect payments, or connect to an exchange. Prices are samples, not live quotes.
+Local paper desk in [paper-trader](paper-trader/README.md). The computer copy loads market quotes for 7,500 stocks, ETFs, futures, and crypto, including Bitcoin, XRP, and Stellar. It shows the quote time, squeeze compression, and buy/sell arrows, and keeps a simulated account. **Auto** refreshes the quote. **Trade** places one simulated order at the latest price. **Paper** stays on. It does not place broker orders, collect payments, or send the order to an exchange. If the quote feed does not answer, the desk shows the error and does not invent a price.
 
-The header shows the sample symbol, last price, and change. Bitcoin, Ether, XRP, Stellar, Solana, and SPY are pinned for one-tap access. The ticket shows the paper result, closed trades, and wins. Ten sample timeframes (1 minute through quarterly) open in their own windows, with a written brief in the Timeframes panel. Intraday bars are built from the daily sample. They are not a live tape and they are not a forecast. This desk is an original layout. It is not a copy of another platform.
+The header shows the symbol, last price, change, and quote time. Bitcoin, Ether, XRP, Stellar, Solana, and SPY are pinned. The ticket shows the paper result, closed trades, and wins. Ten timeframes, from 1 minute through quarterly, open in their own windows on the market's bars. US stocks after the cash close show that session's closing price. Crypto and many futures keep updating. This desk is an original layout. It is not a copy of another platform.
 
 **Download the whole bot:**
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/Paper-Trader.zip)
 
-SHA-256 `8d7098714f658747204b65d6eacd1868f24f4ec44bf05ba7b78cf16d62e802ee`
+SHA-256 `2fec294c2f8a2c40208e84ea6573aecce643a21cd88de94b20008a52c35a9bf9`
 
 Size **11.7 MB**. Python 3.13 for Windows is inside the zip. The iPhone page is `iphone/PaperTrader.html` inside the same zip.
 
-Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.8.0 extracts the whole zip into Documents and opens that copy. Signals show **1.8.0** when this copy is running.
+**iPhone file only:**
 
-On an iPhone, copy `iphone/PaperTrader.html` from the zip into the Files app and open it in Safari. The desk runs in the browser. Studies stay on the device.
+[PaperTrader.html](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/paper-trader/iphone/PaperTrader.html)
+
+Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.9.0 extracts the whole zip into Documents and opens that copy. Signals show **1.9.0** when this copy is running.
+
+On an iPhone, press and hold the HTML link, choose Download Linked File, then open `PaperTrader.html` from the Files app in Safari. If it saves as a text file, rename it to `.html`. The phone loads live crypto quotes. Stocks, ETFs, and futures load on the computer copy. Studies stay on the device.

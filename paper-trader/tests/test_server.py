@@ -1,4 +1,4 @@
-"""The desk stays on this computer and serves the sample session."""
+"""The desk stays on this computer and serves the paper session."""
 
 from __future__ import annotations
 
@@ -23,6 +23,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ServerTests(unittest.TestCase):
     def setUp(self) -> None:
+        from paper_trader import quotes
+        from paper_trader.samples import load_symbol
+
+        self._quotes = quotes.load_bars
+        quotes.load_bars = lambda symbol, refresh=False: load_symbol(symbol)
         self.folder = tempfile.TemporaryDirectory()
         state = Path(self.folder.name) / "paper_state.json"
         self.server = create_server(state, 0)
@@ -31,6 +36,9 @@ class ServerTests(unittest.TestCase):
         self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
 
     def tearDown(self) -> None:
+        from paper_trader import quotes
+
+        quotes.load_bars = self._quotes
         self.server.shutdown()
         self.server.server_close()
         self.folder.cleanup()
@@ -95,7 +103,7 @@ class ServerTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn("Paper Trader sample replay", completed.stdout)
+        self.assertIn("Paper Trader market replay", completed.stdout)
 
     def test_signals_are_green_when_the_desk_is_healthy(self) -> None:
         status, raw = self.open("/api/checks")
@@ -118,7 +126,8 @@ class ServerTests(unittest.TestCase):
         payload = json.loads(traded)
         self.assertEqual(payload["mode"], "paper")
         self.assertTrue(payload["paper"])
-        self.assertEqual(payload["cursor"], before["cursor"] + 1)
+        self.assertEqual(payload["cursor"], before["cursor"])
+        self.assertEqual(payload["cursor"], payload["total_bars"])
         self.assertIn(payload["last_action"], {"buy", "sell"})
         if payload["last_action"] == "buy":
             self.assertGreater(payload["shares"], 0)
@@ -131,7 +140,8 @@ class ServerTests(unittest.TestCase):
         before = json.loads(raw)["cursor"]
         status, stepped = self.open("/api/paper/step", "POST", {"days": 1})
         self.assertEqual(status, 200)
-        self.assertEqual(json.loads(stepped)["cursor"], before + 1)
+        self.assertEqual(json.loads(stepped)["cursor"], before)
+        self.assertEqual(json.loads(stepped)["cursor"], json.loads(stepped)["total_bars"])
         status, report = self.open("/api/backtest", "POST", {"symbol": "ETH-USD", "fast": 8, "slow": 21, "rsi": 14})
         self.assertEqual(status, 200)
         self.assertGreaterEqual(json.loads(report)["trade_count"], 1)

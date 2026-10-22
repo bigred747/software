@@ -16,16 +16,16 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="eyebrow">Local sample desk</p>
+      <p class="eyebrow">Local paper desk</p>
       <h1>Paper Trader</h1>
     </div>
     <div id="quote" class="quote" aria-live="polite">
       <span id="quote-symbol">—</span>
       <span id="quote-last">—</span>
       <span id="quote-change">—</span>
-      <span id="quote-asof" class="muted">Sample session</span>
+      <span id="quote-asof" class="muted">Market quote</span>
     </div>
-    <p class="lede">Simulated fills only. Prices are samples.</p>
+    <p class="lede">Paper orders only. Quotes are the market.</p>
   </header>
 
   <div class="workspace">
@@ -56,7 +56,7 @@
       <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
       <canvas id="candles" width="800" height="360"></canvas>
       <canvas id="rsi-chart" width="800" height="88" aria-label="RSI"></canvas>
-      <p class="muted chart-note">Green arrows are simulated buys. Red arrows are simulated sells. Squares show squeeze compression. Study lines come from the formula installed on this device. Prices are samples, not live quotes.</p>
+      <p class="muted chart-note">The chart shows the latest market bars. Green arrows are paper buys. Red arrows are paper sells. Squares show squeeze compression. Study lines stay on this device.</p>
     </section>
 
     <section id="view-trade" class="panel ticket" aria-label="Session">
@@ -107,7 +107,7 @@
 
       <div class="dock-page on" data-dock-page="study">
         <h2>Install study</h2>
-        <p class="muted">Paste your own price formula. It runs on the sample in this page only. It cannot place a broker order, open a connection, or read files.</p>
+        <p class="muted">Paste your own price formula. It runs on the quotes in this page only. It cannot place a broker order, open a connection, or read files.</p>
         <label for="study-name">Name</label>
         <input id="study-name" maxlength="40" value="Baseline cross" autocomplete="off">
         <label for="study-code">Formula</label>
@@ -162,8 +162,8 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="backtest">
-        <h2>Full-sample backtest</h2>
-        <p id="backtest-summary" class="muted">Runs the whole sample without moving the session day.</p>
+        <h2>Market history</h2>
+        <p id="backtest-summary" class="muted">Replays the loaded market history. The paper session stays on the latest quote.</p>
         <div class="table-wrap">
           <table>
             <thead>
@@ -189,8 +189,9 @@ plot Sell = close crosses below baseline;</textarea>
   </nav>
 
   <footer>
-    Sample prices are not live quotes and are not a forecast. Past sample results do not predict real trading.
+    Orders stay on the paper account. Quotes are market prices and are not a forecast.
   </footer>
+  <script src="/live.js"></script>
   <script src="/engine.js"></script>
   <script src="/study.js"></script>
   <script src="/frames.js"></script>

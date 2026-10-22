@@ -1,4 +1,4 @@
-"""Local-only desk. Listens on 127.0.0.1 and serves the sample session."""
+"""Local-only desk. Listens on 127.0.0.1 and serves market quotes."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ from paper_trader.backtest import present, run_backtest
 from paper_trader.install import single_copy_status
 from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
 from paper_trader.model import params_from_dict
-from paper_trader.samples import catalog_size, load_symbol, search_symbols, warm
+from paper_trader import quotes
+from paper_trader.samples import catalog_size, search_symbols, warm
 
 WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
 STATIC = {
@@ -22,6 +23,7 @@ STATIC = {
     "/app.js": "app.js",
     "/app.css": "app.css",
     "/engine.js": "engine.js",
+    "/live.js": "live.js",
     "/study.js": "study.js",
     "/frames.js": "frames.js",
     "/frame.js": "frame.js",
@@ -34,6 +36,7 @@ TYPES = {
     "app.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
     "engine.js": "text/javascript; charset=utf-8",
+    "live.js": "text/javascript; charset=utf-8",
     "study.js": "text/javascript; charset=utf-8",
     "frames.js": "text/javascript; charset=utf-8",
     "frame.js": "text/javascript; charset=utf-8",
@@ -63,28 +66,30 @@ class Desk:
             return view_journal(self.journal)
 
     def checks(self) -> dict:
-        with self.lock:
-            view = view_journal(self.journal)
-        listed = catalog_size()
-        prices_ok = True
+        view: dict = {"paper": True, "mode": "paper"}
+        quote_detail = "Waiting on the quote"
+        quote_ok = False
         try:
-            for symbol in ("BTC-USD", "XRP-USD", "XLM-USD"):
-                if len(load_symbol(symbol)) < 200:
-                    prices_ok = False
-        except ValueError:
-            prices_ok = False
+            with self.lock:
+                view = view_journal(self.journal)
+        except ValueError as exc:
+            quote_detail = str(exc)
+        else:
+            try:
+                quote_detail = quotes.ping()
+                quote_ok = True
+            except ValueError as exc:
+                quote_detail = str(exc)
+        listed = catalog_size()
         items: list[dict[str, str | bool]] = [
             {"name": "This computer", "ok": True, "detail": "127.0.0.1"},
             {"name": "Paper", "ok": view.get("paper") is True and view.get("mode") == "paper", "detail": "On"},
             {"name": "Auto", "ok": True, "detail": "Ready"},
-            {
-                "name": "Trade",
-                "ok": not view.get("finished"),
-                "detail": "Ready" if not view.get("finished") else "Sample finished",
-            },
-            {"name": "Markets", "ok": listed >= 7500 and prices_ok, "detail": f"{listed} samples"},
-            {"name": "Squeeze", "ok": prices_ok, "detail": "Ready"},
-            {"name": "Arrows", "ok": prices_ok, "detail": "Ready"},
+            {"name": "Trade", "ok": quote_ok and view.get("paper") is True, "detail": "Ready" if quote_ok else "Waiting on the quote"},
+            {"name": "Markets", "ok": listed >= 7500, "detail": f"{listed} markets"},
+            {"name": "Quotes", "ok": quote_ok, "detail": quote_detail},
+            {"name": "Squeeze", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
+            {"name": "Arrows", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
             {"name": "Study", "ok": True, "detail": "On this device"},
             {"name": "Timeframes", "ok": True, "detail": "10 windows"},
             {"name": "Phone", "ok": True, "detail": "Layout adapts"},
@@ -98,10 +103,10 @@ class Desk:
         with self.lock:
             params = params_from_dict(raw)
             symbol = str(raw.get("symbol") or self.journal.symbol)
-            bars = load_symbol(symbol)
+            bars = quotes.load_bars(symbol, refresh=True)
             if params.slow + 1 >= len(bars):
-                raise ValueError("The slow average is too long for this sample")
-            self.journal = Journal(symbol, params, params.slow + 1)
+                raise ValueError("The slow average is longer than the market history")
+            self.journal = Journal(symbol, params, len(bars))
             save_journal(self.state_path, self.journal)
             return view_journal(self.journal)
 
@@ -109,20 +114,17 @@ class Desk:
         if days < 1 or days > 500:
             raise ValueError("Step must be from 1 to 500 days")
         with self.lock:
-            bars = load_symbol(self.journal.symbol)
-            self.journal.cursor = min(len(bars), self.journal.cursor + days)
+            bars = quotes.load_bars(self.journal.symbol, refresh=True)
+            self.journal.cursor = len(bars)
             save_journal(self.state_path, self.journal)
             return view_journal(self.journal)
 
     def trade(self) -> dict:
         with self.lock:
-            bars = load_symbol(self.journal.symbol)
-            if self.journal.cursor >= len(bars):
-                raise ValueError("The sample is finished")
+            bars = quotes.load_bars(self.journal.symbol, refresh=True)
             held = view_journal(self.journal)["shares"] > 0
             side = "sell" if held else "buy"
-            self.journal.orders[self.journal.cursor] = side
-            self.journal.cursor += 1
+            self.journal.close_orders.append((bars[-1].date, side))
             save_journal(self.state_path, self.journal)
             payload = view_journal(self.journal)
             payload["last_action"] = side
@@ -130,18 +132,21 @@ class Desk:
 
     def run_rest(self) -> dict:
         with self.lock:
-            bars = load_symbol(self.journal.symbol)
+            bars = quotes.load_bars(self.journal.symbol, refresh=True)
             self.journal.cursor = len(bars)
             save_journal(self.state_path, self.journal)
             return view_journal(self.journal)
 
+    def bars(self, symbol: str, frame: str) -> dict:
+        return quotes.fetch_frame(symbol, frame)
+
     def backtest(self, raw: dict) -> dict:
         params = params_from_dict(raw)
         symbol = str(raw.get("symbol") or "BTC-USD")
-        bars = load_symbol(symbol)
+        bars = quotes.load_bars(symbol)
         result = run_backtest(bars, params)
         payload = present(result, symbol, len(bars), params, len(bars))
-        payload["note"] = "Full sample replay. The paper session was left where it is."
+        payload["note"] = "Replay of market history. The paper session was left where it is."
         return payload
 
     def market(self, symbol: str, raw: dict) -> dict:
@@ -255,6 +260,10 @@ class DeskHandler(BaseHTTPRequestHandler):
             raw = {**self.desk.journal.params.to_dict(), **query}
             self._json(self.desk.market(symbol, raw))
             return
+        if method == "GET" and path == "/api/bars":
+            symbol = query.get("symbol") or self.desk.journal.symbol
+            self._json(self.desk.bars(symbol, query.get("frame") or "1D"))
+            return
         if method == "GET" and path == "/api/backtest":
             raw = {**self.desk.journal.params.to_dict(), **query, "symbol": query.get("symbol", self.desk.journal.symbol)}
             self._json(self.desk.backtest(raw))
@@ -327,7 +336,7 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
     host, bound = server.server_address[:2]
     url = f"http://{host}:{bound}/"
     print(f"Paper Trader is running at {url}")
-    print("Sample prices only. Close this window to stop the desk.")
+    print("Market quotes. Paper orders only. Close this window to stop the desk.")
     if open_browser and url.startswith("http://127.0.0.1:"):
         webbrowser.open(url)
     try:

@@ -1,4 +1,4 @@
-/* Ten sample timeframes built from the daily series already on this page. */
+/* Ten timeframes. Higher frames use the daily quotes on this page. Intraday frames load their own market bars. */
 (function (root) {
   const SESSION_MINUTES = 480;
   const FRAMES = [
@@ -137,6 +137,9 @@
 
   function analyze(daily) {
     return FRAMES.map((frame) => {
+      if (frame.kind === "intra") {
+        return { ...frame, bias: "flat", last: null, change: 0, count: 0, asOf: "", bars: [] };
+      }
       const bars = barsFor(daily, frame, 160);
       return { ...frame, ...summarize(bars), bars };
     });
@@ -151,7 +154,7 @@
     });
     return {
       title: symbol + " timeframe brief",
-      lead: ups + " of 10 timeframes are up and " + downs + " are down. Intraday bars are built from the daily sample. They are not a live tape.",
+      lead: ups + " of the higher timeframes are up and " + downs + " are down. Intraday windows load market bars.",
       lines,
     };
   }

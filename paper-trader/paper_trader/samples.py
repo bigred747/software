@@ -96,15 +96,21 @@ def search_symbols(query: str = "", category: str = "", limit: int = 40) -> dict
     }
 
 
+def market_row(symbol: str) -> dict[str, str | int]:
+    row = _index().get(symbol)
+    if row is None:
+        raise ValueError(f"Unknown market {symbol}. Search the list.")
+    return row
+
+
 def warm() -> None:
-    """Build the markets the desk opens first. The rest are built when chosen."""
-    for symbol in ("BTC-USD", "ETH-USD", "XRP-USD", "XLM-USD"):
-        load_symbol(symbol)
+    """Load the market list. Quotes are fetched when a market is opened."""
+    _catalog()
 
 
 def load_symbol(symbol: str, count: int = SAMPLE_COUNT) -> list[Bar]:
     if symbol not in _index():
-        raise ValueError(f"Unknown market {symbol}. Search the sample list.")
+        raise ValueError(f"Unknown market {symbol}. Search the list.")
     if count == SAMPLE_COUNT and symbol in _CACHE:
         return _CACHE[symbol]
     bars = _build(symbol, count)

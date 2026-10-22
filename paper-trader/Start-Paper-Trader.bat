@@ -49,7 +49,7 @@ pause
 exit /b 1
 
 :Normal
-echo Paper Trader stays on this computer. It replays sample prices and does not place broker orders.
+echo Paper Trader stays on this computer. It loads market quotes and does not place broker orders.
 if exist "%~dp0runtime\python.exe" (
   "%~dp0runtime\python.exe" "%~dp0launch.py" serve
   goto done

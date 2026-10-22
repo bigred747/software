@@ -41,12 +41,13 @@ def run_backtest(
     params: Params,
     end: int | None = None,
     manual: dict[int, str] | None = None,
+    close_orders: list[tuple[str, str]] | None = None,
 ) -> Result:
     validate_params(params)
     if end is None:
         end = len(bars)
     if end < 1 or end > len(bars):
-        raise ValueError("Replay length is outside the sample")
+        raise ValueError("Replay length is outside the market history")
     view = bars[:end]
     validate_bars(view)
     closes = [bar.close for bar in view]
@@ -70,6 +71,7 @@ def run_backtest(
     trades: list[Trade] = []
     curve: list[tuple[str, float]] = []
     orders = manual or {}
+    fills = close_orders or []
 
     for index, bar in enumerate(view):
         manual_side = orders.get(index)
@@ -148,6 +150,21 @@ def run_backtest(
         elif index in squeeze_sells and shares > 0:
             pending = "sell"
             pending_reason = "squeeze"
+        for side in [item_side for item_date, item_side in fills if item_date == bar.date]:
+            if side == "buy" and shares == 0 and cash > 0:
+                shares, cash, cost, entry_price = _open_long(cash, bar.close, fee_rate)
+                entry_date = bar.date
+                pending = None
+            elif side == "sell" and shares > 0 and entry_price is not None:
+                cash, pnl = _close_long(cash, shares, bar.close, fee_rate, cost)
+                trades.append(
+                    Trade(entry_date or bar.date, bar.date, entry_price, bar.close, shares, pnl, "trade")
+                )
+                shares = 0.0
+                entry_price = None
+                entry_date = None
+                cost = 0.0
+                pending = None
         curve.append((bar.date, cash + shares * bar.close))
 
     return Result(

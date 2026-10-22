@@ -1,4 +1,4 @@
-"""Paper session: which sample day the desk has reached."""
+"""Paper session stored on this computer. Prices come from the quote feed."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from pathlib import Path
 
 from paper_trader.backtest import present, run_backtest
 from paper_trader.indicators import rsi, sma, squeeze
-from paper_trader.model import Params, params_from_dict
-from paper_trader.samples import load_symbol
+from paper_trader.model import Bar, Params, params_from_dict
+from paper_trader import quotes
 
 
 @dataclass
@@ -18,6 +18,7 @@ class Journal:
     params: Params
     cursor: int
     orders: dict[int, str] = field(default_factory=dict)
+    close_orders: list[tuple[str, str]] = field(default_factory=list)
 
 
 def default_journal() -> Journal:
@@ -32,14 +33,16 @@ def load_journal(path: Path) -> Journal:
         raw = json.loads(path.read_text(encoding="utf-8"))
         params = params_from_dict(raw["params"])
         symbol = str(raw["symbol"])
-        bars = load_symbol(symbol)
-        cursor = int(raw["cursor"])
-        cursor = max(params.slow + 1, min(len(bars), cursor))
+        cursor = max(params.slow + 1, int(raw["cursor"]))
         orders: dict[int, str] = {}
         for key, side in dict(raw.get("orders") or {}).items():
             if side in {"buy", "sell"}:
                 orders[int(key)] = str(side)
-        return Journal(symbol, params, cursor, orders)
+        close_orders: list[tuple[str, str]] = []
+        for item in list(raw.get("close_orders") or []):
+            if isinstance(item, list) and len(item) == 2 and item[1] in {"buy", "sell"}:
+                close_orders.append((str(item[0]), str(item[1])))
+        return Journal(symbol, params, cursor, orders, close_orders)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         return default_journal()
 
@@ -51,6 +54,7 @@ def save_journal(path: Path, journal: Journal) -> None:
         "cursor": journal.cursor,
         "params": journal.params.to_dict(),
         "orders": {str(index): side for index, side in sorted(journal.orders.items())},
+        "close_orders": [[day, side] for day, side in journal.close_orders],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -59,13 +63,26 @@ def save_journal(path: Path, journal: Journal) -> None:
 
 
 def view_journal(journal: Journal) -> dict:
-    bars = load_symbol(journal.symbol)
-    result = run_backtest(bars, journal.params, end=journal.cursor, manual=journal.orders)
-    return present(result, journal.symbol, len(bars), journal.params, journal.cursor)
+    bars = quotes.load_bars(journal.symbol)
+    journal.cursor = len(bars)
+    result = run_backtest(
+        bars,
+        journal.params,
+        end=journal.cursor,
+        manual=journal.orders,
+        close_orders=journal.close_orders,
+    )
+    payload = present(result, journal.symbol, len(bars), journal.params, journal.cursor)
+    payload["quote"] = "market"
+    return payload
 
 
 def market_view(symbol: str, params: Params) -> dict:
-    bars = load_symbol(symbol)
+    quote = quotes.fetch_frame(symbol, "1D")
+    bars = [
+        Bar(str(bar["date"]), float(bar["open"]), float(bar["high"]), float(bar["low"]), float(bar["close"]), float(bar["volume"]))
+        for bar in quote["bars"]
+    ]
     closes = [bar.close for bar in bars]
     fast = sma(closes, params.fast)
     slow = sma(closes, params.slow)
@@ -73,7 +90,10 @@ def market_view(symbol: str, params: Params) -> dict:
     bands = squeeze([bar.high for bar in bars], [bar.low for bar in bars], closes)
     return {
         "symbol": symbol,
-        "note": "Built-in sample prices. Not live quotes.",
+        "note": "Market quote. Paper orders stay on this device.",
+        "as_of": quote["as_of"],
+        "price": quote["price"],
+        "exchange": quote["exchange"],
         "bars": [
             {
                 "date": bar.date,
