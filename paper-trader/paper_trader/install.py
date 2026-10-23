@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import shutil
+import subprocess
 from pathlib import Path
 
 from paper_trader import __version__
@@ -10,7 +12,7 @@ from paper_trader import __version__
 LAUNCHER = "Start-Paper-Trader.bat"
 PACKAGE = Path("paper_trader") / "__init__.py"
 SKIP_DIRS = {"__pycache__", "tests", ".git"}
-SKIP_FILES = {"paper_state.json"}
+SKIP_FILES = {"paper_state.json", "learn_state.json", "learn_watch.json"}
 
 
 def version_key(text: str) -> tuple[int, ...]:
@@ -53,24 +55,187 @@ def find_installs(home: Path) -> list[Path]:
     return found
 
 
+def desk_folders(home: Path) -> list[Path]:
+    documents = home / "Documents"
+    return [
+        documents / "paper-trader",
+        documents / "Paper Trader",
+        documents / "PaperTrader-setup" / "paper-trader",
+    ]
+
+
+def running_desk_pids(images: list[tuple[int, str]], roots: list[Path]) -> list[int]:
+    folders = [str(root).replace("/", "\\").rstrip("\\").lower() + "\\" for root in roots]
+    pids: list[int] = []
+    for pid, image in images:
+        if not image:
+            continue
+        low = image.replace("/", "\\").lower()
+        if any(low.startswith(folder) for folder in folders):
+            pids.append(pid)
+    return pids
+
+
+def stop_open_desks(home: Path, images: list[tuple[int, str]] | None = None, killer=None) -> list[int]:
+    if images is None:
+        _close_titled_window()
+        return []
+    pids = running_desk_pids(images, desk_folders(home))
+    end = killer or _taskkill
+    for pid in pids:
+        end(pid)
+    return pids
+
+
+def _taskkill(pid: int) -> None:
+    subprocess.run(["taskkill", "/F", "/PID", str(pid)], check=False, capture_output=True)
+
+
+def _close_titled_window() -> None:
+    if os.name != "nt":
+        return
+    try:
+        subprocess.run(
+            ["taskkill", "/F", "/FI", "WINDOWTITLE eq Paper Trader"],
+            check=False,
+            capture_output=True,
+        )
+    except OSError:
+        return
+
+
 def install_newest(source: Path, home: Path) -> tuple[Path, str]:
     source = source.resolve()
     if not is_install(source):
         raise ValueError("This folder is not a Paper Trader install")
+    from paper_trader.learn import stop_learners
+
+    stop_learners(home, source)
+    stop_open_desks(home)
     dest = canonical_folder(home).resolve()
     dest_version = _installed_version(dest)
     source_version = version_key(__version__)
-    if source != dest and dest_version > source_version and is_install(dest):
+    try:
+        if source != dest and dest_version > source_version and is_install(dest):
+            _remove_older(home, dest, source)
+            _resume_learner(dest)
+            return dest, "remove-source"
+        if source != dest:
+            _replace_install(source, dest)
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
         _remove_older(home, dest, source)
-        return dest, "remove-source"
-    if source != dest:
-        _replace_install(source, dest)
-    dest.mkdir(parents=True, exist_ok=True)
-    (dest / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
-    _remove_older(home, dest, source)
+    except OSError as exc:
+        raise ValueError("Could not replace the older copy. Opening the new copy instead.") from exc
+    _resume_learner(dest)
     if source == dest:
         return dest, "keep-source"
     return dest, "remove-source"
+
+
+def _resume_learner(dest: Path) -> None:
+    """Windows sign-in starts the score again. Other systems leave that to the desk window."""
+    if os.name != "nt":
+        return
+    from paper_trader.learn import ensure_learner
+
+    try:
+        ensure_learner(dest, dest / "learn_state.json")
+    except OSError:
+        return
+
+
+def desktop_folders(home: Path) -> list[Path]:
+    names = [home / "Desktop", home / "OneDrive" / "Desktop"]
+    one_drive = os.environ.get("OneDrive")
+    if one_drive:
+        names.append(Path(one_drive) / "Desktop")
+    public = os.environ.get("PUBLIC")
+    if public:
+        names.append(Path(public) / "Desktop")
+    found: list[Path] = []
+    seen: set[Path] = set()
+    for folder in names:
+        if not folder.is_dir():
+            continue
+        resolved = folder.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        found.append(folder)
+    return found
+
+
+def write_desktop_opener(install: Path, home: Path) -> list[Path]:
+    """A visible desktop file that opens this copy. No script host and no PowerShell."""
+    opener = install / "2 Open Paper Trader.bat"
+    if not opener.is_file():
+        return []
+    script = (
+        "@echo off\r\n"
+        f'cd /d "{install}"\r\n'
+        "title Paper Trader\r\n"
+        'call "2 Open Paper Trader.bat"\r\n'
+    )
+    written: list[Path] = []
+    for folder in desktop_folders(home):
+        path = folder / "Paper Trader.bat"
+        try:
+            path.write_text(script, encoding="utf-8")
+        except OSError:
+            continue
+        written.append(path)
+    return written
+
+
+def keep_only_running(home: Path, running: Path) -> list[Path]:
+    """Remove older Paper Trader folders once the newest copy is the one open."""
+    running = running.resolve()
+    copies = find_installs(home)
+    if running not in copies and is_install(running):
+        copies.append(running)
+    if not copies:
+        return []
+    canonical = canonical_folder(home).resolve()
+    keeper = max(copies, key=lambda folder: (_installed_version(folder), folder == canonical, folder == running))
+    if keeper != running:
+        return []
+    from paper_trader.learn import stop_learner
+
+    removed: list[Path] = []
+    for folder in copies:
+        if folder == keeper or not _safe_to_remove(folder, home, keeper):
+            continue
+        stop_learner(folder / "learn_state.json")
+        try:
+            shutil.rmtree(folder)
+        except OSError:
+            continue
+        removed.append(folder)
+    _remove_setup_shells(home)
+    return removed
+
+
+def _remove_setup_shells(home: Path) -> None:
+    documents = home / "Documents"
+    if not documents.is_dir():
+        return
+    try:
+        children = list(documents.iterdir())
+    except OSError:
+        return
+    for child in children:
+        if not child.is_dir():
+            continue
+        if child.name != "PaperTrader-setup" and not child.name.startswith("PaperTrader-setup-"):
+            continue
+        try:
+            installs = [path for path in [child, *child.rglob("*")] if path.is_dir() and is_install(path)]
+        except OSError:
+            continue
+        if installs:
+            continue
+        shutil.rmtree(child, ignore_errors=True)
 
 
 def single_copy_status(home: Path) -> dict[str, str | bool]:
@@ -107,11 +272,14 @@ def _child_dirs(folder: Path) -> list[Path]:
 
 
 def _replace_install(source: Path, dest: Path) -> None:
-    state_path = dest / "paper_state.json"
-    saved_state = state_path.read_bytes() if state_path.is_file() else None
+    saved = {}
     if dest.exists():
+        for name in SKIP_FILES:
+            path = dest / name
+            if path.is_file():
+                saved[name] = path.read_bytes()
         for child in list(dest.iterdir()):
-            if child.name == "paper_state.json":
+            if child.name in SKIP_FILES:
                 continue
             if child.is_dir():
                 shutil.rmtree(child)
@@ -129,8 +297,8 @@ def _replace_install(source: Path, dest: Path) -> None:
         target = dest / path.relative_to(source)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, target)
-    if saved_state is not None:
-        state_path.write_bytes(saved_state)
+    for name, payload in saved.items():
+        (dest / name).write_bytes(payload)
 
 
 def _remove_older(home: Path, keep: Path, source: Path) -> None:
@@ -139,7 +307,10 @@ def _remove_older(home: Path, keep: Path, source: Path) -> None:
         if folder in spared:
             continue
         if _safe_to_remove(folder, home, keep):
-            shutil.rmtree(folder)
+            try:
+                shutil.rmtree(folder)
+            except OSError:
+                continue
 
 
 def _safe_to_remove(folder: Path, home: Path, keep: Path) -> bool:

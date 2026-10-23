@@ -1,3 +1,3 @@
-"""Local paper trading desk. Sample prices only. No broker orders."""
+"""Local paper trading desk. Market quotes. No broker orders."""
 
-__version__ = "1.4.2"
+__version__ = "1.9.37"

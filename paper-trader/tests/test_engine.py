@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -10,10 +12,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from paper_trader.backtest import max_drawdown, run_backtest
-from paper_trader.indicators import rsi, sma
+from paper_trader.indicators import rsi, sma, squeeze_alert
 from paper_trader.journal import load_journal, save_journal, view_journal
 from paper_trader.model import Bar, Params
-from paper_trader.samples import load_symbol, symbols
+from paper_trader.indicators import squeeze_marks
+from paper_trader.samples import catalog_size, load_symbol, search_symbols
 
 
 def bar(day: str, price: float, low: float | None = None, high: float | None = None, open_: float | None = None) -> Bar:
@@ -39,6 +42,28 @@ class IndicatorTests(unittest.TestCase):
         falling = list(range(18, 0, -1))
         self.assertEqual(rsi(rising, 14)[-1], 100)
         self.assertEqual(rsi(falling, 14)[-1], 0)
+
+    def test_five_squeeze_dots_warn_before_a_release(self) -> None:
+        levels = [0, 1, 1, 2, 3, 3]
+        rising = [None, 0.1, 0.2, 0.3, 0.4, 0.5]
+        warning = squeeze_alert(levels, rising)
+        self.assertEqual(warning["kind"], "dots")
+        self.assertEqual(warning["side"], "buy")
+        self.assertEqual(warning["index"], 5)
+        falling = [None, -0.1, -0.2, -0.2, -0.3, -0.4]
+        self.assertEqual(squeeze_alert(levels, falling)["side"], "sell")
+        self.assertEqual(squeeze_alert(levels + [3], rising + [0.6])["index"], 5)
+
+    def test_a_fade_after_strength_is_the_sell(self) -> None:
+        levels = [0, 3, 3, 3, 2]
+        peaked = [0.1, 0.4, 0.8, 0.5, 0.2]
+        first = squeeze_alert(levels[:4], peaked[:4])
+        self.assertEqual(first["kind"], "steam")
+        self.assertEqual(first["side"], "sell")
+        later = squeeze_alert(levels, peaked)
+        self.assertEqual(later["side"], "")
+        quiet = squeeze_alert([0, 0, 0, 0], [0.2, 0.4, 0.3, 0.1])
+        self.assertEqual(quiet["side"], "")
 
     def test_drawdown(self) -> None:
         self.assertAlmostEqual(max_drawdown([100, 120, 90]), 0.25)
@@ -94,6 +119,32 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(result.trades[0].entry_price, 10)
         self.assertEqual(result.trades[0].exit_price, 10)
 
+    def test_breaker_days_block_every_buy_and_leave_sells_alone(self) -> None:
+        params = Params(fast=2, slow=3, rsi_period=0, cash=10_000, fee_bps=0, stop_pct=0)
+        self.assertEqual(run_backtest(hand_bars(), params, halt_days=None).trades, run_backtest(hand_bars(), params).trades)
+        for day in ("2024-01-04", "2024-01-05"):
+            halted = run_backtest(hand_bars(), params, halt_days={day})
+            self.assertEqual(halted.trades, [])
+            self.assertEqual(halted.shares, 0)
+            self.assertEqual(halted.cash, 10_000)
+        blocked = run_backtest(hand_bars(), params, close_orders=[("2024-01-02", "buy")], halt_days={"2024-01-02"})
+        self.assertEqual(blocked.shares, 0)
+        sold = run_backtest(
+            hand_bars(), params, close_orders=[("2024-01-02", "buy"), ("2024-01-03", "sell")], halt_days={"2024-01-03"}
+        )
+        self.assertEqual(sold.trades[0].reason, "trade")
+        self.assertEqual(sold.trades[0].exit_date, "2024-01-03")
+
+    def test_a_paper_fill_keeps_the_price_it_was_given(self) -> None:
+        params = Params(fast=2, slow=3, rsi_period=0, cash=10_000, fee_bps=0, stop_pct=0)
+        bars = hand_bars()
+        locked = run_backtest(bars, params, close_orders=[("2024-01-02", "buy", 10.005), ("2024-01-03", "sell", 9.995)])
+        self.assertAlmostEqual(locked.trades[0].entry_price, 10.005)
+        self.assertAlmostEqual(locked.trades[0].exit_price, 9.995)
+        bars[2] = bar("2024-01-03", 11)
+        moved = run_backtest(bars, params, close_orders=[("2024-01-02", "buy", 10.005), ("2024-01-03", "sell", 9.995)])
+        self.assertEqual(moved.trades[0], locked.trades[0])
+
     def test_bad_settings_are_rejected(self) -> None:
         with self.assertRaises(ValueError):
             run_backtest(hand_bars(), Params(fast=10, slow=5, rsi_period=0))
@@ -101,15 +152,35 @@ class BacktestTests(unittest.TestCase):
 
 class SampleTests(unittest.TestCase):
     def test_samples_are_weekday_bars_and_can_trade(self) -> None:
-        self.assertEqual(len(symbols()), 5)
-        for item in symbols():
-            bars = load_symbol(str(item["symbol"]))
+        self.assertGreaterEqual(catalog_size(), 7500)
+        for symbol in ("BTC-USD", "XRP-USD", "XLM-USD", "ETH-USD", "AAPL", "SPY", "ES"):
+            bars = load_symbol(symbol)
             self.assertGreaterEqual(len(bars), 200)
             dates = [bar.date for bar in bars]
             self.assertEqual(dates, sorted(set(dates)))
         result = run_backtest(load_symbol("BTC-USD"), Params())
         self.assertGreaterEqual(len(result.trades), 1)
         self.assertGreater(result.equity_curve[-1][1], 0)
+        self.assertTrue(any(trade.reason == "squeeze" for trade in result.trades))
+
+    def test_search_finds_the_requested_names(self) -> None:
+        xrp = search_symbols("xrp")
+        self.assertEqual(xrp["symbols"][0]["symbol"], "XRP-USD")
+        xlm = search_symbols("stellar")
+        self.assertEqual(xlm["symbols"][0]["symbol"], "XLM-USD")
+        bitcoin = search_symbols("bitcoin", "crypto")
+        self.assertEqual(bitcoin["symbols"][0]["symbol"], "BTC-USD")
+        futures = search_symbols("es", "future")
+        self.assertEqual(futures["symbols"][0]["symbol"], "ES")
+        self.assertEqual(search_symbols("", "stock")["total"], 7504)
+        self.assertEqual(search_symbols("vgt")["symbols"][0]["symbol"], "VGT")
+        self.assertEqual(search_symbols("uga")["symbols"][0]["symbol"], "UGA")
+
+    def test_squeeze_releases_mark_a_direction(self) -> None:
+        bars = load_symbol("XRP-USD")
+        buys, sells, state = squeeze_marks([bar.high for bar in bars], [bar.low for bar in bars], [bar.close for bar in bars])
+        self.assertEqual(len(state["level"]), len(bars))
+        self.assertTrue(buys or sells)
 
     def test_partial_replay_matches_the_full_prefix(self) -> None:
         bars = load_symbol("AAPL")
@@ -119,16 +190,112 @@ class SampleTests(unittest.TestCase):
         self.assertEqual(full.trades[: len(partial.trades)], partial.trades)
 
     def test_journal_round_trip(self) -> None:
-        with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder) / "paper_state.json"
-            journal = load_journal(path)
-            journal.cursor += 5
-            save_journal(path, journal)
-            loaded = load_journal(path)
-            self.assertEqual(loaded.cursor, journal.cursor)
-            view = view_journal(loaded)
-            self.assertEqual(view["symbol"], "BTC-USD")
-            self.assertEqual(view["cursor"], loaded.cursor)
+        from paper_trader import quotes
+
+        original = quotes.load_bars
+        quotes.load_bars = lambda symbol, refresh=False: load_symbol(symbol)
+        try:
+            with tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / "paper_state.json"
+                journal = load_journal(path)
+                journal.cursor += 5
+                save_journal(path, journal)
+                loaded = load_journal(path)
+                self.assertEqual(loaded.cursor, journal.cursor)
+                journal.halt_days.append("2024-01-02")
+                save_journal(path, journal)
+                self.assertEqual(load_journal(path).halt_days, ["2024-01-02"])
+                loaded = load_journal(path)
+                view = view_journal(loaded)
+                self.assertEqual(view["symbol"], "BTC-USD")
+                self.assertEqual(view["cursor"], len(load_symbol("BTC-USD")))
+                self.assertEqual(view["quote"], "market")
+        finally:
+            quotes.load_bars = original
+
+
+class StudyAndPhoneTests(unittest.TestCase):
+    def test_study_runner_stays_local(self) -> None:
+        completed = subprocess.run(
+            ["node", "--test", "web/study.test.mjs"],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+
+    def test_ten_timeframes_stay_inside_the_daily_sample(self) -> None:
+        completed = subprocess.run(
+            ["node", "--test", "web/frames.test.mjs"],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+
+    def test_phone_fill_pays_slippage_like_a_market_order(self) -> None:
+        script = r"""
+import fs from "node:fs";
+import vm from "node:vm";
+const context = {};
+context.globalThis = context;
+vm.createContext(context);
+vm.runInContext(fs.readFileSync("web/engine.js", "utf8"), context);
+const bars = [];
+for (let i = 0; i < 40; i += 1) bars.push({ date: "2024-02-" + String(i + 1).padStart(2, "0"), open: 100, high: 100, low: 100, close: 100, volume: 1 });
+const session = context.PaperEngine.sessionFromBars("BTC-USD", bars, { fee_bps: 0 });
+const bought = context.PaperEngine.trade(session, 5);
+const sold = context.PaperEngine.fill(session, "sell", 5);
+console.log(JSON.stringify({ buy: bought.fill, sell: sold.fill, cash: sold.cash }));
+"""
+        completed = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        got = json.loads(completed.stdout)
+        self.assertAlmostEqual(got["buy"]["price"], 100.05)
+        self.assertAlmostEqual(got["sell"]["price"], 99.95)
+        self.assertEqual(got["buy"]["quote"], 100)
+        self.assertLess(got["cash"], 10_000)
+
+    def test_phone_prices_match_the_computer_samples(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        script = r"""
+import fs from "node:fs";
+import vm from "node:vm";
+const context = {};
+context.globalThis = context;
+vm.createContext(context);
+vm.runInContext(fs.readFileSync("web/engine.js", "utf8"), context);
+const text = fs.readFileSync("paper_trader/catalog.txt", "utf8");
+const rows = context.PaperEngine.parseCatalog(text);
+const out = {};
+for (const symbol of ["XRP-USD", "XLM-USD", "AAPL"]) {
+  const row = rows.find((item) => item.symbol === symbol);
+  out[symbol] = context.PaperEngine.buildBars(symbol, row, 220).map((bar) => bar.close);
+}
+console.log(JSON.stringify(out));
+"""
+        completed = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        got = json.loads(completed.stdout)
+        for symbol, closes in got.items():
+            expected = [bar.close for bar in load_symbol(symbol)]
+            self.assertEqual(len(closes), len(expected))
+            for left, right in zip(closes, expected):
+                self.assertAlmostEqual(left, right, places=6)
 
 
 if __name__ == "__main__":

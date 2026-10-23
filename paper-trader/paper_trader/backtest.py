@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from paper_trader.indicators import rsi, sma
+from paper_trader.indicators import rsi, sma, squeeze_marks
 from paper_trader.model import Bar, Params, Trade, validate_bars, validate_params
 
 
@@ -41,18 +41,25 @@ def run_backtest(
     params: Params,
     end: int | None = None,
     manual: dict[int, str] | None = None,
+    close_orders: list[tuple] | None = None,
+    halt_days: set[str] | None = None,
 ) -> Result:
     validate_params(params)
     if end is None:
         end = len(bars)
     if end < 1 or end > len(bars):
-        raise ValueError("Replay length is outside the sample")
+        raise ValueError("Replay length is outside the market history")
     view = bars[:end]
     validate_bars(view)
     closes = [bar.close for bar in view]
     fast = sma(closes, params.fast)
     slow = sma(closes, params.slow)
     rsi_values = rsi(closes, params.rsi_period) if params.rsi_period else [None] * len(view)
+    squeeze_buys, squeeze_sells, _squeeze = squeeze_marks(
+        [bar.high for bar in view],
+        [bar.low for bar in view],
+        closes,
+    )
     fee_rate = params.fee_bps / 10_000.0
     stop_fraction = params.stop_pct / 100.0
     cash = params.cash
@@ -61,13 +68,19 @@ def run_backtest(
     entry_date: str | None = None
     cost = 0.0
     pending: str | None = None
+    pending_reason = "signal"
     trades: list[Trade] = []
     curve: list[tuple[str, float]] = []
     orders = manual or {}
+    fills = close_orders or []
+    halts = halt_days or set()
 
     for index, bar in enumerate(view):
+        halted = bar.date in halts
         manual_side = orders.get(index)
-        if manual_side == "buy" and shares == 0 and cash > 0:
+        if halted and pending == "buy":
+            pending = None
+        if manual_side == "buy" and shares == 0 and cash > 0 and not halted:
             shares, cash, cost, entry_price = _open_long(cash, bar.open, fee_rate)
             entry_date = bar.date
             pending = None
@@ -88,7 +101,7 @@ def run_backtest(
         elif pending == "sell" and shares > 0 and entry_price is not None:
             cash, pnl = _close_long(cash, shares, bar.open, fee_rate, cost)
             trades.append(
-                Trade(entry_date or bar.date, bar.date, entry_price, bar.open, shares, pnl, "signal")
+                Trade(entry_date or bar.date, bar.date, entry_price, bar.open, shares, pnl, pending_reason)
             )
             shares = 0.0
             entry_price = None
@@ -132,8 +145,35 @@ def run_backtest(
             )
             if crossed_up and shares == 0 and not buy_blocked:
                 pending = "buy"
+                pending_reason = "signal"
             elif shares > 0 and (crossed_down or rsi_exit):
                 pending = "sell"
+                pending_reason = "signal"
+        if index in squeeze_buys and shares == 0:
+            pending = "buy"
+            pending_reason = "squeeze"
+        elif index in squeeze_sells and shares > 0:
+            pending = "sell"
+            pending_reason = "squeeze"
+        for item in [item for item in fills if item[0] == bar.date]:
+            side = item[1]
+            price = float(item[2]) if len(item) > 2 and item[2] else bar.close
+            if side == "buy" and shares == 0 and cash > 0 and not halted:
+                shares, cash, cost, entry_price = _open_long(cash, price, fee_rate)
+                entry_date = bar.date
+                pending = None
+            elif side == "sell" and shares > 0 and entry_price is not None:
+                cash, pnl = _close_long(cash, shares, price, fee_rate, cost)
+                trades.append(
+                    Trade(entry_date or bar.date, bar.date, entry_price, price, shares, pnl, "trade")
+                )
+                shares = 0.0
+                entry_price = None
+                entry_date = None
+                cost = 0.0
+                pending = None
+        if halted and pending == "buy":
+            pending = None
         curve.append((bar.date, cash + shares * bar.close))
 
     return Result(

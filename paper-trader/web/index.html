@@ -2,38 +2,128 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07090b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Paper Trader">
   <title>Paper Trader</title>
-  <link rel="stylesheet" href="/app.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="app.css">
 </head>
-<body>
+<body data-tab="chart">
   <header class="top">
-    <div>
-      <p class="eyebrow">Local sample desk</p>
-      <h1>Paper Trader</h1>
+    <div class="brand">
+      <p class="seal">Paper</p>
+      <div>
+        <p class="eyebrow">Local paper desk</p>
+        <h1>Paper Trader</h1>
+      </div>
     </div>
-    <p class="lede">Replays built-in daily prices on this computer. Fills are simulated. Nothing is sent to a broker, and the desk does not collect payments.</p>
+    <div class="mood-clock">
+      <canvas id="mood-clock" width="112" height="112" aria-label="Fear and greed clock"></canvas>
+      <span id="mood-clock-label" class="mood-clock-label"></span>
+    </div>
+    <div id="quote" class="quote" aria-live="polite">
+      <span id="quote-symbol">—</span>
+      <span id="quote-last">—</span>
+      <span id="quote-change">—</span>
+      <span id="quote-asof" class="muted">Market quote</span>
+      <span id="quote-mood" class="mood">—</span>
+    </div>
+    <p id="lede" class="lede">Charts are off until this file runs in Edge.</p>
+    <p id="open-help" class="open-help">The chart, the fear and greed clock, and the scanner stay off until this file runs in Edge. On iPhone, press and hold the link, choose Download Linked File, and rename it to PaperTrader.html if the name ends in .txt. Open the Files app, tap Share, then Edge. Opening the GitHub link in the browser leaves this page blank.</p>
+    <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
   </header>
 
-  <main class="layout">
-    <section class="panel controls" aria-label="Session">
-      <label for="symbol">Market</label>
-      <select id="symbol"></select>
+  <div class="workspace">
+    <section id="view-markets" class="panel watch" aria-label="Markets">
+      <h2>Markets</h2>
+      <div id="pins" class="pins" aria-label="Pinned markets"></div>
+      <button id="pin-toggle" type="button" class="quiet">Pin this market</button>
+      <div class="scan-block">
+        <div class="scan-head">
+          <h3>Daily scan</h3>
+          <button id="scan-toggle" type="button" aria-pressed="true">Scanner on</button>
+        </div>
+        <p id="scan-note" class="muted"></p>
+        <div id="scan" class="pins" aria-label="Daily scan"></div>
+        <p id="today-note" class="muted"></p>
+        <div id="today" class="pins" aria-label="Today's five"></div>
+      </div>
+      <label for="search">Find a market</label>
+      <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
+      <label for="category">Type</label>
+      <select id="category">
+        <option value="">All markets</option>
+        <option value="crypto">Crypto</option>
+        <option value="stock">Stocks</option>
+        <option value="etf">ETFs</option>
+        <option value="future">Futures</option>
+      </select>
+      <label for="symbol">Results</label>
+      <div id="symbol" class="results" role="listbox" aria-label="Results"></div>
+      <p id="market-count" class="muted"></p>
+    </section>
 
+    <section id="view-chart" class="panel chart-panel" aria-label="Chart">
+      <div class="chart-head">
+        <h2 id="chart-title">Chart</h2>
+        <p id="legend" class="legend"></p>
+      </div>
+      <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
+      <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
+      <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
+      <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
+      <div class="zoom-bar" aria-label="Chart zoom">
+        <button id="zoom-in" type="button">Zoom in</button>
+        <button id="zoom-out" type="button">Zoom out</button>
+        <span id="zoom-label" class="muted">180 bars</span>
+        <button id="layers-toggle" type="button" class="layers-toggle" aria-expanded="false" aria-controls="layers">Layers</button>
+      </div>
+      <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
+      <canvas id="candles" width="800" height="360"></canvas>
+      <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
+      <details class="chart-fold">
+        <summary>Chart key</summary>
+        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line and a signal line. Its arrows mark only zero-line crosses after the bar closes: a buy cross at or below zero and a sell cross at or above zero. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. Layers picks what the chart draws. The clean view shows the candles, your paper trades, the Edge stop, the 200-day EMA, and the volume profile, and the legend names only what is on. The violet line is the 200-day EMA, the dashed cyan line is the 20-day volume-weighted average price (VWAP), the dotted gray lines are the Bollinger bands (20 days, two deviations), and the bars on the left are the volume profile of the last 120 days, with the brighter bars in the value area where 70% of the volume traded and the dashed gold line at the point of control (POC), the price with the most volume. A feed with no volume shows no VWAP or profile instead of a guess. Tap a candle to drop a vertical price line on that bar. The close is marked on the right. Dark pool books, iceberg orders, and institutional blotters are private; B4 readings show public-tape proxies such as relative volume and absorption, and those lines do not paint arrows. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+      </details>
+    </section>
+
+    <section id="view-trade" class="panel ticket" aria-label="Session">
       <p id="signal" class="signal">HOLD</p>
       <p id="signal-note" class="muted"></p>
-
+      <section id="edge" class="edge" aria-label="Edge indicator">
+        <div class="edge-head">
+          <span class="edge-name">Edge</span>
+          <span id="edge-call" class="edge-call">WAIT</span>
+          <span id="edge-score" class="edge-score">—</span>
+        </div>
+        <ol id="edge-checks" class="edge-checks"></ol>
+        <p id="edge-plan" class="edge-plan"></p>
+        <dl id="edge-record" class="edge-record"></dl>
+        <p class="muted edge-note-line">Edge buys when five checks turn on together: five or more squeeze dots, squeeze momentum above zero, squeeze momentum rising, the TMO main line above its signal, and the close under the upper Bollinger band. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop two average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
+      </section>
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>
         <div><dt>Cash</dt><dd id="cash">—</dd></div>
         <div><dt>Position</dt><dd id="shares">—</dd></div>
         <div><dt>Session</dt><dd id="through">—</dd></div>
       </dl>
-
+      <p id="result" class="result">—</p>
+      <p id="last-fill" class="last-fill">Market orders fill at the latest real trade plus 5 bps slippage and the fee, like a live market order.</p>
       <div class="modes" role="group" aria-label="Trading controls">
-        <button id="auto" type="button" aria-pressed="false">Auto</button>
-        <button id="trade" type="button">Trade</button>
         <button id="paper" type="button" aria-pressed="false">Paper</button>
+        <button id="auto" type="button" aria-pressed="false">Auto</button>
+        <button id="live" type="button" aria-pressed="false" class="locked">Live</button>
+        <button id="trade" type="button">Trade</button>
+        <button id="voice" type="button" aria-pressed="true">Voice</button>
+      </div>
+      <div class="breaker" id="breaker">
+        <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
+        <p id="breaker-note" class="breaker-note">Breaker armed. A 5% paper drop in one day sells everything and stops buys until tomorrow.</p>
       </div>
       <div class="actions">
         <button id="next" type="button">Next day</button>
@@ -42,62 +132,137 @@
         <button id="full" type="button" class="quiet">Run full backtest</button>
       </div>
       <p id="status" class="status" role="status"></p>
-      <h2 class="signals-title">Signals</h2>
-      <ul id="signals" class="signals"></ul>
-
       <details>
         <summary>Strategy settings</summary>
         <div class="fields">
-          <label>Fast average <input id="fast" type="number" min="2" max="80" value="10"></label>
-          <label>Slow average <input id="slow" type="number" min="3" max="200" value="30"></label>
-          <label>RSI length <input id="rsi" type="number" min="0" max="50" value="14"></label>
-          <label>Starting cash <input id="cash-input" type="number" min="1" step="100" value="10000"></label>
-          <label>Fee (basis points) <input id="fee" type="number" min="0" max="100" step="0.1" value="5"></label>
-          <label>Stop (%) <input id="stop" type="number" min="0" max="50" step="0.1" value="8"></label>
+          <label>Fast average <input id="fast" type="number" min="2" max="80" value="10" inputmode="numeric"></label>
+          <label>Slow average <input id="slow" type="number" min="3" max="200" value="30" inputmode="numeric"></label>
+          <label>RSI length <input id="rsi" type="number" min="0" max="50" value="14" inputmode="numeric"></label>
+          <label>Starting cash <input id="cash-input" type="number" min="1" step="100" value="10000" inputmode="decimal"></label>
+          <label>Fee (basis points) <input id="fee" type="number" min="0" max="100" step="0.1" value="5" inputmode="decimal"></label>
+          <label>Stop (%) <input id="stop" type="number" min="0" max="50" step="0.1" value="8" inputmode="decimal"></label>
         </div>
         <p class="muted">Reset session applies these settings. A stop of 0 turns the stop off. RSI length 0 turns RSI off.</p>
       </details>
     </section>
 
-    <section class="panel chart-panel" aria-label="Chart">
-      <div class="chart-head">
-        <h2 id="chart-title">Chart</h2>
-        <p class="legend"><span class="swatch fast"></span> Fast average <span class="swatch slow"></span> Slow average</p>
+    <section id="view-study" class="panel dock" aria-label="Desk tools">
+      <div class="dock-tabs" role="tablist">
+        <button type="button" class="dock-tab on" data-dock="study">Study</button>
+        <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
+        <button type="button" class="dock-tab" data-dock="readings">B4 readings</button>
+        <button type="button" class="dock-tab" data-dock="journal">Journal</button>
+        <button type="button" class="dock-tab" data-dock="backtest">Backtest</button>
+        <button type="button" class="dock-tab" data-dock="signals">Signals</button>
       </div>
-      <canvas id="candles" width="800" height="360"></canvas>
-      <canvas id="rsi-chart" width="800" height="96" aria-label="RSI"></canvas>
-      <p class="muted">Green and red dots are simulated buys and sells. The line under the candles is RSI.</p>
+
+      <div class="dock-page on" data-dock-page="study">
+        <h2>Install study</h2>
+        <p class="muted">Paste your own price formula. It runs on the quotes in this page only. It cannot place a broker order, open a connection, or read files.</p>
+        <label for="study-name">Name</label>
+        <input id="study-name" maxlength="40" value="Baseline cross" autocomplete="off">
+        <label for="study-code">Formula</label>
+        <textarea id="study-code" spellcheck="false" maxlength="12000">input length = 20;
+def baseline = Average(close, length);
+plot Baseline = baseline;
+plot Buy = close crosses above baseline;
+plot Sell = close crosses below baseline;</textarea>
+        <div class="study-actions">
+          <button id="study-install" type="button">Install study</button>
+          <button id="study-remove" type="button" class="quiet">Remove</button>
+        </div>
+        <label for="study-list">Installed on this device</label>
+        <select id="study-list"></select>
+        <p id="study-status" class="status"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="frames">
+        <div class="frames-layout">
+          <div class="frames-side">
+            <div class="study-actions">
+              <button id="frames-all" type="button">Open all 10 windows</button>
+              <button id="brief-window" type="button" class="quiet">Open brief</button>
+            </div>
+            <p id="frame-lead" class="muted"></p>
+            <div id="frame-list" class="frame-list"></div>
+          </div>
+          <div class="frames-main">
+            <h2>Brief</h2>
+            <div id="brief" class="brief"></div>
+            <p id="frame-preview-caption" class="muted"></p>
+            <div class="zoom-bar" aria-label="Preview zoom">
+              <button id="preview-zoom-in" type="button">Zoom in</button>
+              <button id="preview-zoom-out" type="button">Zoom out</button>
+              <span id="preview-zoom-label" class="muted"></span>
+            </div>
+            <canvas id="frame-preview" width="800" height="180" aria-label="Selected timeframe"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="readings">
+        <h2 class="signals-title">B4 readings</h2>
+        <div id="readings" class="readings"></div>
+      </div>
+
+      <div class="dock-page" data-dock-page="journal">
+        <h2>Session journal</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
+            </thead>
+            <tbody id="journal-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="backtest">
+        <h2>Market history</h2>
+        <p id="backtest-summary" class="muted">Replays the loaded market history. The paper session stays on the latest quote.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
+            </thead>
+            <tbody id="backtest-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="signals">
+        <h2 class="signals-title">Signals</h2>
+        <ul id="signals" class="signals"></ul>
+      </div>
     </section>
-  </main>
+  </div>
 
-  <section class="panel wide">
-    <h2>Session journal</h2>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
-        </thead>
-        <tbody id="journal-body"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="panel wide">
-    <h2>Full-sample backtest</h2>
-    <p id="backtest-summary" class="muted">Runs the whole sample without moving the session day.</p>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
-        </thead>
-        <tbody id="backtest-body"></tbody>
-      </table>
-    </div>
-  </section>
+  <nav class="tabbar" aria-label="Sections">
+    <button type="button" data-tab="markets">Markets</button>
+    <button type="button" data-tab="chart" class="on">Chart</button>
+    <button type="button" data-tab="trade">Trade</button>
+    <button type="button" data-tab="study">Study</button>
+  </nav>
 
   <footer>
-    Sample prices are not live quotes and are not a forecast. Past sample results do not predict real trading.
+    Orders stay on the paper account. Quotes are market prices and are not a forecast.
   </footer>
-  <script src="/app.js"></script>
+  <script>
+  window.addEventListener("error", function (event) {
+    var lede = document.getElementById("lede");
+    var help = document.getElementById("open-help");
+    var message = (event && event.message) || "The desk did not start.";
+    if (lede) lede.textContent = message;
+    if (help) {
+      help.hidden = false;
+      help.textContent = message;
+    }
+  });
+  </script>
+  <script src="live.js"></script>
+  <script src="engine.js"></script>
+  <script src="study.js"></script>
+  <script src="frames.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -10,7 +11,8 @@ from paper_trader.backtest import run_backtest, signal_name
 from paper_trader.guard import assert_safe_launch
 from paper_trader.install import install_newest
 from paper_trader.model import Params
-from paper_trader.samples import load_symbol
+from paper_trader import quotes
+from paper_trader.learn import run_learner
 from paper_trader.server import serve
 
 STATE_PATH = Path(__file__).resolve().parents[1] / "paper_state.json"
@@ -19,7 +21,7 @@ STATE_PATH = Path(__file__).resolve().parents[1] / "paper_state.json"
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="paper_trader",
-        description="Local paper trading desk. Sample prices. No broker orders.",
+        description="Local paper trading desk. Market quotes. No broker orders.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
     server = commands.add_parser("serve", help="Open the desk in a browser on this computer")
@@ -27,7 +29,8 @@ def main(argv: list[str] | None = None) -> int:
     server.add_argument("--no-browser", action="store_true")
     install = commands.add_parser("install", help="Keep only the newest copy in Documents")
     install.add_argument("--home", type=Path, default=None)
-    check = commands.add_parser("backtest", help="Replay one sample market and print the result")
+    commands.add_parser("learn", help="Score closed bars all day on this computer")
+    check = commands.add_parser("backtest", help="Replay one market's quotes and print the paper result")
     check.add_argument("--symbol", default="BTC-USD")
     check.add_argument("--fast", type=int, default=10)
     check.add_argument("--slow", type=int, default=30)
@@ -47,9 +50,16 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "serve":
             if not 1024 <= args.port <= 65535:
                 raise ValueError("Port must be from 1024 to 65535")
-            assert_safe_launch([Path(__file__).resolve(), Path.cwd()])
+            install_root = Path(__file__).resolve().parents[1]
+            os.chdir(install_root)
+            assert_safe_launch([install_root])
             serve(STATE_PATH, args.port, open_browser=not args.no_browser)
             return 0
+        if args.command == "learn":
+            install_root = Path(__file__).resolve().parents[1]
+            os.chdir(install_root)
+            assert_safe_launch([install_root])
+            return run_learner(STATE_PATH.with_name("learn_state.json"))
         params = Params(
             fast=args.fast,
             slow=args.slow,
@@ -58,10 +68,10 @@ def main(argv: list[str] | None = None) -> int:
             fee_bps=args.fee_bps,
             stop_pct=args.stop_pct,
         )
-        bars = load_symbol(args.symbol)
+        bars = quotes.load_bars(args.symbol)
         result = run_backtest(bars, params)
         ending = result.equity_curve[-1][1]
-        print(f"Paper Trader sample replay: {args.symbol}")
+        print(f"Paper Trader market replay: {args.symbol}")
         print(f"Bars: {len(bars)}   {bars[0].date} -> {bars[-1].date}")
         print(f"Closed trades: {len(result.trades)}")
         print(f"Ending equity: {ending:.2f}")

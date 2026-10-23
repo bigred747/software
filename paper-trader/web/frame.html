@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Timeframe</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main class="frame-page">
+    <p class="eyebrow">Market quote</p>
+    <h1 id="frame-title">Timeframe</h1>
+    <p id="frame-note" class="muted"></p>
+    <div class="zoom-bar" aria-label="Chart zoom">
+      <button id="zoom-in" type="button">Zoom in</button>
+      <button id="zoom-out" type="button">Zoom out</button>
+      <span id="zoom-label" class="muted"></span>
+    </div>
+    <canvas id="frame-chart" width="800" height="420"></canvas>
+  </main>
+  <script src="/frames.js"></script>
+  <script src="/frame.js"></script>
+</body>
+</html>
