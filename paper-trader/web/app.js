@@ -12,6 +12,7 @@ const state = {
   studyCode: "",
   frameId: "1D",
   zoom: 4,
+  layers: {},
   previewZoom: 4,
   moods: {},
   lesson: null,
@@ -60,7 +61,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.35";
+const VERSION = "1.9.36";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -136,6 +137,7 @@ function stampQuote(bars) {
   state.market.price = bars && bars.length ? bars[bars.length - 1].close : state.market.price;
   if (state.market.price > 0) state.decimals = digitsFor(state.market.price);
   state.market.note = "Market quote. Paper orders stay on this device.";
+  if (bars && bars.tape) state.market.tape = Object.assign({}, state.market.tape || {}, bars.tape);
 }
 
 async function loadPhoneBars(symbol, params, fresh) {
@@ -838,11 +840,13 @@ async function scanPhone() {
           ? phoneBarCache.get(symbol)
           : await PaperLive.daily(symbol, kinds.get(symbol) || "");
         if (symbol !== open) phoneBarCache.delete(symbol);
-        const lesson = PaperFrames.lesson(bars);
-        const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(bars) : { kind: "", side: "" };
+        const crypto = phoneCrypto(symbol, { category: kinds.get(symbol) || "" });
+        const settled = PaperFrames.closedBars(bars, crypto);
+        const lesson = PaperFrames.lesson(settled);
+        const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(settled) : { kind: "", side: "" };
         const seen = Number(lesson && lesson.seen) || 0;
         const matched = Number(lesson && lesson.matched) || 0;
-        const timing = PaperFrames.edge ? PaperFrames.edge(bars) : null;
+        const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) }) : null;
         scored.push({
           symbol,
           seen,
@@ -1673,14 +1677,36 @@ function renderReadings() {
     ["Averages", averageName],
     ["Resistance", pivotsText(PaperFrames.trendPivots(bars), "high")],
     ["Support", pivotsText(PaperFrames.trendPivots(bars), "low")],
-    ["TMO", tmoText(bars)],
+    ["TMO", tmoText(PaperFrames.closedBars ? PaperFrames.closedBars(bars, chartCrypto()) : bars)],
     ["Lesson", lessonText(bars)],
     ["Fear and greed", moodText(bars)],
     ["Edge", (() => {
       const result = bars.length ? currentEdge(bars) : null;
-      return result && result.ready ? result.call + " · " + result.score + " of " + (result.checks || 4) : "—";
+      return result && result.ready ? result.call + " · " + result.score + " of " + (result.checks || 5) : "—";
     })()],
   ];
+  const desk = bars.length ? currentPro(bars) : null;
+  if (desk) {
+    const now = desk.last;
+    const close = desk.close;
+    const noVolume = "No volume from this feed";
+    const profile = desk.profile;
+    readingRows.push(
+      ["200 EMA", sidePrice(now.ema200, close, "above", "below")],
+      ["50 EMA", sidePrice(now.ema50, close, "above", "below")],
+      ["VWAP 20", desk.vwap[desk.vwap.length - 1] == null ? noVolume : sidePrice(now.vwap, close, "above", "below")],
+      ["POC", profile.poc == null ? noVolume : sidePrice(profile.poc, close, "above", "below")],
+      ["Value area", profile.poc == null ? noVolume : formatPrice(profile.low) + " to " + formatPrice(profile.high) + (close > profile.high ? " · above" : close < profile.low ? " · below" : " · inside")],
+      ["MACD", now.macd == null || now.signal == null ? "—" : (now.crossUp ? "Crossed above signal" : now.crossDown ? "Crossed below signal" : now.macd > now.signal ? "Above signal" : "Below signal") + " · " + (now.macd >= 0 ? "above 0" : "below 0")],
+      ["RSI 14", now.rsi == null ? "—" : now.rsi.toFixed(1) + (now.rsi >= 70 ? " · overbought" : now.rsi <= 30 ? " · oversold" : "")],
+      ["Bollinger", now.upper == null ? "—" : formatPrice(now.lower) + " to " + formatPrice(now.upper) + (close > now.upper ? " · above the top" : close < now.lower ? " · below the bottom" : " · inside")],
+      ["Volatility", desk.swing.yearly == null ? "—" : (desk.swing.yearly * 100).toFixed(1) + "% a year" + (desk.swing.rank == null ? "" : " · " + desk.swing.regime + " · rank " + Math.round(desk.swing.rank * 100) + "% of the past year")],
+      ["Band width", desk.swing.width == null ? "—" : (desk.swing.width * 100).toFixed(1) + "%" + (desk.swing.widthRank == null ? "" : " · " + (desk.swing.widthRank <= 0.2 ? "tight" : desk.swing.widthRank >= 0.8 ? "wide" : "normal") + " · rank " + Math.round(desk.swing.widthRank * 100) + "%")],
+      ["ATR 14", now.atr == null || !close ? "—" : formatPrice(now.atr) + " · " + ((now.atr / close) * 100).toFixed(1) + "% a day"],
+      ["Risk size", sizeText(desk)],
+    );
+  }
+  readingRows.push(...tapeRows(bars));
   if (sameStamp(list, readingRows.map((row) => row.join(":")).join("|"))) return;
   list.replaceChildren();
   readingRows.forEach(([name, value]) => {
@@ -1732,14 +1758,98 @@ const EDGE_CHECKS = [
   ["above", "Squeeze momentum above 0"],
   ["rising", "Squeeze momentum rising"],
   ["tmo", "TMO main above signal"],
+  ["band", "Under the upper Bollinger band"],
 ];
+
+function currentPro(bars) {
+  if (!PaperFrames.pro) return null;
+  const last = bars.length ? bars[bars.length - 1] : null;
+  const equity = state.paper && state.paper.equity > 0 ? state.paper.equity : 0;
+  const key = bars.length + ":" + (last ? last.date + ":" + last.close + ":" + last.volume : "") + ":" + Math.round(equity);
+  if (state.proKey === key && state.proDesk) return state.proDesk;
+  state.proDesk = PaperFrames.pro(bars, equity);
+  state.proKey = key;
+  return state.proDesk;
+}
+
+function sizeText(desk) {
+  if (!desk || !desk.risk || desk.risk.units == null) return "—";
+  const units = desk.risk.units;
+  const shown = units >= 100 ? Math.floor(units).toLocaleString() : units.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  return shown + " units · 1% risk " + formatMoney(desk.risk.cash) + " · stop " + formatPrice(desk.risk.stop) + (desk.risk.capped ? " · capped at cash" : "");
+}
+
+function formatVolume(value) {
+  if (!(value > 0)) return "—";
+  if (value >= 1e9) return (value / 1e9).toFixed(2) + "B";
+  if (value >= 1e6) return (value / 1e6).toFixed(1) + "M";
+  if (value >= 1e3) return (value / 1e3).toFixed(1) + "K";
+  return String(Math.round(value));
+}
+
+function currentTape(bars) {
+  if (!PaperFrames.hiddenTape) return null;
+  const settled = PaperFrames.closedBars ? PaperFrames.closedBars(bars, chartCrypto()) : bars;
+  const row = state.catalog.find((item) => item.symbol === ((state.paper && state.paper.symbol) || (state.market && state.market.symbol) || ""));
+  const extras = Object.assign({}, (state.market && state.market.tape) || {}, {
+    crypto: chartCrypto(),
+    kind: row ? row.category : chartCrypto() ? "crypto" : "",
+  });
+  return PaperFrames.hiddenTape(settled, extras);
+}
+
+function tapeRows(bars) {
+  const tape = bars.length ? currentTape(bars) : null;
+  if (!tape) {
+    return [["Hidden tape", "Dark pool books are private. This desk cannot see resting hidden orders."]];
+  }
+  const rvol = tape.feedRelVol || tape.rvol;
+  const absorption = {
+    absorption: "High volume, tight range · possible hidden inventory on the public tape",
+    initiative: "High volume, wide range · the public tape is moving price",
+    quiet: "Quiet · volume is light versus the recent average",
+    normal: "Normal volume versus the recent average",
+  }[tape.absorption] || (tape.volume == null ? "No volume from this feed" : "—");
+  const effort = tape.closeLoc == null
+    ? "—"
+    : "Close " + Math.round(tape.closeLoc * 100) + "% of the bar" + (tape.effort ? " · " + tape.effort : "") + (tape.upShare == null ? "" : " · " + Math.round(tape.upShare * 100) + "% up-volume over 20 days");
+  const book = tape.bid && tape.ask
+    ? formatPrice(tape.bid) + " / " + formatPrice(tape.ask) + (tape.spread != null ? " · spread " + (tape.spread * 10000).toFixed(1) + " bps" : "")
+    : "This feed does not publish a bid or ask";
+  const after = tape.afterVolume
+    ? formatVolume(tape.afterVolume) + (tape.volume ? " · session " + formatVolume(tape.volume) : "")
+    : tape.kind === "crypto"
+      ? "Crypto has no after-hours print"
+      : "This feed does not publish after-hours volume";
+  return [
+    ["Hidden tape", tape.note],
+    ["Relative volume", rvol == null ? (tape.volume == null ? "No volume from this feed" : "—") : rvol.toFixed(2) + "×" + (tape.feedRelVol ? " the feed's 10-day average" : " the prior 20 closed days") + (tape.volume ? " · " + formatVolume(tape.volume) : "")],
+    ["Absorption", absorption],
+    ["Tape pressure", effort],
+    ["Visible book", book],
+    ["After hours", after],
+  ];
+}
+
+function sidePrice(value, close, above, below) {
+  if (value == null || close == null) return "—";
+  const gap = ((close - value) / value) * 100;
+  return formatPrice(value) + " · " + (close >= value ? above : below) + " " + Math.abs(gap).toFixed(1) + "%";
+}
+
+function chartCrypto() {
+  const symbol = (state.paper && state.paper.symbol) || (state.market && state.market.symbol) || "";
+  const row = state.catalog.find((item) => item.symbol === symbol);
+  return phoneCrypto(symbol, row);
+}
 
 function currentEdge(bars) {
   if (!PaperFrames.edge) return null;
   const last = bars.length ? bars[bars.length - 1] : null;
-  const key = bars.length + ":" + (last ? last.date + ":" + last.open + ":" + last.close : "");
+  const live = PaperFrames.liveBar(bars, chartCrypto());
+  const key = bars.length + ":" + live + ":" + (last ? last.date + ":" + last.open + ":" + last.close : "");
   if (state.edgeKey === key && state.edge) return state.edge;
-  state.edge = PaperFrames.edge(bars);
+  state.edge = PaperFrames.edge(bars, { live });
   state.edgeKey = key;
   return state.edge;
 }
@@ -1756,10 +1866,15 @@ function edgePlan(result) {
   const last = seenBars();
   const close = last.length ? last[last.length - 1].close : null;
   const risk = result.stop != null && close ? " · " + Math.max(0, ((close - result.stop) / close) * 100).toFixed(1) + "% to the stop" : "";
-  if (result.call === "BUY") return "Buy setup on the latest bar. A paper buy fills at the next open. Starting stop " + stop + risk + ".";
-  if (result.call === "SELL") return "Sell on the latest bar: " + (result.reason || "exit") + ". A paper sell fills at the next open.";
-  if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + ".";
-  return "No buy yet. Edge waits for all four checks to turn on together.";
+  const desk = currentPro(last);
+  const size = desk && desk.risk && desk.risk.units != null ? " Size at 1% risk: " + sizeText(desk) + "." + (desk.swing && desk.swing.regime === "Extreme" ? " Volatility is in the top tenth of the past year, so the stop is wide and the size is small." : "") : "";
+  const today = result.live ? " Signals use closed bars only, through " + result.signalDate + ". Today's bar is still forming." : "";
+  if (result.filled && result.filled.side === "buy") return "Edge bought at today's open, " + formatPrice(result.filled.price) + ", after the " + result.signalDate + " close. Starting stop " + stop + risk + "." + size + today;
+  if (result.filled && result.filled.side === "sell") return "Edge sold at today's open, " + formatPrice(result.filled.price) + (result.reason ? ": " + result.reason : "") + "." + today;
+  if (result.call === "BUY") return "Buy setup on the " + result.signalDate + " close. A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + today;
+  if (result.call === "SELL") return "Sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
+  if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
+  return "No buy yet. Edge waits for all five checks to turn on together on a closed bar." + today;
 }
 
 function renderEdge() {
@@ -1811,7 +1926,7 @@ function currentLesson(bars) {
   const last = bars.length ? bars[bars.length - 1] : null;
   const key = bars.length + ":" + (last ? last.date + ":" + last.close : "");
   if (state.lessonKey === key && state.lesson) return state.lesson;
-  state.lesson = PaperFrames.lesson(bars);
+  state.lesson = PaperFrames.lesson(PaperFrames.closedBars(bars, chartCrypto()));
   state.lessonKey = key;
   return state.lesson;
 }
@@ -1849,8 +1964,7 @@ function lessonMarks(lesson, bars) {
 
 function tmoText(bars) {
   if (!bars.length) return "—";
-  const fitted = currentLesson(bars);
-  const study = PaperFrames.trueMomentum(bars, 14, fitted.calc, fitted.smooth);
+  const study = PaperFrames.trueMomentum(bars, 14, 5, 3);
   const last = study.main.length - 1;
   if (study.main[last] == null || study.signal[last] == null) return "—";
   const side = study.main[last] > study.signal[last] ? "Main above signal" : "Main below signal";
@@ -1894,15 +2008,16 @@ function drawCandles(retry) {
   const view = PaperFrames.zoomBars(history, state.zoom);
   const bars = view.bars;
   const dropped = view.start;
-  const studyLines = PaperFrames.averages(history, fitted.average);
+  const studyLines = PaperFrames.averages(history, 34);
   paintZoom(history.length);
   const highLine = studyLines.high.slice(dropped);
   const midLine = studyLines.close.slice(dropped);
   const lowLine = studyLines.low.slice(dropped);
   const pivots = PaperFrames.trendPivots(history);
-  const fast = visible(state.market.fast);
-  const slow = visible(state.market.slow);
-  const compressed = PaperFrames.compression(history, fitted.squeeze);
+  const layers = state.layers;
+  const fast = layers.fastslow ? visible(state.market.fast) : [];
+  const slow = layers.fastslow ? visible(state.market.slow) : [];
+  const compressed = PaperFrames.compression(history, 20);
   const squeeze = compressed.level.slice(dropped);
   const allMomentum = compressed.momentum;
   const momentum = allMomentum.slice(dropped);
@@ -1913,14 +2028,14 @@ function drawCandles(retry) {
   const priceBottom = Math.min(height - 36, Math.max(72, Math.round(height * 0.72)));
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
-  [highLine, midLine, lowLine, fast, slow].forEach((series) => {
+  [layers.averages ? highLine : [], layers.averages ? midLine : [], layers.averages ? lowLine : [], fast, slow].forEach((series) => {
     series.forEach((value) => {
       if (value == null) return;
       if (value < low) low = value;
       if (value > high) high = value;
     });
   });
-  if (pivots) {
+  if (pivots && layers.pivots) {
     const room = (high - low) * 0.25 || 1;
     [pivots.resistance, pivots.support, pivots.confirmHigh, pivots.confirmLow, pivots.riskOffHigh, pivots.riskOffLow].forEach((price) => {
       if (price < low - room || price > high + room) return;
@@ -1971,19 +2086,22 @@ function drawCandles(retry) {
     const bottom = y(Math.min(bar.open, bar.close));
     ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
   });
+  drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
-  drawLine(ctx, highLine, y, pad, slot, "#3ddc97", 2);
-  drawLine(ctx, midLine, y, pad, slot, "#5b9dff", 2);
-  drawLine(ctx, lowLine, y, pad, slot, "#ff6b7a", 2);
-  if (pivots) {
+  if (layers.averages) {
+    drawLine(ctx, highLine, y, pad, slot, "#3ddc97", 2);
+    drawLine(ctx, midLine, y, pad, slot, "#5b9dff", 2);
+    drawLine(ctx, lowLine, y, pad, slot, "#ff6b7a", 2);
+  }
+  if (pivots && layers.pivots) {
     PaperFrames.paintPivots(ctx, {
       ...pivots,
       fromHigh: Math.max(0, pivots.fromHigh - dropped),
       fromLow: Math.max(0, pivots.fromLow - dropped),
     }, (index) => pad + index * slot + slot / 2, y, bars.length - 1);
   }
-  const edgeResult = currentEdge(history);
+  const edgeResult = layers.edge ? currentEdge(history) : null;
   if (edgeResult && edgeResult.ready) {
     const trail = edgeResult.trail.slice(dropped);
     ctx.save();
@@ -2050,7 +2168,7 @@ function drawCandles(retry) {
   const lastMomentum = momentum[last];
   const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
   const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
-  if (width >= 640) {
+  if (width >= 640 && layers.key) {
     const key = [
       [lastBar.close >= lastBar.open ? "Candle green" : "Candle red", lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a"],
       ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
@@ -2078,7 +2196,7 @@ function drawCandles(retry) {
     const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 16 : y(bar.high) - 16));
     drawArrow(ctx, x, point, up);
   });
-  lessonMarks(fitted, history).forEach((mark) => {
+  (layers.lesson ? lessonMarks(fitted, history) : []).forEach((mark) => {
     const index = mark.index - dropped;
     if (index < 0 || index >= bars.length) return;
     const bar = bars[index];
@@ -2103,6 +2221,129 @@ function drawCandles(retry) {
   ctx.fillRect(tagX - 4, tagY - 12, tagWidth + 8, 16);
   ctx.fillStyle = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
   ctx.fillText(tag, tagX, tagY);
+}
+
+function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBottom) {
+  const desk = currentPro(history);
+  if (!desk) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(pad, 8, plotRight - pad, priceBottom - 8);
+  ctx.clip();
+  const layers = state.layers;
+  const profile = desk.profile;
+  if (layers.profile && profile.poc != null) {
+    const most = Math.max(...profile.rows.map((row) => row.volume), 1e-9);
+    const room = (plotRight - pad) * 0.22;
+    profile.rows.forEach((row) => {
+      const top = y(row.high);
+      const bottom = y(row.low);
+      const inside = row.low >= profile.low - 1e-12 && row.high <= profile.high + 1e-12;
+      ctx.fillStyle = inside ? "rgba(127, 150, 175, 0.30)" : "rgba(127, 150, 175, 0.14)";
+      ctx.fillRect(pad, top + 0.5, (row.volume / most) * room, Math.max(1, bottom - top - 1));
+    });
+  }
+  if (layers.bands) {
+    ctx.setLineDash([2, 3]);
+    drawLine(ctx, desk.bands.upper.slice(dropped, dropped + count), y, pad, slot, "#6b7785", 1);
+    drawLine(ctx, desk.bands.lower.slice(dropped, dropped + count), y, pad, slot, "#6b7785", 1);
+  }
+  if (layers.vwap) {
+    ctx.setLineDash([6, 4]);
+    drawLine(ctx, desk.vwap.slice(dropped, dropped + count), y, pad, slot, "#3fd0e0", 1.5);
+  }
+  ctx.setLineDash([]);
+  if (layers.ema200) drawLine(ctx, desk.ema200.slice(dropped, dropped + count), y, pad, slot, "#b48cff", 1.75);
+  if (layers.profile && profile.poc != null) {
+    const level = y(profile.poc);
+    ctx.setLineDash([8, 4]);
+    ctx.strokeStyle = "#ffd166";
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    ctx.moveTo(pad, level);
+    ctx.lineTo(plotRight, level);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = "11px Segoe UI, sans-serif";
+    ctx.fillStyle = "#ffd166";
+    ctx.fillText("POC", pad + 4, Math.max(18, level - 3));
+  }
+  ctx.restore();
+}
+
+const LAYERS = [
+  ["edge", "Edge stop", "edgestop", true],
+  ["ema200", "200 EMA", "ema200", true],
+  ["profile", "Volume + POC", "poc", true],
+  ["vwap", "VWAP", "vwap", false],
+  ["bands", "Bands", "band", false],
+  ["averages", "High · Close · Low", "close", false],
+  ["fastslow", "Fast · Slow", "fast", false],
+  ["pivots", "Pivots", "high", false],
+  ["lesson", "Lesson arrows", "low", false],
+  ["key", "Chart notes", "key", false],
+];
+const LAYERS_KEY = "paperTraderLayers";
+
+function readLayers() {
+  const chosen = {};
+  LAYERS.forEach(([id, , , on]) => {
+    chosen[id] = on;
+  });
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAYERS_KEY) || "{}");
+    if (saved && typeof saved === "object") {
+      LAYERS.forEach(([id]) => {
+        if (typeof saved[id] === "boolean") chosen[id] = saved[id];
+      });
+    }
+  } catch (error) {
+    /* The clean view stays. */
+  }
+  return chosen;
+}
+
+function paintLayers() {
+  const legend = $("legend");
+  const panel = $("layers");
+  const on = LAYERS.filter(([id]) => state.layers[id]);
+  if (legend) {
+    legend.replaceChildren();
+    on.forEach(([, name, swatch]) => {
+      const item = document.createElement("span");
+      item.className = "item";
+      const mark = document.createElement("span");
+      mark.className = "swatch " + swatch;
+      item.append(mark, document.createTextNode(name));
+      legend.appendChild(item);
+    });
+  }
+  if (panel && !panel.childElementCount) {
+    LAYERS.forEach(([id, name, swatch]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.layer = id;
+      const mark = document.createElement("span");
+      mark.className = "swatch " + swatch;
+      button.append(mark, document.createTextNode(name));
+      button.addEventListener("click", () => {
+        state.layers[id] = !state.layers[id];
+        try {
+          localStorage.setItem(LAYERS_KEY, JSON.stringify(state.layers));
+        } catch (error) {
+          /* The choice still holds for this page. */
+        }
+        paintLayers();
+        drawCandles();
+      });
+      panel.appendChild(button);
+    });
+  }
+  if (panel) {
+    panel.querySelectorAll("button").forEach((button) => {
+      button.setAttribute("aria-pressed", state.layers[button.dataset.layer] ? "true" : "false");
+    });
+  }
 }
 
 function drawStudy(ctx, bars, y, pad, slot) {
@@ -2156,8 +2397,7 @@ function drawTmo() {
   if (!state.market || !canvas) return;
   const history = sliceToCursor(state.market.bars);
   if (!history.length) return;
-  const fitted = currentLesson(history);
-  const study = PaperFrames.trueMomentum(history, 14, fitted.calc, fitted.smooth);
+  const study = PaperFrames.trueMomentum(history, 14, 5, 3);
   const view = PaperFrames.zoomBars(history, state.zoom);
   const count = view.size;
   const dropped = view.start;
@@ -2202,12 +2442,12 @@ function drawTmo() {
   strokeOscillator(ctx, main, main, signal, y, pad, slot);
   strokeOscillator(ctx, signal, main, signal, y, pad, slot);
   up.forEach((mark, index) => {
-    if (!mark || main[index] == null) return;
+    if (!mark || main[index] == null || main[index] > 0) return;
     ctx.fillStyle = "#67e8f9";
     drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) + 11, true);
   });
   down.forEach((mark, index) => {
-    if (!mark || main[index] == null) return;
+    if (!mark || main[index] == null || main[index] < 0) return;
     ctx.fillStyle = "#ff6b7a";
     drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 11, false);
   });
@@ -2335,7 +2575,7 @@ async function warnSqueeze() {
         const symbol = symbols[index];
         const row = state.catalog.find((item) => item.symbol === symbol);
         if (typeof PaperLive === "undefined" || !PaperFrames.squeezeAlert) continue;
-        const bars = await PaperLive.daily(symbol, row ? row.category : "");
+        const bars = PaperFrames.closedBars(await PaperLive.daily(symbol, row ? row.category : ""), phoneCrypto(symbol, row));
         const alert = PaperFrames.squeezeAlert(bars);
         if (!alert.side) continue;
         const name = pinLabel(symbol);
@@ -2386,6 +2626,11 @@ async function autoTick() {
           };
         }
         if (trade.asOf > 0) bars.asOf = trade.asOf;
+        const tape = {};
+        ["bid", "ask", "relVol", "tenDayAvg", "afterVolume"].forEach((key) => {
+          if (Number(trade[key]) > 0) tape[key] = Number(trade[key]);
+        });
+        if (Object.keys(tape).length) bars.tape = Object.assign({}, bars.tape || {}, tape);
       } else {
         const row = state.catalog.find((item) => item.symbol === symbol);
         bars = await PaperLive.daily(symbol, row ? row.category : "");
@@ -2727,6 +2972,18 @@ function bindZoom(canvas, which) {
   const button = $(id);
   if (button) button.addEventListener("click", () => stepZoom(which, direction));
 });
+const layersToggle = $("layers-toggle");
+if (layersToggle) {
+  layersToggle.addEventListener("click", () => {
+    const panel = $("layers");
+    const open = panel.hidden;
+    panel.hidden = !open;
+    layersToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    requestAnimationFrame(() => drawCandles());
+  });
+}
+state.layers = readLayers();
+paintLayers();
 bindZoom($("candles"), "chart");
 bindZoom($("rsi-chart"), "chart");
 bindZoom($("frame-preview"), "preview");

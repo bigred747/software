@@ -19,6 +19,8 @@ from paper_trader.learn import (
     Watcher,
     allow_entry,
     choose,
+    closed_bars,
+    score_row,
     ensure_learner,
     fit,
     learner_command,
@@ -378,3 +380,26 @@ class ScanTests(unittest.TestCase):
                 self.assertIn("Not a forecast", scan_note(4, 7504, False, 0, [{"symbol": "AAA"}]))
             finally:
                 watcher.release()
+
+class ClosedBarTests(unittest.TestCase):
+    def test_todays_bar_never_makes_a_signal(self) -> None:
+        from datetime import datetime, timezone
+
+        start = date(2026, 6, 1)
+        bars = [Bar((start + timedelta(days=index)).isoformat(), 100.0, 101.0, 99.0, 100.0 + index % 3, 1.0) for index in range(144)]
+        last = bars[-1].date
+        noon = datetime.fromisoformat(last + "T18:00:00+00:00")
+        self.assertEqual(len(closed_bars(bars, "BTC-USD", noon)), len(bars) - 1)
+        after = datetime.fromisoformat(last + "T00:30:00+00:00") + timedelta(days=1)
+        self.assertEqual(len(closed_bars(bars, "BTC-USD", after)), len(bars))
+        evening = datetime.fromisoformat(last + "T23:00:00+00:00")
+        self.assertEqual(len(closed_bars(bars, "AAPL", evening)), len(bars) - 1)
+        next_morning = datetime.fromisoformat(last + "T13:00:00+00:00") + timedelta(days=1)
+        self.assertEqual(len(closed_bars(bars, "AAPL", next_morning)), len(bars))
+        today = datetime.now(timezone.utc).date()
+        fresh = bars[:-1] + [Bar(today.isoformat(), 100.0, 300.0, 50.0, 250.0, 1.0)]
+        with_today = score_row(fresh, "BTC-USD")
+        without = score_row(fresh[:-1])
+        self.assertEqual(with_today["as_of"], fresh[-2].date)
+        self.assertEqual((with_today["seen"], with_today["matched"], with_today["setup"]), (without["seen"], without["matched"], without["setup"]))
+

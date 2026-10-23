@@ -74,7 +74,7 @@
     const price = Number(payload && payload.price);
     const asOf = payload && payload.time ? Math.floor(Date.parse(payload.time) / 1000) : 0;
     if (!(price > 0)) throw new Error("No live quote for " + symbol);
-    return { price, asOf };
+    return Object.assign({ price, asOf }, tapeFields({ bid: payload && payload.bid, ask: payload && payload.ask }));
   }
 
   async function bitstampTicker(symbol) {
@@ -83,7 +83,7 @@
     const price = Number(payload && payload.last);
     const asOf = Number(payload && payload.timestamp) || 0;
     if (!(price > 0)) throw new Error("No live quote for " + symbol);
-    return { price, asOf };
+    return Object.assign({ price, asOf }, tapeFields({ bid: payload && payload.bid, ask: payload && payload.ask }));
   }
 
   async function lastTrade(symbol, category) {
@@ -287,8 +287,35 @@
   }
 
   function volumeOf(text) {
-    const value = Number(String(text == null ? "" : text).replace(/,/g, ""));
+    const raw = String(text == null ? "" : text).trim().replace(/,/g, "");
+    const match = raw.match(/^([0-9]*\.?[0-9]+)\s*([KMB])?$/i);
+    if (!match) {
+      const value = Number(raw);
+      return value > 0 ? value : 0;
+    }
+    const scale = { K: 1e3, M: 1e6, B: 1e9 }[(match[2] || "").toUpperCase()] || 1;
+    const value = Number(match[1]) * scale;
     return value > 0 ? value : 0;
+  }
+
+  function tapeFields(source) {
+    const out = {};
+    if (!source) return out;
+    const bid = Number(source.bid);
+    const ask = Number(source.ask);
+    if (bid > 0) out.bid = bid;
+    if (ask > 0) out.ask = ask;
+    if (Number(source.relVol) > 0) out.relVol = Number(source.relVol);
+    if (Number(source.tenDayAvg) > 0) out.tenDayAvg = Number(source.tenDayAvg);
+    if (Number(source.afterVolume) > 0) out.afterVolume = Number(source.afterVolume);
+    return out;
+  }
+
+  function attachTape(bars, source) {
+    if (!bars) return bars;
+    const next = tapeFields(source);
+    if (Object.keys(next).length) bars.tape = Object.assign({}, bars.tape || {}, next);
+    return bars;
   }
 
   function cnbcClock(offsetDays) {
@@ -369,7 +396,22 @@
       live = extPrice;
       asOf = Math.floor(extWhen / 1000);
     }
-    return { open, high, low, close, live, date, asOf, volume: volumeOf(quote.volume) };
+    const rel = Number(quote.pcttendayvol);
+    return {
+      open,
+      high,
+      low,
+      close,
+      live,
+      date,
+      asOf,
+      volume: volumeOf(quote.volume),
+      tape: tapeFields({
+        relVol: rel > 0 ? rel : 0,
+        tenDayAvg: volumeOf(quote.tendayavgvol),
+        afterVolume: volumeOf(ext.volume),
+      }),
+    };
   }
 
   function paintSession(bars, session) {
@@ -393,6 +435,7 @@
       applyTrade(bars, { price: live, asOf: session.asOf });
     }
     if (session.asOf > 0) bars.asOf = session.asOf;
+    attachTape(bars, session.tape);
     return bars;
   }
 
@@ -417,15 +460,18 @@
   async function cnbcLast(symbol, category) {
     const session = sessionFromQuote(await cnbcQuote(symbol, category));
     if (!(session.live > 0)) throw new Error("No live quote for " + symbol);
-    return {
-      price: session.live,
-      asOf: session.asOf,
-      date: session.date,
-      open: session.open,
-      high: session.high,
-      low: session.low,
-      volume: session.volume,
-    };
+    return Object.assign(
+      {
+        price: session.live,
+        asOf: session.asOf,
+        date: session.date,
+        open: session.open,
+        high: session.high,
+        low: session.low,
+        volume: session.volume,
+      },
+      session.tape || {}
+    );
   }
 
   async function cnbcDaily(symbol, category) {
@@ -439,7 +485,9 @@
 
   async function withLastTrade(symbol, bars) {
     try {
-      return applyTrade(bars, await lastTrade(symbol));
+      const trade = await lastTrade(symbol);
+      applyTrade(bars, trade);
+      return attachTape(bars, trade);
     } catch (error) {
       return bars;
     }

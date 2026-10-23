@@ -374,6 +374,23 @@ button.quiet { background: transparent; }
 .swatch.high { background: #3ddc97; }
 .swatch.close { background: #5b9dff; }
 .swatch.low { background: #ff6b7a; }
+.swatch.ema200 { background: #b48cff; }
+.swatch.vwap { background: #3fd0e0; }
+.swatch.poc { background: #ffd166; }
+.swatch.band { background: #6b7785; }
+.swatch.profile { background: rgba(127, 150, 175, 0.55); }
+.legend { justify-content: flex-start; flex-wrap: wrap; gap: 4px 10px; color: var(--muted); }
+.legend span.item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.legend .swatch, .layers .swatch { margin: 0; }
+.swatch.edgestop { background: #e2b15a; }
+.swatch.key { background: #d7e2ea; }
+.zoom-bar .layers-toggle { margin-left: auto; }
+.layers-toggle[aria-expanded="true"] { background: #1c2733; border-color: var(--fast); }
+.layers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.layers[hidden] { display: none; }
+.layers button { width: auto; min-height: 32px; padding: 4px 10px; font-size: 12px; color: var(--muted); }
+.layers button[aria-pressed="true"] { color: var(--text); border-color: #4a5a6a; background: #16202a; }
+.layers button .swatch { margin-right: 6px; }
 
 canvas {
   display: block;
@@ -506,6 +523,9 @@ footer { display: none; }
   }
   body[data-tab="chart"] .chart-head { flex-wrap: wrap; gap: 2px 8px; margin: 0; }
   body[data-tab="chart"] .legend { flex: 1 0 100%; font-size: 11px; white-space: nowrap; overflow: hidden; }
+  body[data-tab="chart"] .legend { white-space: normal; overflow: visible; gap: 2px 8px; }
+  body[data-tab="chart"] .layers { flex: 0 0 auto; margin-top: 4px; gap: 4px; }
+  body[data-tab="chart"] .layers button { min-height: 30px; padding: 3px 8px; font-size: 11px; }
   body[data-tab="chart"] .chart-read { margin: 2px 0 0; font-size: 13px; min-height: 0; }
   body[data-tab="chart"] .signal-strip {
     flex-wrap: nowrap;

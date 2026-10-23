@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -128,7 +128,7 @@ test("edge fills at the next open and later bars do not move closed trades", () 
   assert.ok(full.ready);
   assert.ok(full.trades.length > 0);
   assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(full.call));
-  assert.ok(full.score >= 0 && full.score <= 4);
+  assert.ok(full.score >= 0 && full.score <= 5);
   full.marks.forEach((mark) => {
     assert.equal(mark.price, bars[mark.index].open);
     assert.ok(mark.index >= 51);
@@ -140,12 +140,12 @@ test("edge fills at the next open and later bars do not move closed trades", () 
   const closedBefore = cut.trades.filter((trade) => trade.exitDate < bars[239].date);
   const sameInFull = full.trades.slice(0, closedBefore.length);
   assert.deepEqual(JSON.parse(JSON.stringify(sameInFull)), JSON.parse(JSON.stringify(closedBefore)));
-  assert.equal(full.checks, 4);
+  assert.equal(full.checks, 5);
   const again = edge(bars);
   full.marks.filter((mark) => mark.side === "buy").forEach((mark) => {
     const signal = edge(bars.slice(0, mark.index));
     assert.equal(signal.call, "BUY");
-    assert.equal(signal.score, 4);
+    assert.equal(signal.score, 5);
     assert.ok(Object.values(signal.parts).every(Boolean));
   });
   assert.equal(again.trades.length, full.trades.length);
@@ -177,4 +177,126 @@ test("zoom keeps the latest bar and fear or greed follows the range", () => {
   const nudged = bars.slice(0, -1).concat([day(bars[199].date, bars[199].open, bars[199].high, bars[199].low, bars[199].close * 0.5)]);
   const again = lesson(nudged);
   assert.deepEqual(JSON.parse(JSON.stringify(fitted.arrows)), JSON.parse(JSON.stringify(again.arrows)));
+});
+
+test("volume profile, VWAP, bands, MACD, and ATR size use only real bars", () => {
+  const bars = [];
+  for (let index = 0; index < 240; index += 1) {
+    const close = 100 + Math.sin(index / 8) * 5 + index * 0.05;
+    const date = new Date(Date.UTC(2024, 0, 1) + index * 86400000).toISOString().slice(0, 10);
+    bars.push({ date, open: close - 0.5, high: close + 1, low: close - 1, close, volume: index % 10 === 0 ? 5000 : 100 });
+  }
+  const profile = volumeProfile(bars, 24);
+  assert.equal(profile.rows.length, 24);
+  assert.ok(profile.poc >= profile.low && profile.poc <= profile.high);
+  const inside = profile.rows.filter((row) => row.low >= profile.low - 1e-9 && row.high <= profile.high + 1e-9).reduce((sum, row) => sum + row.volume, 0);
+  assert.ok(inside >= profile.total * 0.7 - 1e-6);
+  const flat = bars.map((bar) => ({ ...bar, volume: 0 }));
+  assert.equal(volumeProfile(flat, 24).poc, null);
+  assert.equal(rollingVwap(flat, 20)[239], null);
+  const vwap = rollingVwap(bars, 20);
+  assert.equal(vwap[18], null);
+  const window = bars.slice(220, 240);
+  const expected = window.reduce((sum, bar) => sum + ((bar.high + bar.low + bar.close) / 3) * bar.volume, 0) / window.reduce((sum, bar) => sum + bar.volume, 0);
+  assert.ok(Math.abs(vwap[239] - expected) < 1e-9);
+  const bands = bollinger(bars, 20, 2);
+  assert.ok(bands.upper[239] > bands.mid[239] && bands.mid[239] > bands.lower[239]);
+  const trend = macd(bars);
+  assert.ok(Math.abs(trend.hist[239] - (trend.line[239] - trend.signal[239])) < 1e-12);
+  const desk = pro(bars, 10000);
+  assert.ok(desk.last.rsi >= 0 && desk.last.rsi <= 100);
+  assert.ok(Math.abs(desk.risk.cash - 100) < 1e-9);
+  assert.ok(Math.abs(desk.risk.units * (desk.close - desk.risk.stop) - 100) < 1e-6 || desk.risk.capped);
+  assert.ok(desk.risk.units * desk.close <= 10000 + 1e-6);
+});
+
+test("volatility is annualized from closed bars and ranked against the past year", () => {
+  const calm = [];
+  const wild = [];
+  for (let index = 0; index < 300; index += 1) {
+    const date = new Date(Date.UTC(2024, 0, 1) + index * 86400000).toISOString().slice(0, 10);
+    const step = index % 2 ? 1.01 : 1 / 1.01;
+    const swing = index > 280 ? (index % 2 ? 1.05 : 1 / 1.05) : step;
+    const priorCalm = calm.length ? calm[calm.length - 1].close : 100;
+    const priorWild = wild.length ? wild[wild.length - 1].close : 100;
+    calm.push({ date, open: priorCalm, high: priorCalm * 1.02, low: priorCalm * 0.98, close: priorCalm * step, volume: 1 });
+    wild.push({ date, open: priorWild, high: priorWild * 1.06, low: priorWild * 0.94, close: priorWild * swing, volume: 1 });
+  }
+  const quiet = volatility(calm, 20);
+  const expected = Math.sqrt(20 / 19) * Math.log(1.01) * Math.sqrt(365);
+  assert.ok(Math.abs(quiet.yearly - expected) < 1e-9);
+  assert.equal(quiet.year, 365);
+  const loud = volatility(wild, 20);
+  assert.ok(loud.yearly > quiet.yearly * 3);
+  assert.equal(loud.regime, "Extreme");
+  assert.ok(loud.rank > 0.9);
+  assert.equal(volatility(calm.slice(0, 10), 20).yearly, null);
+});
+
+test("today's forming bar never makes an Edge signal and old marks never move", () => {
+  const bars = [];
+  for (let index = 0; index < 320; index += 1) {
+    const wave = Math.sin(index / 7) * 10 + Math.sin(index / 23) * 18;
+    const close = 150 + index * 0.2 + wave;
+    const open = close - Math.cos(index / 4) * 1.2;
+    const date = new Date(Date.UTC(2023, 0, 1) + index * 86400000).toISOString().slice(0, 10);
+    bars.push({ date, open, high: Math.max(open, close) + 1.2, low: Math.min(open, close) - 1.2, close, volume: 10 });
+  }
+  const full = edge(bars, { live: true });
+  const closed = edge(bars.slice(0, -1));
+  assert.equal(full.score, closed.score);
+  assert.deepEqual(JSON.parse(JSON.stringify(full.parts)), JSON.parse(JSON.stringify(closed.parts)));
+  assert.equal(full.signalDate, bars[bars.length - 2].date);
+  for (const swing of [0.5, 1.5, 3]) {
+    const moved = bars.map((bar, index) => (index === bars.length - 1 ? { ...bar, close: bar.open * swing, high: Math.max(bar.high, bar.open * swing), low: Math.min(bar.low, bar.open * swing) } : bar));
+    const again = edge(moved, { live: true });
+    assert.equal(again.call, full.call);
+    assert.equal(again.score, full.score);
+    assert.deepEqual(again.marks, full.marks);
+  }
+  for (let cut = 120; cut <= bars.length; cut += 17) {
+    const early = edge(bars.slice(0, cut), { live: true });
+    const later = full.marks.filter((mark) => mark.index < cut);
+    assert.deepEqual(JSON.parse(JSON.stringify(early.marks)), JSON.parse(JSON.stringify(later)));
+  }
+});
+
+test("hidden tape uses closed public volume and never invents a dark-pool print", () => {
+  const quiet = [];
+  for (let index = 0; index < 40; index += 1) {
+    const close = 100 + index * 0.1;
+    quiet.push({ date: "2024-03-" + String((index % 27) + 1).padStart(2, "0"), open: close - 0.4, high: close + 1, low: close - 1, close, volume: 100 });
+  }
+  const absorbed = quiet.map((bar, index) => (index === quiet.length - 1 ? { ...bar, high: bar.close + 0.1, low: bar.close - 0.1, volume: 400 } : bar));
+  const moved = quiet.map((bar, index) => (index === quiet.length - 1 ? { ...bar, high: bar.close + 6, low: bar.close - 6, volume: 400 } : bar));
+  const light = quiet.map((bar, index) => (index === quiet.length - 1 ? { ...bar, volume: 20 } : bar));
+  const empty = quiet.map((bar) => ({ ...bar, volume: 0 }));
+  const hold = hiddenTape(absorbed);
+  assert.equal(hold.absorption, "absorption");
+  assert.ok(hold.rvol > 3);
+  assert.equal(hiddenTape(moved).absorption, "initiative");
+  assert.equal(hiddenTape(light).absorption, "quiet");
+  assert.equal(hiddenTape(empty).rvol, null);
+  assert.equal(hiddenTape(empty).volume, null);
+  const withBook = hiddenTape(absorbed, { bid: 10, ask: 10.02, crypto: true });
+  assert.equal(withBook.kind, "crypto");
+  assert.match(withBook.note, /public exchange tape/);
+  assert.ok(Math.abs(withBook.spread - 0.02 / 10.01) < 1e-9);
+  const stock = hiddenTape(absorbed, { kind: "stock", relVol: 1.19, afterVolume: 6248638 });
+  assert.match(stock.note, /Dark pool books/);
+  assert.equal(stock.feedRelVol, 1.19);
+  assert.equal(stock.afterVolume, 6248638);
+  const source = fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8");
+  assert.equal(/dark pool print|invent.*dark/i.test(source), false);
+});
+
+test("a bar is forming until its day ends in the market's own clock", () => {
+  const noonDenver = new Date("2026-10-22T18:00:00Z");
+  const crypto = [{ date: "2026-10-21" }, { date: "2026-10-22" }];
+  assert.equal(liveBar(crypto, true, noonDenver), true);
+  assert.equal(closedBars(crypto, true, noonDenver).length, 1);
+  assert.equal(liveBar(crypto, true, new Date("2026-10-23T00:30:00Z")), false);
+  const stock = [{ date: "2026-10-21" }, { date: "2026-10-22" }];
+  assert.equal(liveBar(stock, false, new Date("2026-10-23T01:00:00Z")), true);
+  assert.equal(liveBar(stock, false, new Date("2026-10-23T13:00:00Z")), false);
 });

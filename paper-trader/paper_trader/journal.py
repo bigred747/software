@@ -6,9 +6,9 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from paper_trader.backtest import present, run_backtest
+from paper_trader.backtest import present, run_backtest, signal_name
 from paper_trader.indicators import rsi, sma, squeeze
-from paper_trader.learn import fit
+from paper_trader.learn import closed_bars, fit
 from paper_trader.model import Bar, Params, params_from_dict
 from paper_trader import quotes
 
@@ -81,6 +81,21 @@ def view_journal(journal: Journal) -> dict:
     )
     payload = present(result, journal.symbol, len(bars), journal.params, journal.cursor)
     payload["quote"] = "market"
+    settled = closed_bars(bars, journal.symbol)
+    payload["signal_bar"] = settled[-1].date if settled else None
+    if len(settled) < len(bars) and len(settled) > journal.params.slow + 1:
+        closed = run_backtest(
+            settled,
+            journal.params,
+            close_orders=journal.close_orders,
+            halt_days=set(journal.halt_days),
+        )
+        signal = signal_name(closed)
+        if result.shares > 0 and signal != "SELL":
+            signal = "HOLD LONG"
+        elif result.shares <= 0 and signal == "HOLD LONG":
+            signal = "HOLD"
+        payload["signal"] = signal
     return payload
 
 
@@ -95,7 +110,7 @@ def market_view(symbol: str, params: Params) -> dict:
     slow = sma(closes, params.slow)
     rsi_values = rsi(closes, params.rsi_period) if params.rsi_period else [None] * len(bars)
     bands = squeeze([bar.high for bar in bars], [bar.low for bar in bars], closes)
-    lesson = fit(bars)
+    lesson = fit(closed_bars(bars, symbol))
     return {
         "symbol": symbol,
         "note": "Market quote. Paper orders stay on this device.",

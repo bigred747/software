@@ -43,6 +43,7 @@ SCAN_PAUSE = 0.15
 INTERVAL = 60.0
 STALE_SECONDS = 180.0
 _DENVER = ZoneInfo("America/Denver")
+_NEW_YORK = ZoneInfo("America/New_York")
 DEFAULT_RULE = "True momentum 5/3 with the candle"
 _SYMBOL = re.compile(r"^[A-Za-z0-9.^=-]{1,16}$")
 _WATCH_LOCK = threading.Lock()
@@ -139,6 +140,22 @@ def mood(bars: list[Bar], length: int = 20) -> dict:
     }
 
 
+def closed_bars(bars: list[Bar], symbol: str, now: datetime | None = None) -> list[Bar]:
+    """Bars whose day is over. Today's bar still moves, so it never makes a signal.
+
+    Crypto days end at midnight UTC. Stocks, ETFs, and futures use the New York date,
+    and today's bar waits for the next day so an after-hours print cannot change it.
+    """
+    if not bars:
+        return bars
+    moment = now or datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    zone = timezone.utc if str(symbol or "").upper().endswith("-USD") else _NEW_YORK
+    today = moment.astimezone(zone).date().isoformat()
+    return bars[:-1] if bars[-1].date >= today else bars
+
+
 def buy_setup(bars: list[Bar]) -> str:
     """A daily buy only when five squeeze dots are on and momentum is rising.
 
@@ -153,8 +170,10 @@ def buy_setup(bars: list[Bar]) -> str:
     return ""
 
 
-def score_row(bars: list[Bar]) -> dict:
-    """Closed-bar score plus today's setup. The last bar still gets no arrow."""
+def score_row(bars: list[Bar], symbol: str = "") -> dict:
+    """Closed-bar score plus the latest closed bar's setup. Today's moving bar is left out."""
+    if symbol:
+        bars = closed_bars(bars, symbol)
     lesson = fit(bars)
     return {
         "rule": lesson["rule"],
@@ -930,7 +949,7 @@ class Watcher:
         symbol = queue[cursor % len(queue)]
         try:
             bars = quotes.load_bars(symbol, refresh=True)
-            lesson = score_row(bars)
+            lesson = score_row(bars, symbol)
         except ValueError as exc:
             self._fail(str(exc), symbol, cursor + 1)
             return
@@ -1011,7 +1030,7 @@ class Watcher:
         message = ""
         try:
             bars = quotes.load_bars(symbol, refresh=False)
-            row = scan_fields(score_row(bars), day)
+            row = scan_fields(score_row(bars, symbol), day)
         except ValueError as exc:
             message = str(exc) or "The quote feed did not answer."
             stall = "did not answer" in message or "unexpected response" in message

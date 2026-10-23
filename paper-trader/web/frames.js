@@ -701,7 +701,7 @@
     const ctx = canvas.getContext("2d");
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    const fullLines = averages(history, fitted.average);
+    const fullLines = averages(history, 34);
     const lines = {
       high: fullLines.high.slice(dropped),
       close: fullLines.close.slice(dropped),
@@ -713,7 +713,7 @@
       fromHigh: Math.max(0, pivotsFull.fromHigh - dropped),
       fromLow: Math.max(0, pivotsFull.fromLow - dropped),
     } : null;
-    const fullSqueeze = compression(history, fitted.squeeze);
+    const fullSqueeze = compression(history, 20);
     const study = {
       momentum: fullSqueeze.momentum.slice(dropped),
       level: fullSqueeze.level.slice(dropped),
@@ -836,7 +836,8 @@
   const EDGE_WARM = 50;
   const EDGE_DOTS = 5;
   const EDGE_TRAIL = 2;
-  const EDGE_SCORE = 4;
+  const EDGE_SCORE = 5;
+  const PRO_RISK = 0.01;
 
   function edgeAtr(bars, period) {
     const out = new Array(bars.length).fill(null);
@@ -859,14 +860,309 @@
     return out;
   }
 
-  function edge(bars) {
+  function proRsi(closes, period) {
+    const out = new Array(closes.length).fill(null);
+    if (closes.length <= period) return out;
+    let gain = 0;
+    let loss = 0;
+    for (let index = 1; index <= period; index += 1) {
+      const change = closes[index] - closes[index - 1];
+      if (change >= 0) gain += change;
+      else loss -= change;
+    }
+    gain /= period;
+    loss /= period;
+    out[period] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+    for (let index = period + 1; index < closes.length; index += 1) {
+      const change = closes[index] - closes[index - 1];
+      gain = (gain * (period - 1) + Math.max(change, 0)) / period;
+      loss = (loss * (period - 1) + Math.max(-change, 0)) / period;
+      out[index] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+    }
+    return out;
+  }
+
+  function bollinger(bars, length, width) {
+    const window = length || 20;
+    const spread = width || 2;
+    const count = bars.length;
+    const mid = new Array(count).fill(null);
+    const upper = new Array(count).fill(null);
+    const lower = new Array(count).fill(null);
+    for (let index = window - 1; index < count; index += 1) {
+      let total = 0;
+      for (let cursor = index - window + 1; cursor <= index; cursor += 1) total += bars[cursor].close;
+      const mean = total / window;
+      let variance = 0;
+      for (let cursor = index - window + 1; cursor <= index; cursor += 1) variance += (bars[cursor].close - mean) ** 2;
+      const deviation = Math.sqrt(variance / window);
+      mid[index] = mean;
+      upper[index] = mean + spread * deviation;
+      lower[index] = mean - spread * deviation;
+    }
+    return { mid, upper, lower };
+  }
+
+  function macd(bars) {
+    const closes = bars.map((bar) => bar.close);
+    const fast = ema(closes, 12);
+    const slow = ema(closes, 26);
+    const line = closes.map((_, index) => (fast[index] != null && slow[index] != null ? fast[index] - slow[index] : null));
+    const signal = ema(line, 9);
+    const hist = line.map((value, index) => (value != null && signal[index] != null ? value - signal[index] : null));
+    return { line, signal, hist };
+  }
+
+  function rollingVwap(bars, length) {
+    const window = length || 20;
+    const out = new Array(bars.length).fill(null);
+    let priced = 0;
+    let volume = 0;
+    for (let index = 0; index < bars.length; index += 1) {
+      const bar = bars[index];
+      const weight = Math.max(0, Number(bar.volume) || 0);
+      priced += ((bar.high + bar.low + bar.close) / 3) * weight;
+      volume += weight;
+      if (index >= window) {
+        const old = bars[index - window];
+        const oldWeight = Math.max(0, Number(old.volume) || 0);
+        priced -= ((old.high + old.low + old.close) / 3) * oldWeight;
+        volume -= oldWeight;
+      }
+      if (index >= window - 1 && volume > 0) out[index] = priced / volume;
+    }
+    return out;
+  }
+
+  function volumeProfile(bars, buckets) {
+    const count = Math.max(8, buckets || 24);
+    const rows = [];
+    const list = (bars || []).filter((bar) => (Number(bar.volume) || 0) > 0);
+    if (!list.length) return { rows, poc: null, high: null, low: null, total: 0 };
+    let low = Infinity;
+    let high = -Infinity;
+    list.forEach((bar) => {
+      low = Math.min(low, bar.low);
+      high = Math.max(high, bar.high);
+    });
+    if (!(high > low)) return { rows, poc: null, high: null, low: null, total: 0 };
+    const step = (high - low) / count;
+    for (let index = 0; index < count; index += 1) rows.push({ low: low + index * step, high: low + (index + 1) * step, volume: 0 });
+    let total = 0;
+    list.forEach((bar) => {
+      const from = Math.max(0, Math.min(count - 1, Math.floor((bar.low - low) / step)));
+      const to = Math.max(0, Math.min(count - 1, Math.floor((bar.high - low) / step)));
+      const share = bar.volume / (to - from + 1);
+      for (let index = from; index <= to; index += 1) rows[index].volume += share;
+      total += bar.volume;
+    });
+    let peak = 0;
+    rows.forEach((row, index) => {
+      if (row.volume > rows[peak].volume) peak = index;
+    });
+    let inside = rows[peak].volume;
+    let top = peak;
+    let bottom = peak;
+    while (inside < total * 0.7 && (top < count - 1 || bottom > 0)) {
+      const above = top < count - 1 ? rows[top + 1].volume : -1;
+      const below = bottom > 0 ? rows[bottom - 1].volume : -1;
+      if (above >= below) {
+        top += 1;
+        inside += above;
+      } else {
+        bottom -= 1;
+        inside += below;
+      }
+    }
+    return {
+      rows,
+      poc: (rows[peak].low + rows[peak].high) / 2,
+      high: rows[top].high,
+      low: rows[bottom].low,
+      total,
+    };
+  }
+
+  function volatility(bars, length) {
+    const window = length || 20;
     const list = bars || [];
     const count = list.length;
+    const hv = new Array(count).fill(null);
+    if (count <= window) return { hv, yearly: null, rank: null, width: null, widthRank: null, regime: "" };
+    const returns = list.map((bar, index) => (index > 0 && list[index - 1].close > 0 && bar.close > 0 ? Math.log(bar.close / list[index - 1].close) : 0));
+    const weekends = list.slice(-30).some((bar) => {
+      const day = new Date(bar.date + "T00:00:00Z").getUTCDay();
+      return day === 0 || day === 6;
+    });
+    const year = weekends ? 365 : 252;
+    for (let index = window; index < count; index += 1) {
+      let mean = 0;
+      for (let cursor = index - window + 1; cursor <= index; cursor += 1) mean += returns[cursor];
+      mean /= window;
+      let variance = 0;
+      for (let cursor = index - window + 1; cursor <= index; cursor += 1) variance += (returns[cursor] - mean) ** 2;
+      hv[index] = Math.sqrt(variance / (window - 1)) * Math.sqrt(year);
+    }
+    const bands = bollinger(list, 20, 2);
+    const width = bands.mid.map((mid, index) => (mid ? (bands.upper[index] - bands.lower[index]) / mid : null));
+    const rankOf = (series) => {
+      const now = series[count - 1];
+      if (now == null) return null;
+      const past = series.slice(-252).filter((value) => value != null);
+      if (past.length < 60) return null;
+      return past.filter((value) => value <= now).length / past.length;
+    };
+    const rank = rankOf(hv);
+    let regime = "";
+    if (rank != null) regime = rank < 0.2 ? "Quiet" : rank < 0.6 ? "Normal" : rank < 0.9 ? "High" : "Extreme";
+    return { hv, yearly: hv[count - 1], rank, width: width[count - 1], widthRank: rankOf(width), regime, year };
+  }
+
+  function pro(bars, equity) {
+    const list = bars || [];
+    const count = list.length;
+    const closes = list.map((bar) => bar.close);
+    const last = count - 1;
+    const long = ema(closes, 200);
+    const mid = ema(closes, 50);
+    const strength = proRsi(closes, 14);
+    const bands = bollinger(list, 20, 2);
+    const trend = macd(list);
+    const range = edgeAtr(list, 14);
+    const vwap = rollingVwap(list, 20);
+    const profile = volumeProfile(list.slice(-120), 24);
+    const swing = volatility(list, 20);
+    const close = last >= 0 ? closes[last] : null;
+    const atr = last >= 0 ? range[last] : null;
+    const stopGap = atr ? EDGE_TRAIL * atr : null;
+    const riskCash = equity > 0 ? equity * PRO_RISK : null;
+    const units = stopGap && riskCash ? riskCash / stopGap : null;
+    const capped = units != null && close ? Math.min(units, equity / close) : null;
+    return {
+      ema200: long,
+      ema50: mid,
+      rsi: strength,
+      bands,
+      macd: trend,
+      atr: range,
+      vwap,
+      profile,
+      swing,
+      close,
+      last: {
+        ema200: last >= 0 ? long[last] : null,
+        ema50: last >= 0 ? mid[last] : null,
+        rsi: last >= 0 ? strength[last] : null,
+        upper: last >= 0 ? bands.upper[last] : null,
+        mid: last >= 0 ? bands.mid[last] : null,
+        lower: last >= 0 ? bands.lower[last] : null,
+        macd: last >= 0 ? trend.line[last] : null,
+        signal: last >= 0 ? trend.signal[last] : null,
+        crossUp: last > 0 && trend.line[last] > trend.signal[last] && trend.line[last - 1] <= trend.signal[last - 1],
+        crossDown: last > 0 && trend.line[last] < trend.signal[last] && trend.line[last - 1] >= trend.signal[last - 1],
+        atr,
+        vwap: last >= 0 ? vwap[last] : null,
+      },
+      risk: { pct: PRO_RISK, cash: riskCash, stop: close != null && stopGap ? close - stopGap : null, units: capped, capped: units != null && capped < units },
+    };
+  }
+
+  function dayIn(zone, now) {
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now || new Date());
+    const pick = (type) => (parts.find((part) => part.type === type) || {}).value || "";
+    return pick("year") + "-" + pick("month") + "-" + pick("day");
+  }
+
+  function liveBar(bars, crypto, now) {
+    const list = bars || [];
+    if (!list.length) return false;
+    const last = String(list[list.length - 1].date || "").slice(0, 10);
+    return last >= dayIn(crypto ? "UTC" : "America/New_York", now);
+  }
+
+  function closedBars(bars, crypto, now) {
+    const list = bars || [];
+    return liveBar(list, crypto, now) ? list.slice(0, -1) : list;
+  }
+
+  function hiddenTape(bars, extras) {
+    const list = bars || [];
+    const extra = extras || {};
+    const count = list.length;
+    const last = count ? list[count - 1] : null;
+    const volumes = list.map((bar) => Math.max(0, Number(bar.volume) || 0));
+    const prior = volumes.slice(Math.max(0, count - 21), Math.max(0, count - 1)).filter((value) => value > 0);
+    const average = prior.length >= 5 ? prior.reduce((sum, value) => sum + value, 0) / prior.length : null;
+    const volume = last ? volumes[count - 1] : 0;
+    const rvol = average && volume > 0 ? volume / average : null;
+    const width = last ? last.high - last.low : 0;
+    const ranges = edgeAtr(list, 14);
+    const atr = last ? ranges[count - 1] : null;
+    const rangePct = atr ? width / atr : null;
+    const closeLoc = last && width > 0 ? (last.close - last.low) / width : null;
+    let up = 0;
+    let down = 0;
+    const from = Math.max(1, count - 20);
+    for (let index = from; index < count; index += 1) {
+      const weight = volumes[index];
+      if (list[index].close >= list[index - 1].close) up += weight;
+      else down += weight;
+    }
+    const total = up + down;
+    const upShare = total > 0 ? up / total : null;
+    let absorption = "";
+    if (rvol != null && rangePct != null) {
+      if (rvol >= 1.5 && rangePct <= 0.7) absorption = "absorption";
+      else if (rvol >= 1.5 && rangePct >= 1.4) absorption = "initiative";
+      else if (rvol < 0.7) absorption = "quiet";
+      else absorption = "normal";
+    } else if (rvol != null && rvol < 0.7) absorption = "quiet";
+    let effort = "";
+    if (closeLoc != null) {
+      if (closeLoc >= 0.66 && (upShare == null || upShare >= 0.5)) effort = "buyers";
+      else if (closeLoc <= 0.34 && (upShare == null || upShare <= 0.5)) effort = "sellers";
+      else effort = "mixed";
+    }
+    const numberOrNull = (value) => (Number(value) > 0 ? Number(value) : null);
+    const bid = numberOrNull(extra.bid);
+    const ask = numberOrNull(extra.ask);
+    const spread = bid && ask && ask >= bid ? (ask - bid) / ((ask + bid) / 2) : null;
+    const kind = extra.kind || (extra.crypto ? "crypto" : "");
+    let note = "Dark pool books, iceberg orders, and institutional blotters are private. The public tape includes delayed off-exchange prints after they report. These lines are not a look at resting hidden orders.";
+    if (kind === "crypto") note = "Dark pools are stock venues. Crypto here is the public exchange tape.";
+    else if (kind === "future") note = "Block desks and hidden futures books are private. These lines use the public tape only.";
+    return {
+      rvol,
+      volume: volume > 0 ? volume : null,
+      average,
+      rangePct,
+      closeLoc,
+      upShare,
+      absorption,
+      effort,
+      bid,
+      ask,
+      spread,
+      feedRelVol: numberOrNull(extra.relVol),
+      afterVolume: numberOrNull(extra.afterVolume),
+      tenDayAvg: numberOrNull(extra.tenDayAvg),
+      kind,
+      note,
+      ready: count >= 21 && average != null,
+    };
+  }
+
+  function edge(bars, options) {
+    const list = bars || [];
+    const count = list.length;
+    const live = !!(options && options.live) && count > 0;
+    const end = live ? count - 1 : count;
     const closes = list.map((bar) => bar.close);
     const study = compression(list, 20);
     const squeeze = study.momentum;
     const tmo = trueMomentum(list, 14, 5, 3);
     const range = edgeAtr(list, 14);
+    const bands = bollinger(list, 20, 2);
     const dots = new Array(count).fill(0);
     let run = 0;
     for (let index = 0; index < count; index += 1) {
@@ -876,7 +1172,7 @@
     const score = new Array(count).fill(null);
     const trail = new Array(count).fill(null);
     const parts = new Array(count).fill(null);
-    for (let index = EDGE_WARM; index < count; index += 1) {
+    for (let index = EDGE_WARM; index < end; index += 1) {
       const now = squeeze[index];
       const prior = squeeze[index - 1];
       const checks = {
@@ -884,6 +1180,7 @@
         above: now != null && now > 0,
         rising: now != null && prior != null && now >= prior,
         tmo: tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index],
+        band: bands.upper[index] != null && closes[index] < bands.upper[index],
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
@@ -912,6 +1209,10 @@
         holding = null;
       }
       pending = "";
+      if (index >= end) {
+        if (holding) trail[index] = holding.stop;
+        continue;
+      }
       if (holding) {
         barsIn += 1;
         holding.high = Math.max(holding.high, bar.close);
@@ -933,21 +1234,27 @@
       }
     }
     const last = count - 1;
-    const first = Math.min(EDGE_WARM, last);
-    const hold = count > EDGE_WARM ? closes[last] / list[first].open - 1 : 0;
+    const settled = end - 1;
+    const first = Math.min(EDGE_WARM, Math.max(0, settled));
+    const hold = end > EDGE_WARM ? closes[settled] / list[first].open - 1 : 0;
     const total = equity - 1;
     const wins = trades.filter((trade) => trade.pct > 0).length;
     let call = "WAIT";
+    const filledToday = live ? marks.find((mark) => mark.index === last) : null;
     if (pending === "buy") call = "BUY";
     else if (pending === "sell") call = "SELL";
+    else if (filledToday) call = filledToday.side === "buy" ? "BUY" : "SELL";
     else if (holding) call = "HOLD";
     const openPct = holding ? closes[last] / (holding.price * (1 + EDGE_FEE)) - 1 : null;
     return {
       call,
-      score: last >= 0 ? score[last] : null,
-      parts: last >= 0 ? parts[last] : null,
-      reason: pending === "sell" && holding ? holding.why : "",
-      stop: holding ? holding.stop : (pending === "buy" && range[last] ? closes[last] - EDGE_TRAIL * range[last] : null),
+      score: settled >= 0 ? score[settled] : null,
+      parts: settled >= 0 ? parts[settled] : null,
+      live,
+      filled: filledToday ? { side: filledToday.side, price: filledToday.price } : null,
+      signalDate: settled >= 0 ? list[settled].date : null,
+      reason: pending === "sell" && holding ? holding.why : (filledToday && filledToday.side === "sell" && trades.length ? trades[trades.length - 1].why || "" : ""),
+      stop: holding ? holding.stop : (pending === "buy" && range[settled] ? closes[settled] - EDGE_TRAIL * range[settled] : null),
       checks: EDGE_SCORE,
       entry: holding ? holding.price : null,
       openPct,
@@ -961,15 +1268,24 @@
         total,
         hold,
         worst,
-        exposure: count > EDGE_WARM ? barsIn / (count - EDGE_WARM) : 0,
-        bars: Math.max(0, count - EDGE_WARM),
+        exposure: end > EDGE_WARM ? barsIn / (end - EDGE_WARM) : 0,
+        bars: Math.max(0, end - EDGE_WARM),
       },
-      ready: count > EDGE_WARM + 1,
+      ready: end > EDGE_WARM + 1,
     };
   }
 
   root.PaperFrames = {
     edge,
+    pro,
+    liveBar,
+    closedBars,
+    hiddenTape,
+    volatility,
+    bollinger,
+    macd,
+    rollingVwap,
+    volumeProfile,
     FRAMES,
     frameById,
     barsFor,

@@ -71,7 +71,7 @@
     <section id="view-chart" class="panel chart-panel" aria-label="Chart">
       <div class="chart-head">
         <h2 id="chart-title">Chart</h2>
-        <p class="legend"><span class="swatch fast"></span> Fast <span class="swatch slow"></span> Slow <span class="swatch high"></span> High <span class="swatch close"></span> Close <span class="swatch low"></span> Low</p>
+        <p id="legend" class="legend"></p>
       </div>
       <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
       <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
@@ -81,12 +81,14 @@
         <button id="zoom-in" type="button">Zoom in</button>
         <button id="zoom-out" type="button">Zoom out</button>
         <span id="zoom-label" class="muted">180 bars</span>
+        <button id="layers-toggle" type="button" class="layers-toggle" aria-expanded="false" aria-controls="layers">Layers</button>
       </div>
+      <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
       <canvas id="candles" width="800" height="360"></canvas>
       <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line, a signal line, and arrows after the bar closes. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line and a signal line. Its arrows mark only zero-line crosses after the bar closes: a buy cross at or below zero and a sell cross at or above zero. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. Layers picks what the chart draws. The clean view shows the candles, your paper trades, the Edge stop, the 200-day EMA, and the volume profile, and the legend names only what is on. The violet line is the 200-day EMA, the dashed cyan line is the 20-day volume-weighted average price (VWAP), the dotted gray lines are the Bollinger bands (20 days, two deviations), and the bars on the left are the volume profile of the last 120 days, with the brighter bars in the value area where 70% of the volume traded and the dashed gold line at the point of control (POC), the price with the most volume. A feed with no volume shows no VWAP or profile instead of a guess. Dark pool books, iceberg orders, and institutional blotters are private; B4 readings show public-tape proxies such as relative volume and absorption, and those lines do not paint arrows. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
       </details>
     </section>
 
@@ -102,7 +104,7 @@
         <ol id="edge-checks" class="edge-checks"></ol>
         <p id="edge-plan" class="edge-plan"></p>
         <dl id="edge-record" class="edge-record"></dl>
-        <p class="muted edge-note-line">Edge buys when four checks turn on together: five or more squeeze dots, squeeze momentum above zero, squeeze momentum rising, and the TMO main line above its signal. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop two average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
+        <p class="muted edge-note-line">Edge buys when five checks turn on together: five or more squeeze dots, squeeze momentum above zero, squeeze momentum rising, the TMO main line above its signal, and the close under the upper Bollinger band. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop two average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
       </section>
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>

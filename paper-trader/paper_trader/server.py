@@ -22,6 +22,7 @@ from paper_trader.learn import (
     buys_on,
     book_view,
     bought_on,
+    closed_bars,
     desk_day,
     ensure_learner,
     mood,
@@ -373,7 +374,7 @@ class Desk:
             if isinstance(row, dict):
                 board.setdefault(str(name), row)
         if bars and symbol:
-            live = score_row(bars)
+            live = score_row(bars, symbol)
             live["scanned_on"] = desk_day()
             board[symbol] = live
         return symbol_rows(board)
@@ -397,6 +398,7 @@ class Desk:
             except ValueError as exc:
                 items.append({"symbol": symbol, "side": "", "kind": "", "dots": 0, "date": "", "detail": str(exc)})
                 continue
+            bars = closed_bars(bars, symbol)
             state = squeeze([bar.high for bar in bars], [bar.low for bar in bars], [bar.close for bar in bars])
             alert = squeeze_alert(state["level"], state["momentum"])
             index = int(alert["index"])
