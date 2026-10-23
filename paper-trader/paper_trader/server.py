@@ -171,11 +171,14 @@ class Desk:
             side = "sell" if held else "buy"
             if side == "buy":
                 day = bars[-1].date
+                scan = scan_report(self._scan_path())
+                walking = int(scan.get("total") or 0) > 0 and not bool(scan.get("done"))
                 reason = allow_entry(
                     self.journal.symbol,
                     self._picks(self.journal.symbol, bars),
                     self._already_bought(day),
                     buys_on(self._day_path(), day),
+                    not walking,
                 )
                 if reason:
                     raise ValueError(reason)
@@ -224,7 +227,8 @@ class Desk:
         rows = self._board(symbol, bars)
         scan = scan_report(self._scan_path())
         book["picks"] = rank_today(rows)
-        book["pick_note"] = pick_note(book["picks"])
+        finished = int(scan.get("total") or 0) > 0 and bool(scan.get("done"))
+        book["pick_note"] = pick_note(book["picks"], finished)
         book["leaders"] = rank_leaders(rows)
         book["scan_note"] = scan["note"]
         book["scanned"] = scan["scanned"]

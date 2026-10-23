@@ -53,7 +53,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.28";
+const VERSION = "1.9.29";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -480,14 +480,16 @@ function phoneLeaders(rows, buysOnly) {
 }
 
 function bestPicks(rows) {
-  const qualified = phoneLeaders(rows, true);
+  const qualified = phoneLeaders(rows, false).slice(0, 10);
   if (!qualified.length) return [];
   const best = qualified[0].rate;
   const kept = [];
   for (let index = 0; index < qualified.length; index += 1) {
     const row = qualified[index];
     if (kept.length >= 5) break;
-    if (row.rate === best || (kept.length < 3 && best - row.rate <= 5)) kept.push(row);
+    const fill = kept.length < 3;
+    const close = best - row.rate <= 5;
+    if (row.rate === best || fill || close) kept.push(row);
     else break;
   }
   return kept;
@@ -495,7 +497,7 @@ function bestPicks(rows) {
 
 function phoneBuyReason(symbol) {
   if (!state.scanOn && !state.scanDone) return "Turn the scanner on to fill today's best.";
-  if (!state.scanDone) return "The daily scan is still walking live crypto.";
+  if (!state.scanDone) return "The scan is still walking. Green signals come on when it finishes.";
   const bars = state.session && state.session.bars ? state.session.bars : [];
   const day = bars.length ? bars[bars.length - 1].date : "";
   const bought = (state.session.dayBuys || []).filter((key) => key.indexOf(day + "|") === 0);
@@ -693,7 +695,7 @@ async function scanPhone() {
       errors += 1;
     }
     if (token !== phoneScanToken || !state.scanOn) return;
-    const leaders = phoneLeaders(scored, false).slice(0, 12);
+    const leaders = phoneLeaders(scored, false).slice(0, 10);
     const picks = bestPicks(scored);
     state.leaders = leaders;
     state.picks = picks;
@@ -701,9 +703,11 @@ async function scanPhone() {
     const score = leaders.length ? "Highest closed-bar scores. Not a forecast." : "No market cleared the bar yet. Not a forecast.";
     const missed = missNote(errors);
     state.scanNote = "Scanned " + (index + 1) + " of " + symbols.length + ". " + scanKindNote() + " " + score + missed;
-    state.pickNote = picks.length
-      ? "The strongest buy setups today. Three to five names, and no more. Not a forecast."
-      : "No market cleared the bar today.";
+    state.pickNote = done
+      ? (picks.length
+        ? "Scan finished. Green signal on each name. Three to five, and no more. Not a forecast."
+        : "No market cleared the bar today.")
+      : "Ten names, then three to five. Green signals come on when the scan finishes.";
     state.scanDone = done;
     renderScan();
     renderToday();
@@ -1029,7 +1033,7 @@ function pinLabel(symbol) {
   return symbol.endsWith("-USD") ? symbol.slice(0, -4) : symbol;
 }
 
-function renderScoreButtons(bar, rows) {
+function renderScoreButtons(bar, rows, signal) {
   const current = (state.paper && state.paper.symbol) || "";
   bar.replaceChildren();
   (rows || []).forEach((row) => {
@@ -1039,8 +1043,9 @@ function renderScoreButtons(bar, rows) {
     const ready = row.setup === "buy" ? " buy" : "";
     button.textContent = pinLabel(row.symbol) + " " + row.rate + "%" + ready;
     button.title = row.matched + " of " + row.seen + " closed bars. Not a forecast.";
+    if (signal) button.classList.add("go");
     if (row.symbol === current) {
-      button.className = "on";
+      button.classList.add("on");
       button.setAttribute("aria-pressed", "true");
     }
     button.addEventListener("click", () => chooseSymbol(row.symbol));
@@ -1062,7 +1067,7 @@ function renderToday() {
   const bar = $("today");
   if (!line || !bar) return;
   line.textContent = state.pickNote || "";
-  renderScoreButtons(bar, state.picks || []);
+  renderScoreButtons(bar, state.picks || [], !!state.scanDone);
 }
 
 function renderResult(paper) {

@@ -263,7 +263,7 @@ class ScanTests(unittest.TestCase):
             _row("F", 50, 40),
         ]
         picks = rank_today(rows)
-        self.assertEqual([row["symbol"] for row in picks], ["F", "B", "C", "A"])
+        self.assertEqual([row["symbol"] for row in picks], ["F", "B", "FLAT", "C", "A"])
         self.assertEqual(picks[0]["rate"], 80)
         self.assertNotIn("D", [row["symbol"] for row in picks])
         self.assertLessEqual(len(picks), 5)
@@ -271,16 +271,19 @@ class ScanTests(unittest.TestCase):
         self.assertEqual(allow_entry("F", picks, True), "This market already has a paper buy today.")
         self.assertEqual(allow_entry("F", picks, False), "")
         self.assertEqual(allow_entry("F", picks, False, 5), "Today already has five paper buys.")
+        self.assertIn("still walking", allow_entry("F", picks, False, 0, False))
         tied = [_row(f"T{index}", 40, 32) for index in range(6)]
         self.assertEqual(len(rank_today(tied)), 5)
         thin = [_row("TOP", 40, 36), _row("NEAR", 20, 17), _row("FAR", 20, 12)]
-        self.assertEqual([row["symbol"] for row in rank_today(thin)], ["TOP", "NEAR"])
+        self.assertEqual([row["symbol"] for row in rank_today(thin)], ["TOP", "NEAR", "FAR"])
+        wide = [_row("BEST", 50, 41), _row("CLOSE", 40, 31), _row("THIRD", 40, 30), _row("OFF", 40, 28)]
+        self.assertEqual([row["symbol"] for row in rank_today(wide)], ["BEST", "CLOSE", "THIRD"])
 
     def test_leaders_are_the_highest_closed_bar_scores(self) -> None:
         rows = [_row("SHORT", 8, 8), _row("WEAK", 20, 11, setup="")]
         rows.extend(_row(f"S{index:02d}", 20, 12 + (index % 5), setup="" if index % 2 else "buy") for index in range(14))
         leaders = rank_leaders(rows)
-        self.assertEqual(len(leaders), 12)
+        self.assertEqual(len(leaders), 10)
         self.assertGreaterEqual(leaders[0]["rate"], leaders[-1]["rate"])
         self.assertNotIn("SHORT", [row["symbol"] for row in leaders])
         self.assertNotIn("WEAK", [row["symbol"] for row in leaders])

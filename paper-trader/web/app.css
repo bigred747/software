@@ -178,6 +178,8 @@ textarea {
 .pins { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .pins button { width: auto; min-height: 32px; padding: 4px 8px; }
 .pins button.on { border-color: var(--accent); color: var(--accent); background: #1c3330; }
+.pins button.go { border-color: var(--up); color: var(--up); background: #1d4d3a; }
+.pins button.go::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--up); vertical-align: middle; }
 #pin-toggle { width: 100%; min-height: 36px; }
 
 .result { margin: 0 0 10px; font-variant-numeric: tabular-nums; font-size: 14px; }

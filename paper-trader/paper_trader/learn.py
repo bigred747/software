@@ -34,10 +34,11 @@ PRECISE_RATE = 0.60
 PICK_LIMIT = 5
 PICK_AIM = 3
 PICK_GAP = 5
-SCAN_LIMIT = 12
+SCAN_LIMIT = 10
 WATCH_LIMIT = 24
-PICK_NOTE = "The strongest buy setups today. Three to five names, and no more. Not a forecast."
+PICK_NOTE = "Scan finished. Green signal on each name. Three to five, and no more. Not a forecast."
 EMPTY_NOTE = "No market cleared the bar today."
+WALK_NOTE = "Ten names, then three to five. Green signals come on when the scan finishes."
 SCAN_PAUSE = 0.15
 INTERVAL = 60.0
 STALE_SECONDS = 180.0
@@ -118,26 +119,30 @@ def precise_rate(seen: int, matched: int) -> float | None:
 
 
 def best_picks(qualified: list[dict]) -> list[dict]:
-    """Three to five of the highest scores. Never more than five.
+    """Three to five names from the ten. Never more than five.
 
-    Names tied with the best score are kept first. When fewer than three
-    share that score, the next name is added only while it stays within
-    5 points of the best. Once three seats are filled, a lower score stays off.
+    The ten are the highest closed-bar scores. Names tied with the best
+    score stay. A name within 5 points stays while there is room under five.
+    When fewer than three are that close, the next names from the ten fill
+    the seats until there are three. Once three seats are filled, a name
+    more than 5 points below the best stays off.
     """
     if not qualified:
         return []
-    best = int(qualified[0]["rate"])
+    field = qualified[:SCAN_LIMIT]
+    best = int(field[0]["rate"])
     kept: list[dict] = []
     seen_names: set[str] = set()
-    for item in qualified:
+    for item in field:
         symbol = str(item.get("symbol") or "")
         if not symbol or symbol in seen_names:
             continue
         if len(kept) >= PICK_LIMIT:
             break
         rate = int(item["rate"])
-        close_enough = len(kept) < PICK_AIM and best - rate <= PICK_GAP
-        if rate == best or close_enough:
+        fill = len(kept) < PICK_AIM
+        close_enough = best - rate <= PICK_GAP
+        if rate == best or fill or close_enough:
             seen_names.add(symbol)
             kept.append(item)
             continue
@@ -146,42 +151,16 @@ def best_picks(qualified: list[dict]) -> list[dict]:
 
 
 def rank_today(rows: list[dict]) -> list[dict]:
-    """Today's buy setups with the highest closed-bar scores. Three to five, and no more."""
-    dated = _current_rows(rows)
-    if not dated:
-        return []
-    today = max(str(row.get("as_of") or "") for row in dated)
-    qualified: list[dict] = []
-    for row in dated:
-        if str(row.get("scanned_on") or "") == "" and str(row.get("as_of") or "") != today:
-            continue
-        if str(row.get("setup") or "") != "buy":
-            continue
-        symbol = str(row.get("symbol") or "")
-        if not symbol:
-            continue
-        seen = int(row.get("seen") or 0)
-        matched = int(row.get("matched") or 0)
-        rate = precise_rate(seen, matched)
-        if rate is None:
-            continue
-        qualified.append({
-            "symbol": symbol,
-            "rate": int(round(rate * 100)),
-            "seen": seen,
-            "matched": matched,
-            "as_of": today,
-            "rule": str(row.get("rule") or ""),
-            "setup": "buy",
-        })
-    qualified.sort(key=lambda item: (-int(item["rate"]), -int(item["seen"]), str(item["symbol"])))
-    return best_picks(qualified)
+    """The ten highest closed-bar scores, narrowed to three to five."""
+    return best_picks(rank_leaders(rows))
 
 
-def pick_note(picks: list[dict]) -> str:
+def pick_note(picks: list[dict], done: bool = True) -> str:
+    if not done:
+        return WALK_NOTE
     if picks:
         return PICK_NOTE
-    return EMPTY_NOTE + " " + PICK_NOTE
+    return EMPTY_NOTE
 
 
 def desk_day(now: datetime | None = None) -> str:
@@ -205,7 +184,7 @@ def _current_rows(rows: list[dict]) -> list[dict]:
 
 
 def rank_leaders(rows: list[dict]) -> list[dict]:
-    """The strongest closed-bar scores from the daily scan. At most twelve.
+    """The strongest closed-bar scores from the daily scan. At most ten.
 
     A reading needs 20 closed bars and a match rate of at least 60 percent.
     The number is the past match rate. It is not a forecast.
@@ -329,8 +308,10 @@ def scan_report(path: Path) -> dict:
     }
 
 
-def allow_entry(symbol: str, picks: list[dict], bought_today: bool, buys_today: int = 0) -> str:
-    """A new paper buy needs a seat in today's best, with at most five new buys a day."""
+def allow_entry(symbol: str, picks: list[dict], bought_today: bool, buys_today: int = 0, scan_done: bool = True) -> str:
+    """A new paper buy needs a green seat after the scan, with at most five new buys a day."""
+    if not scan_done:
+        return "The scan is still walking. Green signals come on when it finishes."
     if int(buys_today) >= PICK_LIMIT:
         return "Today already has five paper buys."
     names = {str(row.get("symbol") or "") for row in picks}
