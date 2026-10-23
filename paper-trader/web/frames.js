@@ -1085,6 +1085,11 @@
     return liveBar(list, crypto, now) ? list.slice(0, -1) : list;
   }
 
+  function barIndexAt(pad, slot, count, x) {
+    if (!(slot > 0) || !(count > 0)) return -1;
+    return Math.max(0, Math.min(count - 1, Math.floor((x - pad) / slot)));
+  }
+
   function hiddenTape(bars, extras) {
     const list = bars || [];
     const extra = extras || {};
@@ -1280,6 +1285,7 @@
     pro,
     liveBar,
     closedBars,
+    barIndexAt,
     hiddenTape,
     volatility,
     bollinger,

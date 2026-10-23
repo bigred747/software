@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -288,6 +288,15 @@ test("hidden tape uses closed public volume and never invents a dark-pool print"
   assert.equal(stock.afterVolume, 6248638);
   const source = fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8");
   assert.equal(/dark pool print|invent.*dark/i.test(source), false);
+});
+
+test("a click on the chart maps to the candle under that x", () => {
+  assert.equal(barIndexAt(10, 10, 5, 10), 0);
+  assert.equal(barIndexAt(10, 10, 5, 19.9), 0);
+  assert.equal(barIndexAt(10, 10, 5, 35), 2);
+  assert.equal(barIndexAt(10, 10, 5, 59), 4);
+  assert.equal(barIndexAt(10, 10, 5, -4), 0);
+  assert.equal(barIndexAt(10, 0, 5, 20), -1);
 });
 
 test("a bar is forming until its day ends in the market's own clock", () => {

@@ -13,6 +13,7 @@ const state = {
   frameId: "1D",
   zoom: 4,
   layers: {},
+  ruler: null,
   previewZoom: 4,
   moods: {},
   lesson: null,
@@ -61,7 +62,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.36";
+const VERSION = "1.9.37";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -1362,6 +1363,7 @@ function chooseSymbol(symbol) {
       return;
     }
     state.chartRead = "";
+    state.ruler = null;
     stopAuto();
     rememberSymbol(symbol);
     if (state.offline) {
@@ -2206,21 +2208,56 @@ function drawCandles(retry) {
     const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 36 : y(bar.high) - 36));
     drawArrow(ctx, x, point, up);
   });
-  const tag = formatPrice(lastBar.close);
-  const tagWidth = ctx.measureText(tag).width;
+  const lastTone = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
+  drawPriceTag(ctx, formatPrice(lastBar.close), plotRight, width, y(lastBar.close), priceBottom, lastTone, pad + last * slot + slot / 2);
+  drawPriceLine(ctx, bars, pad, slot, y, plotRight, priceBottom, height, width);
+}
+
+function drawPriceTag(ctx, text, plotRight, width, at, priceBottom, tone, fromX) {
+  const tagWidth = ctx.measureText(text).width;
   const tagX = Math.min(plotRight + 8, width - tagWidth - 8);
-  const tagY = Math.max(14, Math.min(priceBottom - 8, y(lastBar.close)));
+  const tagY = Math.max(14, Math.min(priceBottom - 8, at));
+  ctx.save();
   ctx.setLineDash([4, 4]);
-  ctx.strokeStyle = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
+  ctx.strokeStyle = tone;
   ctx.beginPath();
-  ctx.moveTo(pad + last * slot + slot / 2, y(lastBar.close));
-  ctx.lineTo(Math.max(pad, tagX - 6), y(lastBar.close));
+  ctx.moveTo(fromX != null ? fromX : plotRight, at);
+  ctx.lineTo(Math.max(plotRight - 12, tagX - 6), at);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.fillStyle = "#07090b";
   ctx.fillRect(tagX - 4, tagY - 12, tagWidth + 8, 16);
-  ctx.fillStyle = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
-  ctx.fillText(tag, tagX, tagY);
+  ctx.fillStyle = tone;
+  ctx.fillText(text, tagX, tagY);
+  ctx.restore();
+}
+
+function drawPriceLine(ctx, bars, pad, slot, y, plotRight, priceBottom, height, width) {
+  if (!state.ruler || !bars.length) return;
+  const index = bars.findIndex((bar) => bar.date === state.ruler.date);
+  if (index < 0) return;
+  const bar = bars[index];
+  const x = pad + index * slot + slot / 2;
+  const closeY = y(bar.close);
+  const tone = bar.close >= bar.open ? "#3ddc97" : "#ff6b7a";
+  ctx.save();
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = "rgba(231, 237, 243, 0.62)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, 8);
+  ctx.lineTo(x, height - 6);
+  ctx.stroke();
+  ctx.strokeStyle = tone;
+  ctx.beginPath();
+  ctx.moveTo(pad, closeY);
+  ctx.lineTo(plotRight, closeY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  if (index !== bars.length - 1) {
+    drawPriceTag(ctx, formatPrice(bar.close), plotRight, width, closeY, priceBottom, tone, plotRight);
+  }
+  ctx.restore();
 }
 
 function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBottom) {
@@ -2741,16 +2778,27 @@ $("quote").addEventListener("click", () => {
   showRead(state.paper.symbol + " is on the chart.");
 });
 
+function canvasX(event, canvas) {
+  const box = canvas.getBoundingClientRect();
+  const point = event.clientX != null ? event.clientX : event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientX : 0;
+  const cssX = point - box.left;
+  const scale = box.width ? (canvas.paperWidth || box.width) / box.width : 1;
+  return cssX * scale;
+}
+
 $("candles").addEventListener("click", (event) => {
   const map = state.chartMap;
+  const canvas = $("candles");
   if (!map || !map.bars.length) {
     showRead("The chart has no bars yet.");
     return;
   }
-  const index = Math.round((event.offsetX - map.pad) / map.slot - 0.5);
-  const bar = map.bars[Math.max(0, Math.min(map.bars.length - 1, index))];
+  const index = PaperFrames.barIndexAt(map.pad, map.slot, map.bars.length, canvasX(event, canvas));
+  const bar = map.bars[index < 0 ? 0 : index];
+  state.ruler = { date: bar.date };
   showChart();
   showRead((map.symbol || "Chart") + " · " + bar.date + " · Open " + formatPrice(bar.open) + " · High " + formatPrice(bar.high) + " · Low " + formatPrice(bar.low) + " · Close " + formatPrice(bar.close));
+  drawCandles();
 });
 
 const scanToggle = $("scan-toggle");
