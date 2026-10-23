@@ -60,7 +60,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.31";
+const VERSION = "1.9.32";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -264,7 +264,8 @@ function withHooks(items) {
     applyHook(next, "Quotes", true, state.offline ? "Live crypto" : "Market quote");
   }
   const edge = inMicrosoftEdge();
-  applyHook(next, "Edge", edge, edge ? "This page is in Microsoft Edge" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
+  const webPage = state.offline && location.protocol !== "file:";
+  applyHook(next, "Edge", edge || webPage, edge ? "This page is in Microsoft Edge" : webPage ? "This browser loads the quotes" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
   if (!next.some((item) => item.name === "Learning")) {
     setSignal(next, "Learning", true, state.offline ? "This symbol, while the page is open" : "Starts when you open the desk, then keeps scoring after that window closes");
   }
@@ -293,7 +294,7 @@ function inMicrosoftEdge() {
 function noteEdge() {
   const note = $("edge-note");
   if (!note) return;
-  note.hidden = !(state.offline && !inMicrosoftEdge());
+  note.hidden = !(state.offline && !inMicrosoftEdge() && location.protocol === "file:");
 }
 
 function signalRow(item) {
@@ -315,6 +316,15 @@ function paintSignals(items) {
     items.forEach((item) => list.appendChild(signalRow(item)));
   });
   const ready = items.length > 0 && items.every((item) => item.ok);
+  const sum = $("signal-sum");
+  if (sum) {
+    const waiting = items.filter((item) => !item.ok).map((item) => item.name);
+    const version = (items.find((item) => item.name === "Version") || {}).detail || VERSION;
+    sum.textContent = waiting.length
+      ? waiting.length + (waiting.length === 1 ? " check needs attention: " : " checks need attention: ") + waiting.join(", ")
+      : "All " + items.length + " checks green · Version " + version;
+    sum.classList.toggle("ok", !waiting.length);
+  }
   const tab = document.querySelector('.dock-tab[data-dock="signals"]');
   if (tab) {
     tab.classList.toggle("ready", ready);
@@ -522,6 +532,8 @@ function phoneBuyReason(symbol) {
 const SCAN_KEY = "paperTraderScan";
 const TYPE_KEY = "paperTraderType";
 const phoneBarCache = new Map();
+const SCAN_READERS = 3;
+const SCAN_GAP = 150;
 let phoneScanToken = 0;
 
 function readScanOn() {
@@ -669,51 +681,27 @@ async function scanPhone() {
     return;
   }
   const scored = [];
+  const kinds = new Map(state.catalog.map((item) => [item.symbol, item.category]));
+  const total = symbols.length;
   let errors = 0;
+  let next = 0;
+  let finished = 0;
   state.scanDone = false;
   state.leaders = [];
   state.picks = [];
-  state.scanNote = "Scanned 0 of " + symbols.length + ". " + scanKindNote();
+  state.scanNote = "Scanned 0 of " + total + ". " + scanKindNote();
   state.pickNote = "";
   renderScan();
   renderToday();
-  for (let index = 0; index < symbols.length; index += 1) {
-    if (token !== phoneScanToken || !state.scanOn) return;
-    while (typeof document !== "undefined" && document.hidden) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      if (token !== phoneScanToken || !state.scanOn) return;
-    }
-    const symbol = symbols[index];
-    const row = state.catalog.find((item) => item.symbol === symbol);
-    const open = (state.paper && state.paper.symbol) || "";
-    try {
-      const bars = symbol === open && phoneBarCache.has(symbol)
-        ? phoneBarCache.get(symbol)
-        : await PaperLive.daily(symbol, row ? row.category : "");
-      if (symbol !== open) phoneBarCache.delete(symbol);
-      const lesson = PaperFrames.lesson(bars);
-      const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(bars) : { kind: "", side: "" };
-      const seen = Number(lesson && lesson.seen) || 0;
-      const matched = Number(lesson && lesson.matched) || 0;
-      scored.push({
-        symbol,
-        seen,
-        matched,
-        rate: seen ? Math.round((matched / seen) * 100) : 0,
-        setup: alert.kind === "dots" && alert.side === "buy" ? "buy" : "",
-      });
-    } catch (error) {
-      errors += 1;
-    }
-    if (token !== phoneScanToken || !state.scanOn) return;
+  const live = () => token === phoneScanToken && state.scanOn;
+  const publish = () => {
     const leaders = phoneLeaders(scored, false).slice(0, 10);
     const picks = bestPicks(scored);
     state.leaders = leaders;
     state.picks = picks;
-    const done = index + 1 === symbols.length;
+    const done = finished === total;
     const score = leaders.length ? "Highest closed-bar scores. Not a forecast." : "No market cleared the bar yet. Not a forecast.";
-    const missed = missNote(errors);
-    state.scanNote = "Scanned " + (index + 1) + " of " + symbols.length + ". " + scanKindNote() + " " + score + missed;
+    state.scanNote = "Scanned " + finished + " of " + total + ". " + scanKindNote() + " " + score + missNote(errors);
     state.pickNote = done
       ? (picks.length
         ? "Scan finished. Green signal on each name. Three to five, and no more. Not a forecast."
@@ -722,8 +710,42 @@ async function scanPhone() {
     state.scanDone = done;
     renderScan();
     renderToday();
-    if (!done) await new Promise((resolve) => setTimeout(resolve, 150));
-  }
+  };
+  const reader = async () => {
+    while (live() && next < total) {
+      while (typeof document !== "undefined" && document.hidden) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (!live()) return;
+      }
+      const symbol = symbols[next];
+      next += 1;
+      const open = (state.paper && state.paper.symbol) || "";
+      try {
+        const bars = symbol === open && phoneBarCache.has(symbol)
+          ? phoneBarCache.get(symbol)
+          : await PaperLive.daily(symbol, kinds.get(symbol) || "");
+        if (symbol !== open) phoneBarCache.delete(symbol);
+        const lesson = PaperFrames.lesson(bars);
+        const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(bars) : { kind: "", side: "" };
+        const seen = Number(lesson && lesson.seen) || 0;
+        const matched = Number(lesson && lesson.matched) || 0;
+        scored.push({
+          symbol,
+          seen,
+          matched,
+          rate: seen ? Math.round((matched / seen) * 100) : 0,
+          setup: alert.kind === "dots" && alert.side === "buy" ? "buy" : "",
+        });
+      } catch (error) {
+        errors += 1;
+      }
+      if (!live()) return;
+      finished += 1;
+      publish();
+      if (finished < total) await new Promise((resolve) => setTimeout(resolve, SCAN_GAP));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(SCAN_READERS, total) }, reader));
 }
 
 const PHONE_NAMES = [
@@ -2393,6 +2415,9 @@ document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
     }
   });
 });
+
+const signalSum = $("signal-sum");
+if (signalSum) signalSum.addEventListener("click", () => showDock("signals"));
 
 document.querySelectorAll(".dock-tab").forEach((button) => {
   button.addEventListener("click", () => showDock(button.dataset.dock));

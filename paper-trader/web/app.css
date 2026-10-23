@@ -307,6 +307,7 @@ button.quiet { background: transparent; }
   flex: 0 0 auto;
 }
 .signal-strip li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.signal-sum { display: none; }
 
 .frame-bar, .frame-list { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
 .frame-bar { flex-wrap: wrap; overflow: visible; }
@@ -477,6 +478,26 @@ footer { display: none; }
     max-height: 22px;
   }
   body[data-tab="chart"] .signal-strip li { flex: 0 0 auto; font-size: 11px; white-space: nowrap; }
+  body[data-tab="chart"] .signal-strip { display: none; }
+  .signal-sum {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 30px;
+    margin: 4px 0;
+    padding: 4px 10px;
+    border-color: var(--line);
+    color: var(--slow);
+    font-size: 12px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .signal-sum::before { content: ""; flex: 0 0 8px; height: 8px; border-radius: 50%; background: var(--slow); }
+  .signal-sum.ok { color: var(--up); border-color: #1d4d3a; }
+  .signal-sum.ok::before { background: var(--up); }
   body[data-tab="chart"] .frame-bar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0; }
   body[data-tab="chart"] .frame-bar button,
   body[data-tab="chart"] .zoom-bar button { min-height: 32px; padding: 4px 8px; }
