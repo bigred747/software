@@ -86,13 +86,24 @@
       <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line, a signal line, and arrows after the bar closes. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line, a signal line, and arrows after the bar closes. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
       </details>
     </section>
 
     <section id="view-trade" class="panel ticket" aria-label="Session">
       <p id="signal" class="signal">HOLD</p>
       <p id="signal-note" class="muted"></p>
+      <section id="edge" class="edge" aria-label="Edge indicator">
+        <div class="edge-head">
+          <span class="edge-name">Edge</span>
+          <span id="edge-call" class="edge-call">WAIT</span>
+          <span id="edge-score" class="edge-score">—</span>
+        </div>
+        <ol id="edge-checks" class="edge-checks"></ol>
+        <p id="edge-plan" class="edge-plan"></p>
+        <dl id="edge-record" class="edge-record"></dl>
+        <p class="muted edge-note-line">Edge scores five checks on each bar: trend, long trend, squeeze push, true momentum, and RSI between 45 and 70. Four or more starts a paper buy at the next open. A trailing stop three ranges under the best close, a score of one or less, or a broken trend sells at the next open. The record is this market's past bars with a 5 basis point fee each way. It is not a forecast.</p>
+      </section>
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>
         <div><dt>Cash</dt><dd id="cash">—</dd></div>

@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -113,6 +113,36 @@ test("true momentum stays inside the length and confirms arrows on a closed bar"
   assert.equal(study.down[39], false);
   assert.equal(study.main[18], 14);
   assert.equal(study.down[25], true);
+});
+
+test("edge fills at the next open and later bars do not move closed trades", () => {
+  const bars = [];
+  for (let index = 0; index < 320; index += 1) {
+    const wave = Math.sin(index / 9) * 12 + Math.sin(index / 31) * 20;
+    const close = 200 + index * 0.25 + wave;
+    const open = close - Math.cos(index / 5) * 1.5;
+    const date = new Date(Date.UTC(2023, 0, 1) + index * 86400000).toISOString().slice(0, 10);
+    bars.push(day(date, open, Math.max(open, close) + 1.5, Math.min(open, close) - 1.5, close));
+  }
+  const full = edge(bars);
+  assert.ok(full.ready);
+  assert.ok(full.trades.length > 0);
+  assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(full.call));
+  assert.ok(full.score >= 0 && full.score <= 5);
+  full.marks.forEach((mark) => {
+    assert.equal(mark.price, bars[mark.index].open);
+    assert.ok(mark.index >= 51);
+  });
+  full.trades.forEach((trade) => assert.ok(trade.exitDate > trade.entryDate));
+  assert.ok(full.record.worst <= 0);
+  assert.ok(full.record.winRate >= 0 && full.record.winRate <= 1);
+  const cut = edge(bars.slice(0, 240));
+  const closedBefore = cut.trades.filter((trade) => trade.exitDate < bars[239].date);
+  const sameInFull = full.trades.slice(0, closedBefore.length);
+  assert.deepEqual(JSON.parse(JSON.stringify(sameInFull)), JSON.parse(JSON.stringify(closedBefore)));
+  const short = edge(bars.slice(0, 30));
+  assert.equal(short.ready, false);
+  assert.equal(short.trades.length, 0);
 });
 
 test("zoom keeps the latest bar and fear or greed follows the range", () => {

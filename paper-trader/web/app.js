@@ -60,7 +60,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.32";
+const VERSION = "1.9.33";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -729,12 +729,14 @@ async function scanPhone() {
         const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(bars) : { kind: "", side: "" };
         const seen = Number(lesson && lesson.seen) || 0;
         const matched = Number(lesson && lesson.matched) || 0;
+        const timing = PaperFrames.edge ? PaperFrames.edge(bars) : null;
         scored.push({
           symbol,
           seen,
           matched,
           rate: seen ? Math.round((matched / seen) * 100) : 0,
           setup: alert.kind === "dots" && alert.side === "buy" ? "buy" : "",
+          edge: timing && timing.ready ? timing.call : "",
         });
       } catch (error) {
         errors += 1;
@@ -1007,6 +1009,7 @@ function render(paper) {
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
   fillTrades($("journal-body"), paper.trades || []);
   renderResult(paper);
+  renderEdge();
   renderPins();
   renderToday();
   renderScan();
@@ -1068,7 +1071,7 @@ function pinLabel(symbol) {
 
 function renderScoreButtons(bar, rows, signal) {
   const current = (state.paper && state.paper.symbol) || "";
-  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + row.matched + ":" + row.seen).join(",");
+  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + (row.edge || "") + ":" + row.matched + ":" + row.seen).join(",");
   if (sameStamp(bar, stamp)) return;
   bar.replaceChildren();
   (rows || []).forEach((row) => {
@@ -1076,8 +1079,9 @@ function renderScoreButtons(bar, rows, signal) {
     const button = document.createElement("button");
     button.type = "button";
     const ready = row.setup === "buy" ? " buy" : "";
-    button.textContent = pinLabel(row.symbol) + " " + row.rate + "%" + ready;
-    button.title = row.matched + " of " + row.seen + " closed bars. Not a forecast.";
+    const timing = row.edge ? " · " + row.edge : "";
+    button.textContent = pinLabel(row.symbol) + " " + row.rate + "%" + ready + timing;
+    button.title = row.matched + " of " + row.seen + " closed bars." + (row.edge ? " Edge " + row.edge + "." : "") + " Not a forecast.";
     if (signal) button.classList.add("go");
     if (row.symbol === current) {
       button.classList.add("on");
@@ -1173,7 +1177,9 @@ function paintChartRead(paper) {
   const price = state.market && state.market.symbol === paper.symbol && state.market.price
     ? formatPrice(state.market.price)
     : "";
-  node.textContent = price ? paper.symbol + " · " + price + " · click a candle" : "Click a ticker or a candle.";
+  const result = price ? currentEdge(seenBars()) : null;
+  const call = result && result.ready ? " · Edge " + result.call + " " + result.score + "/5" : "";
+  node.textContent = price ? paper.symbol + " · " + price + call + " · tap a candle" : "Click a ticker or a candle.";
 }
 
 function showRead(text) {
@@ -1543,6 +1549,10 @@ function renderReadings() {
     ["TMO", tmoText(bars)],
     ["Lesson", lessonText(bars)],
     ["Fear and greed", moodText(bars)],
+    ["Edge", (() => {
+      const result = bars.length ? currentEdge(bars) : null;
+      return result && result.ready ? result.call + " · " + result.score + " of 5" : "—";
+    })()],
   ];
   if (sameStamp(list, readingRows.map((row) => row.join(":")).join("|"))) return;
   list.replaceChildren();
@@ -1587,6 +1597,85 @@ function fillTrades(body, trades) {
       row.appendChild(cell);
     });
     body.appendChild(row);
+  });
+}
+
+const EDGE_CHECKS = [
+  ["trend", "Trend"],
+  ["long", "Long trend"],
+  ["push", "Squeeze push"],
+  ["tmo", "True momentum"],
+  ["rsi", "RSI 45 to 70"],
+];
+
+function currentEdge(bars) {
+  if (!PaperFrames.edge) return null;
+  const last = bars.length ? bars[bars.length - 1] : null;
+  const key = bars.length + ":" + (last ? last.date + ":" + last.open + ":" + last.close : "");
+  if (state.edgeKey === key && state.edge) return state.edge;
+  state.edge = PaperFrames.edge(bars);
+  state.edgeKey = key;
+  return state.edge;
+}
+
+function signedPercent(value) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const pct = value * 100;
+  return (pct > 0 ? "+" : "") + pct.toFixed(1) + "%";
+}
+
+function edgePlan(result) {
+  if (!result || !result.ready) return "Edge needs at least 52 bars.";
+  const stop = result.stop != null ? formatPrice(result.stop) : "—";
+  const last = seenBars();
+  const close = last.length ? last[last.length - 1].close : null;
+  const risk = result.stop != null && close ? " · " + Math.max(0, ((close - result.stop) / close) * 100).toFixed(1) + "% to the stop" : "";
+  if (result.call === "BUY") return "Buy setup on the latest bar. A paper buy fills at the next open. Starting stop " + stop + risk + ".";
+  if (result.call === "SELL") return "Sell on the latest bar: " + (result.reason || "exit") + ". A paper sell fills at the next open.";
+  if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + ".";
+  return "No buy yet. Edge waits for four of five checks.";
+}
+
+function renderEdge() {
+  const box = $("edge");
+  if (!box) return;
+  const bars = seenBars();
+  const result = currentEdge(bars);
+  if (!result) return;
+  const call = result.ready ? result.call : "WAIT";
+  const stamp = [call, result.score, result.stop, result.openPct, result.record.trades, result.record.total, bars.length].join("|");
+  if (sameStamp(box, stamp)) return;
+  box.className = "edge " + call.toLowerCase();
+  $("edge-call").textContent = call;
+  $("edge-score").textContent = result.score == null ? "—" : result.score + " of 5";
+  const checks = $("edge-checks");
+  checks.replaceChildren();
+  EDGE_CHECKS.forEach(([id, name]) => {
+    const item = document.createElement("li");
+    item.textContent = name;
+    if (result.parts && result.parts[id]) item.className = "on";
+    checks.appendChild(item);
+  });
+  $("edge-plan").textContent = edgePlan(result);
+  const record = $("edge-record");
+  record.replaceChildren();
+  const rec = result.record;
+  [
+    ["Edge", signedPercent(rec.total)],
+    ["Hold", signedPercent(rec.hold)],
+    ["Worst drop", signedPercent(rec.worst)],
+    ["Trades", String(rec.trades)],
+    ["Wins", rec.trades ? Math.round(rec.winRate * 100) + "%" : "—"],
+    ["In market", Math.round(rec.exposure * 100) + "%"],
+  ].forEach(([name, value]) => {
+    const cell = document.createElement("div");
+    const label = document.createElement("dt");
+    const detail = document.createElement("dd");
+    label.textContent = name;
+    detail.textContent = value;
+    if (name === "Edge" || name === "Hold") detail.className = value.startsWith("+") ? "up" : value.startsWith("-") ? "down" : "";
+    cell.append(label, detail);
+    record.appendChild(cell);
   });
 }
 
@@ -1761,6 +1850,44 @@ function drawCandles(retry) {
       fromHigh: Math.max(0, pivots.fromHigh - dropped),
       fromLow: Math.max(0, pivots.fromLow - dropped),
     }, (index) => pad + index * slot + slot / 2, y, bars.length - 1);
+  }
+  const edgeResult = currentEdge(history);
+  if (edgeResult && edgeResult.ready) {
+    const trail = edgeResult.trail.slice(dropped);
+    ctx.save();
+    ctx.strokeStyle = "#e2b15a";
+    ctx.lineWidth = 1.25;
+    let drawing = false;
+    trail.forEach((value, index) => {
+      const x = pad + index * slot + slot / 2;
+      if (value == null) {
+        if (drawing) ctx.stroke();
+        drawing = false;
+        return;
+      }
+      if (!drawing) {
+        ctx.beginPath();
+        ctx.moveTo(x - slot / 2, y(value));
+        drawing = true;
+      } else {
+        ctx.lineTo(x - slot / 2, y(value));
+      }
+      ctx.lineTo(x + slot / 2, y(value));
+    });
+    if (drawing) ctx.stroke();
+    edgeResult.marks.forEach((mark) => {
+      const index = mark.index - dropped;
+      if (index < 0 || index >= bars.length) return;
+      const x = pad + index * slot + slot / 2;
+      ctx.fillStyle = mark.side === "buy" ? "#3ddc97" : "#ff6b7a";
+      ctx.strokeStyle = "#07090b";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(x, y(mark.price), Math.max(3, Math.min(4.5, slot * 0.6)), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+    ctx.restore();
   }
   drawStudy(ctx, bars, y, pad, slot);
   const histoTop = priceBottom + 8;

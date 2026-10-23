@@ -227,6 +227,33 @@ textarea {
 .signal.buy, .signal.hold-long { color: var(--up); }
 .signal.sell { color: var(--down); }
 
+.edge {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.edge-head { display: flex; align-items: baseline; gap: 10px; }
+.edge-name { color: var(--muted); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+.edge-call { font-size: 24px; font-weight: 720; letter-spacing: 0.02em; }
+.edge-score { margin-left: auto; color: var(--muted); font-size: 13px; }
+.edge.buy .edge-call, .edge.hold .edge-call { color: var(--up); }
+.edge.sell .edge-call { color: var(--down); }
+.edge.wait .edge-call { color: var(--text); }
+.edge.buy { border-color: var(--up); }
+.edge.sell { border-color: var(--down); }
+.edge-checks { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 6px 0; padding: 0; list-style: none; font-size: 12px; }
+.edge-checks li { display: flex; align-items: center; gap: 5px; color: var(--muted); }
+.edge-checks li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #5c6770; }
+.edge-checks li.on { color: var(--text); }
+.edge-checks li.on::before { background: var(--up); }
+.edge-plan { margin: 4px 0; font-size: 14px; }
+.edge-record { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 6px 0 4px; }
+.edge-record div { padding: 6px; border-radius: 8px; background: var(--panel); }
+.edge-record dd { font-size: 14px; }
+.edge-note-line { margin: 4px 0 0; font-size: 11px; line-height: 1.35; }
+
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;

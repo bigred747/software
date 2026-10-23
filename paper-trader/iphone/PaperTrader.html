@@ -241,6 +241,33 @@ textarea {
 .signal.buy, .signal.hold-long { color: var(--up); }
 .signal.sell { color: var(--down); }
 
+.edge {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.edge-head { display: flex; align-items: baseline; gap: 10px; }
+.edge-name { color: var(--muted); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+.edge-call { font-size: 24px; font-weight: 720; letter-spacing: 0.02em; }
+.edge-score { margin-left: auto; color: var(--muted); font-size: 13px; }
+.edge.buy .edge-call, .edge.hold .edge-call { color: var(--up); }
+.edge.sell .edge-call { color: var(--down); }
+.edge.wait .edge-call { color: var(--text); }
+.edge.buy { border-color: var(--up); }
+.edge.sell { border-color: var(--down); }
+.edge-checks { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 6px 0; padding: 0; list-style: none; font-size: 12px; }
+.edge-checks li { display: flex; align-items: center; gap: 5px; color: var(--muted); }
+.edge-checks li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #5c6770; }
+.edge-checks li.on { color: var(--text); }
+.edge-checks li.on::before { background: var(--up); }
+.edge-plan { margin: 4px 0; font-size: 14px; }
+.edge-record { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 6px 0 4px; }
+.edge-record div { padding: 6px; border-radius: 8px; background: var(--panel); }
+.edge-record dd { font-size: 14px; }
+.edge-note-line { margin: 4px 0 0; font-size: 11px; line-height: 1.35; }
+
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -629,13 +656,24 @@ footer { display: none; }
       <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line, a signal line, and arrows after the bar closes. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line, a signal line, and arrows after the bar closes. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
       </details>
     </section>
 
     <section id="view-trade" class="panel ticket" aria-label="Session">
       <p id="signal" class="signal">HOLD</p>
       <p id="signal-note" class="muted"></p>
+      <section id="edge" class="edge" aria-label="Edge indicator">
+        <div class="edge-head">
+          <span class="edge-name">Edge</span>
+          <span id="edge-call" class="edge-call">WAIT</span>
+          <span id="edge-score" class="edge-score">—</span>
+        </div>
+        <ol id="edge-checks" class="edge-checks"></ol>
+        <p id="edge-plan" class="edge-plan"></p>
+        <dl id="edge-record" class="edge-record"></dl>
+        <p class="muted edge-note-line">Edge scores five checks on each bar: trend, long trend, squeeze push, true momentum, and RSI between 45 and 70. Four or more starts a paper buy at the next open. A trailing stop three ranges under the best close, a score of one or less, or a broken trend sells at the next open. The record is this market's past bars with a 5 basis point fee each way. It is not a forecast.</p>
+      </section>
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>
         <div><dt>Cash</dt><dd id="cash">—</dd></div>
@@ -3009,7 +3047,172 @@ plot Sell = close crosses below baseline;</textarea>
     }
   }
 
+  const EDGE_FEE = 0.0005;
+  const EDGE_WARM = 50;
+
+  function edgeRsi(closes, period) {
+    const out = new Array(closes.length).fill(null);
+    if (closes.length <= period) return out;
+    let gain = 0;
+    let loss = 0;
+    for (let index = 1; index <= period; index += 1) {
+      const change = closes[index] - closes[index - 1];
+      if (change >= 0) gain += change;
+      else loss -= change;
+    }
+    gain /= period;
+    loss /= period;
+    out[period] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+    for (let index = period + 1; index < closes.length; index += 1) {
+      const change = closes[index] - closes[index - 1];
+      gain = (gain * (period - 1) + Math.max(change, 0)) / period;
+      loss = (loss * (period - 1) + Math.max(-change, 0)) / period;
+      out[index] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+    }
+    return out;
+  }
+
+  function edgeAtr(bars, period) {
+    const out = new Array(bars.length).fill(null);
+    let value = null;
+    for (let index = 0; index < bars.length; index += 1) {
+      const bar = bars[index];
+      const prior = index > 0 ? bars[index - 1].close : bar.close;
+      const range = Math.max(bar.high - bar.low, Math.abs(bar.high - prior), Math.abs(bar.low - prior));
+      if (index < period) {
+        value = value == null ? range : value + range;
+        if (index === period - 1) {
+          value /= period;
+          out[index] = value;
+        }
+        continue;
+      }
+      value = (value * (period - 1) + range) / period;
+      out[index] = value;
+    }
+    return out;
+  }
+
+  function edgeSma(values, window) {
+    const out = new Array(values.length).fill(null);
+    let total = 0;
+    values.forEach((value, index) => {
+      total += value;
+      if (index >= window) total -= values[index - window];
+      if (index >= window - 1) out[index] = total / window;
+    });
+    return out;
+  }
+
+  function edge(bars) {
+    const list = bars || [];
+    const count = list.length;
+    const closes = list.map((bar) => bar.close);
+    const fast = ema(closes, 20);
+    const base = ema(closes, 50);
+    const long = edgeSma(closes, 200);
+    const squeeze = compression(list, 20).momentum;
+    const tmo = trueMomentum(list, 14, 5, 3);
+    const strength = edgeRsi(closes, 14);
+    const range = edgeAtr(list, 14);
+    const score = new Array(count).fill(null);
+    const trail = new Array(count).fill(null);
+    const parts = new Array(count).fill(null);
+    for (let index = EDGE_WARM; index < count; index += 1) {
+      const close = closes[index];
+      const longOk = long[index] != null ? close > long[index] : base[index] > base[index - 5];
+      const checks = {
+        trend: close > base[index] && fast[index] > base[index],
+        long: longOk,
+        push: squeeze[index] != null && squeeze[index - 1] != null && squeeze[index] > 0 && squeeze[index] > squeeze[index - 1],
+        tmo: tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index],
+        rsi: strength[index] != null && strength[index] >= 45 && strength[index] <= 70,
+      };
+      parts[index] = checks;
+      score[index] = Object.values(checks).filter(Boolean).length;
+    }
+    const trades = [];
+    const marks = [];
+    let holding = null;
+    let pending = "";
+    let equity = 1;
+    let peak = 1;
+    let worst = 0;
+    let barsIn = 0;
+    for (let index = EDGE_WARM; index < count; index += 1) {
+      const bar = list[index];
+      if (pending === "buy" && !holding) {
+        const price = bar.open;
+        const stop = price - 2 * (range[index - 1] || 0);
+        holding = { index, date: bar.date, price, stop, high: bar.close };
+        marks.push({ index, side: "buy", price });
+      } else if (pending === "sell" && holding) {
+        const price = bar.open;
+        const pct = (price * (1 - EDGE_FEE)) / (holding.price * (1 + EDGE_FEE)) - 1;
+        trades.push({ entryDate: holding.date, exitDate: bar.date, entry: holding.price, exit: price, pct, why: holding.why });
+        marks.push({ index, side: "sell", price });
+        equity *= 1 + pct;
+        holding = null;
+      }
+      pending = "";
+      if (holding) {
+        barsIn += 1;
+        holding.high = Math.max(holding.high, bar.close);
+        const lift = holding.high - 3 * (range[index] || 0);
+        if (lift > holding.stop) holding.stop = lift;
+        trail[index] = holding.stop;
+        const open = holding.price * (1 + EDGE_FEE);
+        const marked = equity * (bar.close / open);
+        if (marked > peak) peak = marked;
+        worst = Math.min(worst, marked / peak - 1);
+        if (bar.close < holding.stop) holding.why = "Trailing stop";
+        else if (score[index] <= 1) holding.why = "Score fell to " + score[index] + " of 5";
+        else if (bar.close < base[index] && squeeze[index] != null && squeeze[index] < 0) holding.why = "Trend broke";
+        else holding.why = "";
+        if (holding.why) pending = "sell";
+      } else {
+        if (equity > peak) peak = equity;
+        const prior = index > EDGE_WARM ? score[index - 1] : 0;
+        if (score[index] >= 4 && prior < 4) pending = "buy";
+      }
+    }
+    const last = count - 1;
+    const first = Math.min(EDGE_WARM, last);
+    const hold = count > EDGE_WARM ? closes[last] / list[first].open - 1 : 0;
+    const total = equity - 1;
+    const wins = trades.filter((trade) => trade.pct > 0).length;
+    let call = "WAIT";
+    if (pending === "buy") call = "BUY";
+    else if (pending === "sell") call = "SELL";
+    else if (holding) call = "HOLD";
+    const openPct = holding ? closes[last] / (holding.price * (1 + EDGE_FEE)) - 1 : null;
+    return {
+      call,
+      score: last >= 0 ? score[last] : null,
+      parts: last >= 0 ? parts[last] : null,
+      reason: pending === "sell" && holding ? holding.why : "",
+      stop: holding ? holding.stop : (pending === "buy" && range[last] ? closes[last] - 2 * range[last] : null),
+      entry: holding ? holding.price : null,
+      openPct,
+      trail,
+      marks,
+      trades,
+      record: {
+        trades: trades.length,
+        wins,
+        winRate: trades.length ? wins / trades.length : 0,
+        total,
+        hold,
+        worst,
+        exposure: count > EDGE_WARM ? barsIn / (count - EDGE_WARM) : 0,
+        bars: Math.max(0, count - EDGE_WARM),
+      },
+      ready: count > EDGE_WARM + 1,
+    };
+  }
+
   root.PaperFrames = {
+    edge,
     FRAMES,
     frameById,
     barsFor,
@@ -3100,7 +3303,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.32";
+const VERSION = "1.9.33";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -3769,12 +3972,14 @@ async function scanPhone() {
         const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(bars) : { kind: "", side: "" };
         const seen = Number(lesson && lesson.seen) || 0;
         const matched = Number(lesson && lesson.matched) || 0;
+        const timing = PaperFrames.edge ? PaperFrames.edge(bars) : null;
         scored.push({
           symbol,
           seen,
           matched,
           rate: seen ? Math.round((matched / seen) * 100) : 0,
           setup: alert.kind === "dots" && alert.side === "buy" ? "buy" : "",
+          edge: timing && timing.ready ? timing.call : "",
         });
       } catch (error) {
         errors += 1;
@@ -4047,6 +4252,7 @@ function render(paper) {
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
   fillTrades($("journal-body"), paper.trades || []);
   renderResult(paper);
+  renderEdge();
   renderPins();
   renderToday();
   renderScan();
@@ -4108,7 +4314,7 @@ function pinLabel(symbol) {
 
 function renderScoreButtons(bar, rows, signal) {
   const current = (state.paper && state.paper.symbol) || "";
-  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + row.matched + ":" + row.seen).join(",");
+  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + (row.edge || "") + ":" + row.matched + ":" + row.seen).join(",");
   if (sameStamp(bar, stamp)) return;
   bar.replaceChildren();
   (rows || []).forEach((row) => {
@@ -4116,8 +4322,9 @@ function renderScoreButtons(bar, rows, signal) {
     const button = document.createElement("button");
     button.type = "button";
     const ready = row.setup === "buy" ? " buy" : "";
-    button.textContent = pinLabel(row.symbol) + " " + row.rate + "%" + ready;
-    button.title = row.matched + " of " + row.seen + " closed bars. Not a forecast.";
+    const timing = row.edge ? " · " + row.edge : "";
+    button.textContent = pinLabel(row.symbol) + " " + row.rate + "%" + ready + timing;
+    button.title = row.matched + " of " + row.seen + " closed bars." + (row.edge ? " Edge " + row.edge + "." : "") + " Not a forecast.";
     if (signal) button.classList.add("go");
     if (row.symbol === current) {
       button.classList.add("on");
@@ -4213,7 +4420,9 @@ function paintChartRead(paper) {
   const price = state.market && state.market.symbol === paper.symbol && state.market.price
     ? formatPrice(state.market.price)
     : "";
-  node.textContent = price ? paper.symbol + " · " + price + " · click a candle" : "Click a ticker or a candle.";
+  const result = price ? currentEdge(seenBars()) : null;
+  const call = result && result.ready ? " · Edge " + result.call + " " + result.score + "/5" : "";
+  node.textContent = price ? paper.symbol + " · " + price + call + " · tap a candle" : "Click a ticker or a candle.";
 }
 
 function showRead(text) {
@@ -4583,6 +4792,10 @@ function renderReadings() {
     ["TMO", tmoText(bars)],
     ["Lesson", lessonText(bars)],
     ["Fear and greed", moodText(bars)],
+    ["Edge", (() => {
+      const result = bars.length ? currentEdge(bars) : null;
+      return result && result.ready ? result.call + " · " + result.score + " of 5" : "—";
+    })()],
   ];
   if (sameStamp(list, readingRows.map((row) => row.join(":")).join("|"))) return;
   list.replaceChildren();
@@ -4627,6 +4840,85 @@ function fillTrades(body, trades) {
       row.appendChild(cell);
     });
     body.appendChild(row);
+  });
+}
+
+const EDGE_CHECKS = [
+  ["trend", "Trend"],
+  ["long", "Long trend"],
+  ["push", "Squeeze push"],
+  ["tmo", "True momentum"],
+  ["rsi", "RSI 45 to 70"],
+];
+
+function currentEdge(bars) {
+  if (!PaperFrames.edge) return null;
+  const last = bars.length ? bars[bars.length - 1] : null;
+  const key = bars.length + ":" + (last ? last.date + ":" + last.open + ":" + last.close : "");
+  if (state.edgeKey === key && state.edge) return state.edge;
+  state.edge = PaperFrames.edge(bars);
+  state.edgeKey = key;
+  return state.edge;
+}
+
+function signedPercent(value) {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const pct = value * 100;
+  return (pct > 0 ? "+" : "") + pct.toFixed(1) + "%";
+}
+
+function edgePlan(result) {
+  if (!result || !result.ready) return "Edge needs at least 52 bars.";
+  const stop = result.stop != null ? formatPrice(result.stop) : "—";
+  const last = seenBars();
+  const close = last.length ? last[last.length - 1].close : null;
+  const risk = result.stop != null && close ? " · " + Math.max(0, ((close - result.stop) / close) * 100).toFixed(1) + "% to the stop" : "";
+  if (result.call === "BUY") return "Buy setup on the latest bar. A paper buy fills at the next open. Starting stop " + stop + risk + ".";
+  if (result.call === "SELL") return "Sell on the latest bar: " + (result.reason || "exit") + ". A paper sell fills at the next open.";
+  if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + ".";
+  return "No buy yet. Edge waits for four of five checks.";
+}
+
+function renderEdge() {
+  const box = $("edge");
+  if (!box) return;
+  const bars = seenBars();
+  const result = currentEdge(bars);
+  if (!result) return;
+  const call = result.ready ? result.call : "WAIT";
+  const stamp = [call, result.score, result.stop, result.openPct, result.record.trades, result.record.total, bars.length].join("|");
+  if (sameStamp(box, stamp)) return;
+  box.className = "edge " + call.toLowerCase();
+  $("edge-call").textContent = call;
+  $("edge-score").textContent = result.score == null ? "—" : result.score + " of 5";
+  const checks = $("edge-checks");
+  checks.replaceChildren();
+  EDGE_CHECKS.forEach(([id, name]) => {
+    const item = document.createElement("li");
+    item.textContent = name;
+    if (result.parts && result.parts[id]) item.className = "on";
+    checks.appendChild(item);
+  });
+  $("edge-plan").textContent = edgePlan(result);
+  const record = $("edge-record");
+  record.replaceChildren();
+  const rec = result.record;
+  [
+    ["Edge", signedPercent(rec.total)],
+    ["Hold", signedPercent(rec.hold)],
+    ["Worst drop", signedPercent(rec.worst)],
+    ["Trades", String(rec.trades)],
+    ["Wins", rec.trades ? Math.round(rec.winRate * 100) + "%" : "—"],
+    ["In market", Math.round(rec.exposure * 100) + "%"],
+  ].forEach(([name, value]) => {
+    const cell = document.createElement("div");
+    const label = document.createElement("dt");
+    const detail = document.createElement("dd");
+    label.textContent = name;
+    detail.textContent = value;
+    if (name === "Edge" || name === "Hold") detail.className = value.startsWith("+") ? "up" : value.startsWith("-") ? "down" : "";
+    cell.append(label, detail);
+    record.appendChild(cell);
   });
 }
 
@@ -4801,6 +5093,44 @@ function drawCandles(retry) {
       fromHigh: Math.max(0, pivots.fromHigh - dropped),
       fromLow: Math.max(0, pivots.fromLow - dropped),
     }, (index) => pad + index * slot + slot / 2, y, bars.length - 1);
+  }
+  const edgeResult = currentEdge(history);
+  if (edgeResult && edgeResult.ready) {
+    const trail = edgeResult.trail.slice(dropped);
+    ctx.save();
+    ctx.strokeStyle = "#e2b15a";
+    ctx.lineWidth = 1.25;
+    let drawing = false;
+    trail.forEach((value, index) => {
+      const x = pad + index * slot + slot / 2;
+      if (value == null) {
+        if (drawing) ctx.stroke();
+        drawing = false;
+        return;
+      }
+      if (!drawing) {
+        ctx.beginPath();
+        ctx.moveTo(x - slot / 2, y(value));
+        drawing = true;
+      } else {
+        ctx.lineTo(x - slot / 2, y(value));
+      }
+      ctx.lineTo(x + slot / 2, y(value));
+    });
+    if (drawing) ctx.stroke();
+    edgeResult.marks.forEach((mark) => {
+      const index = mark.index - dropped;
+      if (index < 0 || index >= bars.length) return;
+      const x = pad + index * slot + slot / 2;
+      ctx.fillStyle = mark.side === "buy" ? "#3ddc97" : "#ff6b7a";
+      ctx.strokeStyle = "#07090b";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(x, y(mark.price), Math.max(3, Math.min(4.5, slot * 0.6)), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+    ctx.restore();
   }
   drawStudy(ctx, bars, y, pad, slot);
   const histoTop = priceBottom + 8;
