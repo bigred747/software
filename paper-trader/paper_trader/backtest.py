@@ -41,7 +41,7 @@ def run_backtest(
     params: Params,
     end: int | None = None,
     manual: dict[int, str] | None = None,
-    close_orders: list[tuple[str, str]] | None = None,
+    close_orders: list[tuple] | None = None,
     halt_days: set[str] | None = None,
 ) -> Result:
     validate_params(params)
@@ -155,15 +155,17 @@ def run_backtest(
         elif index in squeeze_sells and shares > 0:
             pending = "sell"
             pending_reason = "squeeze"
-        for side in [item_side for item_date, item_side in fills if item_date == bar.date]:
+        for item in [item for item in fills if item[0] == bar.date]:
+            side = item[1]
+            price = float(item[2]) if len(item) > 2 and item[2] else bar.close
             if side == "buy" and shares == 0 and cash > 0 and not halted:
-                shares, cash, cost, entry_price = _open_long(cash, bar.close, fee_rate)
+                shares, cash, cost, entry_price = _open_long(cash, price, fee_rate)
                 entry_date = bar.date
                 pending = None
             elif side == "sell" and shares > 0 and entry_price is not None:
-                cash, pnl = _close_long(cash, shares, bar.close, fee_rate, cost)
+                cash, pnl = _close_long(cash, shares, price, fee_rate, cost)
                 trades.append(
-                    Trade(entry_date or bar.date, bar.date, entry_price, bar.close, shares, pnl, "trade")
+                    Trade(entry_date or bar.date, bar.date, entry_price, price, shares, pnl, "trade")
                 )
                 shares = 0.0
                 entry_price = None

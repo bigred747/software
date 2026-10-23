@@ -273,6 +273,8 @@ dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
 .breaker { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; margin-bottom: 10px; padding: 8px; border: 1px solid #5a3038; border-radius: 10px; background: #160c0f; }
 .halt { background: #4a1820; border-color: var(--down); color: #fff; font-weight: 700; }
 .halt:active { transform: scale(0.98); }
+.last-fill { margin: 0 0 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.last-fill.on { color: var(--text, #e8edf2); }
 .breaker-note { margin: 0; font-size: 12px; color: var(--muted); }
 .breaker.tripped { border-color: var(--down); }
 .breaker.tripped .breaker-note { color: var(--down); }

@@ -135,6 +135,16 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(sold.trades[0].reason, "trade")
         self.assertEqual(sold.trades[0].exit_date, "2024-01-03")
 
+    def test_a_paper_fill_keeps_the_price_it_was_given(self) -> None:
+        params = Params(fast=2, slow=3, rsi_period=0, cash=10_000, fee_bps=0, stop_pct=0)
+        bars = hand_bars()
+        locked = run_backtest(bars, params, close_orders=[("2024-01-02", "buy", 10.005), ("2024-01-03", "sell", 9.995)])
+        self.assertAlmostEqual(locked.trades[0].entry_price, 10.005)
+        self.assertAlmostEqual(locked.trades[0].exit_price, 9.995)
+        bars[2] = bar("2024-01-03", 11)
+        moved = run_backtest(bars, params, close_orders=[("2024-01-02", "buy", 10.005), ("2024-01-03", "sell", 9.995)])
+        self.assertEqual(moved.trades[0], locked.trades[0])
+
     def test_bad_settings_are_rejected(self) -> None:
         with self.assertRaises(ValueError):
             run_backtest(hand_bars(), Params(fast=10, slow=5, rsi_period=0))
@@ -224,6 +234,35 @@ class StudyAndPhoneTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+
+    def test_phone_fill_pays_slippage_like_a_market_order(self) -> None:
+        script = r"""
+import fs from "node:fs";
+import vm from "node:vm";
+const context = {};
+context.globalThis = context;
+vm.createContext(context);
+vm.runInContext(fs.readFileSync("web/engine.js", "utf8"), context);
+const bars = [];
+for (let i = 0; i < 40; i += 1) bars.push({ date: "2024-02-" + String(i + 1).padStart(2, "0"), open: 100, high: 100, low: 100, close: 100, volume: 1 });
+const session = context.PaperEngine.sessionFromBars("BTC-USD", bars, { fee_bps: 0 });
+const bought = context.PaperEngine.trade(session, 5);
+const sold = context.PaperEngine.fill(session, "sell", 5);
+console.log(JSON.stringify({ buy: bought.fill, sell: sold.fill, cash: sold.cash }));
+"""
+        completed = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        got = json.loads(completed.stdout)
+        self.assertAlmostEqual(got["buy"]["price"], 100.05)
+        self.assertAlmostEqual(got["sell"]["price"], 99.95)
+        self.assertEqual(got["buy"]["quote"], 100)
+        self.assertLess(got["cash"], 10_000)
 
     def test_phone_prices_match_the_computer_samples(self) -> None:
         root = Path(__file__).resolve().parents[1]

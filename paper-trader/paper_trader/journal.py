@@ -19,7 +19,7 @@ class Journal:
     params: Params
     cursor: int
     orders: dict[int, str] = field(default_factory=dict)
-    close_orders: list[tuple[str, str]] = field(default_factory=list)
+    close_orders: list[tuple] = field(default_factory=list)
     halt_days: list[str] = field(default_factory=list)
 
 
@@ -40,10 +40,12 @@ def load_journal(path: Path) -> Journal:
         for key, side in dict(raw.get("orders") or {}).items():
             if side in {"buy", "sell"}:
                 orders[int(key)] = str(side)
-        close_orders: list[tuple[str, str]] = []
+        close_orders: list[tuple] = []
         for item in list(raw.get("close_orders") or []):
             if isinstance(item, list) and len(item) == 2 and item[1] in {"buy", "sell"}:
                 close_orders.append((str(item[0]), str(item[1])))
+            elif isinstance(item, list) and len(item) == 3 and item[1] in {"buy", "sell"} and float(item[2]) > 0:
+                close_orders.append((str(item[0]), str(item[1]), float(item[2])))
         halt_days = [str(day) for day in list(raw.get("halt_days") or []) if isinstance(day, str)]
         return Journal(symbol, params, cursor, orders, close_orders, halt_days)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
@@ -57,7 +59,7 @@ def save_journal(path: Path, journal: Journal) -> None:
         "cursor": journal.cursor,
         "params": journal.params.to_dict(),
         "orders": {str(index): side for index, side in sorted(journal.orders.items())},
-        "close_orders": [[day, side] for day, side in journal.close_orders],
+        "close_orders": [list(item) for item in journal.close_orders],
         "halt_days": list(journal.halt_days),
     }
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -81,6 +81,24 @@ _SECURITY_HEADERS = (
 
 
 BREAKER_DROP = 0.05
+PAPER_SLIP_BPS = 5.0
+
+
+def fill_price(last: float, side: str) -> float:
+    """The latest trade moved against the order by the paper slippage, as a market order fills."""
+    slip = PAPER_SLIP_BPS / 10_000.0
+    return last * (1 + slip) if side == "buy" else last * (1 - slip)
+
+
+def fill_note(side: str, last: float, price: float, fee_bps: float) -> dict:
+    return {
+        "side": side,
+        "quote": last,
+        "price": price,
+        "slip_bps": PAPER_SLIP_BPS,
+        "fee_bps": fee_bps,
+        "at": int(time.time()),
+    }
 LIVE_NOTE = "Live is locked. This desk has no broker or bank link, so every order stays paper."
 
 
@@ -144,8 +162,9 @@ class Desk:
     def _halt_locked(self, reason: str) -> dict:
         bars = quotes.load_bars(self.journal.symbol, refresh=True)
         held = view_journal(self.journal)["shares"] > 0
+        last = bars[-1].close
         if held:
-            self.journal.close_orders.append((bars[-1].date, "sell"))
+            self.journal.close_orders.append((bars[-1].date, "sell", fill_price(last, "sell")))
         if bars[-1].date not in self.journal.halt_days:
             self.journal.halt_days.append(bars[-1].date)
         save_journal(self.state_path, self.journal)
@@ -155,6 +174,8 @@ class Desk:
         save_breaker(self.breaker_path, data)
         payload = view_journal(self.journal)
         payload["last_action"] = "sell" if held else ""
+        if held:
+            payload["fill"] = fill_note("sell", last, fill_price(last, "sell"), self.journal.params.fee_bps)
         payload["breaker"] = breaker_view(data, day)
         return payload
 
@@ -272,10 +293,13 @@ class Desk:
                 if reason:
                     raise ValueError(reason)
                 remember_day_buy(self._day_path(), self.journal.symbol, day)
-            self.journal.close_orders.append((bars[-1].date, side))
+            last = bars[-1].close
+            price = fill_price(last, side)
+            self.journal.close_orders.append((bars[-1].date, side, price))
             save_journal(self.state_path, self.journal)
             payload = self._guard(view_journal(self.journal))
             payload["last_action"] = side
+            payload["fill"] = fill_note(side, last, price, self.journal.params.fee_bps)
             return payload
 
     def run_rest(self) -> dict:
@@ -334,7 +358,7 @@ class Desk:
 
     def _already_bought(self, day: str) -> bool:
         symbol = self.journal.symbol
-        if any(order_day == day and order_side == "buy" for order_day, order_side in self.journal.close_orders):
+        if any(order_day == day and order_side == "buy" for order_day, order_side, *_ in self.journal.close_orders):
             return True
         return bought_on(self._day_path(), symbol, day)
 

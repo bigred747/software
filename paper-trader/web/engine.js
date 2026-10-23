@@ -238,31 +238,35 @@
       mode: "paper",
       paper: true,
       last_action: session.lastAction,
+      fill: session.lastFill || null,
     };
   }
 
-  function fill(session, side) {
+  function fill(session, side, slipBps) {
     const bar = session.bars[Math.max(0, session.cursor - 1)];
     if (!bar) return view(session);
     const fee = session.params.fee_bps / 10000;
+    const slip = (Number(slipBps) || 0) / 10000;
+    const price = side === "buy" ? bar.close * (1 + slip) : bar.close * (1 - slip);
     if (side === "buy" && session.shares <= 0) {
-      const shares = session.cash / (bar.close * (1 + fee));
-      const notional = shares * bar.close;
+      const shares = session.cash / (price * (1 + fee));
+      const notional = shares * price;
       const cost = notional * (1 + fee);
       session.cash -= cost;
       session.shares = shares;
       session.cost = cost;
-      session.entryPrice = bar.close;
+      session.entryPrice = price;
       session.entryDate = bar.date;
       session.lastAction = "buy";
+      session.lastFill = { side, quote: bar.close, price, slip_bps: Number(slipBps) || 0, fee_bps: session.params.fee_bps, at: Math.floor(Date.now() / 1000) };
     } else if (side === "sell" && session.shares > 0) {
-      const notional = session.shares * bar.close;
+      const notional = session.shares * price;
       const proceeds = notional * (1 - fee);
       session.trades.push({
         entry_date: session.entryDate,
         exit_date: bar.date,
         entry_price: session.entryPrice,
-        exit_price: bar.close,
+        exit_price: price,
         shares: session.shares,
         pnl: proceeds - session.cost,
         reason: "trade",
@@ -273,6 +277,7 @@
       session.entryDate = null;
       session.cost = 0;
       session.lastAction = "sell";
+      session.lastFill = { side, quote: bar.close, price, slip_bps: Number(slipBps) || 0, fee_bps: session.params.fee_bps, at: Math.floor(Date.now() / 1000) };
     }
     return view(session);
   }
@@ -295,8 +300,9 @@
       session.cursor = session.bars.length;
       return view(session);
     },
-    trade(session) {
-      return fill(session, session.shares > 0 ? "sell" : "buy");
+    fill,
+    trade(session, slipBps) {
+      return fill(session, session.shares > 0 ? "sell" : "buy", slipBps);
     },
     sessionFromBars(symbol, bars, params) {
       const settings = {

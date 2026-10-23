@@ -49,7 +49,7 @@ A product is 95–100 when it has **supported brand + ASIN + price + primary ima
 
 ## Paper Trader
 
-Local paper desk in [paper-trader](paper-trader/README.md). The computer copy loads market quotes for 7,500 stocks, ETFs, futures, and crypto, including Bitcoin, XRP, and Stellar. It shows the quote time, squeeze compression, and buy/sell arrows, and keeps a simulated account. **Auto** refreshes the quote. **Trade** places one simulated order at the latest price. **Paper** stays on. **Live** is locked because the desk has no broker or bank link. **Sell all · Stop buys** is a circuit breaker: it sells the paper position, turns Auto off, and stops paper buys until the next Denver day, and it trips by itself on a 5% paper drop in one day. It does not place broker orders, collect payments, or send the order to an exchange. If the quote feed does not answer, the desk shows the error and does not invent a price.
+Local paper desk in [paper-trader](paper-trader/README.md). The computer copy loads market quotes for 7,500 stocks, ETFs, futures, and crypto, including Bitcoin, XRP, and Stellar. It shows the quote time, squeeze compression, and buy/sell arrows, and keeps a simulated account. **Auto** refreshes the quote. **Trade** places one simulated order at the latest price. **Paper** stays on. Paper fills lock in at the latest real trade plus 5 basis points of slippage and the fee, like a live market order. **Live** is locked because the desk has no broker or bank link. **Sell all · Stop buys** is a circuit breaker: it sells the paper position, turns Auto off, and stops paper buys until the next Denver day, and it trips by itself on a 5% paper drop in one day. It does not place broker orders, collect payments, or send the order to an exchange. If the quote feed does not answer, the desk shows the error and does not invent a price.
 
 The header shows the symbol, last price, change, and quote time. Bitcoin, Ether, XRP, Stellar, Solana, and SPY are pinned. The ticket shows the paper result, closed trades, and wins. Ten timeframes, from 1 minute through quarterly, open in their own windows on the market's bars. US stocks after the cash close show that session's closing price. Crypto and many futures keep updating. This desk is an original layout. It is not a copy of another platform.
 
@@ -57,7 +57,7 @@ The header shows the symbol, last price, change, and quote time. Bitcoin, Ether,
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/Paper-Trader.zip)
 
-SHA-256 `df0262a42c45e81c07399c214ee027413fa3991664213d10e97b08e49bca1465`
+SHA-256 `50e610bb853be249675dc680cf8f004d36cf15afb14da72bf097566239492d60`
 
 Size **11.8 MB**. Python 3.13 for Windows is inside the zip. The phone and tablet page is `iphone/PaperTrader.html` inside the same zip. Opening the computer copy also puts that file in Documents\iPhone and opens that folder.
 

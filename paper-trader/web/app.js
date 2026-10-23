@@ -167,7 +167,7 @@ async function paperCall(path, body) {
       state.session.dayBuys = state.session.dayBuys || [];
       state.session.dayBuys.push(day + "|" + state.session.symbol);
     }
-    return PaperEngine.trade(state.session);
+    return PaperEngine.trade(state.session, PAPER_SLIP_BPS);
   }
   if (path === "/api/paper/mode") {
     if (params.mode === "live") throw new Error(LIVE_NOTE);
@@ -547,6 +547,14 @@ function phoneBuyReason(symbol) {
 
 const BREAKER_KEY = "paperTraderBreaker";
 const BREAKER_DROP = 0.05;
+const PAPER_SLIP_BPS = 5;
+
+function fillText(paper) {
+  const fill = paper && paper.fill;
+  if (!fill || !(fill.price > 0)) return "";
+  const verb = fill.side === "buy" ? "Bought" : "Sold";
+  return verb + " at " + formatPrice(fill.price) + " · last trade " + formatPrice(fill.quote) + " · " + Number(fill.slip_bps) + " bps slippage · " + Number(fill.fee_bps) + " bps fee · " + denverClock(fill.at) + ".";
+}
 const BREAKER_STOP = "The circuit breaker is on. Buys stop until tomorrow. Sells still work.";
 const LIVE_NOTE = "Live is locked. This desk has no broker or bank link, so every order stays paper.";
 
@@ -589,7 +597,7 @@ function haltPhone(reason) {
   const session = state.session;
   let paper = session ? PaperEngine.view(session) : state.paper;
   const held = !!(session && session.shares > 0);
-  if (held) paper = PaperEngine.fill(session, "sell");
+  if (held) paper = PaperEngine.fill(session, "sell", PAPER_SLIP_BPS);
   const data = readBreaker();
   data.day = denverDay();
   data.reason = reason;
@@ -1120,6 +1128,12 @@ function render(paper) {
   $("paper").disabled = false;
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
   renderBreaker();
+  if (paper.fill && paper.fill.price > 0 && paper.symbol) state.lastFill = { symbol: paper.symbol, text: fillText(paper) };
+  const fillNode = $("last-fill");
+  if (fillNode && state.lastFill && state.lastFill.symbol === paper.symbol && fillNode.textContent !== "Last fill: " + state.lastFill.text) {
+    fillNode.textContent = "Last fill: " + state.lastFill.text;
+    fillNode.classList.add("on");
+  }
   fillTrades($("journal-body"), paper.trades || []);
   renderResult(paper);
   renderEdge();
@@ -2439,7 +2453,7 @@ $("trade").addEventListener("click", () => withBusy(async () => {
   const paper = await paperCall("/api/paper/trade", {});
   render(paper);
   const verb = paper.last_action === "sell" ? "Sold" : "Bought";
-  $("status").textContent = verb + " one simulated position on the paper account.";
+  $("status").textContent = fillText(paper) || verb + " one simulated position on the paper account.";
   await loadSignals();
 }));
 
@@ -2451,7 +2465,7 @@ $("halt").addEventListener("click", async () => {
   try {
     const paper = await paperCall("/api/paper/halt", {});
     render(paper);
-    $("status").textContent = (paper.last_action === "sell" ? "Sold everything to paper cash." : "Already in paper cash.") + " Buys stop until tomorrow.";
+    $("status").textContent = (paper.last_action === "sell" ? "Sold everything to paper cash. " + fillText(paper) : "Already in paper cash.") + " Buys stop until tomorrow.";
   } catch (error) {
     $("status").textContent = error.message;
     return;
