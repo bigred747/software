@@ -934,7 +934,7 @@ async function bootOffline() {
     throw lastError || new Error("The quote feed did not answer. Check the connection.");
   }
   const bars = found.bars;
-  state.session = PaperEngine.sessionFromBars(found.symbol, bars, {});
+  state.session = PaperEngine.sessionFromBars(found.symbol, bars, { fee_bps: 5 });
   state.paper = PaperEngine.view(state.session);
   await refreshSymbols();
   fillForm(state.paper.params);

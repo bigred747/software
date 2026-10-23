@@ -57,7 +57,7 @@ The header shows the symbol, last price, change, and quote time. Bitcoin, Ether,
 
 [Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-markets-1106/Paper-Trader.zip)
 
-SHA-256 `50e610bb853be249675dc680cf8f004d36cf15afb14da72bf097566239492d60`
+SHA-256 `efbea54b2f67accd9fd53debaead11239f25221d1f4af6b11227b2959a36d26b`
 
 Size **11.8 MB**. Python 3.13 for Windows is inside the zip. The phone and tablet page is `iphone/PaperTrader.html` inside the same zip. Opening the computer copy also puts that file in Documents\iPhone and opens that folder.
 
