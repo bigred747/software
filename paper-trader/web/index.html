@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#101318">
+  <meta name="theme-color" content="#07090b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -16,8 +16,11 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="eyebrow">Local paper desk</p>
-      <h1>Paper Trader</h1>
+      <p class="seal">Paper</p>
+      <div>
+        <p class="eyebrow">Local paper desk</p>
+        <h1>Paper Trader</h1>
+      </div>
     </div>
     <div class="mood-clock">
       <canvas id="mood-clock" width="112" height="112" aria-label="Fear and greed clock"></canvas>
@@ -80,7 +83,10 @@
       </div>
       <canvas id="candles" width="800" height="360"></canvas>
       <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
-      <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line, a signal line, and arrows after the bar closes. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+      <details class="chart-fold">
+        <summary>Chart key</summary>
+        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line, a signal line, and arrows after the bar closes. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+      </details>
     </section>
 
     <section id="view-trade" class="panel ticket" aria-label="Session">

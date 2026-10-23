@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#101318">
+  <meta name="theme-color" content="#07090b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -14,17 +14,17 @@
   <style>
 :root {
   color-scheme: dark;
-  --bg: #101318;
-  --panel: #171c23;
-  --text: #e7edf3;
-  --muted: #93a0ad;
+  --bg: #07090b;
+  --panel: #101418;
+  --text: #f4f7f8;
+  --muted: #9aa6b2;
   --line: #2a3340;
   --up: #3ddc97;
   --down: #ff6b7a;
   --fast: #7eb6ff;
   --slow: #e2b15a;
-  --button: #222a35;
-  --accent: #8fd0c4;
+  --button: #161c22;
+  --accent: #e7eef3;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -38,24 +38,28 @@ body {
   height: 100dvh;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.4 "Segoe UI", system-ui, sans-serif;
+  font: 16px/1.45 "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 .top {
-  display: flex;
+  display: grid;
   flex: 0 0 auto;
-  justify-content: space-between;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 18px;
+  gap: 6px 18px;
   min-height: 58px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--line);
-  background: #141920;
+  background: #0c1014;
 }
 
-.mood-clock { display: flex; flex-direction: column; align-items: center; flex: 0 0 auto; margin-left: auto; }
+.mood-clock { display: flex; flex-direction: column; align-items: center; grid-column: 2; grid-row: 1; }
 #mood-clock { width: 112px; height: 112px; margin: 0; background: transparent; }
 .mood-clock-label { font-size: 12px; font-weight: 650; min-height: 1em; }
 .mood-clock-label.fear { color: var(--down); }
@@ -64,22 +68,39 @@ body {
 
 .quote {
   display: grid;
-  grid-template-columns: auto auto auto;
+  grid-column: 1 / -1;
+  grid-template-columns: auto auto auto auto;
   grid-template-rows: auto auto;
-  column-gap: 14px;
+  column-gap: 16px;
   align-items: baseline;
-  margin-left: 0;
+  justify-content: start;
+  margin: 0;
   font-variant-numeric: tabular-nums;
 }
 
-#quote-symbol { font-weight: 650; letter-spacing: 0.03em; }
-#quote-last { font-size: 20px; font-weight: 680; }
-#quote-change { font-size: 14px; }
-#quote-asof { grid-column: 1 / -1; font-size: 12px; }
+#quote-symbol { grid-column: 1; grid-row: 1; font-weight: 650; letter-spacing: 0.04em; }
+#quote-last { grid-column: 2; grid-row: 1; font-size: 28px; font-weight: 650; letter-spacing: -0.03em; }
+#quote-change { grid-column: 3; grid-row: 1; font-size: 14px; }
+#quote-mood { grid-column: 4; grid-row: 1; }
+#quote-asof { grid-column: 1 / -1; grid-row: 2; font-size: 12px; }
+#quote-last.moved { animation: price-in 160ms ease; }
+@keyframes price-in { from { opacity: 0.45; } to { opacity: 1; } }
 .quote.up #quote-last, .quote.up #quote-change { color: var(--up); }
 .quote.down #quote-last, .quote.down #quote-change { color: var(--down); }
 
-.brand { display: flex; align-items: baseline; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; grid-column: 1; grid-row: 1; min-width: 0; }
+.seal {
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--up);
+  border-radius: 999px;
+  color: var(--up);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
 
 .eyebrow {
   margin: 0;
@@ -97,9 +118,10 @@ h2 { font-size: 15px; }
 
 .lede, .muted, footer { color: var(--muted); }
 
-.lede { margin: 0; font-size: 15px; line-height: 1.35; max-width: 40rem; color: var(--text); }
+.lede { grid-column: 1 / -1; margin: 0; font-size: 13px; line-height: 1.35; max-width: none; color: var(--muted); }
 
 .open-help {
+  grid-column: 1 / -1;
   margin: 8px 0 0;
   padding: 10px 12px;
   border: 1px solid var(--down);
@@ -112,6 +134,7 @@ h2 { font-size: 15px; }
 }
 
 .edge-note {
+  grid-column: 1 / -1;
   margin: 8px 0 0;
   padding: 8px 10px;
   border: 1px solid var(--line);
@@ -155,6 +178,12 @@ select, input, button, textarea {
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 8px;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 80ms ease;
+}
+select:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
 }
 
 select, input, textarea { width: 100%; padding: 8px 10px; }
@@ -178,7 +207,7 @@ textarea {
   background: #0e1318;
 }
 .results button { width: 100%; text-align: left; min-height: 36px; }
-.results button.on { border-color: var(--accent); color: var(--accent); background: #1c3330; }
+.results button.on { border-color: var(--accent); color: var(--text); background: #1c242c; }
 .results button.fear:not(.on), .pins button.fear:not(.on) { color: var(--down); }
 .results button.greed:not(.on), .pins button.greed:not(.on) { color: var(--up); }
 .quote { cursor: pointer; }
@@ -191,9 +220,10 @@ textarea {
 #scan-toggle.on { border-color: var(--accent); color: var(--accent); }
 .pins { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .pins button { width: auto; min-height: 32px; padding: 4px 8px; }
-.pins button.on { border-color: var(--accent); color: var(--accent); background: #1c3330; }
-.pins button.go { border-color: var(--up); color: var(--up); background: #1d4d3a; }
+.pins button.on { border-color: var(--accent); color: var(--text); background: #1c242c; }
+.pins button.go { border-color: var(--up); color: var(--up); background: #1d4d3a; animation: signal-in 280ms ease; }
 .pins button.go::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--up); vertical-align: middle; }
+@keyframes signal-in { from { box-shadow: 0 0 0 0 rgba(61, 220, 151, 0.55); } to { box-shadow: 0 0 0 8px rgba(61, 220, 151, 0); } }
 #pin-toggle { width: 100%; min-height: 36px; }
 
 .result { margin: 0 0 10px; font-variant-numeric: tabular-nums; font-size: 14px; }
@@ -231,8 +261,9 @@ dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
 #auto[aria-pressed="true"] { background: #1c3d66; border-color: var(--fast); color: var(--fast); }
 #study-install, #frames-all { background: #1c3330; border-color: var(--accent); color: var(--accent); }
 
-button { min-height: 44px; padding: 10px 12px; background: var(--button); cursor: pointer; }
+button { min-height: 44px; padding: 10px 12px; background: var(--button); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 button:hover:not(:disabled) { border-color: #4d5d72; }
+button:active:not(:disabled) { transform: scale(0.985); }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button:disabled { opacity: 0.45; cursor: default; }
 button.quiet { background: transparent; }
@@ -259,6 +290,14 @@ button.quiet { background: transparent; }
 .chart-head, .legend { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .legend, .chart-note { margin: 0; font-size: 12px; }
 .chart-note { margin-top: 6px; }
+.chart-fold { margin-top: 6px; }
+.chart-fold summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .chart-read {
   margin: 6px 0 0;
   min-height: 1.35em;
@@ -290,7 +329,8 @@ button.quiet { background: transparent; }
 .frame-bar .up, .frame-list .up { color: var(--up); border-color: #1d4d3a; }
 .frame-bar .down, .frame-list .down { color: var(--down); border-color: #5a3038; }
 .frame-bar button.on, .frame-list button.on {
-  background: #1c3330;
+  background: #1c242c;
+  color: var(--text);
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
@@ -313,7 +353,7 @@ button.quiet { background: transparent; }
 canvas {
   display: block;
   width: 100%;
-  background: #0d1116;
+  background: #07090b;
   border-radius: 8px;
   margin-top: 8px;
 }
@@ -334,7 +374,7 @@ canvas {
   background: transparent;
   white-space: nowrap;
 }
-.dock-tab.on { border-color: var(--accent); color: var(--accent); }
+.dock-tab.on { border-color: var(--accent); color: var(--text); background: #1c242c; }
 .dock-tab.ready::after {
   content: "";
   width: 8px;
@@ -377,8 +417,8 @@ footer { display: none; }
 .tabbar { display: none; }
 
 @media (max-width: 980px) {
-  .top { align-items: flex-start; flex-direction: column; gap: 6px; }
-  .quote { margin-left: 0; }
+  .top { align-items: center; gap: 6px 12px; }
+  .quote { margin: 0; width: 100%; }
   .lede { max-width: none; }
   .workspace {
     display: block;
@@ -412,7 +452,20 @@ footer { display: none; }
     z-index: 5;
   }
   .tabbar button { min-height: 44px; }
-  .tabbar button.on { border-color: var(--accent); color: var(--accent); }
+  .tabbar button.on { border-color: var(--accent); color: var(--text); background: #1c242c; }
+  .quote { grid-template-columns: auto auto; width: 100%; }
+  #quote-last { font-size: 22px; }
+  #quote-change { grid-column: 1 / -1; grid-row: 2; }
+  #quote-mood { grid-column: 2; grid-row: 1; justify-self: end; }
+  #quote-asof { grid-row: 3; }
+  #mood-clock { width: 72px; height: 72px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 </style>
@@ -420,8 +473,11 @@ footer { display: none; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="eyebrow">Local paper desk</p>
-      <h1>Paper Trader</h1>
+      <p class="seal">Paper</p>
+      <div>
+        <p class="eyebrow">Local paper desk</p>
+        <h1>Paper Trader</h1>
+      </div>
     </div>
     <div class="mood-clock">
       <canvas id="mood-clock" width="112" height="112" aria-label="Fear and greed clock"></canvas>
@@ -484,7 +540,10 @@ footer { display: none; }
       </div>
       <canvas id="candles" width="800" height="360"></canvas>
       <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
-      <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line, a signal line, and arrows after the bar closes. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+      <details class="chart-fold">
+        <summary>Chart key</summary>
+        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line, a signal line, and arrows after the bar closes. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+      </details>
     </section>
 
     <section id="view-trade" class="panel ticket" aria-label="Session">
@@ -2932,6 +2991,13 @@ function $(id) {
   return document.getElementById(id);
 }
 
+function sameStamp(node, stamp) {
+  if (!node) return false;
+  if (node.dataset.stamp === stamp) return true;
+  node.dataset.stamp = stamp;
+  return false;
+}
+
 async function getJSON(url, options) {
   const response = await fetch(url, options);
   const payload = await response.json();
@@ -2941,7 +3007,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.29";
+const VERSION = "1.9.30";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -3188,9 +3254,10 @@ function signalRow(item) {
 }
 
 function paintSignals(items) {
+  const stamp = items.map((item) => item.name + (item.ok ? "1" : "0") + (item.detail || "")).join("|");
   ["signal-strip", "signals"].forEach((id) => {
     const list = $(id);
-    if (!list) return;
+    if (!list || sameStamp(list, stamp)) return;
     list.replaceChildren();
     items.forEach((item) => list.appendChild(signalRow(item)));
   });
@@ -3228,8 +3295,11 @@ function drawMoodClock(score, label) {
   if (!canvas) return;
   const size = 112;
   const ratio = window.devicePixelRatio || 1;
-  canvas.width = Math.floor(size * ratio);
-  canvas.height = Math.floor(size * ratio);
+  const next = Math.floor(size * ratio);
+  if (canvas.width !== next || canvas.height !== next) {
+    canvas.width = next;
+    canvas.height = next;
+  }
   const ctx = canvas.getContext("2d");
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, size, size);
@@ -3923,6 +3993,8 @@ function pinLabel(symbol) {
 
 function renderScoreButtons(bar, rows, signal) {
   const current = (state.paper && state.paper.symbol) || "";
+  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + row.matched + ":" + row.seen).join(",");
+  if (sameStamp(bar, stamp)) return;
   bar.replaceChildren();
   (rows || []).forEach((row) => {
     if (!row || !row.symbol) return;
@@ -3980,6 +4052,19 @@ function renderPins() {
   let pins = readPins();
   if (state.offline) {
     pins = pins.filter((symbol) => phoneCrypto(symbol, state.catalog.find((row) => row.symbol === symbol)));
+  }
+  const stamp = current + "|" + pins.map((symbol) => {
+    const row = state.moods[symbol] || (state.market && state.market.symbol === symbol ? currentMood(seenBars()) : null);
+    return symbol + ":" + (row && row.label ? row.label : "") + ":" + (row && row.score != null ? row.score : "");
+  }).join(",");
+  if (sameStamp(bar, stamp)) {
+    const toggle = $("pin-toggle");
+    if (toggle && current) {
+      const pinned = pins.includes(current);
+      toggle.textContent = pinned ? "Unpin " + pinLabel(current) : "Pin " + pinLabel(current);
+      toggle.setAttribute("aria-pressed", pinned ? "true" : "false");
+    }
+    return;
   }
   bar.replaceChildren();
   pins.forEach((symbol) => {
@@ -4123,7 +4208,14 @@ function renderQuote(paper) {
   const sign = change > 0 ? "+" : "";
   const sameMarket = state.market && state.market.symbol === paper.symbol;
   const livePrice = sameMarket && state.market.price != null ? state.market.price : last.close;
-  $("quote-last").textContent = formatPrice(livePrice);
+  const priceNode = $("quote-last");
+  const nextPrice = formatPrice(livePrice);
+  if (priceNode.textContent !== nextPrice) {
+    priceNode.textContent = nextPrice;
+    priceNode.classList.remove("moved");
+    void priceNode.offsetWidth;
+    priceNode.classList.add("moved");
+  }
   $("quote-change").textContent = sign + formatPrice(change) + "  " + sign + percent.toFixed(2) + "%";
   const asOf = sameMarket && state.market.as_of;
   $("quote-asof").textContent = asOf
@@ -4152,8 +4244,10 @@ function renderFrames() {
   const note = PaperFrames.brief((state.paper && state.paper.symbol) || "Sample", rows);
   state.brief = note;
   const bar = $("frame-bar");
-  bar.replaceChildren();
   const selectedId = state.frameId || "1D";
+  const stamp = state.previewZoom + "|" + selectedId + "|" + note.lead + "|" + note.lines.join("~") + "|" + rows.map((row) => row.id + row.bias + row.change.toFixed(2) + ":" + row.count).join(",");
+  if (!sameStamp(bar, stamp)) {
+  bar.replaceChildren();
   rows.forEach((row) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -4196,7 +4290,9 @@ function renderFrames() {
       ? selected.label + " preview · " + selected.bias + " · " + change + " · " + selected.count + " market bars"
       : selected.label + " opens market bars in its own window";
   }
-  PaperFrames.draw($("frame-preview"), selected ? selected.bars : [], state.previewZoom);
+  }
+  const previewRow = rows.find((row) => row.id === selectedId) || rows[0];
+  PaperFrames.draw($("frame-preview"), previewRow ? previewRow.bars : [], state.previewZoom);
   paintZoom(seenBars().length);
 }
 
@@ -4360,8 +4456,7 @@ function renderReadings() {
   const rsiName = rsiValue == null ? "—" : Number(rsiValue).toFixed(1);
   const averageName = fast == null || slow == null ? "—" : fast >= slow ? "Fast above slow" : "Fast below slow";
   const list = $("readings");
-  list.replaceChildren();
-  [
+  const readingRows = [
     ["Candle", bar ? (bar.close >= bar.open ? "Green" : "Red") : "—"],
     ["Squeeze", PaperFrames.squeezeName(level)],
     ["Momentum", momentumName],
@@ -4373,7 +4468,10 @@ function renderReadings() {
     ["TMO", tmoText(bars)],
     ["Lesson", lessonText(bars)],
     ["Fear and greed", moodText(bars)],
-  ].forEach(([name, value]) => {
+  ];
+  if (sameStamp(list, readingRows.map((row) => row.join(":")).join("|"))) return;
+  list.replaceChildren();
+  readingRows.forEach(([name, value]) => {
     const row = document.createElement("div");
     const label = document.createElement("dt");
     const detail = document.createElement("dd");
@@ -4385,6 +4483,8 @@ function renderReadings() {
 }
 
 function fillTrades(body, trades) {
+  const stamp = trades.map((trade) => [trade.entry_date, trade.exit_date, trade.entry_price, trade.exit_price, trade.pnl, trade.reason].join(":")).join("|") || "empty";
+  if (sameStamp(body, stamp)) return;
   body.replaceChildren();
   if (!trades.length) {
     const row = document.createElement("tr");
@@ -4803,8 +4903,12 @@ function prepare(canvas, fallbackWidth, fallbackHeight) {
   const ratio = window.devicePixelRatio || 1;
   const width = canvas.clientWidth >= 40 ? canvas.clientWidth : (fallbackWidth || canvas.clientWidth || 300);
   const height = canvas.clientHeight >= 40 ? canvas.clientHeight : (fallbackHeight || canvas.clientHeight || 100);
-  canvas.width = Math.floor(Math.max(width, 1) * ratio);
-  canvas.height = Math.floor(Math.max(height, 1) * ratio);
+  const nextWidth = Math.floor(Math.max(width, 1) * ratio);
+  const nextHeight = Math.floor(Math.max(height, 1) * ratio);
+  if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
   const ctx = canvas.getContext("2d");
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);

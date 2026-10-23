@@ -44,6 +44,13 @@ function $(id) {
   return document.getElementById(id);
 }
 
+function sameStamp(node, stamp) {
+  if (!node) return false;
+  if (node.dataset.stamp === stamp) return true;
+  node.dataset.stamp = stamp;
+  return false;
+}
+
 async function getJSON(url, options) {
   const response = await fetch(url, options);
   const payload = await response.json();
@@ -53,7 +60,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.29";
+const VERSION = "1.9.30";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -300,9 +307,10 @@ function signalRow(item) {
 }
 
 function paintSignals(items) {
+  const stamp = items.map((item) => item.name + (item.ok ? "1" : "0") + (item.detail || "")).join("|");
   ["signal-strip", "signals"].forEach((id) => {
     const list = $(id);
-    if (!list) return;
+    if (!list || sameStamp(list, stamp)) return;
     list.replaceChildren();
     items.forEach((item) => list.appendChild(signalRow(item)));
   });
@@ -340,8 +348,11 @@ function drawMoodClock(score, label) {
   if (!canvas) return;
   const size = 112;
   const ratio = window.devicePixelRatio || 1;
-  canvas.width = Math.floor(size * ratio);
-  canvas.height = Math.floor(size * ratio);
+  const next = Math.floor(size * ratio);
+  if (canvas.width !== next || canvas.height !== next) {
+    canvas.width = next;
+    canvas.height = next;
+  }
   const ctx = canvas.getContext("2d");
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, size, size);
@@ -1035,6 +1046,8 @@ function pinLabel(symbol) {
 
 function renderScoreButtons(bar, rows, signal) {
   const current = (state.paper && state.paper.symbol) || "";
+  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + row.matched + ":" + row.seen).join(",");
+  if (sameStamp(bar, stamp)) return;
   bar.replaceChildren();
   (rows || []).forEach((row) => {
     if (!row || !row.symbol) return;
@@ -1092,6 +1105,19 @@ function renderPins() {
   let pins = readPins();
   if (state.offline) {
     pins = pins.filter((symbol) => phoneCrypto(symbol, state.catalog.find((row) => row.symbol === symbol)));
+  }
+  const stamp = current + "|" + pins.map((symbol) => {
+    const row = state.moods[symbol] || (state.market && state.market.symbol === symbol ? currentMood(seenBars()) : null);
+    return symbol + ":" + (row && row.label ? row.label : "") + ":" + (row && row.score != null ? row.score : "");
+  }).join(",");
+  if (sameStamp(bar, stamp)) {
+    const toggle = $("pin-toggle");
+    if (toggle && current) {
+      const pinned = pins.includes(current);
+      toggle.textContent = pinned ? "Unpin " + pinLabel(current) : "Pin " + pinLabel(current);
+      toggle.setAttribute("aria-pressed", pinned ? "true" : "false");
+    }
+    return;
   }
   bar.replaceChildren();
   pins.forEach((symbol) => {
@@ -1235,7 +1261,14 @@ function renderQuote(paper) {
   const sign = change > 0 ? "+" : "";
   const sameMarket = state.market && state.market.symbol === paper.symbol;
   const livePrice = sameMarket && state.market.price != null ? state.market.price : last.close;
-  $("quote-last").textContent = formatPrice(livePrice);
+  const priceNode = $("quote-last");
+  const nextPrice = formatPrice(livePrice);
+  if (priceNode.textContent !== nextPrice) {
+    priceNode.textContent = nextPrice;
+    priceNode.classList.remove("moved");
+    void priceNode.offsetWidth;
+    priceNode.classList.add("moved");
+  }
   $("quote-change").textContent = sign + formatPrice(change) + "  " + sign + percent.toFixed(2) + "%";
   const asOf = sameMarket && state.market.as_of;
   $("quote-asof").textContent = asOf
@@ -1264,8 +1297,10 @@ function renderFrames() {
   const note = PaperFrames.brief((state.paper && state.paper.symbol) || "Sample", rows);
   state.brief = note;
   const bar = $("frame-bar");
-  bar.replaceChildren();
   const selectedId = state.frameId || "1D";
+  const stamp = state.previewZoom + "|" + selectedId + "|" + note.lead + "|" + note.lines.join("~") + "|" + rows.map((row) => row.id + row.bias + row.change.toFixed(2) + ":" + row.count).join(",");
+  if (!sameStamp(bar, stamp)) {
+  bar.replaceChildren();
   rows.forEach((row) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -1308,7 +1343,9 @@ function renderFrames() {
       ? selected.label + " preview · " + selected.bias + " · " + change + " · " + selected.count + " market bars"
       : selected.label + " opens market bars in its own window";
   }
-  PaperFrames.draw($("frame-preview"), selected ? selected.bars : [], state.previewZoom);
+  }
+  const previewRow = rows.find((row) => row.id === selectedId) || rows[0];
+  PaperFrames.draw($("frame-preview"), previewRow ? previewRow.bars : [], state.previewZoom);
   paintZoom(seenBars().length);
 }
 
@@ -1472,8 +1509,7 @@ function renderReadings() {
   const rsiName = rsiValue == null ? "—" : Number(rsiValue).toFixed(1);
   const averageName = fast == null || slow == null ? "—" : fast >= slow ? "Fast above slow" : "Fast below slow";
   const list = $("readings");
-  list.replaceChildren();
-  [
+  const readingRows = [
     ["Candle", bar ? (bar.close >= bar.open ? "Green" : "Red") : "—"],
     ["Squeeze", PaperFrames.squeezeName(level)],
     ["Momentum", momentumName],
@@ -1485,7 +1521,10 @@ function renderReadings() {
     ["TMO", tmoText(bars)],
     ["Lesson", lessonText(bars)],
     ["Fear and greed", moodText(bars)],
-  ].forEach(([name, value]) => {
+  ];
+  if (sameStamp(list, readingRows.map((row) => row.join(":")).join("|"))) return;
+  list.replaceChildren();
+  readingRows.forEach(([name, value]) => {
     const row = document.createElement("div");
     const label = document.createElement("dt");
     const detail = document.createElement("dd");
@@ -1497,6 +1536,8 @@ function renderReadings() {
 }
 
 function fillTrades(body, trades) {
+  const stamp = trades.map((trade) => [trade.entry_date, trade.exit_date, trade.entry_price, trade.exit_price, trade.pnl, trade.reason].join(":")).join("|") || "empty";
+  if (sameStamp(body, stamp)) return;
   body.replaceChildren();
   if (!trades.length) {
     const row = document.createElement("tr");
@@ -1915,8 +1956,12 @@ function prepare(canvas, fallbackWidth, fallbackHeight) {
   const ratio = window.devicePixelRatio || 1;
   const width = canvas.clientWidth >= 40 ? canvas.clientWidth : (fallbackWidth || canvas.clientWidth || 300);
   const height = canvas.clientHeight >= 40 ? canvas.clientHeight : (fallbackHeight || canvas.clientHeight || 100);
-  canvas.width = Math.floor(Math.max(width, 1) * ratio);
-  canvas.height = Math.floor(Math.max(height, 1) * ratio);
+  const nextWidth = Math.floor(Math.max(width, 1) * ratio);
+  const nextHeight = Math.floor(Math.max(height, 1) * ratio);
+  if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+  }
   const ctx = canvas.getContext("2d");
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, width, height);
