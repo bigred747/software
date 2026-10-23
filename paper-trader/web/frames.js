@@ -357,6 +357,8 @@
     ];
     ctx.save();
     ctx.font = "11px Segoe UI, sans-serif";
+    const narrow = (ctx.canvas.paperWidth || 0) < 640;
+    const placed = [];
     lines.forEach(([from, price, color, dashed, label]) => {
       if (dashed && lines.some((other) => !other[3] && Math.abs(y(other[1]) - y(price)) < 8 && other[0] === from)) return;
       const x1 = xAt(Math.max(0, from));
@@ -369,7 +371,11 @@
       ctx.moveTo(x1, y(price));
       ctx.lineTo(x2, y(price));
       ctx.stroke();
-      if (!dashed) ctx.fillText(label, x2 - ctx.measureText(label).width - 4, y(price) - 3);
+      if (dashed || narrow) return;
+      const textY = y(price) - 3;
+      if (placed.some((prior) => Math.abs(prior - textY) < 14)) return;
+      placed.push(textY);
+      ctx.fillText(label, Math.max(x1 + 4, x2 - ctx.measureText(label).width - 4), textY);
     });
     ctx.restore();
   }

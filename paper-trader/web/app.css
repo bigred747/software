@@ -40,7 +40,7 @@ body {
   align-items: center;
   gap: 6px 18px;
   min-height: 58px;
-  padding: 8px 16px;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px;
   border-bottom: 1px solid var(--line);
   background: #0c1014;
 }
@@ -65,10 +65,11 @@ body {
 }
 
 #quote-symbol { grid-column: 1; grid-row: 1; font-weight: 650; letter-spacing: 0.04em; }
-#quote-last { grid-column: 2; grid-row: 1; font-size: 28px; font-weight: 650; letter-spacing: -0.03em; }
+#quote-last, #quote-change, #quote-mood, #quote-symbol { white-space: nowrap; }
+#quote-last { grid-column: 2; grid-row: 1; font-size: 28px; font-weight: 650; letter-spacing: -0.03em; line-height: 1.05; }
 #quote-change { grid-column: 3; grid-row: 1; font-size: 14px; }
 #quote-mood { grid-column: 4; grid-row: 1; }
-#quote-asof { grid-column: 1 / -1; grid-row: 2; font-size: 12px; }
+#quote-asof { grid-column: 1 / -1; grid-row: 2; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #quote-last.moved { animation: price-in 160ms ease; }
 @keyframes price-in { from { opacity: 0.45; } to { opacity: 1; } }
 .quote.up #quote-last, .quote.up #quote-change { color: var(--up); }
@@ -403,16 +404,44 @@ footer { display: none; }
 .tabbar { display: none; }
 
 @media (max-width: 980px) {
-  .top { align-items: center; gap: 6px 12px; }
-  .quote { margin: 0; width: 100%; }
-  .lede { max-width: none; }
+  .top { align-items: center; gap: 4px 12px; }
+  .quote {
+    margin: 0;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "symbol mood"
+      "price change"
+      "asof asof";
+    column-gap: 12px;
+    row-gap: 1px;
+  }
+  #quote-symbol { grid-area: symbol; font-size: 13px; }
+  #quote-mood { grid-area: mood; justify-self: end; align-self: center; }
+  #quote-last { grid-area: price; font-size: 32px; }
+  #quote-change { grid-area: change; justify-self: end; align-self: end; font-size: 15px; }
+  #quote-asof { grid-area: asof; }
+  .lede { max-width: none; margin: 0; font-size: 12px; }
+  .eyebrow { font-size: 10px; }
+  h1 { font-size: 17px; }
+  .mood-clock-label { display: none; }
+  .edge-note:not([hidden]) {
+    display: -webkit-box;
+    margin: 4px 0 0;
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.25;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
   .workspace {
     display: block;
     flex: 1 1 auto;
     height: auto;
     min-height: 0;
     overflow: auto;
-    padding: 8px 8px calc(64px + var(--safe-bottom));
+    padding: 8px 12px calc(58px + var(--safe-bottom));
   }
   .watch, .chart-panel, .ticket, .dock { display: none; margin: 0; }
   .frames-layout { display: block; }
@@ -422,8 +451,45 @@ footer { display: none; }
   body[data-tab="chart"] .chart-panel,
   body[data-tab="trade"] .ticket,
   body[data-tab="study"] .dock { display: block; }
-  body[data-tab="chart"] .chart-panel { display: flex; min-height: calc(100dvh - 150px); }
-  #candles { height: 48dvh; min-height: 240px; }
+  body[data-tab="chart"] .workspace {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    padding-top: 6px;
+    padding-bottom: calc(58px + var(--safe-bottom));
+  }
+  body[data-tab="chart"] .chart-panel {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px 10px 6px;
+  }
+  body[data-tab="chart"] .chart-head { flex-wrap: wrap; gap: 2px 8px; margin: 0; }
+  body[data-tab="chart"] .legend { flex: 1 0 100%; font-size: 11px; white-space: nowrap; overflow: hidden; }
+  body[data-tab="chart"] .chart-read { margin: 2px 0 0; font-size: 13px; min-height: 0; }
+  body[data-tab="chart"] .signal-strip {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 10px;
+    margin: 4px 0;
+    max-height: 22px;
+  }
+  body[data-tab="chart"] .signal-strip li { flex: 0 0 auto; font-size: 11px; white-space: nowrap; }
+  body[data-tab="chart"] .frame-bar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0; }
+  body[data-tab="chart"] .frame-bar button,
+  body[data-tab="chart"] .zoom-bar button { min-height: 32px; padding: 4px 8px; }
+  body[data-tab="chart"] .zoom-bar { margin-top: 4px; }
+  body[data-tab="chart"] .chart-fold { margin-top: 2px; }
+  body[data-tab="chart"] #candles {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    margin-top: 4px;
+  }
+  body[data-tab="chart"] #rsi-chart { height: 64px; flex: 0 0 64px; margin-top: 4px; }
+  #mood-clock { width: 56px; height: 56px; }
   .tabbar {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -433,18 +499,17 @@ footer { display: none; }
     bottom: 0;
     gap: 4px;
     padding: 6px 8px calc(6px + var(--safe-bottom));
-    background: #12171d;
+    background: #0c1014;
     border-top: 1px solid var(--line);
     z-index: 5;
   }
   .tabbar button { min-height: 44px; }
   .tabbar button.on { border-color: var(--accent); color: var(--text); background: #1c242c; }
-  .quote { grid-template-columns: auto auto; width: 100%; }
-  #quote-last { font-size: 22px; }
-  #quote-change { grid-column: 1 / -1; grid-row: 2; }
-  #quote-mood { grid-column: 2; grid-row: 1; justify-self: end; }
-  #quote-asof { grid-row: 3; }
-  #mood-clock { width: 72px; height: 72px; }
+}
+
+@media (max-width: 428px) {
+  #quote-last { font-size: 30px; }
+  .top { padding-left: 14px; padding-right: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

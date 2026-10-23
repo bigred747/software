@@ -60,7 +60,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.30";
+const VERSION = "1.9.31";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -1667,9 +1667,7 @@ function drawCandles(retry) {
   if (!bars.length) return;
   const width = canvas.paperWidth;
   const height = canvas.paperHeight;
-  const pad = 64;
-  const rightGap = Math.max(120, Math.round(width * 0.16));
-  const priceBottom = Math.min(height - 48, Math.max(80, Math.round(height * 0.7)));
+  const priceBottom = Math.min(height - 36, Math.max(72, Math.round(height * 0.72)));
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
   [highLine, midLine, lowLine, fast, slow].forEach((series) => {
@@ -1690,7 +1688,18 @@ function drawCandles(retry) {
   const span = high - low || 1;
   low -= span * 0.08;
   high += span * 0.08;
-  const y = (price) => 18 + ((high - price) / (high - low)) * (priceBottom - 36);
+  ctx.font = "12px Segoe UI, sans-serif";
+  const axisSample = formatPrice(Math.max(Math.abs(low), Math.abs(high)));
+  const lastSample = formatPrice(bars[bars.length - 1].close);
+  let pad = Math.max(52, Math.ceil(ctx.measureText(axisSample).width) + 12);
+  let rightGap = Math.max(Math.ceil(ctx.measureText(lastSample).width) + 18, 72);
+  if (pad + rightGap > width - 96) {
+    const budget = Math.max(96, width - 96);
+    const used = pad + rightGap;
+    pad = Math.max(36, Math.floor((pad * budget) / used));
+    rightGap = Math.max(36, Math.floor((rightGap * budget) / used));
+  }
+  const y = (price) => 16 + ((high - price) / (high - low)) * (priceBottom - 28);
   const slot = (width - pad - rightGap) / bars.length;
   const plotRight = width - rightGap;
   state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol };
@@ -1760,21 +1769,23 @@ function drawCandles(retry) {
   const lastMomentum = momentum[last];
   const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
   const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
-  const key = [
-    [lastBar.close >= lastBar.open ? "Candle green" : "Candle red", lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a"],
-    ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
-    ["Momentum " + (lastMomentum == null ? "—" : lastRising ? "rising" : "falling"), PaperFrames.momentumTone(lastMomentum, priorMomentum) || "#9aa6b2"],
-    [PaperFrames.candlePlace(lastBar, highLine[last], lowLine[last]), "#d7e2ea"],
-    [fitted.mood && fitted.mood.score != null ? fitted.mood.label + " " + fitted.mood.score : "Mood", fitted.mood && fitted.mood.label === "Fear" ? "#ff6b7a" : fitted.mood && fitted.mood.label === "Greed" ? "#3ddc97" : "#d7e2ea"],
-  ];
-  const keyWidth = Math.max(...key.map((row) => ctx.measureText(row[0]).width)) + 16;
-  const keyLeft = pad + 6;
-  ctx.fillStyle = "rgba(13, 17, 22, 0.92)";
-  ctx.fillRect(keyLeft, 4, keyWidth, key.length * 15 + 8);
-  key.forEach((row, index) => {
-    ctx.fillStyle = row[1];
-    ctx.fillText(row[0], keyLeft + 8, 18 + index * 15);
-  });
+  if (width >= 640) {
+    const key = [
+      [lastBar.close >= lastBar.open ? "Candle green" : "Candle red", lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a"],
+      ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
+      ["Momentum " + (lastMomentum == null ? "—" : lastRising ? "rising" : "falling"), PaperFrames.momentumTone(lastMomentum, priorMomentum) || "#9aa6b2"],
+      [PaperFrames.candlePlace(lastBar, highLine[last], lowLine[last]), "#d7e2ea"],
+      [fitted.mood && fitted.mood.score != null ? fitted.mood.label + " " + fitted.mood.score : "Mood", fitted.mood && fitted.mood.label === "Fear" ? "#ff6b7a" : fitted.mood && fitted.mood.label === "Greed" ? "#3ddc97" : "#d7e2ea"],
+    ];
+    const keyWidth = Math.max(...key.map((row) => ctx.measureText(row[0]).width)) + 16;
+    const keyLeft = pad + 6;
+    ctx.fillStyle = "rgba(7, 9, 11, 0.92)";
+    ctx.fillRect(keyLeft, 4, keyWidth, key.length * 15 + 8);
+    key.forEach((row, index) => {
+      ctx.fillStyle = row[1];
+      ctx.fillText(row[0], keyLeft + 8, 18 + index * 15);
+    });
+  }
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
   (state.paper.markers || []).forEach((marker) => {
     const index = byDate.get(marker.date);
@@ -1796,15 +1807,21 @@ function drawCandles(retry) {
     const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 36 : y(bar.high) - 36));
     drawArrow(ctx, x, point, up);
   });
+  const tag = formatPrice(lastBar.close);
+  const tagWidth = ctx.measureText(tag).width;
+  const tagX = Math.min(plotRight + 8, width - tagWidth - 8);
+  const tagY = Math.max(14, Math.min(priceBottom - 8, y(lastBar.close)));
   ctx.setLineDash([4, 4]);
   ctx.strokeStyle = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
   ctx.beginPath();
   ctx.moveTo(pad + last * slot + slot / 2, y(lastBar.close));
-  ctx.lineTo(width - 12, y(lastBar.close));
+  ctx.lineTo(Math.max(pad, tagX - 6), y(lastBar.close));
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = ctx.strokeStyle;
-  ctx.fillText(formatPrice(lastBar.close), plotRight + 8, Math.max(16, y(lastBar.close) - 4));
+  ctx.fillStyle = "#07090b";
+  ctx.fillRect(tagX - 4, tagY - 12, tagWidth + 8, 16);
+  ctx.fillStyle = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
+  ctx.fillText(tag, tagX, tagY);
 }
 
 function drawStudy(ctx, bars, y, pad, slot) {
