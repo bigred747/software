@@ -128,7 +128,7 @@ test("edge fills at the next open and later bars do not move closed trades", () 
   assert.ok(full.ready);
   assert.ok(full.trades.length > 0);
   assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(full.call));
-  assert.ok(full.score >= 0 && full.score <= 5);
+  assert.ok(full.score >= 0 && full.score <= 4);
   full.marks.forEach((mark) => {
     assert.equal(mark.price, bars[mark.index].open);
     assert.ok(mark.index >= 51);
@@ -140,6 +140,15 @@ test("edge fills at the next open and later bars do not move closed trades", () 
   const closedBefore = cut.trades.filter((trade) => trade.exitDate < bars[239].date);
   const sameInFull = full.trades.slice(0, closedBefore.length);
   assert.deepEqual(JSON.parse(JSON.stringify(sameInFull)), JSON.parse(JSON.stringify(closedBefore)));
+  assert.equal(full.checks, 4);
+  const again = edge(bars);
+  full.marks.filter((mark) => mark.side === "buy").forEach((mark) => {
+    const signal = edge(bars.slice(0, mark.index));
+    assert.equal(signal.call, "BUY");
+    assert.equal(signal.score, 4);
+    assert.ok(Object.values(signal.parts).every(Boolean));
+  });
+  assert.equal(again.trades.length, full.trades.length);
   const short = edge(bars.slice(0, 30));
   assert.equal(short.ready, false);
   assert.equal(short.trades.length, 0);

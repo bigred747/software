@@ -60,7 +60,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.34";
+const VERSION = "1.9.35";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -1305,7 +1305,7 @@ function paintChartRead(paper) {
     ? formatPrice(state.market.price)
     : "";
   const result = price ? currentEdge(seenBars()) : null;
-  const call = result && result.ready ? " · Edge " + result.call + " " + result.score + "/5" : "";
+  const call = result && result.ready ? " · Edge " + result.call + " " + result.score + "/" + (result.checks || 4) : "";
   node.textContent = price ? paper.symbol + " · " + price + call + " · tap a candle" : "Click a ticker or a candle.";
 }
 
@@ -1678,7 +1678,7 @@ function renderReadings() {
     ["Fear and greed", moodText(bars)],
     ["Edge", (() => {
       const result = bars.length ? currentEdge(bars) : null;
-      return result && result.ready ? result.call + " · " + result.score + " of 5" : "—";
+      return result && result.ready ? result.call + " · " + result.score + " of " + (result.checks || 4) : "—";
     })()],
   ];
   if (sameStamp(list, readingRows.map((row) => row.join(":")).join("|"))) return;
@@ -1728,11 +1728,10 @@ function fillTrades(body, trades) {
 }
 
 const EDGE_CHECKS = [
-  ["trend", "Trend"],
-  ["long", "Long trend"],
-  ["push", "Squeeze push"],
-  ["tmo", "True momentum"],
-  ["rsi", "RSI 45 to 70"],
+  ["dots", "5+ squeeze dots"],
+  ["above", "Squeeze momentum above 0"],
+  ["rising", "Squeeze momentum rising"],
+  ["tmo", "TMO main above signal"],
 ];
 
 function currentEdge(bars) {
@@ -1760,7 +1759,7 @@ function edgePlan(result) {
   if (result.call === "BUY") return "Buy setup on the latest bar. A paper buy fills at the next open. Starting stop " + stop + risk + ".";
   if (result.call === "SELL") return "Sell on the latest bar: " + (result.reason || "exit") + ". A paper sell fills at the next open.";
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + ".";
-  return "No buy yet. Edge waits for four of five checks.";
+  return "No buy yet. Edge waits for all four checks to turn on together.";
 }
 
 function renderEdge() {
@@ -1774,7 +1773,7 @@ function renderEdge() {
   if (sameStamp(box, stamp)) return;
   box.className = "edge " + call.toLowerCase();
   $("edge-call").textContent = call;
-  $("edge-score").textContent = result.score == null ? "—" : result.score + " of 5";
+  $("edge-score").textContent = result.score == null ? "—" : result.score + " of " + (result.checks || 4);
   const checks = $("edge-checks");
   checks.replaceChildren();
   EDGE_CHECKS.forEach(([id, name]) => {
@@ -1855,7 +1854,13 @@ function tmoText(bars) {
   const last = study.main.length - 1;
   if (study.main[last] == null || study.signal[last] == null) return "—";
   const side = study.main[last] > study.signal[last] ? "Main above signal" : "Main below signal";
-  return side + " " + study.main[last].toFixed(1);
+  const prior = last - 1;
+  let cross = "";
+  if (prior >= 0 && study.main[prior] != null && study.signal[prior] != null) {
+    if (study.main[last] > study.signal[last] && study.main[prior] <= study.signal[prior] && study.main[last] <= 0) cross = " · zero-line buy cross";
+    else if (study.main[last] < study.signal[last] && study.main[prior] >= study.signal[prior] && study.main[last] >= 0) cross = " · zero-line sell cross";
+  }
+  return side + " " + study.main[last].toFixed(1) + cross;
 }
 
 function pivotsText(pivots, side) {

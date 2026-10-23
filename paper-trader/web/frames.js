@@ -832,30 +832,11 @@
     }
   }
 
-  const EDGE_FEE = 0.0005;
+  const EDGE_FEE = 0.001;
   const EDGE_WARM = 50;
-
-  function edgeRsi(closes, period) {
-    const out = new Array(closes.length).fill(null);
-    if (closes.length <= period) return out;
-    let gain = 0;
-    let loss = 0;
-    for (let index = 1; index <= period; index += 1) {
-      const change = closes[index] - closes[index - 1];
-      if (change >= 0) gain += change;
-      else loss -= change;
-    }
-    gain /= period;
-    loss /= period;
-    out[period] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
-    for (let index = period + 1; index < closes.length; index += 1) {
-      const change = closes[index] - closes[index - 1];
-      gain = (gain * (period - 1) + Math.max(change, 0)) / period;
-      loss = (loss * (period - 1) + Math.max(-change, 0)) / period;
-      out[index] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
-    }
-    return out;
-  }
+  const EDGE_DOTS = 5;
+  const EDGE_TRAIL = 2;
+  const EDGE_SCORE = 4;
 
   function edgeAtr(bars, period) {
     const out = new Array(bars.length).fill(null);
@@ -878,40 +859,31 @@
     return out;
   }
 
-  function edgeSma(values, window) {
-    const out = new Array(values.length).fill(null);
-    let total = 0;
-    values.forEach((value, index) => {
-      total += value;
-      if (index >= window) total -= values[index - window];
-      if (index >= window - 1) out[index] = total / window;
-    });
-    return out;
-  }
-
   function edge(bars) {
     const list = bars || [];
     const count = list.length;
     const closes = list.map((bar) => bar.close);
-    const fast = ema(closes, 20);
-    const base = ema(closes, 50);
-    const long = edgeSma(closes, 200);
-    const squeeze = compression(list, 20).momentum;
+    const study = compression(list, 20);
+    const squeeze = study.momentum;
     const tmo = trueMomentum(list, 14, 5, 3);
-    const strength = edgeRsi(closes, 14);
     const range = edgeAtr(list, 14);
+    const dots = new Array(count).fill(0);
+    let run = 0;
+    for (let index = 0; index < count; index += 1) {
+      run = study.level[index] > 0 ? run + 1 : 0;
+      dots[index] = run;
+    }
     const score = new Array(count).fill(null);
     const trail = new Array(count).fill(null);
     const parts = new Array(count).fill(null);
     for (let index = EDGE_WARM; index < count; index += 1) {
-      const close = closes[index];
-      const longOk = long[index] != null ? close > long[index] : base[index] > base[index - 5];
+      const now = squeeze[index];
+      const prior = squeeze[index - 1];
       const checks = {
-        trend: close > base[index] && fast[index] > base[index],
-        long: longOk,
-        push: squeeze[index] != null && squeeze[index - 1] != null && squeeze[index] > 0 && squeeze[index] > squeeze[index - 1],
+        dots: dots[index] >= EDGE_DOTS,
+        above: now != null && now > 0,
+        rising: now != null && prior != null && now >= prior,
         tmo: tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index],
-        rsi: strength[index] != null && strength[index] >= 45 && strength[index] <= 70,
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
@@ -928,7 +900,7 @@
       const bar = list[index];
       if (pending === "buy" && !holding) {
         const price = bar.open;
-        const stop = price - 2 * (range[index - 1] || 0);
+        const stop = price - EDGE_TRAIL * (range[index - 1] || 0);
         holding = { index, date: bar.date, price, stop, high: bar.close };
         marks.push({ index, side: "buy", price });
       } else if (pending === "sell" && holding) {
@@ -943,7 +915,7 @@
       if (holding) {
         barsIn += 1;
         holding.high = Math.max(holding.high, bar.close);
-        const lift = holding.high - 3 * (range[index] || 0);
+        const lift = holding.high - EDGE_TRAIL * (range[index] || 0);
         if (lift > holding.stop) holding.stop = lift;
         trail[index] = holding.stop;
         const open = holding.price * (1 + EDGE_FEE);
@@ -951,14 +923,13 @@
         if (marked > peak) peak = marked;
         worst = Math.min(worst, marked / peak - 1);
         if (bar.close < holding.stop) holding.why = "Trailing stop";
-        else if (score[index] <= 1) holding.why = "Score fell to " + score[index] + " of 5";
-        else if (bar.close < base[index] && squeeze[index] != null && squeeze[index] < 0) holding.why = "Trend broke";
+        else if (squeeze[index] != null && squeeze[index] < 0) holding.why = "Squeeze momentum turned negative";
         else holding.why = "";
         if (holding.why) pending = "sell";
       } else {
         if (equity > peak) peak = equity;
         const prior = index > EDGE_WARM ? score[index - 1] : 0;
-        if (score[index] >= 4 && prior < 4) pending = "buy";
+        if (score[index] === EDGE_SCORE && prior < EDGE_SCORE) pending = "buy";
       }
     }
     const last = count - 1;
@@ -976,7 +947,8 @@
       score: last >= 0 ? score[last] : null,
       parts: last >= 0 ? parts[last] : null,
       reason: pending === "sell" && holding ? holding.why : "",
-      stop: holding ? holding.stop : (pending === "buy" && range[last] ? closes[last] - 2 * range[last] : null),
+      stop: holding ? holding.stop : (pending === "buy" && range[last] ? closes[last] - EDGE_TRAIL * range[last] : null),
+      checks: EDGE_SCORE,
       entry: holding ? holding.price : null,
       openPct,
       trail,
