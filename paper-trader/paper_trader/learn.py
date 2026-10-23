@@ -46,6 +46,69 @@ _DENVER = ZoneInfo("America/Denver")
 DEFAULT_RULE = "True momentum 5/3 with the candle"
 _SYMBOL = re.compile(r"^[A-Za-z0-9.^=-]{1,16}$")
 _WATCH_LOCK = threading.Lock()
+_ES_CONTINUOUS = 0x80000000
+_ES_SYSTEM_REQUIRED = 0x00000001
+
+
+def _kernel():
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+
+        return ctypes.windll.kernel32
+    except (ImportError, AttributeError, OSError):
+        return None
+
+
+def wall_power(kernel=None) -> bool:
+    """True on wall power or when Windows does not say. False only on battery."""
+    kernel = kernel if kernel is not None else _kernel()
+    if kernel is None:
+        return False
+    import ctypes
+
+    class _Power(ctypes.Structure):
+        _fields_ = [
+            ("ACLineStatus", ctypes.c_ubyte),
+            ("BatteryFlag", ctypes.c_ubyte),
+            ("BatteryLifePercent", ctypes.c_ubyte),
+            ("SystemStatusFlag", ctypes.c_ubyte),
+            ("BatteryLifeTime", ctypes.c_ulong),
+            ("BatteryFullLifeTime", ctypes.c_ulong),
+        ]
+
+    status = _Power()
+    if not kernel.GetSystemPowerStatus(ctypes.byref(status)):
+        return True
+    return status.ACLineStatus != 0
+
+
+def hold_awake(on: bool, kernel=None) -> bool:
+    """Ask Windows not to sleep while this thread runs. The screen can still turn off."""
+    kernel = kernel if kernel is not None else _kernel()
+    if kernel is None:
+        return False
+    flags = _ES_CONTINUOUS | (_ES_SYSTEM_REQUIRED if on else 0)
+    return bool(kernel.SetThreadExecutionState(flags))
+
+
+def awake_state(kernel=None) -> str:
+    kernel = kernel if kernel is not None else _kernel()
+    if kernel is None:
+        return ""
+    if wall_power(kernel):
+        return "wall" if hold_awake(True, kernel) else ""
+    hold_awake(False, kernel)
+    return "battery"
+
+
+def awake_note(state: str) -> str:
+    if state == "wall":
+        return " · Keeps this computer awake on wall power"
+    if state == "battery":
+        return " · On battery, Windows can still sleep"
+    return ""
 
 
 def mood(bars: list[Bar], length: int = 20) -> dict:
@@ -628,16 +691,17 @@ def learning_report(state_path: Path, *, expect: bool, now: float | None = None)
     symbol = str(saved.get("last_symbol") or "")
     passes = int(saved.get("passes") or 0)
     row = dict((saved.get("symbols") or {}).get(symbol) or {})
+    awake = awake_note(str(saved.get("awake") or ""))
     if running and error:
         return {"ok": False, "running": True, "detail": error}
     if running and passes < 1:
-        return {"ok": True, "running": True, "detail": "All day, all week"}
+        return {"ok": True, "running": True, "detail": "All day, all week" + awake}
     if running:
         tone = row.get("mood") or {}
         label = str(tone.get("label") or "")
         score = tone.get("score")
         mood_bit = f" · {label} {score}" if label and score is not None and label != "Waiting" else ""
-        return {"ok": True, "running": True, "detail": f"All day, all week · Watching {symbol}{mood_bit}"}
+        return {"ok": True, "running": True, "detail": f"All day, all week · Watching {symbol}{mood_bit}{awake}"}
     if holder and not fresh:
         return {"ok": False, "running": False, "detail": "The all-day score stopped answering"}
     if expect and error:
@@ -782,6 +846,8 @@ class Watcher:
         self._extra: tuple[str, ...] = ()
         self._saved = _load(path)
         self._lock_fd: int | None = None
+        self._kernel = _kernel()
+        self._awake = ""
 
     def acquire(self) -> bool:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -795,7 +861,10 @@ class Watcher:
         return True
 
     def release(self) -> None:
+        hold_awake(False, self._kernel)
+        self._awake = ""
         with self._lock:
+            self._saved["awake"] = ""
             if int(self._saved.get("pid") or 0) == os.getpid():
                 self._saved["pid"] = 0
                 self._saved["updated"] = time.time()
@@ -814,10 +883,20 @@ class Watcher:
         with self._lock:
             self._saved["pid"] = os.getpid()
             self._saved["updated"] = time.time()
+            self._saved["awake"] = self._awake
             _store(self.path, self._saved)
+
+    def _keep_awake(self) -> None:
+        if self._kernel is None:
+            return
+        try:
+            self._awake = awake_state(self._kernel)
+        except (OSError, ValueError, AttributeError):
+            self._awake = ""
 
     def _loop(self) -> None:
         while not self._stop.is_set():
+            self._keep_awake()
             self._pass()
             if self._stop.is_set():
                 return
@@ -879,6 +958,7 @@ class Watcher:
                 "last_symbol": symbol,
                 "pid": os.getpid(),
                 "updated": time.time(),
+                "awake": self._awake,
                 "symbols": symbols,
             }
             _store(self.path, self._saved)

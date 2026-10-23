@@ -231,6 +231,36 @@ class AlwaysOnTests(unittest.TestCase):
             self.assertTrue(closed["ok"])
             self.assertIn("after that window closes", str(closed["detail"]))
 
+    def test_wall_power_keeps_windows_awake_and_battery_lets_it_sleep(self) -> None:
+        from paper_trader.learn import awake_note, awake_state, hold_awake
+
+        class FakeKernel:
+            def __init__(self, line: int) -> None:
+                self.line = line
+                self.flags: list[int] = []
+
+            def GetSystemPowerStatus(self, pointer) -> int:
+                pointer._obj.ACLineStatus = self.line
+                return 1
+
+            def SetThreadExecutionState(self, flags: int) -> int:
+                self.flags.append(flags)
+                return 0x80000000
+
+        plugged = FakeKernel(1)
+        self.assertEqual(awake_state(plugged), "wall")
+        self.assertEqual(plugged.flags[-1], 0x80000001)
+        self.assertIn("awake on wall power", awake_note("wall"))
+        battery = FakeKernel(0)
+        self.assertEqual(awake_state(battery), "battery")
+        self.assertEqual(battery.flags[-1], 0x80000000)
+        self.assertIn("can still sleep", awake_note("battery"))
+        self.assertTrue(hold_awake(False, plugged))
+        self.assertEqual(plugged.flags[-1], 0x80000000)
+        if os.name != "nt":
+            self.assertEqual(awake_state(), "")
+            self.assertFalse(hold_awake(True))
+
 
 def _row(symbol: str, seen: int, matched: int, day: str = "2026-10-22", setup: str = "buy") -> dict:
     return {
