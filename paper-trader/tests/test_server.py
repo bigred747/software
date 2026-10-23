@@ -183,6 +183,76 @@ class ServerTests(unittest.TestCase):
                 self.assertIn("Scanner is off", paused["scan_note"])
                 self.assertTrue(any(row["symbol"] == "BTC-USD" for row in paused["leaders"]))
 
+    def test_sell_all_sells_everything_and_stops_buys_for_the_denver_day(self) -> None:
+        from datetime import date, timedelta
+
+        from paper_trader.model import Bar
+        from paper_trader.server import Desk
+
+        start = date(2024, 1, 1)
+        bars = [Bar((start + timedelta(days=index)).isoformat(), 100.0, 101.0, 99.0, 100.0, 1.0) for index in range(40)]
+        lesson = {"rule": "Squeeze 20", "seen": 20, "matched": 16, "as_of": bars[-1].date, "setup": "buy", "mood": {"label": "Neutral", "score": 50}}
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=bars), patch(
+                "paper_trader.server.score_row", return_value=dict(lesson)
+            ):
+                self.assertFalse(desk.snapshot()["breaker"]["tripped"])
+                self.assertGreater(desk.trade()["shares"], 0)
+                halted = desk.halt()
+                self.assertEqual(halted["last_action"], "sell")
+                self.assertEqual(halted["shares"], 0)
+                self.assertTrue(halted["breaker"]["tripped"])
+                self.assertIn(bars[-1].date, desk.journal.halt_days)
+                with self.assertRaises(ValueError) as blocked:
+                    desk.trade()
+                self.assertIn("circuit breaker", str(blocked.exception))
+                again = desk.halt()
+                self.assertEqual(again["last_action"], "")
+                row = desk._breaker_check()
+                self.assertFalse(row["ok"])
+                self.assertIn("until tomorrow", row["detail"])
+
+    def test_breaker_trips_itself_on_a_five_percent_daily_paper_drop(self) -> None:
+        from datetime import date, timedelta
+
+        from paper_trader.learn import desk_day
+        from paper_trader.model import Bar
+        from paper_trader.server import Desk, load_breaker, save_breaker
+
+        start = date(2024, 1, 1)
+        bars = [Bar((start + timedelta(days=index)).isoformat(), 100.0, 101.0, 99.0, 100.0, 1.0) for index in range(40)]
+        lesson = {"rule": "Squeeze 20", "seen": 20, "matched": 16, "as_of": bars[-1].date, "setup": "buy", "mood": {"label": "Neutral", "score": 50}}
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=bars), patch(
+                "paper_trader.server.score_row", return_value=dict(lesson)
+            ):
+                bought = desk.trade()
+                self.assertGreater(bought["shares"], 0)
+                self.assertFalse(bought["breaker"]["tripped"])
+                data = load_breaker(desk.breaker_path)
+                self.assertEqual(data["start_day"], desk_day())
+                save_breaker(desk.breaker_path, {**data, "start_equity": bought["equity"] / 0.94})
+                tripped = desk.step(1)
+                self.assertEqual(tripped["shares"], 0)
+                self.assertTrue(tripped["breaker"]["tripped"])
+                self.assertIn("fell", tripped["breaker"]["reason"])
+
+    def test_live_stays_locked_and_sell_all_answers(self) -> None:
+        status, raw = self.open("/api/paper/mode", "POST", {"mode": "live"})
+        self.assertEqual(status, 400)
+        self.assertIn(b"Live is locked", raw)
+        status, raw = self.open("/api/paper/halt", "POST", {})
+        self.assertEqual(status, 200)
+        payload = json.loads(raw)
+        self.assertEqual(payload["shares"], 0)
+        self.assertTrue(payload["paper"])
+        self.assertTrue(payload["breaker"]["tripped"])
+        status, page = self.open("/")
+        for marker in (b'id="halt"', b'id="live"', b">Live<", b"Sell all", b'id="breaker-note"'):
+            self.assertIn(marker, page)
+
     def test_step_and_backtest(self) -> None:
         status, raw = self.open("/api/paper")
         self.assertEqual(status, 200)
@@ -315,7 +385,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.33", script)
+        self.assertIn(b"1.9.34", script)
         self.assertIn(b'id="edge-call"', page)
         self.assertIn(b"It is not a forecast.", page)
         self.assertIn(b"function edge(bars)", phone)

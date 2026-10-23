@@ -112,10 +112,15 @@
       </dl>
       <p id="result" class="result">—</p>
       <div class="modes" role="group" aria-label="Trading controls">
-        <button id="auto" type="button" aria-pressed="false">Auto</button>
-        <button id="voice" type="button" aria-pressed="true">Voice</button>
-        <button id="trade" type="button">Trade</button>
         <button id="paper" type="button" aria-pressed="false">Paper</button>
+        <button id="auto" type="button" aria-pressed="false">Auto</button>
+        <button id="live" type="button" aria-pressed="false" class="locked">Live</button>
+        <button id="trade" type="button">Trade</button>
+        <button id="voice" type="button" aria-pressed="true">Voice</button>
+      </div>
+      <div class="breaker" id="breaker">
+        <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
+        <p id="breaker-note" class="breaker-note">Breaker armed. A 5% paper drop in one day sells everything and stops buys until tomorrow.</p>
       </div>
       <div class="actions">
         <button id="next" type="button">Next day</button>

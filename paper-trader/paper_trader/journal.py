@@ -20,6 +20,7 @@ class Journal:
     cursor: int
     orders: dict[int, str] = field(default_factory=dict)
     close_orders: list[tuple[str, str]] = field(default_factory=list)
+    halt_days: list[str] = field(default_factory=list)
 
 
 def default_journal() -> Journal:
@@ -43,7 +44,8 @@ def load_journal(path: Path) -> Journal:
         for item in list(raw.get("close_orders") or []):
             if isinstance(item, list) and len(item) == 2 and item[1] in {"buy", "sell"}:
                 close_orders.append((str(item[0]), str(item[1])))
-        return Journal(symbol, params, cursor, orders, close_orders)
+        halt_days = [str(day) for day in list(raw.get("halt_days") or []) if isinstance(day, str)]
+        return Journal(symbol, params, cursor, orders, close_orders, halt_days)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         return default_journal()
 
@@ -56,6 +58,7 @@ def save_journal(path: Path, journal: Journal) -> None:
         "params": journal.params.to_dict(),
         "orders": {str(index): side for index, side in sorted(journal.orders.items())},
         "close_orders": [[day, side] for day, side in journal.close_orders],
+        "halt_days": list(journal.halt_days),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -72,6 +75,7 @@ def view_journal(journal: Journal) -> dict:
         end=journal.cursor,
         manual=journal.orders,
         close_orders=journal.close_orders,
+        halt_days=set(journal.halt_days),
     )
     payload = present(result, journal.symbol, len(bars), journal.params, journal.cursor)
     payload["quote"] = "market"

@@ -60,7 +60,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.33";
+const VERSION = "1.9.34";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -169,10 +169,22 @@ async function paperCall(path, body) {
     }
     return PaperEngine.trade(state.session);
   }
-  if (path === "/api/paper/mode") return PaperEngine.view(state.session);
+  if (path === "/api/paper/mode") {
+    if (params.mode === "live") throw new Error(LIVE_NOTE);
+    return PaperEngine.view(state.session);
+  }
+  if (path === "/api/paper/halt") {
+    try {
+      await loadPhoneBars(state.session.symbol, state.session.params, false);
+    } catch (error) {
+      /* Sell at the last real quote already on the page. */
+    }
+    return haltPhone("Sell all pressed");
+  }
   if (path === "/api/paper/reset") {
     const symbol = params.symbol || selectedSymbol();
-    return loadPhoneBars(symbol, { ...formParams(), ...params }, true);
+    const fresh = await loadPhoneBars(symbol, { ...formParams(), ...params }, true);
+    return guardPhone(fresh, true);
   }
   throw new Error("That action stays on this device");
 }
@@ -272,6 +284,9 @@ function withHooks(items) {
   const tone = currentMood(bars);
   if (tone && tone.score != null) setSignal(next, "Fear and greed", true, tone.label + " " + tone.score);
   else if (!next.some((item) => item.name === "Fear and greed")) setSignal(next, "Fear and greed", false, "Waiting on the quote");
+  const breaker = breakerState();
+  setSignal(next, "Breaker", !breaker.tripped, breaker.tripped ? "Tripped. Buys stop until tomorrow" : "Armed at " + Number(breaker.drop_pct || 5) + "% a day");
+  setSignal(next, "Live", true, "Locked. Paper only");
   const zoomOk = !!($("zoom-in") && $("zoom-out"));
   setSignal(next, "Zoom", zoomOk, zoomOk ? "In and out" : "The zoom buttons are missing");
   return next;
@@ -517,6 +532,7 @@ function bestPicks(rows) {
 }
 
 function phoneBuyReason(symbol) {
+  if (breakerState().tripped) return BREAKER_STOP;
   if (!state.scanOn && !state.scanDone) return "Turn the scanner on to fill today's best.";
   if (!state.scanDone) return "The scan is still walking. Green signals come on when it finishes.";
   const bars = state.session && state.session.bars ? state.session.bars : [];
@@ -527,6 +543,95 @@ function phoneBuyReason(symbol) {
   if (!(state.picks || []).some((row) => row.symbol === symbol)) return "This market is not in today's best.";
   if (names.has(symbol)) return "This market already has a paper buy today.";
   return "";
+}
+
+const BREAKER_KEY = "paperTraderBreaker";
+const BREAKER_DROP = 0.05;
+const BREAKER_STOP = "The circuit breaker is on. Buys stop until tomorrow. Sells still work.";
+const LIVE_NOTE = "Live is locked. This desk has no broker or bank link, so every order stays paper.";
+
+function denverDay(when) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(when || new Date());
+  const pick = (type) => (parts.find((part) => part.type === type) || {}).value || "";
+  return pick("year") + "-" + pick("month") + "-" + pick("day");
+}
+
+function denverClock(seconds) {
+  return new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(new Date(seconds * 1000));
+}
+
+function readBreaker() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(BREAKER_KEY) || "{}");
+    return raw && typeof raw === "object" ? raw : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function writeBreaker(data) {
+  try {
+    localStorage.setItem(BREAKER_KEY, JSON.stringify(data));
+  } catch (error) {
+    /* The breaker still holds for this page. */
+  }
+  state.phoneBreaker = data;
+}
+
+function breakerState() {
+  if (!state.offline) return (state.paper && state.paper.breaker) || { tripped: false, reason: "", at: 0, drop_pct: BREAKER_DROP * 100 };
+  const data = state.phoneBreaker || readBreaker();
+  const tripped = data.day === denverDay();
+  return { tripped, reason: tripped ? String(data.reason || "") : "", at: tripped ? Number(data.at) || 0 : 0, drop_pct: BREAKER_DROP * 100 };
+}
+
+function haltPhone(reason) {
+  const session = state.session;
+  let paper = session ? PaperEngine.view(session) : state.paper;
+  const held = !!(session && session.shares > 0);
+  if (held) paper = PaperEngine.fill(session, "sell");
+  const data = readBreaker();
+  data.day = denverDay();
+  data.reason = reason;
+  data.at = Math.floor(Date.now() / 1000);
+  writeBreaker(data);
+  if (paper) paper.last_action = held ? "sell" : "";
+  return paper;
+}
+
+function guardPhone(paper, fresh) {
+  if (!state.offline || !state.session || !paper || paper.symbol !== state.session.symbol) return paper;
+  const day = denverDay();
+  const data = readBreaker();
+  const start = data.startDay === day ? Number(data.startEquity) || 0 : 0;
+  if (fresh || !(start > 0)) {
+    if (paper.equity > 0) {
+      data.startDay = day;
+      data.startEquity = paper.equity;
+      writeBreaker(data);
+    }
+    return paper;
+  }
+  if (data.day !== day && paper.equity <= start * (1 - BREAKER_DROP)) {
+    const fell = (1 - paper.equity / start) * 100;
+    const halted = haltPhone("Paper equity fell " + fell.toFixed(1) + "% today");
+    halted.breakerTripped = true;
+    return halted;
+  }
+  return paper;
+}
+
+function renderBreaker() {
+  const box = $("breaker");
+  const note = $("breaker-note");
+  if (!box || !note) return;
+  const breaker = breakerState();
+  const drop = Number(breaker.drop_pct || BREAKER_DROP * 100);
+  box.classList.toggle("tripped", !!breaker.tripped);
+  const text = breaker.tripped
+    ? "Breaker tripped" + (breaker.at ? " at " + denverClock(breaker.at) : "") + ". " + (breaker.reason || "Sell all pressed") + ". The paper position is cash. Buys stop until tomorrow."
+    : "Breaker armed. A " + drop + "% paper drop in one day sells everything and stops buys until tomorrow.";
+  if (note.textContent !== text) note.textContent = text;
 }
 
 const SCAN_KEY = "paperTraderScan";
@@ -985,7 +1090,14 @@ async function loadMarket(symbol) {
 }
 
 function render(paper) {
+  paper = guardPhone(paper, false);
   state.paper = paper;
+  if (breakerState().tripped && state.auto) {
+    state.auto = false;
+    if (state.autoTimer) clearTimeout(state.autoTimer);
+    state.autoTimer = 0;
+    $("status").textContent = "The circuit breaker tripped. Auto is off and buys stop until tomorrow.";
+  }
   const signal = paper.signal || "HOLD";
   const signalNode = $("signal");
   signalNode.textContent = signal;
@@ -1007,6 +1119,7 @@ function render(paper) {
   $("auto").setAttribute("aria-pressed", state.auto ? "true" : "false");
   $("paper").disabled = false;
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
+  renderBreaker();
   fillTrades($("journal-body"), paper.trades || []);
   renderResult(paper);
   renderEdge();
@@ -2266,6 +2379,7 @@ async function autoTick() {
       renderLocalSignals();
     } else {
       const paper = await paperCall("/api/paper/step", { days: 1 });
+      if (!state.auto) return;
       state.paper = paper;
       await loadMarket(paper.symbol);
       render(paper);
@@ -2328,6 +2442,28 @@ $("trade").addEventListener("click", () => withBusy(async () => {
   $("status").textContent = verb + " one simulated position on the paper account.";
   await loadSignals();
 }));
+
+$("halt").addEventListener("click", async () => {
+  const button = $("halt");
+  if (button.disabled) return;
+  button.disabled = true;
+  stopAuto("Selling everything on the paper account…");
+  try {
+    const paper = await paperCall("/api/paper/halt", {});
+    render(paper);
+    $("status").textContent = (paper.last_action === "sell" ? "Sold everything to paper cash." : "Already in paper cash.") + " Buys stop until tomorrow.";
+  } catch (error) {
+    $("status").textContent = error.message;
+    return;
+  } finally {
+    button.disabled = false;
+  }
+  loadSignals().catch(() => {});
+});
+
+$("live").addEventListener("click", () => {
+  $("status").textContent = LIVE_NOTE + " To trade real money, use your broker's own app.";
+});
 
 $("paper").addEventListener("click", () => withBusy(async () => {
   const paper = await paperCall("/api/paper/mode", { mode: "paper" });

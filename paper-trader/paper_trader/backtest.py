@@ -42,6 +42,7 @@ def run_backtest(
     end: int | None = None,
     manual: dict[int, str] | None = None,
     close_orders: list[tuple[str, str]] | None = None,
+    halt_days: set[str] | None = None,
 ) -> Result:
     validate_params(params)
     if end is None:
@@ -72,10 +73,14 @@ def run_backtest(
     curve: list[tuple[str, float]] = []
     orders = manual or {}
     fills = close_orders or []
+    halts = halt_days or set()
 
     for index, bar in enumerate(view):
+        halted = bar.date in halts
         manual_side = orders.get(index)
-        if manual_side == "buy" and shares == 0 and cash > 0:
+        if halted and pending == "buy":
+            pending = None
+        if manual_side == "buy" and shares == 0 and cash > 0 and not halted:
             shares, cash, cost, entry_price = _open_long(cash, bar.open, fee_rate)
             entry_date = bar.date
             pending = None
@@ -151,7 +156,7 @@ def run_backtest(
             pending = "sell"
             pending_reason = "squeeze"
         for side in [item_side for item_date, item_side in fills if item_date == bar.date]:
-            if side == "buy" and shares == 0 and cash > 0:
+            if side == "buy" and shares == 0 and cash > 0 and not halted:
                 shares, cash, cost, entry_price = _open_long(cash, bar.close, fee_rate)
                 entry_date = bar.date
                 pending = None
@@ -165,6 +170,8 @@ def run_backtest(
                 entry_date = None
                 cost = 0.0
                 pending = None
+        if halted and pending == "buy":
+            pending = None
         curve.append((bar.date, cash + shares * bar.close))
 
     return Result(

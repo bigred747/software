@@ -119,6 +119,22 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(result.trades[0].entry_price, 10)
         self.assertEqual(result.trades[0].exit_price, 10)
 
+    def test_breaker_days_block_every_buy_and_leave_sells_alone(self) -> None:
+        params = Params(fast=2, slow=3, rsi_period=0, cash=10_000, fee_bps=0, stop_pct=0)
+        self.assertEqual(run_backtest(hand_bars(), params, halt_days=None).trades, run_backtest(hand_bars(), params).trades)
+        for day in ("2024-01-04", "2024-01-05"):
+            halted = run_backtest(hand_bars(), params, halt_days={day})
+            self.assertEqual(halted.trades, [])
+            self.assertEqual(halted.shares, 0)
+            self.assertEqual(halted.cash, 10_000)
+        blocked = run_backtest(hand_bars(), params, close_orders=[("2024-01-02", "buy")], halt_days={"2024-01-02"})
+        self.assertEqual(blocked.shares, 0)
+        sold = run_backtest(
+            hand_bars(), params, close_orders=[("2024-01-02", "buy"), ("2024-01-03", "sell")], halt_days={"2024-01-03"}
+        )
+        self.assertEqual(sold.trades[0].reason, "trade")
+        self.assertEqual(sold.trades[0].exit_date, "2024-01-03")
+
     def test_bad_settings_are_rejected(self) -> None:
         with self.assertRaises(ValueError):
             run_backtest(hand_bars(), Params(fast=10, slow=5, rsi_period=0))
@@ -176,6 +192,10 @@ class SampleTests(unittest.TestCase):
                 save_journal(path, journal)
                 loaded = load_journal(path)
                 self.assertEqual(loaded.cursor, journal.cursor)
+                journal.halt_days.append("2024-01-02")
+                save_journal(path, journal)
+                self.assertEqual(load_journal(path).halt_days, ["2024-01-02"])
+                loaded = load_journal(path)
                 view = view_journal(loaded)
                 self.assertEqual(view["symbol"], "BTC-USD")
                 self.assertEqual(view["cursor"], len(load_symbol("BTC-USD")))

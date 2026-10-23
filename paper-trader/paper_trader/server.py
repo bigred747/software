@@ -80,6 +80,38 @@ _SECURITY_HEADERS = (
 )
 
 
+BREAKER_DROP = 0.05
+LIVE_NOTE = "Live is locked. This desk has no broker or bank link, so every order stays paper."
+
+
+def load_breaker(path: Path) -> dict:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def save_breaker(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+def breaker_view(data: dict, day: str) -> dict:
+    tripped = str(data.get("day") or "") == day
+    start = float(data.get("start_equity") or 0) if str(data.get("start_day") or "") == day else 0.0
+    return {
+        "tripped": tripped,
+        "reason": str(data.get("reason") or "") if tripped else "",
+        "at": int(data.get("at") or 0) if tripped else 0,
+        "drop_pct": round(BREAKER_DROP * 100, 2),
+        "start_equity": start,
+        "day": day,
+    }
+
+
 def _ticker_ok(symbol: str) -> bool:
     if not symbol:
         return False
@@ -95,11 +127,59 @@ class Desk:
         self.journal = load_journal(state_path)
         self.learn_path = state_path.with_name("learn_state.json")
         self.watch_path = state_path.with_name("learn_watch.json")
+        self.breaker_path = state_path.with_name("breaker.json")
         self.expect_learner = False
 
     def snapshot(self) -> dict:
         with self.lock:
-            return view_journal(self.journal)
+            return self._guard(view_journal(self.journal))
+
+    def breaker(self) -> dict:
+        return breaker_view(load_breaker(self.breaker_path), desk_day())
+
+    def halt(self, reason: str = "") -> dict:
+        with self.lock:
+            return self._halt_locked(reason or "Sell all pressed")
+
+    def _halt_locked(self, reason: str) -> dict:
+        bars = quotes.load_bars(self.journal.symbol, refresh=True)
+        held = view_journal(self.journal)["shares"] > 0
+        if held:
+            self.journal.close_orders.append((bars[-1].date, "sell"))
+        if bars[-1].date not in self.journal.halt_days:
+            self.journal.halt_days.append(bars[-1].date)
+        save_journal(self.state_path, self.journal)
+        day = desk_day()
+        data = load_breaker(self.breaker_path)
+        data.update({"day": day, "reason": reason, "at": int(time.time())})
+        save_breaker(self.breaker_path, data)
+        payload = view_journal(self.journal)
+        payload["last_action"] = "sell" if held else ""
+        payload["breaker"] = breaker_view(data, day)
+        return payload
+
+    def _guard(self, payload: dict, fresh_start: bool = False) -> dict:
+        """Hold the breaker for the Denver day and trip it on a 5% daily paper drop."""
+        day = desk_day()
+        data = load_breaker(self.breaker_path)
+        state = breaker_view(data, day)
+        if state["tripped"]:
+            last = payload.get("last_date")
+            if last and last not in self.journal.halt_days:
+                self.journal.halt_days.append(str(last))
+                save_journal(self.state_path, self.journal)
+                payload = view_journal(self.journal)
+        equity = float(payload.get("equity") or 0)
+        start = state["start_equity"]
+        if fresh_start or not start > 0:
+            if equity > 0:
+                data.update({"start_day": day, "start_equity": equity})
+                save_breaker(self.breaker_path, data)
+        elif not state["tripped"] and equity <= start * (1 - BREAKER_DROP):
+            fell = (1 - equity / start) * 100
+            return self._halt_locked(f"Paper equity fell {fell:.1f}% today")
+        payload["breaker"] = breaker_view(data, day)
+        return payload
 
     def checks(self) -> dict:
         view: dict = {"paper": True, "mode": "paper"}
@@ -138,11 +218,18 @@ class Desk:
             {"name": "Zoom", "ok": True, "detail": "In and out"},
             {"name": "Timeframes", "ok": len(quotes.frame_ids()) == 10, "detail": f"{len(quotes.frame_ids())} windows"},
             {"name": "Phone", "ok": True, "detail": "Layout adapts"},
+            self._breaker_check(),
             {"name": "Broker", "ok": True, "detail": "Not connected"},
             {"name": "Version", "ok": True, "detail": __version__},
             single_copy_status(Path.home()),
         ]
         return {"ok": all(bool(item["ok"]) for item in items), "items": items}
+
+    def _breaker_check(self) -> dict:
+        state = self.breaker()
+        if state["tripped"]:
+            return {"name": "Breaker", "ok": False, "detail": "Tripped. Buys stop until tomorrow"}
+        return {"name": "Breaker", "ok": True, "detail": f"Armed at {state['drop_pct']:g}% a day"}
 
     def reset(self, raw: dict) -> dict:
         with self.lock:
@@ -153,7 +240,7 @@ class Desk:
                 raise ValueError("The slow average is longer than the market history")
             self.journal = Journal(symbol, params, len(bars))
             save_journal(self.state_path, self.journal)
-            return view_journal(self.journal)
+            return self._guard(view_journal(self.journal), fresh_start=True)
 
     def step(self, days: int) -> dict:
         if days < 1 or days > 500:
@@ -162,13 +249,15 @@ class Desk:
             bars = quotes.load_bars(self.journal.symbol, refresh=True)
             self.journal.cursor = len(bars)
             save_journal(self.state_path, self.journal)
-            return view_journal(self.journal)
+            return self._guard(view_journal(self.journal))
 
     def trade(self) -> dict:
         with self.lock:
             bars = quotes.load_bars(self.journal.symbol, refresh=True)
             held = view_journal(self.journal)["shares"] > 0
             side = "sell" if held else "buy"
+            if side == "buy" and self.breaker()["tripped"]:
+                raise ValueError("The circuit breaker is on. Buys stop until tomorrow. Sells still work.")
             if side == "buy":
                 day = bars[-1].date
                 scan = scan_report(self._scan_path())
@@ -185,7 +274,7 @@ class Desk:
                 remember_day_buy(self._day_path(), self.journal.symbol, day)
             self.journal.close_orders.append((bars[-1].date, side))
             save_journal(self.state_path, self.journal)
-            payload = view_journal(self.journal)
+            payload = self._guard(view_journal(self.journal))
             payload["last_action"] = side
             return payload
 
@@ -194,7 +283,7 @@ class Desk:
             bars = quotes.load_bars(self.journal.symbol, refresh=True)
             self.journal.cursor = len(bars)
             save_journal(self.state_path, self.journal)
-            return view_journal(self.journal)
+            return self._guard(view_journal(self.journal))
 
     def bars(self, symbol: str, frame: str) -> dict:
         return quotes.fetch_frame(symbol, frame)
@@ -458,9 +547,14 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._json(self.desk.learn_view())
             return
         if method == "POST" and path == "/api/paper/mode":
+            if str(body.get("mode") or "") == "live":
+                raise ValueError(LIVE_NOTE)
             if str(body.get("mode") or "") != "paper":
                 raise ValueError("This desk only runs in paper mode")
             self._json(self.desk.snapshot())
+            return
+        if method == "POST" and path == "/api/paper/halt":
+            self._json(self.desk.halt())
             return
         if method == "POST" and path == "/api/paper/reset":
             self._json(self.desk.reset(body))
