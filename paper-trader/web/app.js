@@ -62,7 +62,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.37";
+const VERSION = "1.9.38";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -158,7 +158,17 @@ async function paperCall(path, body) {
   if (!state.offline) return post(path, body);
   const params = body || {};
   if (path === "/api/paper/step" || path === "/api/paper/run") {
-    return loadPhoneBars(state.session.symbol, state.session.params, false);
+    const refreshed = await loadPhoneBars(state.session.symbol, state.session.params, false);
+    if (PaperEngine.work(state.session, PAPER_SLIP_BPS, denverDay(), breakerState().tripped)) return PaperEngine.view(state.session);
+    return refreshed;
+  }
+  if (path === "/api/paper/ticket") {
+    await loadPhoneBars(state.session.symbol, state.session.params, false);
+    if (params.side === "buy" && breakerState().tripped) throw new Error(BREAKER_STOP);
+    return PaperEngine.place(state.session, params, PAPER_SLIP_BPS, denverDay());
+  }
+  if (path === "/api/paper/cancel") {
+    return PaperEngine.cancel(state.session, params.id);
   }
   if (path === "/api/paper/trade") {
     await loadPhoneBars(state.session.symbol, state.session.params, false);
@@ -601,6 +611,8 @@ function haltPhone(reason) {
   let paper = session ? PaperEngine.view(session) : state.paper;
   const held = !!(session && session.shares > 0);
   if (held) paper = PaperEngine.fill(session, "sell", PAPER_SLIP_BPS);
+  if (session) session.working = [];
+  if (session) paper = PaperEngine.view(session);
   const data = readBreaker();
   data.day = denverDay();
   data.reason = reason;
@@ -1133,6 +1145,9 @@ function render(paper) {
   $("paper").disabled = false;
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
   renderBreaker();
+  renderWorking(paper);
+  seedTicketPrices(paper);
+  announceTicketFills(paper);
   if (paper.fill && paper.fill.price > 0 && paper.symbol) state.lastFill = { symbol: paper.symbol, text: fillText(paper) };
   const fillNode = $("last-fill");
   if (fillNode && state.lastFill && state.lastFill.symbol === paper.symbol && fillNode.textContent !== "Last fill: " + state.lastFill.text) {
@@ -2734,6 +2749,136 @@ $("auto").addEventListener("click", () => {
   $("status").textContent = "Auto is on. Refreshing the market quote.";
   autoTick();
 });
+
+
+function setSide(side) {
+  state.side = side;
+  const buy = $("side-buy");
+  const sell = $("side-sell");
+  if (!buy || !sell) return;
+  buy.classList.toggle("on", side === "buy");
+  sell.classList.toggle("on", side === "sell");
+  buy.setAttribute("aria-pressed", side === "buy" ? "true" : "false");
+  sell.setAttribute("aria-pressed", side === "sell" ? "true" : "false");
+  $("send").classList.toggle("sell-side", side === "sell");
+  $("send").textContent = side === "buy" ? "Send paper buy" : "Send paper sell";
+}
+
+function syncTicketFields() {
+  const kind = $("kind").value;
+  $("stop-field").hidden = !(kind === "stop" || kind === "stop_limit");
+  $("limit-field").hidden = !(kind === "limit" || kind === "stop_limit");
+}
+
+function seedTicketPrices(paper) {
+  const last = Number(paper && paper.last_close);
+  if (!(last > 0)) return;
+  const seeded = state.ticketSeed === paper.symbol;
+  if (seeded) return;
+  state.ticketSeed = paper.symbol;
+  const digits = digitsFor(last);
+  $("limit-price").value = last.toFixed(digits);
+  $("stop-price").value = last.toFixed(digits);
+}
+
+function renderWorking(paper) {
+  const body = $("working-body");
+  if (!body) return;
+  body.replaceChildren();
+  const rows = (paper && paper.working) || [];
+  if (!rows.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 7;
+    cell.textContent = "No working paper orders.";
+    row.appendChild(cell);
+    body.appendChild(row);
+  }
+  rows.forEach((order) => {
+    const row = document.createElement("tr");
+    const kind = order.kind === "stop_limit" ? "STP LMT" : String(order.kind || "").toUpperCase();
+    const values = [
+      order.id,
+      String(order.side || "").toUpperCase(),
+      kind,
+      order.stop > 0 ? formatPrice(order.stop) : "—",
+      order.limit > 0 ? formatPrice(order.limit) : "—",
+      order.tif,
+    ];
+    values.forEach((value, index) => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      if (index === 1) cell.className = order.side === "buy" ? "up" : "down";
+      row.appendChild(cell);
+    });
+    const cell = document.createElement("td");
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "quiet";
+    cancel.textContent = "Cancel";
+    cancel.addEventListener("click", () => withBusy(async () => {
+      const next = await paperCall("/api/paper/cancel", { id: order.id });
+      render(next);
+      $("status").textContent = "Canceled working paper order " + order.id + ".";
+    }));
+    cell.appendChild(cancel);
+    row.appendChild(cell);
+    body.appendChild(row);
+  });
+  const all = $("cancel-all");
+  if (all) all.disabled = !rows.length;
+}
+
+function announceTicketFills(paper) {
+  const list = (paper && paper.ticket_fills) || [];
+  if (!state.seenFills) {
+    state.seenFills = new Set(list.map((item) => item.at + "|" + item.order_id));
+    return;
+  }
+  list.forEach((item) => {
+    const key = item.at + "|" + item.order_id;
+    if (state.seenFills.has(key)) return;
+    state.seenFills.add(key);
+    const verb = item.side === "buy" ? "Bought" : "Sold";
+    $("status").textContent = "Working order " + item.order_id + " filled on paper. " + verb + " at " + formatPrice(item.price) + ". Nothing was sent to a broker.";
+    if (state.voice && window.speechSynthesis) window.speechSynthesis.cancel();
+  });
+}
+
+$("side-buy").addEventListener("click", () => setSide("buy"));
+$("side-sell").addEventListener("click", () => setSide("sell"));
+$("kind").addEventListener("change", syncTicketFields);
+syncTicketFields();
+setSide("buy");
+
+$("send").addEventListener("click", () => withBusy(async () => {
+  if (!$("confirm").checked) {
+    $("status").textContent = "Check Confirm and Send, then send the paper order.";
+    return;
+  }
+  const paper = await paperCall("/api/paper/ticket", {
+    side: state.side,
+    kind: $("kind").value,
+    tif: $("tif").value,
+    stop: Number($("stop-price").value) || 0,
+    limit: Number($("limit-price").value) || 0,
+  });
+  $("confirm").checked = false;
+  render(paper);
+  if (paper.last_action === "working") {
+    $("status").textContent = "Working paper order placed. It fills when the real quote reaches it. Nothing was sent to a broker.";
+  } else {
+    const verb = paper.last_action === "sell" ? "Sold" : "Bought";
+    $("status").textContent = (fillText(paper) || verb + " on the paper account.") + " Nothing was sent to a broker.";
+  }
+  await loadSignals();
+}));
+
+$("cancel-all").addEventListener("click", () => withBusy(async () => {
+  const paper = await paperCall("/api/paper/cancel", { id: "all" });
+  render(paper);
+  $("status").textContent = "Canceled every working paper order.";
+}));
 
 $("trade").addEventListener("click", () => withBusy(async () => {
   stopAuto();

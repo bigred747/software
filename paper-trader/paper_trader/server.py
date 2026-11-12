@@ -16,7 +16,15 @@ from urllib.parse import parse_qs, unquote, urlparse
 from paper_trader import __version__
 from paper_trader.backtest import present, run_backtest
 from paper_trader.install import keep_only_running, single_copy_status, write_desktop_opener
-from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
+from paper_trader.journal import (
+    Journal,
+    load_journal,
+    make_ticket,
+    market_view,
+    save_journal,
+    ticket_decision,
+    view_journal,
+)
 from paper_trader.learn import (
     allow_entry,
     buys_on,
@@ -72,6 +80,7 @@ TYPES = {
 }
 _STATIC_BYTES: dict[str, bytes] = {}
 _LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+_LOCAL_CLIENTS = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 _SECURITY_HEADERS = (
     ("X-Content-Type-Options", "nosniff"),
     ("Referrer-Policy", "no-referrer"),
@@ -101,6 +110,7 @@ def fill_note(side: str, last: float, price: float, fee_bps: float) -> dict:
         "at": int(time.time()),
     }
 LIVE_NOTE = "Live is locked. This desk has no broker or bank link, so every order stays paper."
+BREAKER_NOTE = "The circuit breaker is on. Buys stop until tomorrow. Sells still work."
 
 
 def load_breaker(path: Path) -> dict:
@@ -148,9 +158,101 @@ class Desk:
         self.watch_path = state_path.with_name("learn_watch.json")
         self.breaker_path = state_path.with_name("breaker.json")
         self.expect_learner = False
+        self.ticket_fills: list[dict] = []
 
     def snapshot(self) -> dict:
         with self.lock:
+            if self.journal.working:
+                self._work_locked(quotes.load_bars(self.journal.symbol))
+            return self._guard(view_journal(self.journal))
+
+    def _work_locked(self, bars: list) -> bool:
+        """Check working orders against the latest real trade. Paper fills only."""
+        if not self.journal.working or not bars:
+            return False
+        day = desk_day()
+        last = bars[-1].close
+        held = view_journal(self.journal)["shares"] > 0
+        tripped = self.breaker()["tripped"]
+        keep: list[dict] = []
+        changed = False
+        for ticket in self.journal.working:
+            if ticket.get("tif") == "DAY" and ticket.get("day") and ticket["day"] != day:
+                changed = True
+                continue
+            side = str(ticket["side"])
+            if side == "buy" and tripped:
+                changed = True
+                continue
+            if (side == "buy" and held) or (side == "sell" and not held):
+                keep.append(ticket)
+                continue
+            fills, price, triggered = ticket_decision(ticket, last, fill_price(last, side))
+            if triggered and not ticket.get("triggered"):
+                ticket["triggered"] = True
+                changed = True
+            if fills:
+                self.journal.close_orders.append((bars[-1].date, side, price))
+                held = side == "buy"
+                changed = True
+                note = fill_note(side, last, price, self.journal.params.fee_bps)
+                note["order_id"] = ticket.get("id", "")
+                note["kind"] = ticket.get("kind", "")
+                self.ticket_fills = (self.ticket_fills + [note])[-12:]
+                continue
+            keep.append(ticket)
+        self.journal.working = keep
+        if changed:
+            save_journal(self.state_path, self.journal)
+        return changed
+
+    def place(self, raw: dict) -> dict:
+        ticket = make_ticket(raw)
+        with self.lock:
+            bars = quotes.load_bars(self.journal.symbol, refresh=True)
+            last = bars[-1].close
+            side = ticket["side"]
+            held = view_journal(self.journal)["shares"] > 0
+            if side == "buy" and held:
+                raise ValueError("A paper long is already open. Sell it before buying again.")
+            if side == "sell" and not held:
+                raise ValueError("Nothing to sell. The paper account is flat.")
+            if side == "buy" and self.breaker()["tripped"]:
+                raise ValueError(BREAKER_NOTE)
+            if ticket["kind"] in {"stop", "stop_limit"}:
+                if side == "buy" and ticket["stop"] <= last:
+                    raise ValueError("A buy stop must sit above the last price.")
+                if side == "sell" and ticket["stop"] >= last:
+                    raise ValueError("A sell stop must sit below the last price.")
+            ticket["id"] = str(self.journal.next_order_id)
+            ticket["day"] = desk_day()
+            fills, price, triggered = ticket_decision(ticket, last, fill_price(last, side))
+            ticket["triggered"] = triggered
+            self.journal.next_order_id += 1
+            if fills:
+                self.journal.close_orders.append((bars[-1].date, side, price))
+            else:
+                self.journal.working.append(ticket)
+            save_journal(self.state_path, self.journal)
+            payload = self._guard(view_journal(self.journal))
+            if fills:
+                payload["last_action"] = side
+                payload["fill"] = fill_note(side, last, price, self.journal.params.fee_bps)
+            else:
+                payload["last_action"] = "working"
+            return payload
+
+    def cancel(self, raw: dict) -> dict:
+        order_id = str(raw.get("id") or "")
+        with self.lock:
+            if order_id == "all":
+                self.journal.working = []
+            else:
+                before = len(self.journal.working)
+                self.journal.working = [item for item in self.journal.working if item.get("id") != order_id]
+                if len(self.journal.working) == before:
+                    raise ValueError("That working order was not found")
+            save_journal(self.state_path, self.journal)
             return self._guard(view_journal(self.journal))
 
     def breaker(self) -> dict:
@@ -168,6 +270,7 @@ class Desk:
             self.journal.close_orders.append((bars[-1].date, "sell", fill_price(last, "sell")))
         if bars[-1].date not in self.journal.halt_days:
             self.journal.halt_days.append(bars[-1].date)
+        self.journal.working = []
         save_journal(self.state_path, self.journal)
         day = desk_day()
         data = load_breaker(self.breaker_path)
@@ -201,6 +304,7 @@ class Desk:
             fell = (1 - equity / start) * 100
             return self._halt_locked(f"Paper equity fell {fell:.1f}% today")
         payload["breaker"] = breaker_view(data, day)
+        payload["ticket_fills"] = list(self.ticket_fills)
         return payload
 
     def checks(self) -> dict:
@@ -241,7 +345,8 @@ class Desk:
             {"name": "Timeframes", "ok": len(quotes.frame_ids()) == 10, "detail": f"{len(quotes.frame_ids())} windows"},
             {"name": "Phone", "ok": True, "detail": "Layout adapts"},
             self._breaker_check(),
-            {"name": "Broker", "ok": True, "detail": "Not connected"},
+            {"name": "Ticket", "ok": True, "detail": "Market, limit, stop, stop limit"},
+            {"name": "Broker", "ok": True, "detail": "Not connected · Live locked"},
             {"name": "Version", "ok": True, "detail": __version__},
             single_copy_status(Path.home()),
         ]
@@ -270,6 +375,7 @@ class Desk:
         with self.lock:
             bars = quotes.load_bars(self.journal.symbol, refresh=True)
             self.journal.cursor = len(bars)
+            self._work_locked(bars)
             save_journal(self.state_path, self.journal)
             return self._guard(view_journal(self.journal))
 
@@ -279,7 +385,7 @@ class Desk:
             held = view_journal(self.journal)["shares"] > 0
             side = "sell" if held else "buy"
             if side == "buy" and self.breaker()["tripped"]:
-                raise ValueError("The circuit breaker is on. Buys stop until tomorrow. Sells still work.")
+                raise ValueError(BREAKER_NOTE)
             if side == "buy":
                 day = bars[-1].date
                 scan = scan_report(self._scan_path())
@@ -307,6 +413,7 @@ class Desk:
         with self.lock:
             bars = quotes.load_bars(self.journal.symbol, refresh=True)
             self.journal.cursor = len(bars)
+            self._work_locked(bars)
             save_journal(self.state_path, self.journal)
             return self._guard(view_journal(self.journal))
 
@@ -448,6 +555,21 @@ def _local_host(header: str) -> bool:
     return name in _LOCAL_HOSTS
 
 
+def _local_client(addr: tuple) -> bool:
+    host = str(addr[0] or "").split("%", 1)[0].lower()
+    return host in _LOCAL_CLIENTS
+
+
+def _local_origin(value: str) -> bool:
+    if not value:
+        return True
+    text = value.strip().lower()
+    for prefix in ("http://127.0.0.1", "http://localhost"):
+        if text == prefix or text.startswith((prefix + ":", prefix + "/")):
+            return True
+    return False
+
+
 def load_static() -> None:
     if _STATIC_BYTES:
         return
@@ -499,7 +621,13 @@ class DeskHandler(BaseHTTPRequestHandler):
         return self.client_address[0]
 
     def _route(self, method: str) -> None:
+        if not _local_client(self.client_address):
+            self._json({"error": "Not found"}, 404)
+            return
         if not _local_host(self.headers.get("Host", "")):
+            self._json({"error": "Not found"}, 404)
+            return
+        if not _local_origin(self.headers.get("Origin", "")) or not _local_origin(self.headers.get("Referer", "")):
             self._json({"error": "Not found"}, 404)
             return
         parsed = urlparse(self.path)
@@ -529,7 +657,7 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._static(STATIC[path])
             return
         if method == "GET" and path == "/api/health":
-            self._json({"ok": True, "bind": "127.0.0.1", "version": __version__})
+            self._json({"ok": True, "bind": "127.0.0.1", "loopback": True, "version": __version__})
             return
         if method == "GET" and path == "/api/checks":
             self._json(self.desk.checks())
@@ -587,6 +715,12 @@ class DeskHandler(BaseHTTPRequestHandler):
             return
         if method == "POST" and path == "/api/paper/trade":
             self._json(self.desk.trade())
+            return
+        if method == "POST" and path == "/api/paper/ticket":
+            self._json(self.desk.place(body))
+            return
+        if method == "POST" and path == "/api/paper/cancel":
+            self._json(self.desk.cancel(body))
             return
         if method == "POST" and path == "/api/paper/step":
             self._json(self.desk.step(int(body.get("days", 1))))

@@ -21,6 +21,73 @@ class Journal:
     orders: dict[int, str] = field(default_factory=dict)
     close_orders: list[tuple] = field(default_factory=list)
     halt_days: list[str] = field(default_factory=list)
+    working: list[dict] = field(default_factory=list)
+    next_order_id: int = 1
+
+
+SIDES = {"buy", "sell"}
+KINDS = {"market", "limit", "stop", "stop_limit"}
+TIFS = {"DAY", "GTC"}
+
+
+def make_ticket(raw: dict) -> dict:
+    """One paper order ticket. Prices are checked here; nothing leaves this computer."""
+    side = str(raw.get("side") or "").strip().lower()
+    kind = str(raw.get("kind") or "market").strip().lower().replace(" ", "_").replace("-", "_")
+    tif = str(raw.get("tif") or "DAY").strip().upper()
+    if side not in SIDES:
+        raise ValueError("Side must be buy or sell")
+    if kind not in KINDS:
+        raise ValueError("Order type must be market, limit, stop, or stop limit")
+    if tif not in TIFS:
+        raise ValueError("Time in force must be DAY or GTC")
+    try:
+        limit = float(raw.get("limit") or 0)
+        stop = float(raw.get("stop") or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Prices must be numbers") from exc
+    for label, value in (("Limit", limit), ("Stop", stop)):
+        if value != value or value in (float("inf"), float("-inf")) or value < 0:
+            raise ValueError(f"{label} price must be a positive number")
+    if kind in {"limit", "stop_limit"} and limit <= 0:
+        raise ValueError("A limit price is required")
+    if kind in {"stop", "stop_limit"} and stop <= 0:
+        raise ValueError("A stop price is required")
+    return {
+        "side": side,
+        "kind": kind,
+        "tif": tif,
+        "limit": limit if kind in {"limit", "stop_limit"} else 0.0,
+        "stop": stop if kind in {"stop", "stop_limit"} else 0.0,
+        "triggered": False,
+    }
+
+
+def ticket_decision(ticket: dict, last: float, market_price: float) -> tuple[bool, float, bool]:
+    """Decide on the latest real trade. Returns (fills, price, triggered).
+
+    A limit never fills worse than its limit. A stop becomes a market order at
+    the latest trade plus the paper slippage. A stop limit waits for its stop,
+    then follows its limit.
+    """
+    side = ticket["side"]
+    kind = ticket["kind"]
+    limit = float(ticket.get("limit") or 0)
+    stop = float(ticket.get("stop") or 0)
+    buy = side == "buy"
+    if kind == "market":
+        return True, market_price, False
+    if kind == "limit":
+        reached = last <= limit if buy else last >= limit
+        return reached, (min(last, limit) if buy else max(last, limit)), False
+    stop_hit = last >= stop if buy else last <= stop
+    if kind == "stop":
+        return stop_hit, market_price, stop_hit
+    triggered = bool(ticket.get("triggered")) or stop_hit
+    if not triggered:
+        return False, 0.0, False
+    reached = last <= limit if buy else last >= limit
+    return reached, (min(last, limit) if buy else max(last, limit)), True
 
 
 def default_journal() -> Journal:
@@ -47,7 +114,20 @@ def load_journal(path: Path) -> Journal:
             elif isinstance(item, list) and len(item) == 3 and item[1] in {"buy", "sell"} and float(item[2]) > 0:
                 close_orders.append((str(item[0]), str(item[1]), float(item[2])))
         halt_days = [str(day) for day in list(raw.get("halt_days") or []) if isinstance(day, str)]
-        return Journal(symbol, params, cursor, orders, close_orders, halt_days)
+        working: list[dict] = []
+        for item in list(raw.get("working") or []):
+            if not isinstance(item, dict) or not str(item.get("id") or ""):
+                continue
+            try:
+                ticket = make_ticket(item)
+            except ValueError:
+                continue
+            ticket["id"] = str(item["id"])
+            ticket["day"] = str(item.get("day") or "")
+            ticket["triggered"] = bool(item.get("triggered"))
+            working.append(ticket)
+        next_order_id = max(int(raw.get("next_order_id") or 1), 1)
+        return Journal(symbol, params, cursor, orders, close_orders, halt_days, working, next_order_id)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
         return default_journal()
 
@@ -61,6 +141,8 @@ def save_journal(path: Path, journal: Journal) -> None:
         "orders": {str(index): side for index, side in sorted(journal.orders.items())},
         "close_orders": [list(item) for item in journal.close_orders],
         "halt_days": list(journal.halt_days),
+        "working": list(journal.working),
+        "next_order_id": journal.next_order_id,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -81,6 +163,8 @@ def view_journal(journal: Journal) -> dict:
     )
     payload = present(result, journal.symbol, len(bars), journal.params, journal.cursor)
     payload["quote"] = "market"
+    payload["working"] = [dict(item) for item in journal.working]
+    payload["live"] = False
     settled = closed_bars(bars, journal.symbol)
     payload["signal_bar"] = settled[-1].date if settled else None
     if len(settled) < len(bars) and len(settled) > journal.params.slow + 1:

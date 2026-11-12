@@ -125,6 +125,42 @@
         <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
         <p id="breaker-note" class="breaker-note">Breaker armed. A 5% paper drop in one day sells everything and stops buys until tomorrow.</p>
       </div>
+      <section id="ticket" class="tos" aria-label="Order ticket">
+        <h3>Order ticket</h3>
+        <div class="side-row" role="group" aria-label="Side">
+          <button id="side-buy" type="button" class="buy on" aria-pressed="true">Buy</button>
+          <button id="side-sell" type="button" class="sell" aria-pressed="false">Sell</button>
+        </div>
+        <div class="tos-grid">
+          <label>Order type
+            <select id="kind">
+              <option value="market">Market</option>
+              <option value="limit">Limit</option>
+              <option value="stop">Stop</option>
+              <option value="stop_limit">Stop Limit</option>
+            </select>
+          </label>
+          <label>Time in force
+            <select id="tif">
+              <option value="DAY">DAY</option>
+              <option value="GTC">GTC</option>
+            </select>
+          </label>
+          <label id="stop-field">Stop price <input id="stop-price" type="number" min="0" step="any" inputmode="decimal"></label>
+          <label id="limit-field">Limit price <input id="limit-price" type="number" min="0" step="any" inputmode="decimal"></label>
+        </div>
+        <p id="ticket-note" class="muted tiny">A buy uses all paper cash. A sell closes the whole paper position. Fills use the latest real trade, the 5 bps slippage, and the fee. Nothing goes to a broker.</p>
+        <label class="confirm"><input id="confirm" type="checkbox"> Confirm and Send</label>
+        <button id="send" type="button" class="send">Send paper order</button>
+        <h3>Working orders</h3>
+        <div class="table-wrap">
+          <table class="working">
+            <thead><tr><th>Id</th><th>Side</th><th>Type</th><th>Stop</th><th>Limit</th><th>TIF</th><th></th></tr></thead>
+            <tbody id="working-body"></tbody>
+          </table>
+        </div>
+        <button id="cancel-all" type="button" class="quiet">Cancel all</button>
+      </section>
       <div class="actions">
         <button id="next" type="button">Next day</button>
         <button id="run" type="button">Run remaining days</button>

@@ -259,6 +259,153 @@ class ServerTests(unittest.TestCase):
         for marker in (b'id="halt"', b'id="live"', b">Live<", b"Sell all", b'id="breaker-note"'):
             self.assertIn(marker, page)
 
+    def _flat_bars(self, last: float = 100.0, low: float | None = None):
+        from datetime import date, timedelta
+
+        from paper_trader.model import Bar
+
+        start = date(2024, 1, 1)
+        bars = [Bar((start + timedelta(days=index)).isoformat(), 100.0, 101.0, 99.0, 100.0, 1.0) for index in range(40)]
+        floor = min(99.0, last) if low is None else low
+        bars[-1] = Bar(bars[-1].date, 100.0, max(101.0, last), floor, last, 1.0)
+        return bars
+
+    def test_ticket_limit_waits_for_the_real_quote_then_fills_on_paper(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)):
+                placed = desk.place({"side": "buy", "kind": "limit", "limit": 95, "tif": "GTC"})
+                self.assertEqual(placed["last_action"], "working")
+                self.assertEqual(len(placed["working"]), 1)
+                self.assertEqual(placed["shares"], 0)
+                self.assertFalse(placed["live"])
+                self.assertEqual(desk.snapshot()["shares"], 0)
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(94.0)):
+                filled = desk.step(1)
+                self.assertGreater(filled["shares"], 0)
+                self.assertEqual(filled["working"], [])
+                self.assertAlmostEqual(desk.journal.close_orders[-1][2], 94.0)
+                self.assertEqual(filled["ticket_fills"][-1]["kind"], "limit")
+
+    def test_ticket_stop_rules_and_stop_limit_trigger(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)):
+                with self.assertRaises(ValueError):
+                    desk.place({"side": "buy", "kind": "stop", "stop": 99})
+                with self.assertRaises(ValueError):
+                    desk.place({"side": "sell", "kind": "limit", "limit": 101})
+                with self.assertRaises(ValueError):
+                    desk.place({"side": "buy", "kind": "limit"})
+                desk.place({"side": "buy", "kind": "stop_limit", "stop": 102, "limit": 103, "tif": "GTC"})
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(104.0)):
+                held = desk.step(1)
+                self.assertEqual(held["shares"], 0)
+                self.assertTrue(held["working"][0]["triggered"])
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(102.5)):
+                filled = desk.step(1)
+                self.assertGreater(filled["shares"], 0)
+                self.assertAlmostEqual(desk.journal.close_orders[-1][2], 102.5)
+                sold = desk.place({"side": "sell", "kind": "stop", "stop": 100, "tif": "GTC"})
+                self.assertEqual(sold["last_action"], "working")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(99.0)):
+                out = desk.step(1)
+                self.assertEqual(out["shares"], 0)
+                self.assertAlmostEqual(desk.journal.close_orders[-1][2], 99.0 * (1 - 0.0005))
+
+    def test_sell_all_cancels_working_orders_and_the_breaker_blocks_ticket_buys(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)):
+                desk.place({"side": "buy", "kind": "limit", "limit": 90, "tif": "GTC"})
+                halted = desk.halt()
+                self.assertEqual(halted["working"], [])
+                with self.assertRaises(ValueError) as blocked:
+                    desk.place({"side": "buy", "kind": "market"})
+                self.assertIn("circuit breaker", str(blocked.exception))
+
+    def test_day_orders_expire_and_gtc_orders_stay(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)):
+                desk.place({"side": "buy", "kind": "limit", "limit": 90, "tif": "DAY"})
+                desk.place({"side": "buy", "kind": "limit", "limit": 91, "tif": "GTC"})
+                for ticket in desk.journal.working:
+                    ticket["day"] = "2000-01-01"
+                view = desk.snapshot()
+                self.assertEqual([item["tif"] for item in view["working"]], ["GTC"])
+                canceled = desk.cancel({"id": view["working"][0]["id"]})
+                self.assertEqual(canceled["working"], [])
+
+    def test_ticket_market_order_fills_with_slippage_and_http_routes_answer(self) -> None:
+        status, raw = self.open("/api/paper")
+        self.assertEqual(status, 200)
+        status, placed = self.open(
+            "/api/paper/ticket",
+            "POST",
+            {"side": "buy", "kind": "limit", "limit": 0.01, "tif": "GTC"},
+        )
+        self.assertEqual(status, 200)
+        payload = json.loads(placed)
+        self.assertEqual(payload["last_action"], "working")
+        status, canceled = self.open("/api/paper/cancel", "POST", {"id": "all"})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(canceled)["working"], [])
+        status, bought = self.open("/api/paper/ticket", "POST", {"side": "buy", "kind": "market"})
+        self.assertEqual(status, 200)
+        fill = json.loads(bought)["fill"]
+        self.assertEqual(fill["slip_bps"], 5.0)
+        self.assertGreater(fill["price"], fill["quote"])
+        self.assertEqual(self.open("/api/paper/ticket", "POST", {"side": "buy", "kind": "market"})[0], 400)
+
+    def test_only_this_computer_can_reach_the_desk(self) -> None:
+        from paper_trader.server import _local_client, _local_origin
+
+        self.assertTrue(_local_client(("127.0.0.1", 5000)))
+        self.assertTrue(_local_client(("::1", 5000, 0, 0)))
+        self.assertFalse(_local_client(("192.168.1.25", 5000)))
+        self.assertFalse(_local_client(("203.0.113.9", 5000)))
+        self.assertTrue(_local_origin(""))
+        self.assertTrue(_local_origin("http://127.0.0.1:8765"))
+        self.assertTrue(_local_origin("http://localhost:8765/"))
+        self.assertFalse(_local_origin("https://evil.example"))
+        self.assertFalse(_local_origin("http://127.0.0.1.evil.example"))
+        request = Request(self.base + "/api/health", headers={"Origin": "https://evil.example"})
+        with self.assertRaises(HTTPError) as blocked:
+            urlopen(request, timeout=5)
+        self.assertEqual(blocked.exception.code, 404)
+        status, health = self.open("/api/health")
+        self.assertTrue(json.loads(health)["loopback"])
+
+    def test_page_has_the_thinkorswim_style_ticket(self) -> None:
+        status, page = self.open("/")
+        for marker in (
+            b'id="ticket"',
+            b"Order ticket",
+            b'id="kind"',
+            b"Stop Limit",
+            b'id="tif"',
+            b">GTC<",
+            b"Confirm and Send",
+            b"Working orders",
+            b'id="working-body"',
+            b'id="side-buy"',
+            b'id="side-sell"',
+            b'id="halt"',
+        ):
+            self.assertIn(marker, page)
+        status, script = self.open("/app.js")
+        for marker in (b"/api/paper/ticket", b"/api/paper/cancel", b"PaperEngine.place"):
+            self.assertIn(marker, script)
+
     def test_step_and_backtest(self) -> None:
         status, raw = self.open("/api/paper")
         self.assertEqual(status, 200)
@@ -391,7 +538,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.37", script)
+        self.assertIn(b"1.9.38", script)
         self.assertIn(b"drawPriceLine", script)
         self.assertIn(b'id="edge-call"', page)
         self.assertIn(b"It is not a forecast.", page)

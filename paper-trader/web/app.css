@@ -596,3 +596,29 @@ footer { display: none; }
     transition: none !important;
   }
 }
+
+.tos {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0f151c;
+}
+
+.tos h3 { margin: 0 0 8px; font-size: 14px; }
+.tos h3 + .table-wrap, .tos .table-wrap + button { margin-top: 6px; }
+.tos .tiny { font-size: 12px; margin: 8px 0; }
+.tos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tos-grid label { margin: 0; font-size: 12px; }
+.tos-grid label[hidden] { display: none; }
+.side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.side-row .buy { background: #163528; border-color: var(--up); color: var(--up); }
+.side-row .sell { background: #3a1820; border-color: var(--down); color: var(--down); }
+.side-row .on { box-shadow: inset 0 0 0 2px currentColor; font-weight: 700; }
+.tos .confirm { display: flex; gap: 8px; align-items: center; margin: 10px 0 6px; color: var(--text); font-size: 14px; }
+.tos .confirm input { width: auto; }
+.tos .send { width: 100%; background: #1d4d3a; border-color: var(--up); color: var(--up); margin-bottom: 12px; }
+.tos .send.sell-side { background: #3a1820; border-color: var(--down); color: var(--down); }
+.tos table.working { font-size: 12px; }
+.tos table.working th, .tos table.working td { padding: 5px 4px; }
+.tos table.working button { padding: 3px 8px; font-size: 12px; }
