@@ -11,11 +11,14 @@ set "ZIP="
 for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents") do for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
 if not defined ZIP goto NoZip
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
-tar -xf "!ZIP!" -C "%USERPROFILE%\Documents"
+set "SETUP=%USERPROFILE%\Documents\PaperTrader-setup"
+if not exist "%SETUP%" mkdir "%SETUP%"
+tar -xf "!ZIP!" -C "%SETUP%"
 if errorlevel 1 goto BadZip
-if not exist "%USERPROFILE%\Documents\paper-trader\launch.py" goto BadZip
-start "" "%USERPROFILE%\Documents\paper-trader\1 Allow Paper Trader.bat"
-echo The full copy is in Documents. Use the window that just opened.
+if not exist "%SETUP%\paper-trader\launch.py" goto BadZip
+if exist "%USERPROFILE%\Documents\iphone" echo Documents\iphone is left in place.
+start "" "%SETUP%\paper-trader\1 Allow Paper Trader.bat"
+echo The full copy is in Documents\PaperTrader-setup. Use the window that just opened.
 pause
 exit /b 0
 
@@ -31,11 +34,12 @@ pause
 exit /b 1
 
 :Normal
-echo Step 1 of 2. Install the newest Paper Trader and remove older copies.
-powershell -NoProfile -Command "Get-ChildItem -LiteralPath $env:CD -Recurse -File | Unblock-File"
+echo Step 1 of 2. Install the newest Paper Trader in Documents.
 set "PY=%~dp0runtime\python.exe"
 if not exist "%PY%" set "PY=python"
-"%PY%" "%~dp0launch.py" install > "%TEMP%\paper-trader-install.txt"
+if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
+set "LOG=%USERPROFILE%\Documents\paper-trader-install.txt"
+"%PY%" "%~dp0launch.py" install > "%LOG%"
 if errorlevel 1 (
   echo Could not install the newest copy.
   pause
@@ -43,7 +47,7 @@ if errorlevel 1 (
 )
 set "DEST="
 set "ACTION="
-for /f "usebackq delims=" %%A in ("%TEMP%\paper-trader-install.txt") do (
+for /f "usebackq delims=" %%A in ("%LOG%") do (
   if not defined DEST (
     set "DEST=%%A"
   ) else if not defined ACTION (
@@ -55,19 +59,7 @@ if not defined DEST (
   pause
   exit /b 1
 )
-powershell -NoProfile -Command "$dest = $env:DEST; $desk = [Environment]::GetFolderPath('Desktop'); $lnk = Join-Path $desk 'Paper Trader.lnk'; $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk); $sc.TargetPath = (Join-Path $dest '2 Open Paper Trader.bat'); $sc.WorkingDirectory = $dest; $sc.WindowStyle = 1; $sc.Description = 'Open Paper Trader'; $sc.Save()"
-if errorlevel 1 (
-  echo Windows did not allow the folder. Right-click this file, open Properties, check Unblock, click OK, and run this file again.
-  pause
-  exit /b 1
-)
-echo The newest Paper Trader is the only copy in Documents.
-echo Step 2 of 2: click Paper Trader on the desktop.
+echo The newest Paper Trader is in Documents.
+echo Step 2 of 2: double-click Paper Trader.bat on the desktop.
 pause
-if /I "!ACTION!"=="remove-source" (
-  set "OLD=%~dp0"
-  if "!OLD:~-1!"=="\" set "OLD=!OLD:~0,-1!"
-  > "%TEMP%\remove-old-paper-trader.bat" echo @echo off
-  >> "%TEMP%\remove-old-paper-trader.bat" echo rd /s /q "!OLD!"
-  start "" cmd /c "timeout /t 1 /nobreak >nul & call \"%TEMP%\remove-old-paper-trader.bat\""
-)
+if /I "!ACTION!"=="remove-source" echo The extra download copy can be deleted by hand.

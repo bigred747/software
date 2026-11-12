@@ -11,9 +11,17 @@ from urllib.parse import parse_qs, unquote, urlparse
 from paper_trader import __version__
 from paper_trader.backtest import present, run_backtest
 from paper_trader.install import single_copy_status
-from paper_trader.journal import Journal, load_journal, market_view, save_journal, view_journal
+from paper_trader.journal import (
+    Journal,
+    load_journal,
+    make_ticket,
+    market_view,
+    save_journal,
+    ticket_hits,
+    view_journal,
+)
 from paper_trader.model import params_from_dict
-from paper_trader.samples import load_symbol, symbols, warm
+from paper_trader.samples import cached_ready, load_symbol, symbols, warm
 
 WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
 STATIC = {"/index.html": "index.html", "/": "index.html", "/app.js": "app.js", "/app.css": "app.css"}
@@ -24,6 +32,7 @@ TYPES = {
 }
 _STATIC_BYTES: dict[str, bytes] = {}
 _LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+_LOCAL_CLIENTS = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 _SECURITY_HEADERS = (
     ("X-Content-Type-Options", "nosniff"),
     ("Referrer-Policy", "no-referrer"),
@@ -47,15 +56,9 @@ class Desk:
         with self.lock:
             view = view_journal(self.journal)
         listed = symbols()
-        prices_ok = True
-        try:
-            for item in listed:
-                if len(load_symbol(str(item["symbol"]))) < 200:
-                    prices_ok = False
-        except ValueError:
-            prices_ok = False
+        prices_ok = cached_ready()
         items: list[dict[str, str | bool]] = [
-            {"name": "This computer", "ok": True, "detail": "127.0.0.1"},
+            {"name": "This computer", "ok": True, "detail": "127.0.0.1 only"},
             {"name": "Paper", "ok": view.get("paper") is True and view.get("mode") == "paper", "detail": "On"},
             {"name": "Auto", "ok": True, "detail": "Ready"},
             {
@@ -63,8 +66,8 @@ class Desk:
                 "ok": not view.get("finished"),
                 "detail": "Ready" if not view.get("finished") else "Sample finished",
             },
-            {"name": "Markets", "ok": len(listed) == 5 and prices_ok, "detail": f"{len(listed)} samples"},
-            {"name": "Broker", "ok": True, "detail": "Not connected"},
+            {"name": "Markets", "ok": len(listed) >= 20 and prices_ok, "detail": f"{len(listed)} samples"},
+            {"name": "Broker", "ok": True, "detail": "Not connected · Live locked"},
             {"name": "Version", "ok": True, "detail": __version__},
             single_copy_status(Path.home()),
         ]
@@ -86,28 +89,65 @@ class Desk:
             raise ValueError("Step must be from 1 to 500 days")
         with self.lock:
             bars = load_symbol(self.journal.symbol)
-            self.journal.cursor = min(len(bars), self.journal.cursor + days)
+            start = self.journal.cursor
+            end = min(len(bars), start + days)
+            if self.journal.working:
+                held = view_journal(self.journal)["shares"] > 0
+                for index in range(start, end):
+                    self.journal.cursor = index + 1
+                    held = self._fill_working(bars, index, held)
+            else:
+                self.journal.cursor = end
             save_journal(self.state_path, self.journal)
             return view_journal(self.journal)
 
     def trade(self) -> dict:
         with self.lock:
+            return self._fill_now(None)
+
+    def place(self, raw: dict) -> dict:
+        ticket = make_ticket(raw)
+        with self.lock:
             bars = load_symbol(self.journal.symbol)
             if self.journal.cursor >= len(bars):
                 raise ValueError("The sample is finished")
-            held = view_journal(self.journal)["shares"] > 0
-            side = "sell" if held else "buy"
-            self.journal.orders[self.journal.cursor] = side
-            self.journal.cursor += 1
+            if ticket["kind"] == "market":
+                return self._fill_now(ticket["side"])
+            last = bars[self.journal.cursor - 1] if self.journal.cursor > 0 else bars[0]
+            if ticket_hits(ticket, last):
+                return self._fill_now(ticket["side"])
+            stored = dict(ticket)
+            stored["id"] = str(self.journal.next_order_id)
+            self.journal.next_order_id += 1
+            self.journal.working.append(stored)
             save_journal(self.state_path, self.journal)
             payload = view_journal(self.journal)
-            payload["last_action"] = side
+            payload["last_action"] = "working"
             return payload
+
+    def cancel(self, raw: dict) -> dict:
+        order_id = str(raw.get("id") or "")
+        if not order_id:
+            raise ValueError("Order id is required")
+        with self.lock:
+            before = len(self.journal.working)
+            self.journal.working = [item for item in self.journal.working if item.get("id") != order_id]
+            if len(self.journal.working) == before:
+                raise ValueError("That working order was not found")
+            save_journal(self.state_path, self.journal)
+            return view_journal(self.journal)
 
     def run_rest(self) -> dict:
         with self.lock:
             bars = load_symbol(self.journal.symbol)
-            self.journal.cursor = len(bars)
+            start = self.journal.cursor
+            if self.journal.working:
+                held = view_journal(self.journal)["shares"] > 0
+                for index in range(start, len(bars)):
+                    self.journal.cursor = index + 1
+                    held = self._fill_working(bars, index, held)
+            else:
+                self.journal.cursor = len(bars)
             save_journal(self.state_path, self.journal)
             return view_journal(self.journal)
 
@@ -118,16 +158,79 @@ class Desk:
         result = run_backtest(bars, params)
         payload = present(result, symbol, len(bars), params, len(bars))
         payload["note"] = "Full sample replay. The paper session was left where it is."
+        payload["live"] = False
         return payload
 
     def market(self, symbol: str, raw: dict) -> dict:
         params = params_from_dict(raw)
         return market_view(symbol, params)
 
+    def _fill_now(self, side: str | None) -> dict:
+        bars = load_symbol(self.journal.symbol)
+        if self.journal.cursor >= len(bars):
+            raise ValueError("The sample is finished")
+        held = view_journal(self.journal)["shares"] > 0
+        if side is None:
+            side = "sell" if held else "buy"
+        if side == "buy" and held:
+            raise ValueError("A simulated long is already open")
+        if side == "sell" and not held:
+            raise ValueError("No simulated position to sell")
+        self.journal.orders[self.journal.cursor] = side
+        self.journal.cursor += 1
+        save_journal(self.state_path, self.journal)
+        payload = view_journal(self.journal)
+        payload["last_action"] = side
+        return payload
+
+    def _fill_working(self, bars: list, index: int, held: bool) -> bool:
+        if index >= len(bars) or index in self.journal.orders:
+            self.journal.working = [ticket for ticket in self.journal.working if ticket.get("tif") != "DAY"]
+            return held
+        bar = bars[index]
+        still = []
+        filled = False
+        for ticket in self.journal.working:
+            if filled:
+                if ticket.get("tif") != "DAY":
+                    still.append(ticket)
+                continue
+            side = ticket["side"]
+            if side == "buy" and held:
+                still.append(ticket)
+                continue
+            if side == "sell" and not held:
+                still.append(ticket)
+                continue
+            if ticket_hits(ticket, bar):
+                self.journal.orders[index] = side
+                filled = True
+                held = side == "buy"
+                continue
+            if ticket.get("tif") != "DAY":
+                still.append(ticket)
+        self.journal.working = still
+        return held
+
 
 def _local_host(header: str) -> bool:
     name = header.strip().lower().split(":", 1)[0]
     return name in _LOCAL_HOSTS
+
+
+def _local_client(addr: tuple) -> bool:
+    host = str(addr[0] or "").split("%", 1)[0].lower()
+    return host in _LOCAL_CLIENTS
+
+
+def _local_origin(value: str) -> bool:
+    if not value:
+        return True
+    text = value.strip().lower()
+    for prefix in ("http://127.0.0.1", "http://localhost"):
+        if text == prefix or text.startswith(prefix + ":") or text.startswith(prefix + "/"):
+            return True
+    return False
 
 
 def load_static() -> None:
@@ -181,7 +284,16 @@ class DeskHandler(BaseHTTPRequestHandler):
         return self.client_address[0]
 
     def _route(self, method: str) -> None:
+        if not _local_client(self.client_address):
+            self._json({"error": "Not found"}, 404)
+            return
         if not _local_host(self.headers.get("Host", "")):
+            self._json({"error": "Not found"}, 404)
+            return
+        if not _local_origin(self.headers.get("Origin", "")):
+            self._json({"error": "Not found"}, 404)
+            return
+        if not _local_origin(self.headers.get("Referer", "")):
             self._json({"error": "Not found"}, 404)
             return
         parsed = urlparse(self.path)
@@ -202,13 +314,13 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._static(STATIC[path])
             return
         if method == "GET" and path == "/api/health":
-            self._json({"ok": True, "bind": "127.0.0.1", "version": __version__})
+            self._json({"ok": True, "bind": "127.0.0.1", "loopback": True, "version": __version__})
             return
         if method == "GET" and path == "/api/checks":
             self._json(self.desk.checks())
             return
         if method == "GET" and path == "/api/symbols":
-            self._json({"symbols": symbols()})
+            self._json({"symbols": symbols(), "note": "Built-in sample prices. Not live quotes."})
             return
         if method == "GET" and path == "/api/paper":
             self._json(self.desk.snapshot())
@@ -225,7 +337,7 @@ class DeskHandler(BaseHTTPRequestHandler):
         body = self._body() if method == "POST" else {}
         if method == "POST" and path == "/api/paper/mode":
             if str(body.get("mode") or "") != "paper":
-                raise ValueError("This desk only runs in paper mode")
+                raise ValueError("Live stays locked. This desk never sends a broker order.")
             self._json(self.desk.snapshot())
             return
         if method == "POST" and path == "/api/paper/reset":
@@ -233,6 +345,12 @@ class DeskHandler(BaseHTTPRequestHandler):
             return
         if method == "POST" and path == "/api/paper/trade":
             self._json(self.desk.trade())
+            return
+        if method == "POST" and path == "/api/paper/ticket":
+            self._json(self.desk.place(body))
+            return
+        if method == "POST" and path == "/api/paper/cancel":
+            self._json(self.desk.cancel(body))
             return
         if method == "POST" and path == "/api/paper/step":
             self._json(self.desk.step(int(body.get("days", 1))))

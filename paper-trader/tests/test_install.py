@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from paper_trader.install import canonical_folder, find_installs, install_newest, is_install
+from paper_trader.install import canonical_folder, find_installs, install_newest, is_install, write_desktop_opener
 
 
 def make_install(folder: Path, version: str, marker: str = "") -> None:
@@ -68,6 +68,22 @@ class InstallTests(unittest.TestCase):
             self.assertTrue(documents.is_dir())
             self.assertTrue((documents / "Start-Paper-Trader.bat").is_file())
             self.assertTrue(is_install(dest))
+
+    def test_desktop_opener_is_a_bat_not_a_shortcut(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            dest = canonical_folder(home)
+            make_install(dest, "1.5.0")
+            (dest / "2 Open Paper Trader.bat").write_text("@echo off\r\n", encoding="utf-8")
+            desktop = home / "Desktop"
+            desktop.mkdir()
+            write_desktop_opener(dest, home)
+            opener = desktop / "Paper Trader.bat"
+            self.assertTrue(opener.is_file())
+            text = opener.read_text(encoding="utf-8").lower()
+            self.assertIn("2 open paper trader.bat", text)
+            self.assertNotIn(".lnk", text)
+            self.assertNotIn("powershell", text)
 
 
 if __name__ == "__main__":

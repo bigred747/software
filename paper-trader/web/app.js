@@ -1,4 +1,12 @@
-const state = { market: null, paper: null, busy: false, auto: false, autoTimer: 0 };
+const state = {
+  market: null,
+  paper: null,
+  listed: [],
+  busy: false,
+  auto: false,
+  autoTimer: 0,
+  side: "buy",
+};
 
 const notes = {
   BUY: "The next sample day would open a simulated long at that day's open.",
@@ -43,7 +51,9 @@ function fillForm(params) {
 
 function priceDigits() {
   const selected = state.market && state.market.symbol;
-  const option = [...$("symbol").options].find((item) => item.value === selected);
+  const item = state.listed.find((row) => row.symbol === selected);
+  if (item) return Number(item.decimals || 2);
+  const option = [...$("symbol").options].find((node) => node.value === selected);
   return option ? Number(option.dataset.decimals || 2) : 2;
 }
 
@@ -68,11 +78,28 @@ function post(url, body) {
   });
 }
 
+function setSide(side) {
+  state.side = side;
+  $("side-buy").classList.toggle("on", side === "buy");
+  $("side-sell").classList.toggle("on", side === "sell");
+}
+
+function fillTicket(paper) {
+  const last = paper.quote && paper.quote.last;
+  if (last && Number($("qty").value) <= 0) {
+    const shares = paper.shares > 0 ? paper.shares : paper.cash / last;
+    $("qty").value = Math.max(0, Math.floor(shares * 10000) / 10000);
+  }
+  if (last && Number($("limit").value) <= 0) $("limit").value = last;
+  if (last && Number($("stop-price").value) <= 0) $("stop-price").value = last;
+}
+
 async function boot() {
   const listed = await getJSON("/api/symbols");
+  state.listed = listed.symbols || [];
   const select = $("symbol");
   select.replaceChildren();
-  listed.symbols.forEach((item) => {
+  state.listed.forEach((item) => {
     const option = document.createElement("option");
     option.value = item.symbol;
     option.dataset.decimals = String(item.decimals);
@@ -82,6 +109,7 @@ async function boot() {
   const paper = await getJSON("/api/paper");
   select.value = paper.symbol;
   fillForm(paper.params);
+  fillWatch(paper.symbol);
   await loadMarket();
   render(paper);
   await loadSignals();
@@ -92,7 +120,47 @@ async function boot() {
     autoTick();
     return;
   }
-  $("status").textContent = "Sample session ready.";
+  $("status").textContent = "Sample session ready. Live stays locked.";
+}
+
+function fillWatch(selected) {
+  const root = $("watchlist");
+  root.replaceChildren();
+  let group = "";
+  state.listed.forEach((item) => {
+    if (item.group !== group) {
+      group = item.group;
+      const header = document.createElement("div");
+      header.className = "watch-group";
+      header.textContent = group;
+      root.appendChild(header);
+    }
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "watch-row" + (item.symbol === selected ? " on" : "");
+    row.dataset.symbol = item.symbol;
+    const sym = document.createElement("span");
+    sym.className = "sym";
+    sym.textContent = item.symbol;
+    const name = document.createElement("span");
+    name.className = "name";
+    const extra = [];
+    if (item.expense_pct != null) extra.push(item.expense_pct + "% exp");
+    if (item.sample_10y_pct != null) extra.push(item.sample_10y_pct + "% 10y list");
+    name.textContent = extra.length ? item.name + " · " + extra.join(" · ") : item.name;
+    const last = document.createElement("span");
+    last.className = "last";
+    last.textContent = Number(item.last).toLocaleString(undefined, {
+      minimumFractionDigits: Number(item.decimals || 2),
+      maximumFractionDigits: Number(item.decimals || 2),
+    });
+    row.append(sym, name, last);
+    row.addEventListener("click", () => {
+      $("symbol").value = item.symbol;
+      $("symbol").dispatchEvent(new Event("change"));
+    });
+    root.appendChild(row);
+  });
 }
 
 async function loadSignals() {
@@ -129,16 +197,61 @@ function render(paper) {
     : "Flat";
   $("through").textContent = paper.cursor + " / " + paper.total_bars;
   $("chart-title").textContent = (paper.last_date || "Sample") + " · " + paper.symbol;
+  const quote = paper.quote || {};
+  $("q-last").textContent = formatPrice(quote.last);
+  $("q-open").textContent = formatPrice(quote.open);
+  $("q-high").textContent = formatPrice(quote.high);
+  $("q-low").textContent = formatPrice(quote.low);
   $("next").disabled = state.auto || paper.finished;
   $("run").disabled = state.auto || paper.finished;
   $("trade").disabled = Boolean(paper.finished);
   $("auto").disabled = Boolean(paper.finished);
+  $("send").disabled = Boolean(paper.finished);
+  $("flatten").disabled = Boolean(paper.finished) || !(paper.shares > 0);
   $("auto").setAttribute("aria-pressed", state.auto ? "true" : "false");
   $("paper").disabled = false;
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
+  $("live").setAttribute("aria-pressed", "false");
   fillTrades($("journal-body"), paper.trades || []);
+  fillWorking(paper.working || []);
+  fillTicket(paper);
+  fillWatch(paper.symbol);
   drawCandles();
   drawRsi();
+}
+
+function fillWorking(rows) {
+  const body = $("working-body");
+  body.replaceChildren();
+  if (!rows.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 7;
+    cell.textContent = "No working paper orders.";
+    row.appendChild(cell);
+    body.appendChild(row);
+    return;
+  }
+  rows.forEach((order) => {
+    const row = document.createElement("tr");
+    [order.id, order.side, order.kind, formatPrice(order.stop), formatPrice(order.limit), order.tif].forEach((value) => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      row.appendChild(cell);
+    });
+    const cell = document.createElement("td");
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "quiet";
+    cancel.textContent = "Cancel";
+    cancel.addEventListener("click", () => withBusy(async () => {
+      render(await post("/api/paper/cancel", { id: order.id }));
+      $("status").textContent = "Canceled working paper order " + order.id + ".";
+    }));
+    cell.appendChild(cancel);
+    row.appendChild(cell);
+    body.appendChild(row);
+  });
 }
 
 function fillTrades(body, trades) {
@@ -194,8 +307,8 @@ function drawCandles() {
   high += span * 0.06;
   const y = (price) => pad + ((high - price) / (high - low)) * (height - pad * 2);
   const slot = (width - pad * 2) / bars.length;
-  ctx.strokeStyle = "#2d3640";
-  ctx.fillStyle = "#9aa6b2";
+  ctx.strokeStyle = "#243040";
+  ctx.fillStyle = "#8b98a5";
   ctx.font = "12px Segoe UI, sans-serif";
   for (let grid = 0; grid < 4; grid += 1) {
     const price = low + ((high - low) * grid) / 3;
@@ -231,6 +344,19 @@ function drawCandles() {
     ctx.arc(x, y(marker.price), 3.5, 0, Math.PI * 2);
     ctx.fill();
   });
+  const last = bars[bars.length - 1];
+  if (last) {
+    const line = y(last.close);
+    ctx.strokeStyle = last.close >= last.open ? "#3ddc97" : "#ff6b7a";
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(pad, line);
+    ctx.lineTo(width - 8, line);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.fillText(formatPrice(last.close), width - 86, line - 4);
+  }
 }
 
 function drawRsi() {
@@ -241,8 +367,8 @@ function drawRsi() {
   const height = canvas.clientHeight;
   const pad = 28;
   const y = (value) => pad / 2 + ((100 - value) / 100) * (height - pad);
-  ctx.strokeStyle = "#2d3640";
-  ctx.fillStyle = "#9aa6b2";
+  ctx.strokeStyle = "#243040";
+  ctx.fillStyle = "#8b98a5";
   ctx.font = "12px Segoe UI, sans-serif";
   [30, 70].forEach((level) => {
     ctx.beginPath();
@@ -334,7 +460,7 @@ async function autoTick() {
   } finally {
     state.busy = false;
   }
-  if (state.auto) state.autoTimer = setTimeout(autoTick, 200);
+  if (state.auto) state.autoTimer = setTimeout(autoTick, 160);
 }
 
 $("auto").addEventListener("click", () => {
@@ -370,6 +496,46 @@ $("paper").addEventListener("click", () => withBusy(async () => {
   $("status").textContent = "Paper is on. Orders stay simulated on this computer.";
 }));
 
+$("live").addEventListener("click", () => withBusy(async () => {
+  await post("/api/paper/mode", { mode: "live" });
+}));
+
+$("side-buy").addEventListener("click", () => setSide("buy"));
+$("side-sell").addEventListener("click", () => setSide("sell"));
+
+$("send").addEventListener("click", () => withBusy(async () => {
+  if (!$("confirm").checked) {
+    $("status").textContent = "Check Confirm and Send, then send the paper order.";
+    return;
+  }
+  stopAuto();
+  const paper = await post("/api/paper/ticket", {
+    side: state.side,
+    kind: $("kind").value,
+    qty: Number($("qty").value),
+    limit: Number($("limit").value),
+    stop: Number($("stop-price").value),
+    tif: $("tif").value,
+  });
+  render(paper);
+  $("confirm").checked = false;
+  if (paper.last_action === "working") {
+    $("status").textContent = "Working paper order is waiting on the sample. Nothing was sent to a broker.";
+  } else {
+    const verb = paper.last_action === "sell" ? "Sold" : "Bought";
+    $("status").textContent = verb + " a simulated paper fill. Nothing was sent to a broker.";
+  }
+  await loadSignals();
+}));
+
+$("flatten").addEventListener("click", () => withBusy(async () => {
+  stopAuto();
+  const paper = await post("/api/paper/ticket", { side: "sell", kind: "market", tif: "DAY" });
+  render(paper);
+  $("status").textContent = "Flattened the simulated position. Nothing was sent to a broker.";
+  await loadSignals();
+}));
+
 $("symbol").addEventListener("change", () => withBusy(async () => {
   stopAuto();
   const paper = await post("/api/paper/reset", formParams());
@@ -402,7 +568,8 @@ $("full").addEventListener("click", () => withBusy(async () => {
   $("backtest-summary").textContent =
     "Return " + report.return_pct.toFixed(2) + "% · drawdown " +
     report.max_drawdown_pct.toFixed(2) + "% · trades " + report.trade_count +
-    " · win rate " + report.win_rate_pct.toFixed(1) + "% · profit factor " + factor;
+    " · win rate " + report.win_rate_pct.toFixed(1) + "% · profit factor " + factor +
+    ". Sample record only. Not a forecast.";
   fillTrades($("backtest-body"), report.trades || []);
 }));
 

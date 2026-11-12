@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from paper_trader.backtest import max_drawdown, run_backtest
 from paper_trader.indicators import rsi, sma
-from paper_trader.journal import load_journal, save_journal, view_journal
+from paper_trader.journal import load_journal, make_ticket, save_journal, ticket_hits, view_journal
 from paper_trader.model import Bar, Params
 from paper_trader.samples import load_symbol, symbols
 
@@ -99,10 +99,29 @@ class BacktestTests(unittest.TestCase):
             run_backtest(hand_bars(), Params(fast=10, slow=5, rsi_period=0))
 
 
+class TicketTests(unittest.TestCase):
+    def test_limit_and_stop_use_the_sample_bar(self) -> None:
+        candle = bar("2024-01-02", 10, low=9, high=11, open_=10)
+        buy_limit = make_ticket({"side": "buy", "kind": "limit", "limit": 9.5, "tif": "GTC"})
+        sell_stop = make_ticket({"side": "sell", "kind": "stop", "stop": 9.2, "tif": "DAY"})
+        miss = make_ticket({"side": "buy", "kind": "limit", "limit": 8, "tif": "DAY"})
+        stop_limit = make_ticket(
+            {"side": "buy", "kind": "stop_limit", "stop": 10.5, "limit": 11, "tif": "GTC"}
+        )
+        self.assertTrue(ticket_hits(buy_limit, candle))
+        self.assertTrue(ticket_hits(sell_stop, candle))
+        self.assertFalse(ticket_hits(miss, candle))
+        self.assertTrue(ticket_hits(stop_limit, candle))
+
+
 class SampleTests(unittest.TestCase):
     def test_samples_are_weekday_bars_and_can_trade(self) -> None:
-        self.assertEqual(len(symbols()), 5)
-        for item in symbols():
+        listed = symbols()
+        names = {str(item["symbol"]) for item in listed}
+        self.assertGreaterEqual(len(listed), 20)
+        for ticker in ("BTC-USD", "VOO", "VTI", "VXUS", "QQQM", "SCHD", "SMH", "QQQ", "XLK"):
+            self.assertIn(ticker, names)
+        for item in listed:
             bars = load_symbol(str(item["symbol"]))
             self.assertGreaterEqual(len(bars), 200)
             dates = [bar.date for bar in bars]

@@ -49,14 +49,14 @@ A product is 95–100 when it has **supported brand + ASIN + price + primary ima
 
 ## Paper Trader
 
-Local sample trading desk in [paper-trader](paper-trader/README.md). It replays built-in prices, shows signals, and keeps a simulated account. **Auto** steps the sample. **Trade** places one simulated order. **Paper** stays on. It does not place broker orders, collect payments, or connect to an exchange.
+Local sample trading desk in [paper-trader](paper-trader/README.md). It replays built-in prices, shows a Thinkorswim-style paper ticket (market, limit, stop, stop-limit), and keeps a simulated account. **Auto** steps the sample. **Trade** places one simulated order. **Paper** stays on. **Live** stays locked. It does not place broker orders, collect payments, or connect to an exchange. It listens only on this computer.
 
 **Download the whole bot:**
 
-[Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-safe-fast-1106/Paper-Trader.zip)
+[Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-tos-safe-1106/Paper-Trader.zip)
 
-SHA-256 `53384ac29e382617b11379c328d1fbc7026b5780d80f345e99216638e5c10d96`
+SHA-256 `bd2b030de040c0c1c1e7cbb1df08c12231e8b04a84270b240d2358768bb33239`
 
 Size **10.9 MB**. Python 3.13 for Windows is inside the zip.
 
-Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.4.2 extracts the whole zip into Documents and opens that copy. Signals show **1.4.2** when this copy is running.
+Save the zip in Downloads. Double-click `Start-Paper-Trader.bat` inside it. Version 1.5.0 extracts into Documents and opens that copy. Signals show **1.5.0** when this copy is running.
