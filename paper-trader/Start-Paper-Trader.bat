@@ -11,28 +11,19 @@ set "ZIP="
 for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents") do for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
 if not defined ZIP goto NoZip
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
-tar -xf "!ZIP!" -C "%USERPROFILE%\Documents"
+set "SETUP=%USERPROFILE%\Documents\PaperTrader-setup"
+if not exist "%SETUP%" mkdir "%SETUP%"
+tar -xf "!ZIP!" -C "%SETUP%"
 if errorlevel 1 goto BadZip
-if not exist "%USERPROFILE%\Documents\paper-trader\launch.py" goto BadZip
-if exist "%USERPROFILE%\Documents\paper-trader\runtime\python.exe" (
-  "%USERPROFILE%\Documents\paper-trader\runtime\python.exe" "%USERPROFILE%\Documents\paper-trader\launch.py" install
+if not exist "%SETUP%\paper-trader\launch.py" goto BadZip
+if exist "%USERPROFILE%\Documents\iphone" echo Documents\iphone is left in place.
+if exist "%SETUP%\paper-trader\runtime\python.exe" (
+  "%SETUP%\paper-trader\runtime\python.exe" "%SETUP%\paper-trader\launch.py" install
 ) else (
-  python "%USERPROFILE%\Documents\paper-trader\launch.py" install
+  python "%SETUP%\paper-trader\launch.py" install
 )
 if errorlevel 1 goto BadZip
-set "VBS=%TEMP%\paper-trader-shortcut.vbs"
-> "%VBS%" echo Set shell = CreateObject("WScript.Shell"^)
->> "%VBS%" echo desk = shell.SpecialFolders("Desktop"^)
->> "%VBS%" echo Set link = shell.CreateShortcut(desk ^& "\Paper Trader.lnk"^)
->> "%VBS%" echo link.TargetPath = "%USERPROFILE%\Documents\Paper Trader\2 Open Paper Trader.bat"
->> "%VBS%" echo link.WorkingDirectory = "%USERPROFILE%\Documents\Paper Trader"
->> "%VBS%" echo link.Save
-cscript //nologo "%VBS%"
-if exist "%USERPROFILE%\Documents\Paper Trader\runtime\python.exe" (
-  start "Paper Trader" "%USERPROFILE%\Documents\Paper Trader\runtime\python.exe" "%USERPROFILE%\Documents\Paper Trader\launch.py" serve
-) else (
-  start "Paper Trader" python "%USERPROFILE%\Documents\Paper Trader\launch.py" serve
-)
+start "" "%USERPROFILE%\Documents\Paper Trader\Start-Paper-Trader.bat"
 echo Paper Trader is opening from Documents. You can close this window.
 pause
 exit /b 0

@@ -11,11 +11,14 @@ set "ZIP="
 for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents") do for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
 if not defined ZIP goto NoZip
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
-tar -xf "!ZIP!" -C "%USERPROFILE%\Documents"
+set "SETUP=%USERPROFILE%\Documents\PaperTrader-setup"
+if not exist "%SETUP%" mkdir "%SETUP%"
+tar -xf "!ZIP!" -C "%SETUP%"
 if errorlevel 1 goto BadZip
-if not exist "%USERPROFILE%\Documents\paper-trader\launch.py" goto BadZip
-start "" "%USERPROFILE%\Documents\paper-trader\Start-Paper-Trader.bat"
-echo The full copy is in Documents. Use the window that just opened.
+if not exist "%SETUP%\paper-trader\launch.py" goto BadZip
+if exist "%USERPROFILE%\Documents\iphone" echo Documents\iphone is left in place.
+start "" "%SETUP%\paper-trader\Start-Paper-Trader.bat"
+echo The full copy is in Documents\PaperTrader-setup. Use the window that just opened.
 pause
 exit /b 0
 

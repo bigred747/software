@@ -35,13 +35,23 @@ class ServerTests(unittest.TestCase):
         self.server.server_close()
         self.folder.cleanup()
 
-    def open(self, path: str, method: str = "GET", body: dict | None = None, host: str | None = None, headers: bool = False):
+    def open(
+        self,
+        path: str,
+        method: str = "GET",
+        body: dict | None = None,
+        host: str | None = None,
+        headers: bool = False,
+        extra: dict[str, str] | None = None,
+    ):
         data = None if body is None else json.dumps(body).encode()
         request = Request(self.base + path, data=data, method=method)
         if data is not None:
             request.add_header("Content-Type", "application/json")
         if host is not None:
             request.add_header("Host", host)
+        for key, value in (extra or {}).items():
+            request.add_header(key, value)
         try:
             with urlopen(request, timeout=5) as response:
                 payload = response.read()
@@ -73,6 +83,10 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b">Auto<", page)
         self.assertIn(b">Trade<", page)
         self.assertIn(b">Paper<", page)
+        self.assertIn(b">Live<", page)
+        self.assertIn(b"Confirm and Send", page)
+        self.assertIn(b">Buy<", page)
+        self.assertIn(b">Sell<", page)
         self.assertNotIn(b"deposit", page.lower())
 
     def test_paper_button_engages_paper_and_rejects_another_mode(self) -> None:
@@ -82,6 +96,12 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(payload["mode"], "paper")
         self.assertTrue(payload["paper"])
         self.assertEqual(self.open("/api/paper/mode", "POST", {"mode": "live"})[0], 400)
+        status, listed = self.open("/api/symbols")
+        self.assertEqual(status, 200)
+        names = {item["symbol"] for item in json.loads(listed)["symbols"]}
+        self.assertIn("VOO", names)
+        self.assertIn("SMH", names)
+        self.assertGreaterEqual(len(names), 20)
 
     def test_launch_finds_the_program_from_another_folder(self) -> None:
         import subprocess
@@ -124,6 +144,27 @@ class ServerTests(unittest.TestCase):
             self.assertGreater(payload["shares"], 0)
         else:
             self.assertEqual(payload["shares"], 0)
+
+    def test_paper_ticket_holds_a_limit_and_live_stays_locked(self) -> None:
+        status, raw = self.open("/api/paper")
+        self.assertEqual(status, 200)
+        last = json.loads(raw)["quote"]["last"]
+        far = last * 0.5
+        status, placed = self.open(
+            "/api/paper/ticket",
+            "POST",
+            {"side": "buy", "kind": "limit", "limit": far, "tif": "GTC", "qty": 1},
+        )
+        self.assertEqual(status, 200)
+        payload = json.loads(placed)
+        self.assertEqual(payload["last_action"], "working")
+        self.assertEqual(len(payload["working"]), 1)
+        self.assertEqual(payload["working"][0]["kind"], "limit")
+        order_id = payload["working"][0]["id"]
+        status, canceled = self.open("/api/paper/cancel", "POST", {"id": order_id})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(canceled)["working"], [])
+        self.assertEqual(self.open("/api/health", extra={"Origin": "https://evil.example"})[0], 404)
 
     def test_step_and_backtest(self) -> None:
         status, raw = self.open("/api/paper")
@@ -178,15 +219,33 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("requirements", bat)
         allow = (ROOT / "1 Allow Paper Trader.bat").read_text(encoding="utf-8").lower()
         opener = (ROOT / "2 Open Paper Trader.bat").read_text(encoding="utf-8").lower()
-        self.assertIn("unblock-file", allow)
+        self.assertNotIn("unblock-file", allow)
+        self.assertNotIn("powershell", allow)
+        self.assertNotIn("cscript", allow)
+        self.assertNotIn(".vbs", allow)
         self.assertIn("launch.py", allow)
         self.assertIn("install", allow)
+        self.assertIn("papertrader-setup", allow)
+        self.assertIn("paper trader.bat", allow)
         for name in ("Start-Paper-Trader.bat", "1 Allow Paper Trader.bat", "2 Open Paper Trader.bat"):
             text = (ROOT / name).read_text(encoding="utf-8")
+            lower = text.lower()
             self.assertIn("tar -xf", text)
             self.assertIn('.zip.', text)
+            self.assertIn("PaperTrader-setup", text)
+            self.assertIn("documents\\iphone", lower)
             self.assertNotIn('Temp\\"', text)
-        self.assertIn("paper trader.lnk", allow)
+            for blocked in (
+                "powershell",
+                "cscript",
+                "wscript",
+                "unblock-file",
+                ".vbs",
+                "taskkill",
+                "pip",
+            ):
+                self.assertNotIn(blocked, lower)
+        self.assertNotIn("paper trader.lnk", allow)
         self.assertIn("remove-source", allow)
         self.assertIn("start-paper-trader.bat", opener)
         for blocked in ("add-mpexclusion", "set-mppreference", "exclusionpath", "reg add", "netsh"):
@@ -211,7 +270,10 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b">Auto<", page)
         self.assertIn(b">Trade<", page)
         self.assertIn(b">Paper<", page)
+        self.assertIn(b">Live<", page)
+        self.assertIn(b"Confirm and Send", page)
         self.assertIn(b'id="signals"', page)
+        self.assertIn(b"VOO", script + page)
         self.assertIn(b"..", path_file)
 
 

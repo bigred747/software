@@ -53,6 +53,21 @@ def find_installs(home: Path) -> list[Path]:
     return found
 
 
+def write_desktop_opener(dest: Path, home: Path) -> None:
+    dest = dest.resolve()
+    if not (dest / "2 Open Paper Trader.bat").is_file():
+        return
+    text = (
+        "@echo off\r\n"
+        "setlocal EnableExtensions\r\n"
+        f'cd /d "{dest}"\r\n'
+        'call "2 Open Paper Trader.bat"\r\n'
+    )
+    desktop = home / "Desktop"
+    if desktop.is_dir():
+        (desktop / "Paper Trader.bat").write_text(text, encoding="utf-8")
+
+
 def install_newest(source: Path, home: Path) -> tuple[Path, str]:
     source = source.resolve()
     if not is_install(source):
@@ -62,12 +77,14 @@ def install_newest(source: Path, home: Path) -> tuple[Path, str]:
     source_version = version_key(__version__)
     if source != dest and dest_version > source_version and is_install(dest):
         _remove_older(home, dest, source)
+        write_desktop_opener(dest, home)
         return dest, "remove-source"
     if source != dest:
         _replace_install(source, dest)
     dest.mkdir(parents=True, exist_ok=True)
     (dest / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
     _remove_older(home, dest, source)
+    write_desktop_opener(dest, home)
     if source == dest:
         return dest, "keep-source"
     return dest, "remove-source"
