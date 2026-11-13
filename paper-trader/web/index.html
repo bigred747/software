@@ -104,6 +104,11 @@
         <ol id="edge-checks" class="edge-checks"></ol>
         <p id="edge-plan" class="edge-plan"></p>
         <dl id="edge-record" class="edge-record"></dl>
+        <div class="edge-frames">
+          <span class="muted">Edge on every timeframe</span>
+          <div id="edge-frames" class="edge-chips" aria-label="Edge on every timeframe"></div>
+          <p id="edge-frames-line" class="muted"></p>
+        </div>
         <p class="muted edge-note-line">Edge buys when five checks turn on together: five or more squeeze dots, squeeze momentum above zero, squeeze momentum rising, the true momentum main line above its signal, and the close under the upper Bollinger band. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop two average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
       </section>
       <dl class="stats">
@@ -379,6 +384,15 @@ plot Sell = close crosses below baseline;</textarea>
             </div>
             <canvas id="frame-preview" width="800" height="180" aria-label="Selected timeframe"></canvas>
           </div>
+        </div>
+        <h3>Edge on every timeframe</h3>
+        <p id="edge-frames-note" class="muted">Edge reads the closed bars of each timeframe on its own. Click a row to put that timeframe in the preview, then click any candle for its price box.</p>
+        <div class="strat-orb-inputs"><button id="edge-frames-refresh" type="button">Read all timeframes now</button></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Timeframe</th><th>Edge</th><th>Checks</th><th>Stop</th><th>Past trades</th><th>Won</th><th>Result</th></tr></thead>
+            <tbody id="edge-frames-body"></tbody>
+          </table>
         </div>
       </div>
 

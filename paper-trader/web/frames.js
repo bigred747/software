@@ -686,7 +686,7 @@
     return value;
   }
 
-  function draw(canvas, bars, zoomStop) {
+  function draw(canvas, bars, zoomStop, options) {
     if (!canvas || !bars || !bars.length) return;
     const history = bars;
     const fitted = lesson(history);
@@ -745,6 +745,7 @@
     const padRight = Math.max(72, Math.round(width * 0.16));
     const slot = (width - padLeft - padRight) / bars.length;
     const xAt = (index) => padLeft + index * slot + slot / 2;
+    canvas.paperMap = { bars, history, dropped, pad: padLeft, slot, crypto: !!(options && options.crypto), symbol: (options && options.symbol) || "", label: (options && options.label) || "" };
     ctx.strokeStyle = "#2a3340";
     ctx.fillStyle = "#93a0ad";
     const grids = height < 150 ? 2 : 4;
@@ -823,6 +824,54 @@
       const moodText = tone.label + " " + tone.score;
       ctx.fillStyle = tone.label === "Fear" ? "#ff6b7a" : tone.label === "Greed" ? "#3ddc97" : "#d7e2ea";
       ctx.fillText(moodText, Math.max(padLeft, (width - ctx.measureText(moodText).width) / 2), 14);
+    }
+    if (history.length > EDGE_WARM + 2 && !(options && options.edge === false)) {
+      const known = edge(history, { live: liveBar(history, !!(options && options.crypto)) });
+      if (known && known.ready) {
+        ctx.save();
+        ctx.strokeStyle = "#e2b15a";
+        ctx.lineWidth = 1.25;
+        let drawing = false;
+        known.trail.slice(dropped).forEach((value, index) => {
+          if (value == null) {
+            if (drawing) ctx.stroke();
+            drawing = false;
+            return;
+          }
+          if (!drawing) {
+            ctx.beginPath();
+            ctx.moveTo(xAt(index) - slot / 2, y(value));
+            drawing = true;
+          } else ctx.lineTo(xAt(index) - slot / 2, y(value));
+          ctx.lineTo(xAt(index) + slot / 2, y(value));
+        });
+        if (drawing) ctx.stroke();
+        known.marks.forEach((mark) => {
+          const index = mark.index - dropped;
+          if (index < 0 || index >= bars.length) return;
+          ctx.fillStyle = mark.side === "buy" ? "#3ddc97" : "#ff6b7a";
+          ctx.strokeStyle = "#07090b";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(xAt(index), y(mark.price), Math.max(3, Math.min(4.5, slot * 0.6)), 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        });
+        ctx.restore();
+      }
+    }
+    if (canvas.paperPick) {
+      const at = bars.findIndex((bar) => bar.date === canvas.paperPick);
+      if (at >= 0) {
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = "#cfd8e3";
+        ctx.beginPath();
+        ctx.moveTo(xAt(at), padTop);
+        ctx.lineTo(xAt(at), priceBottom);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
     ctx.fillStyle = "#93a0ad";
     if (height >= 150) {
@@ -1255,6 +1304,8 @@
       call,
       score: settled >= 0 ? score[settled] : null,
       parts: settled >= 0 ? parts[settled] : null,
+      scores: score,
+      allParts: parts,
       live,
       filled: filledToday ? { side: filledToday.side, price: filledToday.price } : null,
       signalDate: settled >= 0 ? list[settled].date : null,
@@ -1846,8 +1897,155 @@
     return { ready: total >= 60, label, score, coverage: total, parts, missing, asOf: dated ? dated[dated.length - 1].date : "" };
   }
 
+  const EDGE_NAMES = { dots: "5+ squeeze dots", above: "squeeze momentum above 0", rising: "squeeze momentum rising", tmo: "true momentum above signal", band: "under the upper Bollinger band" };
+
+  function plainPrice(value) {
+    if (value == null || !Number.isFinite(Number(value))) return "—";
+    const number = Number(value);
+    return number.toLocaleString("en-US", { minimumFractionDigits: number >= 100 ? 2 : number >= 1 ? 2 : 4, maximumFractionDigits: number >= 100 ? 2 : number >= 1 ? 3 : 6 });
+  }
+
+  function describeBar(bars, index, options) {
+    const list = bars || [];
+    if (index < 0 || index >= list.length) return null;
+    const format = (options && options.format) || plainPrice;
+    const bar = list[index];
+    const prev = index > 0 ? list[index - 1] : null;
+    const rows = [
+      ["Open", format(bar.open)],
+      ["High", format(bar.high)],
+      ["Low", format(bar.low)],
+      ["Close", format(bar.close)],
+    ];
+    if (prev && prev.close > 0) {
+      const change = (bar.close / prev.close - 1) * 100;
+      rows.push(["Change", (change >= 0 ? "+" : "") + change.toFixed(2) + "% vs the bar before"]);
+    }
+    if (bar.low > 0) rows.push(["Range", (((bar.high - bar.low) / bar.low) * 100).toFixed(2) + "% high to low"]);
+    if (bar.volume > 0) rows.push(["Volume", Math.round(bar.volume).toLocaleString("en-US")]);
+    let edgeNote = "";
+    if (options && options.edge !== false && list.length > EDGE_WARM + 2) {
+      const known = edge(list, { live: liveBar(list, !!(options && options.crypto)) });
+      const got = known && known.scores ? known.scores[index] : null;
+      if (got != null) {
+        const parts = known.allParts[index] || {};
+        const missing = Object.keys(EDGE_NAMES).filter((key) => !parts[key]).map((key) => EDGE_NAMES[key]);
+        edgeNote = "Edge on this bar: " + got + " of " + EDGE_SCORE + (missing.length ? ". Missing: " + missing.join(", ") + "." : ". All checks on.");
+      } else if (index >= list.length - 1 && liveBar(list, !!(options && options.crypto))) {
+        edgeNote = "This bar is still forming. Edge reads closed bars only.";
+      }
+    }
+    return { title: (options && options.title ? options.title + " · " : "") + bar.date, rows, edgeNote, up: bar.close >= bar.open };
+  }
+
+  function hideTip(doc) {
+    const node = doc && doc.getElementById("paper-tip");
+    if (node) node.remove();
+  }
+
+  function showTip(doc, clientX, clientY, info) {
+    if (!doc || !info) return null;
+    hideTip(doc);
+    const view = doc.defaultView || root;
+    const box = doc.createElement("div");
+    box.id = "paper-tip";
+    box.setAttribute("role", "status");
+    box.style.cssText = "position:fixed;z-index:60;min-width:210px;max-width:300px;background:#101822;color:#e8eef7;border:2px solid " + (info.up ? "#3ddc97" : "#ff6b7a") + ";border-radius:10px;padding:8px 10px;font:13px Segoe UI,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.55)";
+    const head = doc.createElement("div");
+    head.style.cssText = "display:flex;justify-content:space-between;gap:10px;font-weight:700;margin-bottom:4px";
+    const title = doc.createElement("span");
+    title.textContent = info.title;
+    const close = doc.createElement("button");
+    close.type = "button";
+    close.textContent = "×";
+    close.setAttribute("aria-label", "Close price box");
+    close.style.cssText = "background:none;border:0;color:#9fb0c6;font-size:16px;line-height:1;cursor:pointer;padding:0 2px";
+    close.addEventListener("click", (event) => {
+      event.stopPropagation();
+      hideTip(doc);
+    });
+    head.append(title, close);
+    box.appendChild(head);
+    info.rows.forEach(([name, value]) => {
+      const line = doc.createElement("div");
+      line.style.cssText = "display:flex;justify-content:space-between;gap:12px";
+      const left = doc.createElement("span");
+      left.style.color = "#9fb0c6";
+      left.textContent = name;
+      const right = doc.createElement("span");
+      right.textContent = value;
+      line.append(left, right);
+      box.appendChild(line);
+    });
+    if (info.edgeNote) {
+      const note = doc.createElement("div");
+      note.style.cssText = "margin-top:6px;color:#e2b15a;font-size:12px";
+      note.textContent = info.edgeNote;
+      box.appendChild(note);
+    }
+    doc.body.appendChild(box);
+    const width = box.offsetWidth;
+    const height = box.offsetHeight;
+    const maxX = (view.innerWidth || 800) - width - 8;
+    const left = Math.max(8, Math.min(maxX, clientX + 14));
+    let top = clientY - height - 14;
+    if (top < 8) top = Math.min((view.innerHeight || 600) - height - 8, clientY + 18);
+    box.style.left = left + "px";
+    box.style.top = Math.max(8, top) + "px";
+    return box;
+  }
+
+  function pickBar(canvas, event, map, options) {
+    const target = map || canvas.paperMap;
+    if (!target || !target.bars || !target.bars.length) return null;
+    const rect = canvas.getBoundingClientRect();
+    const cssWidth = canvas.clientWidth || rect.width || 1;
+    const point = event.clientX != null ? event.clientX : 0;
+    const x = ((point - rect.left) / (rect.width || cssWidth)) * (canvas.paperWidth || cssWidth);
+    const index = barIndexAt(target.pad, target.slot, target.bars.length, x);
+    if (index < 0) return null;
+    const info = describeBar(target.bars, index, { ...(options || {}), crypto: target.crypto, title: (options && options.title) || target.label || target.symbol });
+    if (!info) return null;
+    canvas.paperPick = target.bars[index].date;
+    showTip(canvas.ownerDocument, event.clientX, event.clientY, info);
+    return { index, bar: target.bars[index], info };
+  }
+
+  function attachPick(canvas, redraw, options) {
+    if (!canvas || canvas.paperPickBound) return;
+    canvas.paperPickBound = true;
+    canvas.style.cursor = "crosshair";
+    canvas.addEventListener("click", (event) => {
+      if (pickBar(canvas, event, null, options) && redraw) redraw();
+    });
+    const doc = canvas.ownerDocument;
+    doc.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        hideTip(doc);
+        canvas.paperPick = "";
+        if (redraw) redraw();
+      }
+    });
+  }
+
+  function edgeLine(bars, crypto) {
+    const list = bars || [];
+    if (list.length <= EDGE_WARM + 2) return "Edge needs at least " + (EDGE_WARM + 2) + " bars.";
+    const known = edge(list, { live: liveBar(list, !!crypto) });
+    if (!known || !known.ready) return "Edge needs more bars.";
+    const stop = known.stop != null ? " · stop " + plainPrice(known.stop) : "";
+    return "Edge " + known.call + " · " + (known.score == null ? "—" : known.score + " of " + EDGE_SCORE) + stop + " · " + known.record.trades + " past trades, " + (known.record.trades ? Math.round(known.record.winRate * 100) + "% won" : "none yet");
+  }
+
   root.PaperFrames = {
     edge,
+    describeBar,
+    showTip,
+    hideTip,
+    pickBar,
+    attachPick,
+    edgeLine,
+    plainPrice,
     internals,
     INTERNAL_SYMBOLS,
     squeezeRead,

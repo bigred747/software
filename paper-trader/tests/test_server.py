@@ -515,6 +515,21 @@ class ServerTests(unittest.TestCase):
         self.assertIn("answerAuto", script)
         self.assertNotIn('paperCall("/api/paper/trade", { source: "auto" })', script)
 
+    def test_edge_on_every_timeframe_and_the_price_box_are_wired(self) -> None:
+        web = Path(__file__).resolve().parents[1] / "web"
+        page = (web / "index.html").read_text(encoding="utf-8")
+        script = (web / "app.js").read_text(encoding="utf-8")
+        frames = (web / "frames.js").read_text(encoding="utf-8")
+        popup = (web / "frame.js").read_text(encoding="utf-8")
+        for name in ("edge-frames", "edge-frames-line", "edge-frames-body", "edge-frames-refresh", "edge-frames-note"):
+            self.assertIn(f'id="{name}"', page)
+        for word in ("loadEdgeFrames", "renderEdgeFrames", "showChartTip", "state.tmoMap", "attachPick"):
+            self.assertIn(word, script)
+        for word in ("function describeBar", "function showTip", "function attachPick", "function edgeLine", "paperPick"):
+            self.assertIn(word, frames)
+        self.assertIn("attachPick", popup)
+        self.assertIn("edgeLine", popup)
+
     def test_only_this_computer_can_reach_the_desk(self) -> None:
         from paper_trader.server import _local_client, _local_origin
 
@@ -687,7 +702,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.40", script)
+        self.assertIn(b"1.9.41", script)
         self.assertIn(b"drawPriceLine", script)
         self.assertIn(b'id="edge-call"', page)
         self.assertIn(b"It is not a forecast.", page)

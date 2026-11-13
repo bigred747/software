@@ -95,6 +95,12 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Edge on every timeframe and the price box (1.9.41)
+
+**Edge reads all ten timeframes.** Under the Edge box, a row of chips shows Edge's call on 1m, 5m, 15m, 30m, 1h, 4h, daily, weekly, monthly, and quarterly, each read from that timeframe's own closed bars. The Timeframes tab has the same list as a table with checks, stop, past trades, win rate, and result. Click a row to put that timeframe in the preview. A timeframe with fewer than 52 bars shows a dash instead of a guess. The summary line says how many timeframes are buying or holding, selling, or waiting. The second-warning window lists that count as a line-up item. Auto and the strategies still read the daily bars only. The preview and every timeframe window also draw the Edge stop line and Edge buy and sell dots, and say Edge's current call.
+
+**Price box.** Click any candle on the main chart, the lower study, the Timeframes preview, or any timeframe window and a box shows the date and time, open, high, low, close, change from the bar before, range, volume, and how many of Edge's five checks were on for that bar and which were missing. A dashed line marks the bar. Close the box with the x or Escape.
+
 ## Second warning and strategy testing (1.9.40)
 
 **Every buy and sell asks twice.** Pressing Trade, Send on the ticket, Sell all, or arming an opening-bar order opens a window that says what will happen, the market, the latest quote, your paper cash and shares, who started it, and a line-up list: Paper only, Safe check, Circuit breaker (buys), Internals (buys), and whether the chosen strategy agrees. A STOP line (paper is off, the Safe check failed, the breaker is on) disables the Yes button. No is the default, and Escape or a click outside also cancels. The desk itself refuses a buy or sell that does not carry the confirmation, so nothing, not even a script, can trade without it.

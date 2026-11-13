@@ -62,7 +62,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.40";
+const VERSION = "1.9.41";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -1213,6 +1213,7 @@ function render(paper) {
   fillTrades($("journal-body"), paper.trades || []);
   renderResult(paper);
   renderEdge();
+  scheduleEdgeFrames();
   renderBook(paper);
   renderStrategies();
   renderPins();
@@ -1579,7 +1580,12 @@ function renderFrames() {
   }
   }
   const previewRow = rows.find((row) => row.id === selectedId) || rows[0];
-  PaperFrames.draw($("frame-preview"), previewRow ? previewRow.bars : [], state.previewZoom);
+  const previewBars = previewRow ? ((previewRow.bars && previewRow.bars.length) ? previewRow.bars : (state.ef.bars[previewRow.id] || [])) : [];
+  const previewCanvas = $("frame-preview");
+  const symbolNow = (state.paper && state.paper.symbol) || "";
+  const paintPreview = () => PaperFrames.draw(previewCanvas, previewBars, state.previewZoom, { crypto: chartCrypto(), symbol: symbolNow, label: symbolNow + " · " + (previewRow ? previewRow.label : "") });
+  paintPreview();
+  PaperFrames.attachPick(previewCanvas, () => renderFrames(), {});
   paintZoom(seenBars().length);
 }
 
@@ -1602,16 +1608,20 @@ function writeOfflineFrame(win, frameId) {
   const row = (state.frames || []).find((item) => item.id === frame.id);
   const bars = row ? row.bars : [];
   const heading = (state.paper.symbol || "Sample") + " · " + frame.label;
+  const cryptoNow = chartCrypto();
   const tone = bars.length ? PaperFrames.mood(bars) : null;
   const moodLine = tone && tone.score != null ? " " + tone.label + " " + tone.score + "." : "";
   win.document.open();
   const quoteLine = bars.length ? "Market quote." : "Loading the market quote.";
-  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px 0\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + moodLine + "</p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
+  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px 0\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + moodLine + (bars.length ? " " + PaperFrames.edgeLine(bars, cryptoNow) + ". Click any candle for its price box." : "") + "</p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
   win.document.close();
   let zoomStop = PaperFrames.DEFAULT_ZOOM;
   const paint = () => {
     const canvas = win.document.getElementById("c");
-    if (canvas) PaperFrames.draw(canvas, bars, zoomStop);
+    if (canvas) {
+      PaperFrames.draw(canvas, bars, zoomStop, { crypto: cryptoNow, symbol: state.paper.symbol || "", label: heading });
+      PaperFrames.attachPick(canvas, paint, {});
+    }
     const view = PaperFrames.zoomBars(bars, zoomStop);
     const label = win.document.getElementById("label");
     const inn = win.document.getElementById("in");
@@ -1699,7 +1709,7 @@ async function paintPhoneFrame(win, frameId) {
     if (match) match.bars = bars;
     writeOfflineFrame(win, frameId);
     const note = win.document.getElementById("note");
-    if (note) note.textContent = state.paper.symbol + " · " + PaperFrames.frameById(frameId).label + ". Market quote · " + bars.length + " bars.";
+    if (note) note.textContent = state.paper.symbol + " · " + PaperFrames.frameById(frameId).label + ". Market quote · " + bars.length + " bars. " + PaperFrames.edgeLine(bars, chartCrypto()) + ". Click any candle for its price box.";
   } catch (error) {
     if (win && !win.closed) {
       const note = win.document.getElementById("note");
@@ -2112,6 +2122,11 @@ function lineUp(side, symbol, source, row) {
     const held = internalsGate(symbol);
     const read = state.int && state.int.result;
     add("Internals", !held, held || (read && read.ready ? read.label + " (" + read.score + ")" : "Not read yet"), false);
+  }
+  const agree = edgeFramesSummary();
+  if (agree.total) {
+    const want = side === "buy" ? agree.long : agree.short;
+    add("Timeframes", want * 2 >= agree.total, "Edge: " + agree.text, false);
   }
   const board = state.board;
   const picked = row || (board && board.rows.find((item) => item.id === state.strat.pick)) || null;
@@ -2968,6 +2983,136 @@ function internalsGate(symbol) {
   return "Internals are Defensive (" + result.score + "), so new buys are held back.";
 }
 
+
+state.ef = { symbol: "", at: 0, busy: false, rows: {}, bars: {}, token: 0 };
+
+async function fetchFrameBars(symbol, frameId) {
+  const row = (state.frames || []).find((item) => item.id === frameId);
+  if (frameId === "1D" && row && row.bars && row.bars.length) return row.bars;
+  if (state.offline) {
+    const entry = state.catalog.find((item) => item.symbol === symbol);
+    return PaperLive.frame(symbol, entry ? entry.category : "", frameId);
+  }
+  return (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=" + encodeURIComponent(frameId))).bars || [];
+}
+
+async function loadEdgeFrames(force) {
+  const ef = state.ef;
+  const symbol = state.paper && state.paper.symbol;
+  if (!symbol || ef.busy || !state.market || typeof PaperFrames === "undefined") return;
+  if (!force && ef.symbol === symbol && Date.now() - ef.at < 300000) return;
+  const token = ef.token + 1;
+  Object.assign(ef, { busy: true, symbol, rows: {}, bars: {}, token });
+  $("edge-frames-note").textContent = "Reading Edge on every timeframe…";
+  const crypto = chartCrypto();
+  const frames = PaperFrames.FRAMES.slice();
+  let next = 0;
+  const worker = async () => {
+    while (next < frames.length && ef.token === token) {
+      const frame = frames[next];
+      next += 1;
+      try {
+        const bars = await fetchFrameBars(symbol, frame.id);
+        const read = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+        ef.bars[frame.id] = bars;
+        const last = bars.length ? bars[bars.length - 1].close : null;
+        ef.rows[frame.id] = read && read.ready
+          ? { id: frame.id, label: frame.label, short: frame.short, ready: true, call: read.call, score: read.score, stop: read.stop, record: read.record, count: bars.length, last }
+          : { id: frame.id, label: frame.label, short: frame.short, ready: false, why: bars.length ? "Only " + bars.length + " bars. Edge needs 52." : "No bars", count: bars.length };
+      } catch (error) {
+        ef.rows[frame.id] = { id: frame.id, label: frame.label, short: frame.short, ready: false, why: error.message || "No bars" };
+      }
+      if (ef.token === token) renderEdgeFrames();
+    }
+  };
+  try {
+    await Promise.all([worker(), worker(), worker()]);
+  } finally {
+    if (ef.token === token) {
+      ef.busy = false;
+      ef.at = Date.now();
+      renderEdgeFrames();
+      renderFrames();
+    }
+  }
+}
+
+function edgeFramesSummary() {
+  const rows = PaperFrames.FRAMES.map((frame) => state.ef.rows[frame.id]).filter((row) => row && row.ready);
+  if (!rows.length) return { text: "", long: 0, short: 0, wait: 0, total: 0 };
+  const long = rows.filter((row) => row.call === "BUY" || row.call === "HOLD").length;
+  const short = rows.filter((row) => row.call === "SELL").length;
+  const wait = rows.length - long - short;
+  return { long, short, wait, total: rows.length, text: long + " of " + rows.length + " timeframes are buying or holding, " + short + " selling, " + wait + " waiting." };
+}
+
+function renderEdgeFrames() {
+  const chips = $("edge-frames");
+  const body = $("edge-frames-body");
+  if (!chips || !body) return;
+  const ef = state.ef;
+  chips.replaceChildren();
+  body.replaceChildren();
+  PaperFrames.FRAMES.forEach((frame) => {
+    const row = ef.rows[frame.id];
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = row && row.ready ? row.call.toLowerCase() : "wait";
+    button.textContent = frame.short + " " + (row ? (row.ready ? row.call : "—") : "…");
+    button.title = row ? (row.ready ? frame.label + ": Edge " + row.call + ", " + row.score + " of 5" : frame.label + ": " + row.why) : frame.label + ": reading";
+    button.addEventListener("click", () => {
+      state.frameId = frame.id;
+      renderFrames();
+      showDock("frames");
+    });
+    chips.appendChild(button);
+    const tr = document.createElement("tr");
+    tr.className = "pickable" + (frame.id === (state.frameId || "1D") ? " picked" : "");
+    tr.tabIndex = 0;
+    tr.setAttribute("role", "button");
+    tr.setAttribute("aria-label", "Show " + frame.label + " in the preview");
+    if (row && row.ready) {
+      addCells(tr, [frame.label, "", row.score + " of 5", row.stop != null ? formatPrice(row.stop) : "—", String(row.record.trades), row.record.trades ? Math.round(row.record.winRate * 100) + "%" : "—", { text: signedPercent(row.record.total), cls: row.record.total > 0 ? "up" : row.record.total < 0 ? "down" : "" }]);
+      const pill = document.createElement("span");
+      pill.className = "call-pill " + row.call.toLowerCase();
+      pill.textContent = row.call;
+      tr.children[1].appendChild(pill);
+    } else {
+      addCells(tr, [frame.label, row ? "—" : "…", "", "", "", "", row ? row.why : "Reading"]);
+    }
+    const choose = () => {
+      state.frameId = frame.id;
+      renderFrames();
+      renderEdgeFrames();
+    };
+    tr.addEventListener("click", choose);
+    tr.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        choose();
+      }
+    });
+    body.appendChild(tr);
+  });
+  const summary = edgeFramesSummary();
+  $("edge-frames-line").textContent = summary.text;
+  if (!ef.busy) {
+    const when = ef.at ? new Date(ef.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" }) : "";
+    $("edge-frames-note").textContent = summary.total
+      ? summary.text + " Read at " + when + " Denver for " + ef.symbol + ". Auto and the strategies still read the daily bars only. Click a row for its preview, then click any candle for its price box."
+      : "Edge reads the closed bars of each timeframe on its own. Press Read all timeframes now.";
+  }
+}
+
+let edgeFramesTimer = 0;
+function scheduleEdgeFrames() {
+  if (edgeFramesTimer || document.hidden) return;
+  edgeFramesTimer = setTimeout(() => {
+    edgeFramesTimer = 0;
+    loadEdgeFrames(false).catch(() => {});
+  }, 1500);
+}
+
 function renderEdge() {
   const box = $("edge");
   if (!box) return;
@@ -3540,6 +3685,7 @@ function drawTmo() {
   const y = (value) => 10 + ((limit - value) / (limit * 2)) * (height - 18);
   const slot = (width - pad - rightGap) / Math.max(1, main.length);
   const plotRight = width - rightGap;
+  state.tmoMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.fillStyle = "rgba(255, 107, 122, 0.16)";
   ctx.fillRect(pad, y(limit), plotRight - pad, Math.max(1, y(study.ob) - y(limit)));
   ctx.fillStyle = "rgba(61, 220, 151, 0.16)";
@@ -4000,6 +4146,7 @@ $("strat-board").addEventListener("keydown", (event) => {
   }
 });
 $("strat-sweep").addEventListener("click", sweepStrategy);
+$("edge-frames-refresh").addEventListener("click", () => loadEdgeFrames(true));
 $("cm-yes").addEventListener("click", () => closeConfirm(true));
 $("cm-no").addEventListener("click", () => closeConfirm(false));
 $("confirm-modal").addEventListener("click", (event) => {
@@ -4086,7 +4233,30 @@ $("candles").addEventListener("click", (event) => {
   state.ruler = { date: bar.date };
   showChart();
   showRead((map.symbol || "Chart") + " · " + bar.date + " · Open " + formatPrice(bar.open) + " · High " + formatPrice(bar.high) + " · Low " + formatPrice(bar.low) + " · Close " + formatPrice(bar.close));
+  showChartTip(event, map, index < 0 ? 0 : index);
   drawCandles();
+});
+
+function showChartTip(event, map, index) {
+  const history = seenBars();
+  const view = PaperFrames.zoomBars(history, state.zoom);
+  const info = PaperFrames.describeBar(history, view.start + index, { format: formatPrice, crypto: chartCrypto(), title: (map.symbol || "Chart") + " · 1D" });
+  PaperFrames.showTip(document, event.clientX, event.clientY, info);
+}
+
+$("rsi-chart").addEventListener("click", (event) => {
+  const map = state.tmoMap;
+  const canvas = $("rsi-chart");
+  if (!map || !map.bars.length) return;
+  const index = PaperFrames.barIndexAt(map.pad, map.slot, map.bars.length, canvasX(event, canvas));
+  const bar = map.bars[index < 0 ? 0 : index];
+  state.ruler = { date: bar.date };
+  showChartTip(event, map, index < 0 ? 0 : index);
+  drawCandles();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !confirmWait) PaperFrames.hideTip(document);
 });
 
 const scanToggle = $("scan-toggle");

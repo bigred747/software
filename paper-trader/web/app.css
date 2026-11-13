@@ -678,3 +678,11 @@ tr.picked td:first-child{box-shadow:inset 3px 0 0 #6ea8ff;font-weight:700}
 .modal-buttons button{min-width:130px;padding:10px 14px}
 #cm-checks li.stop::before{content:"STOP  ";font-weight:700;color:#ff6b7a}
 #cm-yes:disabled{opacity:.4;cursor:not-allowed}
+
+.edge-frames{margin-top:8px}
+.edge-chips{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.edge-chips button{padding:3px 8px;font-size:12px;border-radius:999px;border:1px solid #3a4655;background:#161e29;color:#e8eef7;cursor:pointer}
+.edge-chips button.buy{border-color:#3ddc97;color:#3ddc97}
+.edge-chips button.hold{border-color:#6ea8ff;color:#6ea8ff}
+.edge-chips button.sell{border-color:#ff6b7a;color:#ff6b7a}
+.edge-chips button.wait{color:#9fb0c6}

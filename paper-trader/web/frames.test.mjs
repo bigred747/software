@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -407,4 +407,38 @@ test("internals roll real gauges into a label and never guess a missing one", ()
   assert.equal(partial.label, "Unknown");
   assert.ok(partial.missing.includes("Fear gauge (VIX)"));
   assert.equal(internals({}).ready, false);
+});
+
+function intraday(count, seed, minutes) {
+  const daily = walk(count, seed, 0.0004);
+  return daily.map((bar, index) => {
+    const at = new Date(Date.UTC(2026, 9, 1, 13, 30) + index * minutes * 60000);
+    const label = at.toISOString().slice(0, 16).replace("T", " ");
+    return { ...bar, date: label };
+  });
+}
+
+test("Edge reads every timeframe's own bars, daily or intraday", () => {
+  ["1m", "5m", "15m", "30m", "1h", "4h"].forEach((id, index) => {
+    const bars = intraday(400, 3 + index, [1, 5, 15, 30, 60, 240][index]);
+    const read = JSON.parse(JSON.stringify(edge(bars, { live: false })));
+    assert.equal(read.ready, true, id);
+    assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(read.call), id);
+    assert.equal(read.scores.length, bars.length);
+    assert.match(edgeLine(bars, false), /^Edge (BUY|SELL|HOLD|WAIT)/);
+  });
+  const few = intraday(30, 9, 5);
+  assert.match(edgeLine(few, false), /needs at least/);
+});
+
+test("the price box lists open, high, low, close, change and the Edge checks for that bar", () => {
+  const bars = intraday(300, 21, 15);
+  const info = describeBar(bars, 200, { crypto: true });
+  assert.equal(info.rows.slice(0, 4).map((row) => row[0]).join(","), "Open,High,Low,Close");
+  assert.ok(info.rows.some((row) => row[0] === "Change"));
+  assert.equal(info.title, bars[200].date);
+  assert.match(info.edgeNote, /^Edge on this bar: [0-5] of 5/);
+  assert.equal(describeBar(bars, -1, {}), null);
+  assert.equal(describeBar(bars, 300, {}), null);
+  assert.equal(describeBar(bars, 0, { crypto: true }).rows.some((row) => row[0] === "Change"), false);
 });
