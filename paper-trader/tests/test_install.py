@@ -15,9 +15,8 @@ from paper_trader.install import (
     find_installs,
     install_newest,
     is_install,
-    keep_only_running,
-    running_desk_pids,
-    stop_open_desks,
+    other_copies,
+    remove_desktop_opener,
     write_desktop_opener,
 )
 
@@ -34,7 +33,7 @@ def make_install(folder: Path, version: str, marker: str = "") -> None:
 
 
 class InstallTests(unittest.TestCase):
-    def test_newest_copy_replaces_older_copies_and_leaves_other_files(self) -> None:
+    def test_newest_copy_goes_to_documents_and_other_folders_stay(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder)
             old = home / "Downloads" / "paper-trader"
@@ -49,10 +48,10 @@ class InstallTests(unittest.TestCase):
             self.assertEqual(dest, canonical_folder(home).resolve())
             self.assertEqual(action, "remove-source")
             self.assertTrue(is_install(dest))
-            self.assertFalse(old.exists())
+            self.assertTrue(is_install(old))
             self.assertTrue(source.exists())
             self.assertEqual((notes / "keep.txt").read_text(encoding="utf-8"), "leave this\n")
-            self.assertEqual(set(find_installs(home)), {dest, source.resolve()})
+            self.assertEqual(set(find_installs(home)), {dest, source.resolve(), old.resolve()})
 
     def test_older_launch_does_not_replace_the_newest_copy(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -79,24 +78,7 @@ class InstallTests(unittest.TestCase):
             self.assertTrue((documents / "Start-Paper-Trader.bat").is_file())
             self.assertTrue(is_install(dest))
 
-    def test_only_the_open_paper_trader_is_closed(self) -> None:
-        home = Path(r"C:\Users\rick")
-        images = [
-            (10, r"C:\Users\rick\Documents\paper-trader\runtime\python.exe"),
-            (11, r"C:\Users\rick\AppData\Local\Programs\Python\Python314\python.exe"),
-            (12, r"C:\Users\rick\Documents\Paper Trader\runtime\python.exe"),
-        ]
-        killed: list[int] = []
-        stopped = stop_open_desks(home, images, killed.append)
-        self.assertEqual(stopped, [10, 12])
-        self.assertEqual(killed, [10, 12])
-        self.assertEqual(running_desk_pids([(4, r"C:\Other\python.exe")], [home / "Documents" / "paper-trader"]), [])
-
-    def test_install_does_not_walk_every_python_process(self) -> None:
-        with tempfile.TemporaryDirectory() as folder:
-            self.assertEqual(stop_open_desks(Path(folder)), [])
-
-    def test_the_open_newest_copy_removes_the_other_one(self) -> None:
+    def test_other_copies_are_listed_and_never_deleted(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder)
             setup = home / "Documents" / "PaperTrader-setup" / "paper-trader"
@@ -106,23 +88,26 @@ class InstallTests(unittest.TestCase):
             make_install(dest, "1.9.18")
             notes.mkdir()
             (notes / "keep.txt").write_text("leave\n", encoding="utf-8")
-            removed = keep_only_running(home, dest)
-            self.assertEqual(removed, [setup.resolve()])
-            self.assertFalse((home / "Documents" / "PaperTrader-setup").exists())
+            self.assertEqual(other_copies(home, dest), [setup.resolve()])
+            self.assertEqual(other_copies(home, setup), [dest.resolve()])
+            self.assertTrue(is_install(setup))
             self.assertTrue(is_install(dest))
             self.assertEqual((notes / "keep.txt").read_text(encoding="utf-8"), "leave\n")
-            self.assertEqual(find_installs(home), [dest.resolve()])
 
-    def test_an_older_open_copy_leaves_the_newer_one_in_place(self) -> None:
+    def test_installing_never_ends_programs_or_deletes_other_folders(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder)
-            setup = home / "Documents" / "PaperTrader-setup" / "paper-trader"
-            dest = canonical_folder(home)
-            make_install(setup, "1.9.17")
-            make_install(dest, "1.9.18")
-            self.assertEqual(keep_only_running(home, setup), [])
-            self.assertTrue(is_install(dest))
-            self.assertTrue(is_install(setup))
+            source = home / "Downloads" / "paper-trader"
+            old = home / "Documents" / "paper-trader"
+            make_install(source, "1.9.99")
+            make_install(old, "1.0.0")
+            with patch("subprocess.Popen") as popen, patch("subprocess.run") as run, patch("os.kill") as kill:
+                install_newest(source, home)
+            popen.assert_not_called()
+            run.assert_not_called()
+            kill.assert_not_called()
+            self.assertTrue(is_install(source))
+            self.assertTrue(is_install(old))
 
     def test_desktop_opener_is_a_plain_file_on_each_desktop(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -154,3 +139,17 @@ class InstallTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_desktop_opener_can_be_removed_and_only_ours(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            dest = canonical_folder(home)
+            make_install(dest, "1.9.18")
+            (dest / "2 Open Paper Trader.bat").write_text("@echo off\r\n", encoding="utf-8")
+            (home / "Desktop").mkdir()
+            write_desktop_opener(dest, home)
+            self.assertEqual(len(remove_desktop_opener(home)), 1)
+            self.assertFalse((home / "Desktop" / "Paper Trader.bat").exists())
+            (home / "Desktop" / "Paper Trader.bat").write_text("someone else's file\n", encoding="utf-8")
+            self.assertEqual(remove_desktop_opener(home), [])
+            self.assertTrue((home / "Desktop" / "Paper Trader.bat").exists())

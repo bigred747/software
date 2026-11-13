@@ -2380,10 +2380,41 @@ async function phoneSafe() {
   return { safe: items.filter((item) => item.kind === "safety").every((item) => item.ok), items };
 }
 
+async function loadWindows() {
+  const box = $("win-box");
+  if (!box || state.offline) return;
+  try {
+    const view = await getJSON("/api/windows");
+    box.hidden = !view.windows;
+    $("win-startup").checked = !!view.startup;
+    $("win-desktop").checked = !!view.desktop;
+  } catch (error) {
+    box.hidden = true;
+  }
+}
+
+async function setWindows(key, input) {
+  try {
+    const view = await postJSON("/api/windows", { [key]: input.checked });
+    $("win-startup").checked = !!view.startup;
+    $("win-desktop").checked = !!view.desktop;
+    $("win-note").textContent = key === "startup"
+      ? (view.startup ? "The score will start when you sign in. Untick to remove it." : "Sign-in start removed.")
+      : (view.desktop ? "Paper Trader.bat is on your Desktop. Untick to remove it." : "Desktop file removed.");
+  } catch (error) {
+    input.checked = !input.checked;
+    $("win-note").textContent = error.message;
+  }
+}
+
 async function runSafe(manual) {
   const button = $("safe");
   if (!button || state.safeBusy) return;
   state.safeBusy = true;
+  if (!state.winLoaded && !state.offline) {
+    state.winLoaded = true;
+    loadWindows();
+  }
   try {
     const report = state.offline ? await phoneSafe() : await getJSON("/api/safe");
     report.items.push({ name: "Internals", ok: !!(state.int.result && state.int.result.ready), detail: state.int.result ? internalsLine() : "Not read yet", kind: "health" });
@@ -3652,6 +3683,8 @@ $("cancel-all").addEventListener("click", () => withBusy(async () => {
 }));
 
 $("safe").addEventListener("click", () => runSafe(true));
+$("win-startup").addEventListener("change", (event) => setWindows("startup", event.target));
+$("win-desktop").addEventListener("change", (event) => setWindows("desktop", event.target));
 $("int-refresh").addEventListener("click", () => loadInternals(true));
 $("internals-pill").addEventListener("click", () => showDock("internals"));
 $("int-gate").addEventListener("change", () => {

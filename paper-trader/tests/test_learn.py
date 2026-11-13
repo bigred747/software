@@ -33,6 +33,8 @@ from paper_trader.learn import (
     scan_note,
     scan_report,
     startup_script,
+    remove_startup,
+    startup_present,
     stop_learner,
     write_startup,
 )
@@ -175,16 +177,34 @@ class AlwaysOnTests(unittest.TestCase):
             finally:
                 started.release()
 
-    def test_stop_learner_ends_only_the_recorded_process(self) -> None:
+    def test_stop_learner_asks_and_never_kills_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "learn_state.json"
-            killed: list[int] = []
-            with patch("paper_trader.learn.lock_holder", side_effect=[4242, None]):
-                self.assertEqual(stop_learner(path, killer=killed.append), 4242)
-            self.assertEqual(killed, [4242])
+            with patch("paper_trader.learn.lock_holder", side_effect=[4242, None]), patch("os.kill") as kill:
+                self.assertEqual(stop_learner(path), 4242)
+            kill.assert_not_called()
+            self.assertFalse((Path(folder) / "learn_stop.flag").exists())
             with patch("paper_trader.learn.lock_holder", return_value=os.getpid()):
-                self.assertIsNone(stop_learner(path, killer=killed.append))
-            self.assertEqual(killed, [4242])
+                self.assertIsNone(stop_learner(path))
+
+    def test_the_scorer_closes_itself_when_asked(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            watcher = Watcher(Path(folder) / "learn_state.json")
+            (Path(folder) / "learn_stop.flag").write_text("close\n", encoding="utf-8")
+            self.assertTrue(watcher._nap(5))
+
+    def test_sign_in_file_is_only_written_on_request_and_can_be_removed(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            startup = Path(folder) / "Startup"
+            root = Path(folder) / "app"
+            root.mkdir()
+            with patch("paper_trader.learn.startup_folder", return_value=startup):
+                ensure_learner(root, root / "learn_state.json", spawn=lambda: None, wait=0)
+                self.assertFalse(startup.exists())
+            self.assertIsNotNone(write_startup(root, startup))
+            self.assertTrue(startup_present(startup))
+            self.assertTrue(remove_startup(startup))
+            self.assertFalse(startup_present(startup))
 
     def test_sign_in_script_only_starts_the_score(self) -> None:
         python = Path(r"C:\Users\rick\Documents\Paper Trader\runtime\python.exe")

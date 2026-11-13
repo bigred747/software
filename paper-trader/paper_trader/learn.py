@@ -4,8 +4,8 @@ The score uses bars that have already printed. It is not a forecast.
 The last bar never receives an arrow. Orders stay on the paper account.
 
 The scorer is its own process. Closing the desk window does not stop it.
-On Windows it starts again each time you sign in, and it keeps going while
-the computer is on and you are signed in.
+It keeps going while the computer is on and you are signed in. Starting it
+at sign-in is optional and is turned on from the desk, never automatically.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import signal
 import subprocess
 import sys
 import threading
@@ -550,6 +549,29 @@ def write_startup(root: Path, folder: Path | None = None) -> Path | None:
     return path
 
 
+STARTUP_NAME = "Paper Trader Learn.bat"
+
+
+def startup_present(folder: Path | None = None) -> bool:
+    destination = folder if folder is not None else startup_folder()
+    return destination is not None and (destination / STARTUP_NAME).is_file()
+
+
+def remove_startup(folder: Path | None = None) -> bool:
+    """Remove only the sign-in file this program wrote."""
+    destination = folder if folder is not None else startup_folder()
+    if destination is None:
+        return False
+    path = destination / STARTUP_NAME
+    try:
+        if path.is_file() and "Paper Trader Learn" in path.read_text(encoding="utf-8", errors="ignore"):
+            path.unlink()
+            return True
+    except OSError:
+        return False
+    return False
+
+
 def read_watch(path: Path) -> tuple[str, tuple[str, ...] | None]:
     if not path.is_file():
         return "", None
@@ -748,31 +770,37 @@ def book_view(state_path: Path, *, expect: bool) -> dict:
     }
 
 
-def _terminate(pid: int) -> None:
-    try:
-        os.kill(pid, signal.SIGTERM)
-    except OSError:
-        return
+STOP_FLAG = "learn_stop.flag"
 
 
 def stop_learner(state_path: Path, killer=None) -> int | None:
-    """Stop the scorer recorded in this folder. Leave every other process alone."""
+    """Ask the scorer recorded in this folder to close itself. It never ends another program.
+
+    A request file is left next to the lock. The scorer checks for it every second and
+    exits on its own. A killer is only used when a caller passes one in.
+    """
     lock_path = state_path.with_name("learn.lock")
     pid = lock_holder(lock_path)
     if not pid or pid == os.getpid():
         return None
-    end = killer or _terminate
-    end(pid)
-    deadline = time.monotonic() + 2
+    flag = state_path.with_name(STOP_FLAG)
+    try:
+        flag.write_text("close\n", encoding="utf-8")
+    except OSError:
+        return pid
+    deadline = time.monotonic() + 8
     while time.monotonic() < deadline:
         if lock_holder(lock_path) != pid:
+            flag.unlink(missing_ok=True)
             return pid
-        time.sleep(0.05)
-    end(pid)
+        time.sleep(0.1)
+    if killer is not None:
+        killer(pid)
+    flag.unlink(missing_ok=True)
     return pid
 
 
-def stop_learners(home: Path, source: Path | None = None, killer=None) -> list[int]:
+def ask_learners_to_close(home: Path, source: Path | None = None, killer=None) -> list[int]:
     from paper_trader.install import desk_folders
 
     folders = list(desk_folders(home))
@@ -817,7 +845,6 @@ def spawn_learner(root: Path) -> None:
 
 def ensure_learner(root: Path, state_path: Path, spawn=None, wait: float = 2.0) -> bool:
     """Start the scorer when it is not already running. Leave a live one alone."""
-    write_startup(root)
     if learner_healthy(state_path):
         return True
     if lock_holder(state_path.with_name("learn.lock")):
@@ -856,6 +883,7 @@ class Watcher:
         self.watch_path = path.with_name("learn_watch.json")
         self.scan_path = path.with_name("scan_state.json")
         self.lock_path = path.with_name("learn.lock")
+        self.stop_path = path.with_name(STOP_FLAG)
         self._names_day = ""
         self._names_list: list[str] = []
         self._scan = _load_scan(self.scan_path)
@@ -877,6 +905,7 @@ class Watcher:
             return False
         _write_pid(fd, os.getpid())
         self._lock_fd = fd
+        self.stop_path.unlink(missing_ok=True)
         return True
 
     def release(self) -> None:
@@ -913,8 +942,21 @@ class Watcher:
         except (OSError, ValueError, AttributeError):
             self._awake = ""
 
+    def _nap(self, seconds: float) -> bool:
+        """Wait in short slices so a close request is noticed within a second."""
+        end = time.monotonic() + max(0.0, seconds)
+        while time.monotonic() < end:
+            if self.stop_path.exists():
+                self._stop.set()
+            if self._stop.wait(min(1.0, max(0.0, end - time.monotonic()))):
+                return True
+        return self._stop.is_set()
+
     def _loop(self) -> None:
         while not self._stop.is_set():
+            if self.stop_path.exists():
+                self._stop.set()
+                return
             self._keep_awake()
             self._pass()
             if self._stop.is_set():
@@ -996,7 +1038,7 @@ class Watcher:
             if self._scan_finished():
                 return
             pause = self._scan_one()
-            if self._stop.wait(pause):
+            if self._nap(pause):
                 return
 
     def _scan_finished(self) -> bool:

@@ -15,7 +15,13 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from paper_trader import __version__
 from paper_trader.backtest import present, run_backtest
-from paper_trader.install import keep_only_running, single_copy_status, write_desktop_opener
+from paper_trader.install import (
+    desktop_opener_present,
+    other_copies,
+    remove_desktop_opener,
+    single_copy_status,
+    write_desktop_opener,
+)
 from paper_trader.journal import (
     Journal,
     journal_from_dict,
@@ -37,6 +43,9 @@ from paper_trader.learn import (
     desk_day,
     ensure_learner,
     mood,
+    remove_startup,
+    startup_present,
+    write_startup,
     pick_note,
     rank_leaders,
     rank_today,
@@ -159,6 +168,23 @@ def mode_guard(mode: str) -> None:
 
 def _url_host(url: str) -> str:
     return urlparse(url.replace("{symbol}", "X")).hostname or ""
+
+
+LOUD_CALLS = ("task" + "kill", "os." + "kill(", "winreg", "schtasks", "rmtree(", "Terminate" + "Process")
+LOUD_ALLOWED = {"install.py": {"rmtree("}}
+
+
+def _loud_calls() -> list[str]:
+    """Scan this program's own files for calls that end programs, edit the registry, or delete folders."""
+    found: list[str] = []
+    for path in sorted(Path(__file__).resolve().parent.glob("*.py")):
+        if path.name == "server.py":
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for word in LOUD_CALLS:
+            if word in text and word not in LOUD_ALLOWED.get(path.name, set()):
+                found.append(f"{word} in {path.name}")
+    return found
 
 
 def program_fingerprint() -> str:
@@ -596,8 +622,10 @@ class Desk:
         bats = sorted(root.glob("*.bat"))
         dirty = [path.name for path in bats if any(word in path.read_text(encoding="utf-8", errors="ignore").lower() for word in LAUNCHER_BLOCKED)]
         add("Launchers clean", not dirty, f"{len(bats)} launchers, none run scripts, change Defender, or install packages" if not dirty else "Check " + ", ".join(dirty))
+        loud = _loud_calls()
+        add("Quiet installer", not loud, "Never ends other programs, never deletes other folders, never edits the registry" if not loud else "Found " + ", ".join(loud))
         copy = single_copy_status(Path.home())
-        add("One copy", bool(copy["ok"]), str(copy["detail"]))
+        add("One copy", bool(copy["ok"]), str(copy["detail"]) + ("" if copy["ok"] else ". Nothing is deleted for you. Remove old folders yourself"), "health")
         try:
             quote_detail = quotes.ping()
             add("Quotes", True, quote_detail, "health")
@@ -614,6 +642,39 @@ class Desk:
             "version": __version__,
             "at": int(time.time()),
         }
+
+    def windows_view(self) -> dict:
+        windows = os.name == "nt"
+        home = Path.home()
+        return {
+            "windows": windows,
+            "startup": bool(windows and startup_present()),
+            "desktop": bool(windows and desktop_opener_present(home)),
+        }
+
+    def windows_set(self, raw: dict) -> dict:
+        """Two optional Windows extras. Both are off until you turn them on, and both can be removed."""
+        if os.name != "nt":
+            raise ValueError("Windows extras are only for Windows")
+        root = Path(__file__).resolve().parents[1]
+        home = Path.home()
+        if "startup" in raw:
+            if raw["startup"] is True:
+                if write_startup(root) is None:
+                    raise ValueError("The Startup folder would not take the file")
+            elif raw["startup"] is False:
+                remove_startup()
+            else:
+                raise ValueError("Startup must be true or false")
+        if "desktop" in raw:
+            if raw["desktop"] is True:
+                if not write_desktop_opener(root, home):
+                    raise ValueError("No Desktop folder took the file")
+            elif raw["desktop"] is False:
+                remove_desktop_opener(home)
+            else:
+                raise ValueError("Desktop must be true or false")
+        return self.windows_view()
 
     def _breaker_check(self) -> dict:
         state = self.breaker()
@@ -967,6 +1028,9 @@ class DeskHandler(BaseHTTPRequestHandler):
             raw = {**self.desk.journal.params.to_dict(), **query}
             self._json(self.desk.market(symbol, raw))
             return
+        if method == "GET" and path == "/api/windows":
+            self._json(self.desk.windows_view())
+            return
         if method == "GET" and path == "/api/safe":
             self._json(self.desk.safe_report(str(self.server.server_address[0])))
             return
@@ -979,6 +1043,9 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._json(self.desk.backtest(raw))
             return
         body = self._body() if method == "POST" else {}
+        if method == "POST" and path == "/api/windows":
+            self._json(self.desk.windows_set(body))
+            return
         if method == "POST" and path == "/api/learn/scan":
             self._json(self.desk.set_scan(bool(body.get("on"))))
             return
@@ -1138,23 +1205,24 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
         ensure_learner(root, learn_path)
         print("Paper Trader is already open on this computer.")
         print("Close that window, then start Paper Trader again.")
-        print("The score keeps running after that window closes. It starts again when you sign in to Windows.")
+        print("The score keeps running after that window closes. Use Windows extras in the Safe check to start it at sign-in.")
         return
     ensure_learner(root, learn_path)
     server.desk.expect_learner = True
     try:
-        keep_only_running(Path.home(), root)
-        shortcuts = write_desktop_opener(root, Path.home())
+        extra = other_copies(Path.home(), root)
     except OSError:
-        shortcuts = []
-    if shortcuts:
-        print("Paper Trader.bat is on the desktop.")
+        extra = []
+    if extra:
+        print("Other Paper Trader folders were found. Nothing was deleted. You can delete them yourself:")
+        for folder in extra:
+            print("  " + str(folder))
     host, bound = server.server_address[:2]
     url = f"http://{host}:{bound}/"
     print(f"Paper Trader is running at {url}")
     print("Market quotes. Paper orders only. Leave this window open.")
-    print("The score keeps running after this window closes. It starts again when you sign in to Windows.")
-    print("It runs while this computer is on and you are signed in.")
+    print("The score keeps running after this window closes while you are signed in.")
+    print("It does not start at sign-in unless you turn that on under Windows extras in the Safe check.")
     worker = threading.Thread(target=server.serve_forever, name="paper-trader-http", daemon=True)
     worker.start()
     if open_browser and url.startswith("http://127.0.0.1:"):

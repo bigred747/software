@@ -654,3 +654,7 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 .internals-pill.supportive{border-color:#3ddc97;color:#bff5db}
 .internals-pill.mixed{border-color:#ffd166;color:#ffe9b0}
 .internals-pill.defensive{border-color:#ff6b7a;color:#ffc7ce}
+
+.win-box{margin-top:8px;display:grid;gap:4px;font-size:12px}
+.win-box h4{margin:0;font-size:12px}
+.win-box label{display:flex;gap:6px;align-items:center}

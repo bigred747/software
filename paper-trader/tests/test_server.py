@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import threading
@@ -353,9 +354,28 @@ class ServerTests(unittest.TestCase):
         report = json.loads(raw)
         self.assertTrue(report["safe"], report)
         names = {item["name"] for item in report["items"]}
-        for name in ("This computer only", "Strangers blocked", "Live locked", "Quote hosts", "Circuit breaker", "Order rules", "Journal saves", "Program unchanged", "Launchers clean"):
+        for name in ("This computer only", "Strangers blocked", "Live locked", "Quote hosts", "Circuit breaker", "Order rules", "Journal saves", "Program unchanged", "Launchers clean", "Quiet installer"):
             self.assertIn(name, names)
         self.assertTrue(all(item["ok"] for item in report["items"] if item["kind"] == "safety"))
+
+    def test_windows_extras_are_off_by_default_and_wired(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            view = desk.windows_view()
+            self.assertFalse(view["startup"])
+            self.assertFalse(view["desktop"])
+            if os.name != "nt":
+                self.assertFalse(view["windows"])
+                with self.assertRaises(ValueError):
+                    desk.windows_set({"startup": True})
+        status, raw = self.open("/api/windows")
+        self.assertEqual(status, 200)
+        self.assertIn("startup", json.loads(raw))
+        page = (Path(__file__).resolve().parents[1] / "web" / "index.html").read_text(encoding="utf-8")
+        for name in ("win-box", "win-startup", "win-desktop"):
+            self.assertIn(name, page)
 
     def test_safe_check_turns_red_when_a_program_file_changes_after_start(self) -> None:
         from paper_trader.server import Desk
