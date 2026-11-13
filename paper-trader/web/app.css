@@ -597,7 +597,7 @@ footer { display: none; }
   }
 }
 
-.tos {
+.ticket-box {
   margin: 14px 0;
   padding: 12px;
   border: 1px solid var(--line);
@@ -605,20 +605,47 @@ footer { display: none; }
   background: #0f151c;
 }
 
-.tos h3 { margin: 0 0 8px; font-size: 14px; }
-.tos h3 + .table-wrap, .tos .table-wrap + button { margin-top: 6px; }
-.tos .tiny { font-size: 12px; margin: 8px 0; }
-.tos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.tos-grid label { margin: 0; font-size: 12px; }
-.tos-grid label[hidden] { display: none; }
+.ticket-box h3 { margin: 0 0 8px; font-size: 14px; }
+.ticket-box h3 + .table-wrap, .ticket-box .table-wrap + button { margin-top: 6px; }
+.ticket-box .tiny { font-size: 12px; margin: 8px 0; }
+.ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ticket-grid label { margin: 0; font-size: 12px; }
+.ticket-grid label[hidden] { display: none; }
 .side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
 .side-row .buy { background: #163528; border-color: var(--up); color: var(--up); }
 .side-row .sell { background: #3a1820; border-color: var(--down); color: var(--down); }
 .side-row .on { box-shadow: inset 0 0 0 2px currentColor; font-weight: 700; }
-.tos .confirm { display: flex; gap: 8px; align-items: center; margin: 10px 0 6px; color: var(--text); font-size: 14px; }
-.tos .confirm input { width: auto; }
-.tos .send { width: 100%; background: #1d4d3a; border-color: var(--up); color: var(--up); margin-bottom: 12px; }
-.tos .send.sell-side { background: #3a1820; border-color: var(--down); color: var(--down); }
-.tos table.working { font-size: 12px; }
-.tos table.working th, .tos table.working td { padding: 5px 4px; }
-.tos table.working button { padding: 3px 8px; font-size: 12px; }
+.ticket-box .confirm { display: flex; gap: 8px; align-items: center; margin: 10px 0 6px; color: var(--text); font-size: 14px; }
+.ticket-box .confirm input { width: auto; }
+.ticket-box .send { width: 100%; background: #1d4d3a; border-color: var(--up); color: var(--up); margin-bottom: 12px; }
+.ticket-box .send.sell-side { background: #3a1820; border-color: var(--down); color: var(--down); }
+.ticket-box table.working { font-size: 12px; }
+.ticket-box table.working th, .ticket-box table.working td { padding: 5px 4px; }
+.ticket-box table.working button { padding: 3px 8px; font-size: 12px; }
+
+.strat-auto,.strat-orb-inputs{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:10px 0}
+.strat-orb-inputs input{width:84px}
+.strat-switch{display:inline-flex;gap:6px;align-items:center}
+.strat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:12px 0}
+.strat-card{border:1px solid var(--line,#2a3442);border-radius:10px;padding:10px 12px}
+.strat-card h4{margin:0 0 4px;font-size:14px}
+.strat-card p{margin:4px 0;font-size:13px}
+.strat-levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px 12px;margin:8px 0}
+.strat-levels div{display:flex;flex-direction:column}
+.strat-levels dt{font-size:11px;opacity:.7}
+.strat-levels dd{margin:0;font-weight:600}
+.call-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;background:#2a3442}
+.call-pill.buy{background:#12663f;color:#d8ffe9}
+.call-pill.sell{background:#7a1f2b;color:#ffe0e4}
+.call-pill.hold{background:#1d4f8a;color:#dcebff}
+tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
+
+.safe-box{margin:8px 0}
+.safe-btn{width:100%;font-weight:700;border:1px solid #3a4656;background:#1c242c;color:var(--text,#e6edf3);padding:10px 12px;border-radius:10px}
+.safe-btn.ok{background:#12803f;border-color:#3ddc97;color:#fff}
+.safe-btn.warn{background:#8a6a12;border-color:#ffd166;color:#fff}
+.safe-btn.bad{background:#a12a38;border-color:#ff6b7a;color:#fff}
+.safe-list{list-style:none;margin:6px 0 0;padding:0;font-size:12px;display:grid;gap:3px}
+.safe-list li::before{content:"OK  ";font-weight:700;color:#3ddc97}
+.safe-list li.warn::before{content:"CHECK  ";color:#ffd166}
+.safe-list li.bad::before{content:"FAIL  ";color:#ff6b7a}

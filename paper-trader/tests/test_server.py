@@ -270,6 +270,95 @@ class ServerTests(unittest.TestCase):
         bars[-1] = Bar(bars[-1].date, 100.0, max(101.0, last), floor, last, 1.0)
         return bars
 
+    def test_switching_markets_keeps_the_open_position_and_logs_every_fill(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)), patch(
+                "paper_trader.server.allow_entry", return_value=""
+            ):
+                first = desk.trade("auto")
+                self.assertGreater(first["shares"], 0)
+                self.assertEqual(first["book"]["fills"][0]["reason"], "auto")
+                self.assertEqual(first["book"]["fills"][0]["side"], "buy")
+                symbol = first["symbol"]
+                other = "ETH-USD" if symbol != "ETH-USD" else "BTC-USD"
+                away = desk.reset({"symbol": other, "switch": True})
+                self.assertEqual(away["symbol"], other)
+                self.assertEqual(away["shares"], 0)
+                held = [row for row in away["book"]["positions"] if row["symbol"] == symbol]
+                self.assertEqual(len(held), 1)
+                self.assertGreater(held[0]["shares"], 0)
+                self.assertEqual(len(away["book"]["fills"]), 1)
+                back = desk.reset({"symbol": symbol, "switch": True})
+                self.assertGreater(back["shares"], 0)
+                sold = desk.trade()
+                self.assertEqual(sold["shares"], 0)
+                reasons = [row["reason"] for row in sold["book"]["fills"]]
+                self.assertEqual(reasons, ["trade", "auto"])
+                wiped = desk.reset({"symbol": symbol})
+                self.assertEqual(wiped["shares"], 0)
+                reloaded = Desk(Path(folder) / "paper_state.json")
+                self.assertEqual(reloaded.journal.symbol, symbol)
+
+    def test_book_survives_a_restart(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "paper_state.json"
+            desk = Desk(path)
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)), patch(
+                "paper_trader.server.allow_entry", return_value=""
+            ):
+                desk.trade()
+                desk.reset({"symbol": "ETH-USD" if desk.journal.symbol != "ETH-USD" else "BTC-USD", "switch": True})
+                again = Desk(path)
+                view = again.snapshot()
+                self.assertTrue(any(row["shares"] > 0 for row in view["book"]["positions"]))
+                self.assertEqual(len(view["book"]["fills"]), 1)
+
+    def test_every_element_the_page_script_looks_up_exists(self) -> None:
+        import re
+
+        root = Path(__file__).resolve().parents[1] / "web"
+        script = (root / "app.js").read_text(encoding="utf-8")
+        page = (root / "index.html").read_text(encoding="utf-8")
+        used = set(re.findall(r'\$\("([A-Za-z0-9_-]+)"\)', script))
+        present = set(re.findall(r'\bid="([^"]+)"', page))
+        self.assertEqual(sorted(used - present), [])
+        for button in re.findall(r'<button[^>]*\bid="([^"]+)"', page):
+            self.assertIn(f'"{button}"', script, f"button {button} has no code behind it")
+        tabs = re.findall(r'data-dock="([a-z]+)"', page)
+        pages = re.findall(r'data-dock-page="([a-z]+)"', page)
+        self.assertEqual(sorted(tabs), sorted(pages))
+        for name in ("strategies", "squeeze", "journal"):
+            self.assertIn(name, tabs)
+
+    def test_safe_check_answers_green_and_names_every_item(self) -> None:
+        with patch("paper_trader.quotes.ping", return_value="Market quote ready"):
+            status, raw = self.open("/api/safe")
+        self.assertEqual(status, 200)
+        report = json.loads(raw)
+        self.assertTrue(report["safe"], report)
+        names = {item["name"] for item in report["items"]}
+        for name in ("This computer only", "Strangers blocked", "Live locked", "Quote hosts", "Circuit breaker", "Order rules", "Journal saves", "Program unchanged", "Launchers clean"):
+            self.assertIn(name, names)
+        self.assertTrue(all(item["ok"] for item in report["items"] if item["kind"] == "safety"))
+
+    def test_safe_check_turns_red_when_a_program_file_changes_after_start(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            desk.fingerprint = "changed"
+            with patch("paper_trader.quotes.ping", return_value="ok"):
+                report = desk.safe_report()
+            self.assertFalse(report["safe"])
+            self.assertIn("Program unchanged", [item["name"] for item in report["items"] if not item["ok"]])
+            report = desk.safe_report("0.0.0.0")
+            self.assertFalse(report["safe"])
+
     def test_ticket_limit_waits_for_the_real_quote_then_fills_on_paper(self) -> None:
         from paper_trader.server import Desk
 
@@ -385,7 +474,7 @@ class ServerTests(unittest.TestCase):
         status, health = self.open("/api/health")
         self.assertTrue(json.loads(health)["loopback"])
 
-    def test_page_has_the_thinkorswim_style_ticket(self) -> None:
+    def test_page_has_the_order_ticket(self) -> None:
         status, page = self.open("/")
         for marker in (
             b'id="ticket"',
@@ -538,7 +627,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.38", script)
+        self.assertIn(b"1.9.39", script)
         self.assertIn(b"drawPriceLine", script)
         self.assertIn(b'id="edge-call"', page)
         self.assertIn(b"It is not a forecast.", page)

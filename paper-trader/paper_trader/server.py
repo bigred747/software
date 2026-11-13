@@ -18,12 +18,15 @@ from paper_trader.backtest import present, run_backtest
 from paper_trader.install import keep_only_running, single_copy_status, write_desktop_opener
 from paper_trader.journal import (
     Journal,
+    journal_from_dict,
+    journal_to_dict,
     load_journal,
     make_ticket,
     market_view,
     save_journal,
     ticket_decision,
     view_journal,
+    write_json,
 )
 from paper_trader.learn import (
     allow_entry,
@@ -92,6 +95,7 @@ _SECURITY_HEADERS = (
 
 BREAKER_DROP = 0.05
 PAPER_SLIP_BPS = 5.0
+SHELF_LIMIT = 60
 
 
 def fill_price(last: float, side: str) -> float:
@@ -109,6 +113,11 @@ def fill_note(side: str, last: float, price: float, fee_bps: float) -> dict:
         "fee_bps": fee_bps,
         "at": int(time.time()),
     }
+QUOTE_HOSTS = {"query1.finance.yahoo.com"}
+LAUNCHER_BLOCKED = (
+    "powershell", "cscript", "wscript", "zone.identifier", "unblock-file", ".vbs", "taskkill",
+    "add-mpexclusion", "set-mppreference", "exclusionpath", "reg add", "netsh", "pip",
+)
 LIVE_NOTE = "Live is locked. This desk has no broker or bank link, so every order stays paper."
 BREAKER_NOTE = "The circuit breaker is on. Buys stop until tomorrow. Sells still work."
 
@@ -141,6 +150,69 @@ def breaker_view(data: dict, day: str) -> dict:
     }
 
 
+def mode_guard(mode: str) -> None:
+    if mode == "live":
+        raise ValueError(LIVE_NOTE)
+    if mode != "paper":
+        raise ValueError("This desk only runs in paper mode")
+
+
+def _url_host(url: str) -> str:
+    return urlparse(url.replace("{symbol}", "X")).hostname or ""
+
+
+def program_fingerprint() -> str:
+    """Hash of the program files so a change after start-up is noticed."""
+    import hashlib
+
+    root = Path(__file__).resolve().parents[1]
+    digest = hashlib.sha256()
+    names = sorted(root.glob("paper_trader/*.py")) + sorted(root.glob("web/*.*")) + sorted(root.glob("*.bat"))
+    for path in names:
+        if path.name.endswith((".test.mjs",)):
+            continue
+        digest.update(path.name.encode("utf-8"))
+        try:
+            digest.update(path.read_bytes())
+        except OSError:
+            digest.update(b"?")
+    return digest.hexdigest()
+
+
+def order_rules_probe() -> tuple[bool, str]:
+    """Run the order rules on made-up bars that never touch the quote feed or the journal."""
+    from datetime import date, timedelta
+
+    from paper_trader.model import Bar, Params
+
+    market = 100.05
+    cases = [
+        ({"side": "buy", "kind": "market"}, 100.0, (True, market)),
+        ({"side": "buy", "kind": "limit", "limit": 95}, 100.0, (False, None)),
+        ({"side": "buy", "kind": "limit", "limit": 95}, 94.0, (True, 94.0)),
+        ({"side": "sell", "kind": "limit", "limit": 105}, 104.0, (False, None)),
+        ({"side": "sell", "kind": "limit", "limit": 105}, 106.0, (True, 106.0)),
+        ({"side": "buy", "kind": "stop", "stop": 105}, 100.0, (False, None)),
+        ({"side": "buy", "kind": "stop", "stop": 105}, 106.0, (True, market)),
+        ({"side": "sell", "kind": "stop", "stop": 95}, 94.0, (True, market)),
+    ]
+    for raw, last, expect in cases:
+        fills, price, _ = ticket_decision(make_ticket(raw), last, market)
+        if fills != expect[0] or (expect[1] is not None and abs(price - expect[1]) > 1e-9):
+            return False, f"A {raw['kind']} {raw['side']} order did not follow its rule"
+    start = date(2024, 1, 1)
+    bars = [Bar((start + timedelta(days=index)).isoformat(), 100.0, 101.0, 99.0, 100.0, 1.0) for index in range(40)]
+    params = Params()
+    day = bars[-1].date
+    held = run_backtest(bars, params, end=len(bars), close_orders=[(day, "buy", 100.05)])
+    flat = run_backtest(bars, params, end=len(bars), close_orders=[(day, "buy", 100.05), (day, "sell", 99.95)])
+    if not held.shares > 0 or flat.shares != 0:
+        return False, "A paper buy then sell did not end flat"
+    if flat.cash > params.cash:
+        return False, "A round trip made money from nothing"
+    return True, f"{len(cases)} order rules and a buy then sell round trip passed"
+
+
 def _ticker_ok(symbol: str) -> bool:
     if not symbol:
         return False
@@ -157,6 +229,8 @@ class Desk:
         self.learn_path = state_path.with_name("learn_state.json")
         self.watch_path = state_path.with_name("learn_watch.json")
         self.breaker_path = state_path.with_name("breaker.json")
+        self.shelf_path = state_path.with_name("paper_book.json")
+        self.fingerprint = program_fingerprint()
         self.expect_learner = False
         self.ticket_fills: list[dict] = []
 
@@ -192,7 +266,9 @@ class Desk:
                 ticket["triggered"] = True
                 changed = True
             if fills:
+                before = view_journal(self.journal)["shares"]
                 self.journal.close_orders.append((bars[-1].date, side, price))
+                self._log_fill(side, last, price, before, "working order")
                 held = side == "buy"
                 changed = True
                 note = fill_note(side, last, price, self.journal.params.fee_bps)
@@ -212,7 +288,8 @@ class Desk:
             bars = quotes.load_bars(self.journal.symbol, refresh=True)
             last = bars[-1].close
             side = ticket["side"]
-            held = view_journal(self.journal)["shares"] > 0
+            view_before = float(view_journal(self.journal)["shares"])
+            held = view_before > 0
             if side == "buy" and held:
                 raise ValueError("A paper long is already open. Sell it before buying again.")
             if side == "sell" and not held:
@@ -231,6 +308,7 @@ class Desk:
             self.journal.next_order_id += 1
             if fills:
                 self.journal.close_orders.append((bars[-1].date, side, price))
+                self._log_fill(side, last, price, 0.0 if side == "buy" else view_before, "strategy" if raw.get("source") == "strategy" else "ticket")
             else:
                 self.journal.working.append(ticket)
             save_journal(self.state_path, self.journal)
@@ -255,6 +333,130 @@ class Desk:
             save_journal(self.state_path, self.journal)
             return self._guard(view_journal(self.journal))
 
+    def _log_fill(self, side: str, quote: float, price: float, before_shares: float, reason: str) -> None:
+        """Remember one paper fill so the Journal can list it even while the position stays open."""
+        after = view_journal(self.journal)
+        if side == "buy":
+            qty = float(after["shares"])
+            pnl = 0.0
+        else:
+            qty = float(before_shares)
+            rows = after.get("trades") or []
+            pnl = float(rows[-1]["pnl"]) if rows else 0.0
+        self.journal.fills.append(
+            {
+                "at": int(time.time()),
+                "symbol": self.journal.symbol,
+                "side": side,
+                "qty": qty,
+                "price": price,
+                "quote": quote,
+                "fee_bps": self.journal.params.fee_bps,
+                "pnl": pnl,
+                "reason": reason,
+            }
+        )
+        self.journal.fills = self.journal.fills[-500:]
+
+    def _read_shelf(self) -> dict:
+        try:
+            raw = json.loads(self.shelf_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        rows = raw.get("markets") if isinstance(raw, dict) else None
+        return rows if isinstance(rows, dict) else {}
+
+    def _write_shelf(self, rows: dict) -> None:
+        keep = dict(sorted(rows.items(), key=lambda item: -int(item[1].get("at") or 0))[:SHELF_LIMIT])
+        write_json(self.shelf_path, {"version": 1, "markets": keep})
+
+    def _shelve_locked(self) -> None:
+        """Put the current market's paper account on the shelf so switching markets never loses it."""
+        journal = self.journal
+        try:
+            view = view_journal(journal)
+        except ValueError:
+            view = {}
+        shares = float(view.get("shares") or 0)
+        if not (journal.fills or journal.working or shares > 0):
+            return
+        rows = self._read_shelf()
+        rows[journal.symbol] = {
+            "at": int(time.time()),
+            "summary": {
+                "symbol": journal.symbol,
+                "shares": shares,
+                "entry": view.get("entry_price"),
+                "opened": view.get("entry_date"),
+                "last": view.get("last_close"),
+                "equity": view.get("equity"),
+                "cash": view.get("cash"),
+                "start": view.get("start_cash") or journal.params.cash,
+            },
+            "journal": journal_to_dict(journal),
+        }
+        self._write_shelf(rows)
+
+    @staticmethod
+    def _position_source(fills: list) -> str:
+        """A logged buy means you or Auto opened it. Otherwise the history replay did."""
+        rows = [item for item in fills if isinstance(item, dict)]
+        return "fill" if rows and rows[-1].get("side") == "buy" else "replay"
+
+    def account_book(self, view: dict) -> dict:
+        """Every market's paper account: open positions and every fill, newest first."""
+        positions: list[dict] = []
+        fills: list[dict] = list(reversed(self.journal.fills))
+        total = 0.0
+        markets = 0
+        shares = float(view.get("shares") or 0)
+        if shares > 0 or self.journal.fills:
+            markets += 1
+            total += float(view.get("equity") or 0) - float(view.get("start_cash") or 0)
+        if shares > 0:
+            entry = view.get("entry_price")
+            last = view.get("last_close")
+            positions.append(
+                {
+                    "symbol": self.journal.symbol,
+                    "shares": shares,
+                    "entry": entry,
+                    "last": last,
+                    "pnl": view.get("open_pnl"),
+                    "current": True,
+                    "opened": view.get("entry_date"),
+                    "source": self._position_source(self.journal.fills),
+                }
+            )
+        for symbol, row in self._read_shelf().items():
+            if symbol == self.journal.symbol or not isinstance(row, dict):
+                continue
+            note = row.get("summary") or {}
+            fills.extend(item for item in reversed((row.get("journal") or {}).get("fills", [])) if isinstance(item, dict))
+            markets += 1
+            try:
+                total += float(note.get("equity") or 0) - float(note.get("start") or 0)
+            except (TypeError, ValueError):
+                pass
+            if float(note.get("shares") or 0) > 0:
+                last = note.get("last")
+                entry = note.get("entry")
+                positions.append(
+                    {
+                        "symbol": symbol,
+                        "shares": note.get("shares"),
+                        "entry": entry,
+                        "last": last,
+                        "pnl": (float(note["shares"]) * (float(last) - float(entry))) if last and entry else None,
+                        "current": False,
+                        "as_of": row.get("at"),
+                        "opened": note.get("opened"),
+                        "source": self._position_source((row.get("journal") or {}).get("fills", [])),
+                    }
+                )
+        fills.sort(key=lambda item: -int(item.get("at") or 0))
+        return {"positions": positions, "fills": fills[:300], "markets": markets, "total_pnl": total}
+
     def breaker(self) -> dict:
         return breaker_view(load_breaker(self.breaker_path), desk_day())
 
@@ -267,7 +469,9 @@ class Desk:
         held = view_journal(self.journal)["shares"] > 0
         last = bars[-1].close
         if held:
+            before = float(view_journal(self.journal)["shares"])
             self.journal.close_orders.append((bars[-1].date, "sell", fill_price(last, "sell")))
+            self._log_fill("sell", last, fill_price(last, "sell"), before, "sell all")
         if bars[-1].date not in self.journal.halt_days:
             self.journal.halt_days.append(bars[-1].date)
         self.journal.working = []
@@ -281,6 +485,7 @@ class Desk:
         if held:
             payload["fill"] = fill_note("sell", last, fill_price(last, "sell"), self.journal.params.fee_bps)
         payload["breaker"] = breaker_view(data, day)
+        payload["book"] = self.account_book(payload)
         return payload
 
     def _guard(self, payload: dict, fresh_start: bool = False) -> dict:
@@ -305,6 +510,7 @@ class Desk:
             return self._halt_locked(f"Paper equity fell {fell:.1f}% today")
         payload["breaker"] = breaker_view(data, day)
         payload["ticket_fills"] = list(self.ticket_fills)
+        payload["book"] = self.account_book(payload)
         return payload
 
     def checks(self) -> dict:
@@ -352,6 +558,63 @@ class Desk:
         ]
         return {"ok": all(bool(item["ok"]) for item in items), "items": items}
 
+    def safe_report(self, bound: str = "127.0.0.1") -> dict:
+        """Every safety item must pass for green. Health items only warn."""
+        items: list[dict] = []
+
+        def add(name: str, ok: bool, detail: str, kind: str = "safety") -> None:
+            items.append({"name": name, "ok": bool(ok), "detail": detail, "kind": kind})
+
+        add("This computer only", bound in {"127.0.0.1", "::1", "localhost"}, f"Listening on {bound} only")
+        refused = not _local_client(("8.8.8.8", 0)) and not _local_origin("https://evil.example") and _local_origin("http://127.0.0.1:8765")
+        add("Strangers blocked", refused, "Other computers and other web pages are refused")
+        try:
+            mode_guard("live")
+            locked = False
+        except ValueError:
+            locked = True
+        add("Live locked", locked, "No broker or bank link. Every order is paper")
+        hosts = {_url_host(quotes._URL)}
+        add("Quote hosts", hosts <= QUOTE_HOSTS, "Prices come from " + ", ".join(sorted(hosts)) + " only")
+        try:
+            state = self.breaker()
+            add("Circuit breaker", True, "Holding until tomorrow" if state["tripped"] else f"Armed at {state['drop_pct']:g}% a day")
+        except (OSError, ValueError, KeyError):
+            add("Circuit breaker", False, "The breaker file could not be read")
+        ok, detail = order_rules_probe()
+        add("Order rules", ok, detail)
+        probe = self.state_path.with_name("safe_probe.tmp")
+        try:
+            write_json(probe, {"probe": int(time.time())})
+            round_trip = json.loads(probe.read_text(encoding="utf-8")).get("probe") is not None
+            probe.unlink(missing_ok=True)
+            add("Journal saves", round_trip, "Wrote and read back on this computer")
+        except (OSError, ValueError):
+            add("Journal saves", False, "This folder would not take a file")
+        add("Program unchanged", program_fingerprint() == self.fingerprint, "Same files as when it opened" if program_fingerprint() == self.fingerprint else "A program file changed after start-up. Close and reopen")
+        root = Path(__file__).resolve().parents[1]
+        bats = sorted(root.glob("*.bat"))
+        dirty = [path.name for path in bats if any(word in path.read_text(encoding="utf-8", errors="ignore").lower() for word in LAUNCHER_BLOCKED)]
+        add("Launchers clean", not dirty, f"{len(bats)} launchers, none run scripts, change Defender, or install packages" if not dirty else "Check " + ", ".join(dirty))
+        copy = single_copy_status(Path.home())
+        add("One copy", bool(copy["ok"]), str(copy["detail"]))
+        try:
+            quote_detail = quotes.ping()
+            add("Quotes", True, quote_detail, "health")
+        except ValueError as exc:
+            add("Quotes", False, str(exc), "health")
+        learn = self._learning_check()
+        add("Learning", bool(learn["ok"]), str(learn["detail"]), "health")
+        safe = all(item["ok"] for item in items if item["kind"] == "safety")
+        warned = [item["name"] for item in items if item["kind"] == "health" and not item["ok"]]
+        return {
+            "safe": safe,
+            "warnings": warned,
+            "items": items,
+            "version": __version__,
+            "at": int(time.time()),
+        }
+
     def _breaker_check(self) -> dict:
         state = self.breaker()
         if state["tripped"]:
@@ -365,7 +628,25 @@ class Desk:
             bars = quotes.load_bars(symbol, refresh=True)
             if params.slow + 1 >= len(bars):
                 raise ValueError("The slow average is longer than the market history")
-            self.journal = Journal(symbol, params, len(bars))
+            if raw.get("switch") is True:
+                if symbol == self.journal.symbol:
+                    return self._guard(view_journal(self.journal))
+                self._shelve_locked()
+                rows = self._read_shelf()
+                kept = rows.pop(symbol, None)
+                self._write_shelf(rows)
+                restored = None
+                if isinstance(kept, dict):
+                    try:
+                        restored = journal_from_dict(kept["journal"])
+                    except (KeyError, TypeError, ValueError):
+                        restored = None
+                self.journal = restored or Journal(symbol, params, len(bars))
+            else:
+                rows = self._read_shelf()
+                if rows.pop(symbol, None) is not None:
+                    self._write_shelf(rows)
+                self.journal = Journal(symbol, params, len(bars))
             save_journal(self.state_path, self.journal)
             return self._guard(view_journal(self.journal), fresh_start=True)
 
@@ -379,7 +660,7 @@ class Desk:
             save_journal(self.state_path, self.journal)
             return self._guard(view_journal(self.journal))
 
-    def trade(self) -> dict:
+    def trade(self, source: str = "") -> dict:
         with self.lock:
             bars = quotes.load_bars(self.journal.symbol, refresh=True)
             held = view_journal(self.journal)["shares"] > 0
@@ -402,7 +683,9 @@ class Desk:
                 remember_day_buy(self._day_path(), self.journal.symbol, day)
             last = bars[-1].close
             price = fill_price(last, side)
+            before = float(view_journal(self.journal)["shares"])
             self.journal.close_orders.append((bars[-1].date, side, price))
+            self._log_fill(side, last, price, before, "auto" if source == "auto" else "trade")
             save_journal(self.state_path, self.journal)
             payload = self._guard(view_journal(self.journal))
             payload["last_action"] = side
@@ -684,6 +967,9 @@ class DeskHandler(BaseHTTPRequestHandler):
             raw = {**self.desk.journal.params.to_dict(), **query}
             self._json(self.desk.market(symbol, raw))
             return
+        if method == "GET" and path == "/api/safe":
+            self._json(self.desk.safe_report(str(self.server.server_address[0])))
+            return
         if method == "GET" and path == "/api/bars":
             symbol = query.get("symbol") or self.desk.journal.symbol
             self._json(self.desk.bars(symbol, query.get("frame") or "1D"))
@@ -701,10 +987,7 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._json(self.desk.learn_view())
             return
         if method == "POST" and path == "/api/paper/mode":
-            if str(body.get("mode") or "") == "live":
-                raise ValueError(LIVE_NOTE)
-            if str(body.get("mode") or "") != "paper":
-                raise ValueError("This desk only runs in paper mode")
+            mode_guard(str(body.get("mode") or ""))
             self._json(self.desk.snapshot())
             return
         if method == "POST" and path == "/api/paper/halt":
@@ -714,7 +997,7 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._json(self.desk.reset(body))
             return
         if method == "POST" and path == "/api/paper/trade":
-            self._json(self.desk.trade())
+            self._json(self.desk.trade(str(body.get("source") or "")))
             return
         if method == "POST" and path == "/api/paper/ticket":
             self._json(self.desk.place(body))

@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -308,4 +308,73 @@ test("a bar is forming until its day ends in the market's own clock", () => {
   const stock = [{ date: "2026-10-21" }, { date: "2026-10-22" }];
   assert.equal(liveBar(stock, false, new Date("2026-10-23T01:00:00Z")), true);
   assert.equal(liveBar(stock, false, new Date("2026-10-23T13:00:00Z")), false);
+});
+
+function walk(count, seed, drift) {
+  let state = seed;
+  const next = () => {
+    state = (state * 16807) % 2147483647;
+    return state / 2147483647;
+  };
+  const bars = [];
+  let price = 100;
+  for (let index = 0; index < count; index += 1) {
+    const open = price;
+    price = Math.max(5, price * (1 + drift + (next() - 0.5) * 0.03));
+    bars.push({ date: new Date(Date.UTC(2023, 0, 1 + index)).toISOString().slice(0, 10), open, high: Math.max(open, price) * 1.004, low: Math.min(open, price) * 0.996, close: price, volume: 1000 });
+  }
+  return bars;
+}
+
+test("strategies report four rows from closed bars only", () => {
+  const bars = walk(600, 7, 0.0008);
+  const board = JSON.parse(JSON.stringify(strategies(bars, { live: false })));
+  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "donchian", "rsi2"]);
+  board.rows.forEach((row) => {
+    assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(row.call));
+    assert.ok(Number.isFinite(row.total));
+  });
+  const withLive = JSON.parse(JSON.stringify(strategies(bars.concat([{ ...bars[bars.length - 1], date: "2030-01-01", close: bars[bars.length - 1].close * 3, high: bars[bars.length - 1].close * 3 }]), { live: true })));
+  assert.deepEqual(withLive.rows.map((row) => row.total), board.rows.map((row) => row.total));
+});
+
+test("a strategy never changes its past when new bars arrive", () => {
+  const bars = walk(620, 11, 0.0005);
+  const early = strategies(bars.slice(0, 560), { live: false });
+  const later = strategies(bars, { live: false });
+  early.rows.forEach((row, index) => {
+    assert.ok(later.rows[index].trades >= row.trades);
+  });
+});
+
+test("opening range reads the first bar, then the break", () => {
+  const stamp = (day, hour, minute) => day + " " + String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
+  const bars = [
+    { date: stamp("2026-11-10", 14, 30), open: 100, high: 102, low: 100, close: 101, volume: 1 },
+    { date: stamp("2026-11-10", 14, 45), open: 101, high: 103, low: 101, close: 103, volume: 1 },
+    { date: stamp("2026-11-10", 15, 0), open: 103, high: 105, low: 103, close: 104.5, volume: 1 },
+    { date: stamp("2026-11-11", 14, 30), open: 100, high: 102, low: 100, close: 101, volume: 1 },
+    { date: stamp("2026-11-11", 14, 45), open: 101, high: 101.5, low: 99, close: 99.5, volume: 1 },
+    { date: stamp("2026-11-12", 14, 30), open: 100, high: 102, low: 100, close: 101, volume: 1 },
+    { date: stamp("2026-11-12", 14, 45), open: 101, high: 101.8, low: 100.5, close: 101.2, volume: 1 },
+  ];
+  const result = JSON.parse(JSON.stringify(openingRange(bars, { utcLabels: true })));
+  assert.equal(result.state, "ARMED");
+  assert.equal(result.latest.trigger, 102);
+  assert.equal(result.latest.floor, 100);
+  assert.equal(result.record.wins, 1);
+  assert.equal(result.record.skipped, 1);
+  assert.equal(openingRange([], {}).ready, false);
+});
+
+test("squeeze score is bounded and ranks a stacked clean squeeze above a mixed one", () => {
+  const strong = squeezeScore({ ready: true, state: "ON", dots: 9, level: 3, direction: "bull", stack: "positive", clean: true, rising: true, weekly: true }, { sector: true, index: true });
+  const weak = squeezeScore({ ready: true, state: "ON", dots: 2, level: 2, direction: "bull", stack: "mixed", clean: false, rising: false, weekly: false }, {});
+  assert.ok(strong.score <= 100 && strong.score > weak.score);
+  assert.equal(strong.triple, true);
+  assert.equal(squeezeScore({ ready: true, state: "OFF" }, {}).score, 0);
+  const read = squeezeRead(walk(300, 5, 0.0003), { live: false });
+  assert.equal(read.ready, true);
+  assert.ok(["ON", "FIRED", "OFF"].includes(read.state));
+  assert.equal(squeezeRead(walk(30, 5, 0), {}).ready, false);
 });

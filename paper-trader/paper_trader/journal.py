@@ -23,6 +23,7 @@ class Journal:
     halt_days: list[str] = field(default_factory=list)
     working: list[dict] = field(default_factory=list)
     next_order_id: int = 1
+    fills: list[dict] = field(default_factory=list)
 
 
 SIDES = {"buy", "sell"}
@@ -95,45 +96,62 @@ def default_journal() -> Journal:
     return Journal("BTC-USD", params, params.slow + 1)
 
 
-def load_journal(path: Path) -> Journal:
-    if not path.exists():
-        return default_journal()
+def clean_fill(item: object) -> dict | None:
+    if not isinstance(item, dict):
+        return None
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        params = params_from_dict(raw["params"])
-        symbol = str(raw["symbol"])
-        cursor = max(params.slow + 1, int(raw["cursor"]))
-        orders: dict[int, str] = {}
-        for key, side in dict(raw.get("orders") or {}).items():
-            if side in {"buy", "sell"}:
-                orders[int(key)] = str(side)
-        close_orders: list[tuple] = []
-        for item in list(raw.get("close_orders") or []):
-            if isinstance(item, list) and len(item) == 2 and item[1] in {"buy", "sell"}:
-                close_orders.append((str(item[0]), str(item[1])))
-            elif isinstance(item, list) and len(item) == 3 and item[1] in {"buy", "sell"} and float(item[2]) > 0:
-                close_orders.append((str(item[0]), str(item[1]), float(item[2])))
-        halt_days = [str(day) for day in list(raw.get("halt_days") or []) if isinstance(day, str)]
-        working: list[dict] = []
-        for item in list(raw.get("working") or []):
-            if not isinstance(item, dict) or not str(item.get("id") or ""):
-                continue
-            try:
-                ticket = make_ticket(item)
-            except ValueError:
-                continue
-            ticket["id"] = str(item["id"])
-            ticket["day"] = str(item.get("day") or "")
-            ticket["triggered"] = bool(item.get("triggered"))
-            working.append(ticket)
-        next_order_id = max(int(raw.get("next_order_id") or 1), 1)
-        return Journal(symbol, params, cursor, orders, close_orders, halt_days, working, next_order_id)
-    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
-        return default_journal()
+        side = str(item["side"])
+        if side not in SIDES:
+            return None
+        return {
+            "at": int(item.get("at") or 0),
+            "symbol": str(item.get("symbol") or ""),
+            "side": side,
+            "qty": float(item["qty"]),
+            "price": float(item["price"]),
+            "quote": float(item.get("quote") or item["price"]),
+            "fee_bps": float(item.get("fee_bps") or 0),
+            "pnl": float(item.get("pnl") or 0),
+            "reason": str(item.get("reason") or "trade")[:40],
+        }
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
-def save_journal(path: Path, journal: Journal) -> None:
-    payload = {
+def journal_from_dict(raw: dict) -> Journal:
+    params = params_from_dict(raw["params"])
+    symbol = str(raw["symbol"])
+    cursor = max(params.slow + 1, int(raw["cursor"]))
+    orders: dict[int, str] = {}
+    for key, side in dict(raw.get("orders") or {}).items():
+        if side in {"buy", "sell"}:
+            orders[int(key)] = str(side)
+    close_orders: list[tuple] = []
+    for item in list(raw.get("close_orders") or []):
+        if isinstance(item, list) and len(item) == 2 and item[1] in {"buy", "sell"}:
+            close_orders.append((str(item[0]), str(item[1])))
+        elif isinstance(item, list) and len(item) == 3 and item[1] in {"buy", "sell"} and float(item[2]) > 0:
+            close_orders.append((str(item[0]), str(item[1]), float(item[2])))
+    halt_days = [str(day) for day in list(raw.get("halt_days") or []) if isinstance(day, str)]
+    working: list[dict] = []
+    for item in list(raw.get("working") or []):
+        if not isinstance(item, dict) or not str(item.get("id") or ""):
+            continue
+        try:
+            ticket = make_ticket(item)
+        except ValueError:
+            continue
+        ticket["id"] = str(item["id"])
+        ticket["day"] = str(item.get("day") or "")
+        ticket["triggered"] = bool(item.get("triggered"))
+        working.append(ticket)
+    next_order_id = max(int(raw.get("next_order_id") or 1), 1)
+    fills = [row for row in (clean_fill(item) for item in list(raw.get("fills") or [])) if row][-500:]
+    return Journal(symbol, params, cursor, orders, close_orders, halt_days, working, next_order_id, fills)
+
+
+def journal_to_dict(journal: Journal) -> dict:
+    return {
         "version": 1,
         "symbol": journal.symbol,
         "cursor": journal.cursor,
@@ -143,11 +161,28 @@ def save_journal(path: Path, journal: Journal) -> None:
         "halt_days": list(journal.halt_days),
         "working": list(journal.working),
         "next_order_id": journal.next_order_id,
+        "fills": list(journal.fills[-500:]),
     }
+
+
+def write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
+
+
+def load_journal(path: Path) -> Journal:
+    if not path.exists():
+        return default_journal()
+    try:
+        return journal_from_dict(json.loads(path.read_text(encoding="utf-8")))
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+        return default_journal()
+
+
+def save_journal(path: Path, journal: Journal) -> None:
+    write_json(path, journal_to_dict(journal))
 
 
 def view_journal(journal: Journal) -> dict:

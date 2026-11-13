@@ -1280,8 +1280,433 @@
     };
   }
 
+
+  const CLOCK_ZONES = {};
+
+  function clockOf(label, convert, zone) {
+    const match = /^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/.exec(String(label || ""));
+    if (!match) return null;
+    if (!convert) return { day: match[1], minutes: Number(match[2]) * 60 + Number(match[3]) };
+    const moment = new Date(match[1] + "T" + match[2] + ":" + match[3] + ":00Z");
+    if (!CLOCK_ZONES[zone]) {
+      CLOCK_ZONES[zone] = new Intl.DateTimeFormat("en-CA", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    }
+    const parts = {};
+    CLOCK_ZONES[zone].formatToParts(moment).forEach((part) => {
+      parts[part.type] = part.value;
+    });
+    return { day: parts.year + "-" + parts.month + "-" + parts.day, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+  }
+
+  function openingDay(rows, position, lastIndex, plan) {
+    const opener = rows[position];
+    const out = { day: opener.day, openLabel: opener.bar.date, high: opener.bar.high, low: opener.bar.low, state: "FORMING", entry: null, exit: null, r: null };
+    out.range = opener.bar.high - opener.bar.low;
+    out.trigger = opener.bar.high * (1 + plan.buffer);
+    out.floor = opener.bar.low * (1 - plan.buffer);
+    out.target = out.trigger + out.range * plan.multiple;
+    out.risk = out.trigger - out.floor;
+    out.closed = opener.index < lastIndex;
+    if (!out.closed || !(out.range > 0)) return out;
+    out.state = "ARMED";
+    const after = rows.slice(position + 1);
+    let longAt = -1;
+    for (let at = 0; at < after.length; at += 1) {
+      const bar = after[at].bar;
+      if (longAt < 0) {
+        const up = bar.high >= out.trigger;
+        const down = bar.low <= out.floor;
+        if (up && down) {
+          out.state = "BOTH";
+          return out;
+        }
+        if (down) {
+          out.state = "BREAK_DOWN";
+          return out;
+        }
+        if (up) {
+          longAt = at;
+          out.state = "LONG";
+          out.entry = out.trigger;
+        }
+        continue;
+      }
+      const stopped = bar.low <= out.floor;
+      const hit = bar.high >= out.target;
+      if (stopped) {
+        out.state = "STOPPED";
+        out.exit = out.floor;
+        out.r = -1;
+        return out;
+      }
+      if (hit) {
+        out.state = "TARGET";
+        out.exit = out.target;
+        out.r = out.risk > 0 ? (out.target - out.trigger) / out.risk : null;
+        return out;
+      }
+    }
+    if (longAt >= 0 && after.length) {
+      out.last = after[after.length - 1].bar.close;
+      out.r = out.risk > 0 ? (out.last - out.trigger) / out.risk : null;
+    } else if (longAt < 0 && after.length) {
+      out.last = after[after.length - 1].bar.close;
+    }
+    return out;
+  }
+
+  function openingRange(bars, options) {
+    const opt = options || {};
+    const list = Array.isArray(bars) ? bars : [];
+    const plan = {
+      buffer: opt.buffer > 0 ? opt.buffer : 0,
+      multiple: opt.multiple > 0 ? opt.multiple : 1,
+    };
+    const crypto = !!opt.crypto;
+    const openAt = Number.isFinite(opt.openAt) ? opt.openAt : crypto ? 0 : 570;
+    const convert = !!opt.utcLabels && !crypto;
+    const zone = opt.zone || "America/New_York";
+    const rows = [];
+    list.forEach((bar, index) => {
+      const clock = clockOf(bar.date, convert, zone);
+      if (clock) rows.push({ index, bar, day: clock.day, minutes: clock.minutes });
+    });
+    if (rows.length < 2) return { ready: false, reason: "The 15-minute strategy needs intraday bars." };
+    const days = [];
+    rows.forEach((row) => {
+      const last = days[days.length - 1];
+      if (last && last[0].day === row.day) last.push(row);
+      else days.push([row]);
+    });
+    const lastIndex = list.length - 1;
+    const results = [];
+    days.forEach((group, dayIndex) => {
+      let position = group.findIndex((row) => row.minutes === openAt);
+      let fallback = false;
+      if (position < 0 && dayIndex === days.length - 1) {
+        position = 0;
+        fallback = true;
+      }
+      if (position < 0) return;
+      const result = openingDay(group, position, lastIndex, plan);
+      result.fallback = fallback;
+      result.latest = dayIndex === days.length - 1;
+      results.push(result);
+    });
+    if (!results.length) return { ready: false, reason: "No opening bar found at that clock time." };
+    const latest = results[results.length - 1];
+    const past = results.filter((row) => !row.latest && row.closed);
+    const taken = past.filter((row) => row.entry != null);
+    const wins = taken.filter((row) => row.state === "TARGET").length;
+    const losses = taken.filter((row) => row.state === "STOPPED").length;
+    const rs = taken.map((row) => row.r).filter((value) => value != null && Number.isFinite(value));
+    return {
+      ready: true,
+      latest,
+      state: latest.state,
+      plan,
+      openAt,
+      record: {
+        days: past.length,
+        trades: taken.length,
+        wins,
+        losses,
+        open: taken.length - wins - losses,
+        avgR: rs.length ? rs.reduce((sum, value) => sum + value, 0) / rs.length : null,
+        totalR: rs.length ? rs.reduce((sum, value) => sum + value, 0) : null,
+        skipped: past.filter((row) => row.state === "BREAK_DOWN" || row.state === "BOTH").length,
+      },
+    };
+  }
+
+
+  function wilderRsi(closes, period) {
+    const out = new Array(closes.length).fill(null);
+    if (closes.length <= period) return out;
+    let gain = 0;
+    let loss = 0;
+    for (let index = 1; index <= period; index += 1) {
+      const change = closes[index] - closes[index - 1];
+      if (change > 0) gain += change;
+      else loss -= change;
+    }
+    gain /= period;
+    loss /= period;
+    out[period] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+    for (let index = period + 1; index < closes.length; index += 1) {
+      const change = closes[index] - closes[index - 1];
+      gain = (gain * (period - 1) + Math.max(0, change)) / period;
+      loss = (loss * (period - 1) + Math.max(0, -change)) / period;
+      out[index] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+    }
+    return out;
+  }
+
+  function simpleAverage(values, length) {
+    const out = new Array(values.length).fill(null);
+    let total = 0;
+    for (let index = 0; index < values.length; index += 1) {
+      total += values[index];
+      if (index >= length) total -= values[index - length];
+      if (index >= length - 1) out[index] = total / length;
+    }
+    return out;
+  }
+
+  function runRule(list, end, warm, rule) {
+    const trades = [];
+    let open = null;
+    let pending = null;
+    let barsIn = 0;
+    const close = (index, price, why) => {
+      trades.push({ entry: open.entry, exit: price, entryIndex: open.entryIndex, exitIndex: index, pct: price / open.entry - 1, why });
+      open = null;
+    };
+    for (let index = warm; index < end; index += 1) {
+      const bar = list[index];
+      if (pending && pending.type === "buy" && !open) open = { entry: bar.open, entryIndex: index, stop: pending.stop };
+      else if (pending && pending.type === "sell" && open) close(index, bar.open, "signal exit");
+      pending = null;
+      if (open && open.stop > 0 && bar.low <= open.stop) close(index, Math.min(bar.open, open.stop), "stop");
+      if (open) barsIn += 1;
+      if (index === end - 1) break;
+      if (open) {
+        if (rule.exit(index, open)) pending = { type: "sell" };
+      } else {
+        const entry = rule.enter(index);
+        if (entry) pending = { type: "buy", stop: entry.stop || 0 };
+      }
+    }
+    let wins = 0;
+    let growth = 1;
+    let worst = 0;
+    trades.forEach((trade) => {
+      if (trade.pct > 0) wins += 1;
+      growth *= 1 + trade.pct;
+      worst = Math.min(worst, trade.pct);
+    });
+    const lastClose = end > 0 ? list[end - 1].close : 0;
+    let openPct = null;
+    if (open) {
+      openPct = lastClose / open.entry - 1;
+      growth *= 1 + openPct;
+    }
+    const startPrice = warm < end ? list[warm].open : 0;
+    return {
+      trades,
+      wins,
+      open,
+      pending,
+      openPct,
+      total: growth - 1,
+      hold: startPrice > 0 ? lastClose / startPrice - 1 : 0,
+      worst,
+      exposure: end > warm ? barsIn / (end - warm) : 0,
+    };
+  }
+
+  const STRATEGY_INFO = {
+    edge: { name: "Edge · five checks", who: "This bot", idea: "Enters when all five checks turn on together on a closed bar. Exits on a momentum turn or the trailing stop." },
+    squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
+    donchian: { name: "20-day breakout", who: "Range breakout", idea: "Buy a close above the highest high of the last 20 bars. Exit on a close below the lowest low of the last 10 bars." },
+    rsi2: { name: "RSI 2 pullback", who: "Short pullback", idea: "In an uptrend (close above the 200-bar average) buy when 2-period RSI drops under 10. Exit when price closes above its 5-bar average." },
+  };
+
+  function strategies(bars, options) {
+    const list = bars || [];
+    const count = list.length;
+    const live = !!(options && options.live) && count > 0;
+    const end = live ? count - 1 : count;
+    const rows = [];
+    const closes = list.map((bar) => bar.close);
+    const finish = (id, run, extra) => {
+      const call = run.pending ? (run.pending.type === "buy" ? "BUY" : "SELL") : run.open ? "HOLD" : "WAIT";
+      rows.push({
+        id,
+        ...STRATEGY_INFO[id],
+        ready: true,
+        call,
+        trades: run.trades.length,
+        wins: run.wins,
+        winRate: run.trades.length ? run.wins / run.trades.length : 0,
+        total: run.total,
+        hold: run.hold,
+        worst: run.worst,
+        exposure: run.exposure,
+        entry: run.open ? run.open.entry : null,
+        openPct: run.openPct,
+        stop: run.pending && run.pending.stop > 0 ? run.pending.stop : run.open && run.open.stop > 0 ? run.open.stop : null,
+        ...(extra || {}),
+      });
+    };
+    const notReady = (id, why) => rows.push({ id, ...STRATEGY_INFO[id], ready: false, call: "WAIT", trades: 0, winRate: 0, total: 0, hold: 0, worst: 0, why });
+
+    const known = edge(list, { live });
+    if (known && known.ready) {
+      rows.push({
+        id: "edge",
+        ...STRATEGY_INFO.edge,
+        ready: true,
+        call: known.call,
+        trades: known.record.trades,
+        wins: Math.round(known.record.winRate * known.record.trades),
+        winRate: known.record.winRate,
+        total: known.record.total,
+        hold: known.record.hold,
+        worst: known.record.worst,
+        exposure: known.record.exposure,
+        entry: known.entry,
+        openPct: known.openPct,
+        stop: known.stop,
+        signalDate: known.signalDate,
+      });
+    } else notReady("edge", "Needs at least 52 bars.");
+
+    if (end >= 60) {
+      const study = compression(list, 20);
+      const mom = study.momentum;
+      const on = study.level.map((value) => value >= 2);
+      const fast = ema(closes, 8);
+      const slow = ema(closes, 21);
+      const rising = (index) => mom[index] != null && mom[index - 1] != null && mom[index] > 0 && mom[index] > mom[index - 1];
+      const run = runRule(list, end, 40, {
+        enter: (index) => (!on[index] && on[index - 1] && rising(index) ? { stop: list[index].low } : null),
+        exit: (index) => mom[index] != null && mom[index - 1] != null && mom[index - 2] != null && mom[index] < mom[index - 1] && mom[index - 1] < mom[index - 2],
+      });
+      let dots = 0;
+      for (let index = end - 1; index >= 0 && on[index]; index -= 1) dots += 1;
+      const last = end - 1;
+      const fired = !on[last] && on[last - 1];
+      finish("squeeze", run, {
+        dots,
+        squeezeOn: dots > 0,
+        fired,
+        momentum: mom[last],
+        momentumUp: rising(last),
+        trend: fast[last] != null && slow[last] != null && fast[last] > slow[last],
+        bearish: fired && mom[last] != null && mom[last] < 0 && mom[last - 1] != null && mom[last] < mom[last - 1],
+      });
+    } else notReady("squeeze", "Needs at least 60 bars.");
+
+    if (end >= 40) {
+      const run = runRule(list, end, 25, {
+        enter: (index) => {
+          let top = -Infinity;
+          for (let back = 1; back <= 20; back += 1) top = Math.max(top, list[index - back].high);
+          return list[index].close > top ? { stop: 0 } : null;
+        },
+        exit: (index) => {
+          let floor = Infinity;
+          for (let back = 1; back <= 10; back += 1) floor = Math.min(floor, list[index - back].low);
+          return list[index].close < floor;
+        },
+      });
+      finish("donchian", run);
+    } else notReady("donchian", "Needs at least 40 bars.");
+
+    if (end >= 230) {
+      const rsi = wilderRsi(closes, 2);
+      const long = simpleAverage(closes, 200);
+      const short = simpleAverage(closes, 5);
+      const run = runRule(list, end, 205, {
+        enter: (index) => (long[index] != null && closes[index] > long[index] && rsi[index] != null && rsi[index] < 10 ? { stop: 0 } : null),
+        exit: (index) => short[index] != null && closes[index] > short[index],
+      });
+      finish("rsi2", run);
+    } else notReady("rsi2", "Needs at least 230 bars.");
+
+    const ranked = rows
+      .filter((row) => row.ready && row.trades >= 5)
+      .sort((a, b) => b.total - a.total);
+    return { rows, best: ranked.length ? ranked[0].id : "", end };
+  }
+
+
+  function squeezeRead(bars, options) {
+    const all = bars || [];
+    const live = !!(options && options.live) && all.length > 0;
+    const list = live ? all.slice(0, -1) : all;
+    const count = list.length;
+    if (count < 60) return { ready: false, reason: "Needs at least 60 closed bars." };
+    const study = compression(list, 20);
+    const mom = study.momentum;
+    const on = study.level.map((value) => value >= 2);
+    const last = count - 1;
+    let dots = 0;
+    for (let index = last; index >= 0 && on[index]; index -= 1) dots += 1;
+    let firedAgo = -1;
+    if (!on[last]) {
+      for (let back = 1; back <= 3 && last - back >= 0; back += 1) {
+        if (on[last - back]) {
+          firedAgo = back - 1;
+          break;
+        }
+      }
+    }
+    const state = on[last] ? "ON" : firedAgo >= 0 ? "FIRED" : "OFF";
+    const value = mom[last];
+    const direction = value == null ? "" : value >= 0 ? "bull" : "bear";
+    const closes = list.map((bar) => bar.close);
+    const e8 = ema(closes, 8)[last];
+    const e21 = ema(closes, 21)[last];
+    const e50 = ema(closes, 50)[last];
+    const stack = e8 > e21 && e21 > e50 ? "positive" : e8 < e21 && e21 < e50 ? "negative" : "mixed";
+    let end = last;
+    let size = dots;
+    if (state === "FIRED") {
+      end = last - firedAgo - 1;
+      size = 0;
+      for (let index = end; index >= 0 && on[index]; index -= 1) size += 1;
+    }
+    let clean = size > 0 && direction !== "";
+    for (let index = end; clean && index > end - size; index -= 1) {
+      const level = mom[index];
+      if (level == null || (direction === "bull" && level < 0) || (direction === "bear" && level > 0)) clean = false;
+    }
+    const before = mom[last - 1];
+    const rising = value != null && before != null && (direction === "bull" ? value > before : value < before);
+    const level = study.level[state === "FIRED" ? end : last];
+    let weekly = false;
+    try {
+      const weeks = barsFor(list, frameById("1W"));
+      if (weeks.length >= 30) {
+        const weekStudy = compression(weeks, 20);
+        weekly = weekStudy.level[weeks.length - 1] >= 2;
+      }
+    } catch (error) {
+      weekly = false;
+    }
+    const lastBar = list[last];
+    return { ready: true, state, dots: size, level, firedAgo, direction, stack, clean, rising, momentum: value, weekly, price: lastBar.close, asOf: lastBar.date };
+  }
+
+  function squeezeScore(row, parents) {
+    if (!row || !row.ready || row.state === "OFF") return { score: 0, parts: [], triple: false };
+    const parts = [];
+    const add = (name, points) => {
+      if (points > 0) parts.push([name, points]);
+    };
+    add(row.state === "ON" ? "Squeeze on" : "Just fired", row.state === "ON" ? 30 : 25);
+    add("Energy built (dots)", Math.round((Math.min(row.dots, 8) / 8) * 10));
+    add("Tight squeeze", row.level >= 3 ? 5 : 0);
+    const aligned = (row.direction === "bull" && row.stack === "positive") || (row.direction === "bear" && row.stack === "negative");
+    add("Averages stacked with momentum", aligned ? 20 : 0);
+    add("Clean squeeze, momentum never crossed", row.clean ? 10 : 0);
+    add("Momentum building", row.rising ? 15 : 0);
+    add("Weekly squeeze too", row.weekly ? 5 : 0);
+    const flags = parents || {};
+    const triple = !!(row.state === "ON" && flags.sector && flags.index);
+    add("Triple squeeze: stock, sector, index", triple ? 10 : 0);
+    const total = parts.reduce((sum, item) => sum + item[1], 0);
+    return { score: Math.min(100, total), parts, triple };
+  }
+
   root.PaperFrames = {
     edge,
+    squeezeRead,
+    squeezeScore,
+    strategies,
+    openingRange,
     pro,
     liveBar,
     closedBars,

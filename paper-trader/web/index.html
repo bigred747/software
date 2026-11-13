@@ -104,7 +104,7 @@
         <ol id="edge-checks" class="edge-checks"></ol>
         <p id="edge-plan" class="edge-plan"></p>
         <dl id="edge-record" class="edge-record"></dl>
-        <p class="muted edge-note-line">Edge buys when five checks turn on together: five or more squeeze dots, squeeze momentum above zero, squeeze momentum rising, the TMO main line above its signal, and the close under the upper Bollinger band. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop two average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
+        <p class="muted edge-note-line">Edge buys when five checks turn on together: five or more squeeze dots, squeeze momentum above zero, squeeze momentum rising, the true momentum main line above its signal, and the close under the upper Bollinger band. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop two average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
       </section>
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>
@@ -125,13 +125,18 @@
         <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
         <p id="breaker-note" class="breaker-note">Breaker armed. A 5% paper drop in one day sells everything and stops buys until tomorrow.</p>
       </div>
-      <section id="ticket" class="tos" aria-label="Order ticket">
+      <div class="safe-box" id="safe-box">
+        <button id="safe" type="button" class="safe-btn">Safe check</button>
+        <p id="safe-note" class="breaker-note">Press to run the safety check. It runs by itself every minute.</p>
+        <ul id="safe-list" class="safe-list"></ul>
+      </div>
+      <section id="ticket" class="ticket-box" aria-label="Order ticket">
         <h3>Order ticket</h3>
         <div class="side-row" role="group" aria-label="Side">
           <button id="side-buy" type="button" class="buy on" aria-pressed="true">Buy</button>
           <button id="side-sell" type="button" class="sell" aria-pressed="false">Sell</button>
         </div>
-        <div class="tos-grid">
+        <div class="ticket-grid">
           <label>Order type
             <select id="kind">
               <option value="market">Market</option>
@@ -185,6 +190,8 @@
     <section id="view-study" class="panel dock" aria-label="Desk tools">
       <div class="dock-tabs" role="tablist">
         <button type="button" class="dock-tab on" data-dock="study">Study</button>
+        <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
+        <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">B4 readings</button>
         <button type="button" class="dock-tab" data-dock="journal">Journal</button>
@@ -210,6 +217,89 @@ plot Sell = close crosses below baseline;</textarea>
         <label for="study-list">Installed on this device</label>
         <select id="study-list"></select>
         <p id="study-status" class="status"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="strategies">
+        <h2>Strategies</h2>
+        <p id="strat-lead" class="muted">Each strategy reads closed bars only and is scored on this market's own history. The ranking looks backward. It is not a forecast.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Strategy</th><th>Now</th><th>Trades</th><th>Wins</th><th>Result</th><th>Hold</th><th>Worst trade</th></tr>
+            </thead>
+            <tbody id="strat-board"></tbody>
+          </table>
+        </div>
+        <p id="strat-best" class="muted"></p>
+        <div class="strat-auto">
+          <label for="strat-pick">Auto follows</label>
+          <select id="strat-pick">
+            <option value="edge">Edge · five checks</option>
+            <option value="squeeze">Squeeze release</option>
+            <option value="donchian">20-day breakout</option>
+            <option value="rsi2">RSI 2 pullback</option>
+          </select>
+          <label class="strat-switch"><input id="strat-auto-on" type="checkbox"> Let Auto place paper trades from it</label>
+        </div>
+        <p id="strat-auto-note" class="muted">Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.</p>
+        <div id="strat-cards" class="strat-cards"></div>
+
+        <h3>15-minute opening bar breakout</h3>
+        <p class="muted">A common opening range idea: after the first 15-minute bar closes, a buy stop sits above its high and a sell stop below its low. The clock time, buffer, and target are your own settings. This paper desk is long only, so the low is used as the protective stop and a break below it is shown as a bearish break.</p>
+        <div class="strat-orb-inputs">
+          <label for="strat-open">Opening bar starts</label>
+          <input id="strat-open" type="text" value="09:30" inputmode="numeric" maxlength="5" aria-label="Opening bar start, New York time for stocks and futures, UTC for crypto">
+          <label for="strat-buffer">Buffer %</label>
+          <input id="strat-buffer" type="number" value="0" min="0" max="5" step="0.01">
+          <label for="strat-target">Target × range</label>
+          <input id="strat-target" type="number" value="1" min="0.25" max="10" step="0.25">
+          <button id="strat-load" type="button">Load 15-minute bars</button>
+        </div>
+        <p id="strat-orb-state" class="muted">Press Load to read the real 15-minute bars.</p>
+        <dl id="strat-orb-levels" class="strat-levels"></dl>
+        <p id="strat-orb-plan" class="muted"></p>
+        <dl id="strat-orb-record" class="strat-levels"></dl>
+        <div class="study-actions">
+          <label class="strat-switch"><input id="strat-confirm" type="checkbox"> Confirm and arm</label>
+          <button id="strat-arm-buy" type="button">Arm buy stop</button>
+          <button id="strat-arm-stop" type="button" class="quiet">Arm protective stop</button>
+          <button id="strat-arm-target" type="button" class="quiet">Arm target</button>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="squeeze">
+        <h2>Squeeze scan</h2>
+        <p class="muted">Finds markets where the Bollinger Bands sit inside the Keltner Channels, or left them in the last three bars, and ranks them on closed daily bars. Points: squeeze on or just fired, energy built over more bars, a tight squeeze, moving averages stacked with momentum, a clean squeeze, momentum building, a weekly squeeze too, and the same squeeze in the stock, its sector fund, and its index fund. The ranking looks backward. It is not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <label for="sq-list">List</label>
+          <select id="sq-list">
+            <option value="starter">Starter list</option>
+            <option value="sectors">Sector funds and big holdings</option>
+            <option value="crypto">Crypto</option>
+            <option value="futures">Futures</option>
+            <option value="custom">My own list</option>
+          </select>
+          <input id="sq-custom" type="text" maxlength="400" placeholder="BTC-USD, NVDA, XLK" aria-label="Your own list of symbols, separated by commas">
+          <label for="sq-side">Show</label>
+          <select id="sq-side">
+            <option value="bull">Bullish (this desk is long only)</option>
+            <option value="bear">Bearish (view only)</option>
+            <option value="all">Both</option>
+          </select>
+          <button id="sq-scan" type="button">Scan now</button>
+          <button id="sq-stop" type="button" class="quiet">Stop</button>
+        </div>
+        <p id="sq-note" class="muted">Press Scan now. Each market is read from its real daily bars. Nothing is guessed.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Market</th><th>State</th><th>Dots</th><th>Averages</th><th>Momentum</th><th>Weekly</th><th>Triple</th><th>Score</th><th></th></tr>
+            </thead>
+            <tbody id="sq-body"></tbody>
+          </table>
+        </div>
+        <p id="sq-why" class="muted"></p>
+        <p id="sq-skip" class="muted"></p>
       </div>
 
       <div class="dock-page" data-dock-page="frames">
@@ -242,7 +332,26 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="journal">
-        <h2>Session journal</h2>
+        <h2>Open positions</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Market</th><th>Shares</th><th>Entry</th><th>Last</th><th>Open P/L</th><th>Opened by</th></tr>
+            </thead>
+            <tbody id="positions-body"></tbody>
+          </table>
+        </div>
+        <p id="book-total" class="muted"></p>
+        <h2>Every fill</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Time (Denver)</th><th>Market</th><th>Side</th><th>Shares</th><th>Price</th><th>Why</th><th>Result</th></tr>
+            </thead>
+            <tbody id="fills-body"></tbody>
+          </table>
+        </div>
+        <h2>Closed trades</h2>
         <div class="table-wrap">
           <table>
             <thead>

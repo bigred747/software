@@ -210,6 +210,7 @@
       lastAction: "",
       working: [],
       nextId: 1,
+      fills: [],
     };
   }
 
@@ -244,6 +245,7 @@
       fill: session.lastFill || null,
       working: (session.working || []).map((ticket) => ({ ...ticket })),
       ticket_fills: (session.ticketFills || []).map((item) => ({ ...item })),
+      fills: (session.fills || []).map((item) => ({ ...item })),
       live: false,
     };
   }
@@ -312,8 +314,7 @@
     ticket.triggered = verdict.triggered;
     session.nextId = (session.nextId || 1) + 1;
     if (verdict.fills) {
-      const paper = fill(session, ticket.side, slipBps, verdict.price);
-      return paper;
+      return fill(session, ticket.side, slipBps, verdict.price, raw.source === "auto" ? "auto" : "ticket");
     }
     session.working = (session.working || []).concat([ticket]);
     session.lastAction = "working";
@@ -344,7 +345,7 @@
         changed = true;
       }
       if (verdict.fills) {
-        fill(session, ticket.side, slipBps, verdict.price);
+        fill(session, ticket.side, slipBps, verdict.price, "working order");
         session.ticketFills = (session.ticketFills || []).concat([{ ...session.lastFill, order_id: ticket.id, kind: ticket.kind }]).slice(-12);
         changed = true;
         return;
@@ -362,7 +363,61 @@
     return view(session);
   }
 
-  function fill(session, side, slipBps, exactPrice) {
+  function logFill(session, side, qty, price, bar, pnl, reason) {
+    session.fills = (session.fills || []).concat([{
+      at: Math.floor(Date.now() / 1000),
+      symbol: session.symbol,
+      side,
+      qty,
+      price,
+      quote: bar.close,
+      fee_bps: session.params.fee_bps,
+      pnl,
+      reason: reason || "trade",
+    }]).slice(-500);
+  }
+
+  function snapshot(session) {
+    return {
+      symbol: session.symbol,
+      params: { ...session.params },
+      cash: session.cash,
+      shares: session.shares,
+      entryPrice: session.entryPrice,
+      entryDate: session.entryDate,
+      cost: session.cost,
+      trades: session.trades.map((trade) => ({ ...trade })),
+      working: (session.working || []).map((ticket) => ({ ...ticket })),
+      nextId: session.nextId || 1,
+      fills: (session.fills || []).map((item) => ({ ...item })),
+      ticketFills: (session.ticketFills || []).map((item) => ({ ...item })),
+      lastAction: session.lastAction || "",
+      last: session.bars && session.bars.length ? session.bars[session.bars.length - 1].close : null,
+    };
+  }
+
+  function restore(session, saved) {
+    if (!saved || saved.symbol !== session.symbol) return false;
+    const number = (value, fallback) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
+    const cash = number(saved.cash, NaN);
+    const shares = number(saved.shares, NaN);
+    if (!(cash >= 0) || !(shares >= 0)) return false;
+    session.params = { ...session.params, ...(saved.params || {}) };
+    session.cash = cash;
+    session.shares = shares;
+    session.entryPrice = saved.entryPrice == null ? null : number(saved.entryPrice, null);
+    session.entryDate = saved.entryDate || null;
+    session.cost = number(saved.cost, 0);
+    session.trades = Array.isArray(saved.trades) ? saved.trades.map((trade) => ({ ...trade })) : [];
+    session.working = Array.isArray(saved.working) ? saved.working.map((ticket) => ({ ...ticket })) : [];
+    session.nextId = Math.max(1, number(saved.nextId, 1));
+    session.fills = Array.isArray(saved.fills) ? saved.fills.map((item) => ({ ...item })) : [];
+    session.ticketFills = Array.isArray(saved.ticketFills) ? saved.ticketFills.map((item) => ({ ...item })) : [];
+    session.lastAction = saved.lastAction || "";
+    return true;
+  }
+
+  function fill(session, side, slipBps, exactPrice, reason) {
     const bar = session.bars[Math.max(0, session.cursor - 1)];
     if (!bar) return view(session);
     const fee = session.params.fee_bps / 10000;
@@ -379,6 +434,7 @@
       session.entryDate = bar.date;
       session.lastAction = "buy";
       session.lastFill = { side, quote: bar.close, price, slip_bps: Number(slipBps) || 0, fee_bps: session.params.fee_bps, at: Math.floor(Date.now() / 1000) };
+      logFill(session, "buy", shares, price, bar, 0, reason);
     } else if (side === "sell" && session.shares > 0) {
       const notional = session.shares * price;
       const proceeds = notional * (1 - fee);
@@ -398,6 +454,8 @@
       session.cost = 0;
       session.lastAction = "sell";
       session.lastFill = { side, quote: bar.close, price, slip_bps: Number(slipBps) || 0, fee_bps: session.params.fee_bps, at: Math.floor(Date.now() / 1000) };
+      const closed = session.trades[session.trades.length - 1];
+      logFill(session, "sell", closed.shares, price, bar, closed.pnl, reason);
     }
     return view(session);
   }
@@ -421,13 +479,15 @@
       return view(session);
     },
     fill,
+    snapshot,
+    restore,
     place,
     work,
     cancel,
     makeTicket,
     decide,
-    trade(session, slipBps) {
-      return fill(session, session.shares > 0 ? "sell" : "buy", slipBps);
+    trade(session, slipBps, reason) {
+      return fill(session, session.shares > 0 ? "sell" : "buy", slipBps, 0, reason || "trade");
     },
     sessionFromBars(symbol, bars, params) {
       const settings = {
@@ -454,6 +514,7 @@
         lastAction: "",
         working: [],
         nextId: 1,
+        fills: [],
       };
     },
     replaceBars(session, bars) {

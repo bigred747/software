@@ -611,7 +611,7 @@ footer { display: none; }
   }
 }
 
-.tos {
+.ticket-box {
   margin: 14px 0;
   padding: 12px;
   border: 1px solid var(--line);
@@ -619,23 +619,50 @@ footer { display: none; }
   background: #0f151c;
 }
 
-.tos h3 { margin: 0 0 8px; font-size: 14px; }
-.tos h3 + .table-wrap, .tos .table-wrap + button { margin-top: 6px; }
-.tos .tiny { font-size: 12px; margin: 8px 0; }
-.tos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.tos-grid label { margin: 0; font-size: 12px; }
-.tos-grid label[hidden] { display: none; }
+.ticket-box h3 { margin: 0 0 8px; font-size: 14px; }
+.ticket-box h3 + .table-wrap, .ticket-box .table-wrap + button { margin-top: 6px; }
+.ticket-box .tiny { font-size: 12px; margin: 8px 0; }
+.ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ticket-grid label { margin: 0; font-size: 12px; }
+.ticket-grid label[hidden] { display: none; }
 .side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
 .side-row .buy { background: #163528; border-color: var(--up); color: var(--up); }
 .side-row .sell { background: #3a1820; border-color: var(--down); color: var(--down); }
 .side-row .on { box-shadow: inset 0 0 0 2px currentColor; font-weight: 700; }
-.tos .confirm { display: flex; gap: 8px; align-items: center; margin: 10px 0 6px; color: var(--text); font-size: 14px; }
-.tos .confirm input { width: auto; }
-.tos .send { width: 100%; background: #1d4d3a; border-color: var(--up); color: var(--up); margin-bottom: 12px; }
-.tos .send.sell-side { background: #3a1820; border-color: var(--down); color: var(--down); }
-.tos table.working { font-size: 12px; }
-.tos table.working th, .tos table.working td { padding: 5px 4px; }
-.tos table.working button { padding: 3px 8px; font-size: 12px; }
+.ticket-box .confirm { display: flex; gap: 8px; align-items: center; margin: 10px 0 6px; color: var(--text); font-size: 14px; }
+.ticket-box .confirm input { width: auto; }
+.ticket-box .send { width: 100%; background: #1d4d3a; border-color: var(--up); color: var(--up); margin-bottom: 12px; }
+.ticket-box .send.sell-side { background: #3a1820; border-color: var(--down); color: var(--down); }
+.ticket-box table.working { font-size: 12px; }
+.ticket-box table.working th, .ticket-box table.working td { padding: 5px 4px; }
+.ticket-box table.working button { padding: 3px 8px; font-size: 12px; }
+
+.strat-auto,.strat-orb-inputs{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:10px 0}
+.strat-orb-inputs input{width:84px}
+.strat-switch{display:inline-flex;gap:6px;align-items:center}
+.strat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:12px 0}
+.strat-card{border:1px solid var(--line,#2a3442);border-radius:10px;padding:10px 12px}
+.strat-card h4{margin:0 0 4px;font-size:14px}
+.strat-card p{margin:4px 0;font-size:13px}
+.strat-levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px 12px;margin:8px 0}
+.strat-levels div{display:flex;flex-direction:column}
+.strat-levels dt{font-size:11px;opacity:.7}
+.strat-levels dd{margin:0;font-weight:600}
+.call-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;background:#2a3442}
+.call-pill.buy{background:#12663f;color:#d8ffe9}
+.call-pill.sell{background:#7a1f2b;color:#ffe0e4}
+.call-pill.hold{background:#1d4f8a;color:#dcebff}
+tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
+
+.safe-box{margin:8px 0}
+.safe-btn{width:100%;font-weight:700;border:1px solid #3a4656;background:#1c242c;color:var(--text,#e6edf3);padding:10px 12px;border-radius:10px}
+.safe-btn.ok{background:#12803f;border-color:#3ddc97;color:#fff}
+.safe-btn.warn{background:#8a6a12;border-color:#ffd166;color:#fff}
+.safe-btn.bad{background:#a12a38;border-color:#ff6b7a;color:#fff}
+.safe-list{list-style:none;margin:6px 0 0;padding:0;font-size:12px;display:grid;gap:3px}
+.safe-list li::before{content:"OK  ";font-weight:700;color:#3ddc97}
+.safe-list li.warn::before{content:"CHECK  ";color:#ffd166}
+.safe-list li.bad::before{content:"FAIL  ";color:#ff6b7a}
 
 </style>
 </head>
@@ -730,7 +757,7 @@ footer { display: none; }
         <ol id="edge-checks" class="edge-checks"></ol>
         <p id="edge-plan" class="edge-plan"></p>
         <dl id="edge-record" class="edge-record"></dl>
-        <p class="muted edge-note-line">Edge buys when five checks turn on together: five or more squeeze dots, squeeze momentum above zero, squeeze momentum rising, the TMO main line above its signal, and the close under the upper Bollinger band. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop two average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
+        <p class="muted edge-note-line">Edge buys when five checks turn on together: five or more squeeze dots, squeeze momentum above zero, squeeze momentum rising, the true momentum main line above its signal, and the close under the upper Bollinger band. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop two average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
       </section>
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>
@@ -751,13 +778,18 @@ footer { display: none; }
         <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
         <p id="breaker-note" class="breaker-note">Breaker armed. A 5% paper drop in one day sells everything and stops buys until tomorrow.</p>
       </div>
-      <section id="ticket" class="tos" aria-label="Order ticket">
+      <div class="safe-box" id="safe-box">
+        <button id="safe" type="button" class="safe-btn">Safe check</button>
+        <p id="safe-note" class="breaker-note">Press to run the safety check. It runs by itself every minute.</p>
+        <ul id="safe-list" class="safe-list"></ul>
+      </div>
+      <section id="ticket" class="ticket-box" aria-label="Order ticket">
         <h3>Order ticket</h3>
         <div class="side-row" role="group" aria-label="Side">
           <button id="side-buy" type="button" class="buy on" aria-pressed="true">Buy</button>
           <button id="side-sell" type="button" class="sell" aria-pressed="false">Sell</button>
         </div>
-        <div class="tos-grid">
+        <div class="ticket-grid">
           <label>Order type
             <select id="kind">
               <option value="market">Market</option>
@@ -811,6 +843,8 @@ footer { display: none; }
     <section id="view-study" class="panel dock" aria-label="Desk tools">
       <div class="dock-tabs" role="tablist">
         <button type="button" class="dock-tab on" data-dock="study">Study</button>
+        <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
+        <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">B4 readings</button>
         <button type="button" class="dock-tab" data-dock="journal">Journal</button>
@@ -836,6 +870,89 @@ plot Sell = close crosses below baseline;</textarea>
         <label for="study-list">Installed on this device</label>
         <select id="study-list"></select>
         <p id="study-status" class="status"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="strategies">
+        <h2>Strategies</h2>
+        <p id="strat-lead" class="muted">Each strategy reads closed bars only and is scored on this market's own history. The ranking looks backward. It is not a forecast.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Strategy</th><th>Now</th><th>Trades</th><th>Wins</th><th>Result</th><th>Hold</th><th>Worst trade</th></tr>
+            </thead>
+            <tbody id="strat-board"></tbody>
+          </table>
+        </div>
+        <p id="strat-best" class="muted"></p>
+        <div class="strat-auto">
+          <label for="strat-pick">Auto follows</label>
+          <select id="strat-pick">
+            <option value="edge">Edge · five checks</option>
+            <option value="squeeze">Squeeze release</option>
+            <option value="donchian">20-day breakout</option>
+            <option value="rsi2">RSI 2 pullback</option>
+          </select>
+          <label class="strat-switch"><input id="strat-auto-on" type="checkbox"> Let Auto place paper trades from it</label>
+        </div>
+        <p id="strat-auto-note" class="muted">Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.</p>
+        <div id="strat-cards" class="strat-cards"></div>
+
+        <h3>15-minute opening bar breakout</h3>
+        <p class="muted">A common opening range idea: after the first 15-minute bar closes, a buy stop sits above its high and a sell stop below its low. The clock time, buffer, and target are your own settings. This paper desk is long only, so the low is used as the protective stop and a break below it is shown as a bearish break.</p>
+        <div class="strat-orb-inputs">
+          <label for="strat-open">Opening bar starts</label>
+          <input id="strat-open" type="text" value="09:30" inputmode="numeric" maxlength="5" aria-label="Opening bar start, New York time for stocks and futures, UTC for crypto">
+          <label for="strat-buffer">Buffer %</label>
+          <input id="strat-buffer" type="number" value="0" min="0" max="5" step="0.01">
+          <label for="strat-target">Target × range</label>
+          <input id="strat-target" type="number" value="1" min="0.25" max="10" step="0.25">
+          <button id="strat-load" type="button">Load 15-minute bars</button>
+        </div>
+        <p id="strat-orb-state" class="muted">Press Load to read the real 15-minute bars.</p>
+        <dl id="strat-orb-levels" class="strat-levels"></dl>
+        <p id="strat-orb-plan" class="muted"></p>
+        <dl id="strat-orb-record" class="strat-levels"></dl>
+        <div class="study-actions">
+          <label class="strat-switch"><input id="strat-confirm" type="checkbox"> Confirm and arm</label>
+          <button id="strat-arm-buy" type="button">Arm buy stop</button>
+          <button id="strat-arm-stop" type="button" class="quiet">Arm protective stop</button>
+          <button id="strat-arm-target" type="button" class="quiet">Arm target</button>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="squeeze">
+        <h2>Squeeze scan</h2>
+        <p class="muted">Finds markets where the Bollinger Bands sit inside the Keltner Channels, or left them in the last three bars, and ranks them on closed daily bars. Points: squeeze on or just fired, energy built over more bars, a tight squeeze, moving averages stacked with momentum, a clean squeeze, momentum building, a weekly squeeze too, and the same squeeze in the stock, its sector fund, and its index fund. The ranking looks backward. It is not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <label for="sq-list">List</label>
+          <select id="sq-list">
+            <option value="starter">Starter list</option>
+            <option value="sectors">Sector funds and big holdings</option>
+            <option value="crypto">Crypto</option>
+            <option value="futures">Futures</option>
+            <option value="custom">My own list</option>
+          </select>
+          <input id="sq-custom" type="text" maxlength="400" placeholder="BTC-USD, NVDA, XLK" aria-label="Your own list of symbols, separated by commas">
+          <label for="sq-side">Show</label>
+          <select id="sq-side">
+            <option value="bull">Bullish (this desk is long only)</option>
+            <option value="bear">Bearish (view only)</option>
+            <option value="all">Both</option>
+          </select>
+          <button id="sq-scan" type="button">Scan now</button>
+          <button id="sq-stop" type="button" class="quiet">Stop</button>
+        </div>
+        <p id="sq-note" class="muted">Press Scan now. Each market is read from its real daily bars. Nothing is guessed.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Market</th><th>State</th><th>Dots</th><th>Averages</th><th>Momentum</th><th>Weekly</th><th>Triple</th><th>Score</th><th></th></tr>
+            </thead>
+            <tbody id="sq-body"></tbody>
+          </table>
+        </div>
+        <p id="sq-why" class="muted"></p>
+        <p id="sq-skip" class="muted"></p>
       </div>
 
       <div class="dock-page" data-dock-page="frames">
@@ -868,7 +985,26 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="journal">
-        <h2>Session journal</h2>
+        <h2>Open positions</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Market</th><th>Shares</th><th>Entry</th><th>Last</th><th>Open P/L</th><th>Opened by</th></tr>
+            </thead>
+            <tbody id="positions-body"></tbody>
+          </table>
+        </div>
+        <p id="book-total" class="muted"></p>
+        <h2>Every fill</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Time (Denver)</th><th>Market</th><th>Side</th><th>Shares</th><th>Price</th><th>Why</th><th>Result</th></tr>
+            </thead>
+            <tbody id="fills-body"></tbody>
+          </table>
+        </div>
+        <h2>Closed trades</h2>
         <div class="table-wrap">
           <table>
             <thead>
@@ -1661,6 +1797,7 @@ plot Sell = close crosses below baseline;</textarea>
       lastAction: "",
       working: [],
       nextId: 1,
+      fills: [],
     };
   }
 
@@ -1695,6 +1832,7 @@ plot Sell = close crosses below baseline;</textarea>
       fill: session.lastFill || null,
       working: (session.working || []).map((ticket) => ({ ...ticket })),
       ticket_fills: (session.ticketFills || []).map((item) => ({ ...item })),
+      fills: (session.fills || []).map((item) => ({ ...item })),
       live: false,
     };
   }
@@ -1763,8 +1901,7 @@ plot Sell = close crosses below baseline;</textarea>
     ticket.triggered = verdict.triggered;
     session.nextId = (session.nextId || 1) + 1;
     if (verdict.fills) {
-      const paper = fill(session, ticket.side, slipBps, verdict.price);
-      return paper;
+      return fill(session, ticket.side, slipBps, verdict.price, raw.source === "auto" ? "auto" : "ticket");
     }
     session.working = (session.working || []).concat([ticket]);
     session.lastAction = "working";
@@ -1795,7 +1932,7 @@ plot Sell = close crosses below baseline;</textarea>
         changed = true;
       }
       if (verdict.fills) {
-        fill(session, ticket.side, slipBps, verdict.price);
+        fill(session, ticket.side, slipBps, verdict.price, "working order");
         session.ticketFills = (session.ticketFills || []).concat([{ ...session.lastFill, order_id: ticket.id, kind: ticket.kind }]).slice(-12);
         changed = true;
         return;
@@ -1813,7 +1950,61 @@ plot Sell = close crosses below baseline;</textarea>
     return view(session);
   }
 
-  function fill(session, side, slipBps, exactPrice) {
+  function logFill(session, side, qty, price, bar, pnl, reason) {
+    session.fills = (session.fills || []).concat([{
+      at: Math.floor(Date.now() / 1000),
+      symbol: session.symbol,
+      side,
+      qty,
+      price,
+      quote: bar.close,
+      fee_bps: session.params.fee_bps,
+      pnl,
+      reason: reason || "trade",
+    }]).slice(-500);
+  }
+
+  function snapshot(session) {
+    return {
+      symbol: session.symbol,
+      params: { ...session.params },
+      cash: session.cash,
+      shares: session.shares,
+      entryPrice: session.entryPrice,
+      entryDate: session.entryDate,
+      cost: session.cost,
+      trades: session.trades.map((trade) => ({ ...trade })),
+      working: (session.working || []).map((ticket) => ({ ...ticket })),
+      nextId: session.nextId || 1,
+      fills: (session.fills || []).map((item) => ({ ...item })),
+      ticketFills: (session.ticketFills || []).map((item) => ({ ...item })),
+      lastAction: session.lastAction || "",
+      last: session.bars && session.bars.length ? session.bars[session.bars.length - 1].close : null,
+    };
+  }
+
+  function restore(session, saved) {
+    if (!saved || saved.symbol !== session.symbol) return false;
+    const number = (value, fallback) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
+    const cash = number(saved.cash, NaN);
+    const shares = number(saved.shares, NaN);
+    if (!(cash >= 0) || !(shares >= 0)) return false;
+    session.params = { ...session.params, ...(saved.params || {}) };
+    session.cash = cash;
+    session.shares = shares;
+    session.entryPrice = saved.entryPrice == null ? null : number(saved.entryPrice, null);
+    session.entryDate = saved.entryDate || null;
+    session.cost = number(saved.cost, 0);
+    session.trades = Array.isArray(saved.trades) ? saved.trades.map((trade) => ({ ...trade })) : [];
+    session.working = Array.isArray(saved.working) ? saved.working.map((ticket) => ({ ...ticket })) : [];
+    session.nextId = Math.max(1, number(saved.nextId, 1));
+    session.fills = Array.isArray(saved.fills) ? saved.fills.map((item) => ({ ...item })) : [];
+    session.ticketFills = Array.isArray(saved.ticketFills) ? saved.ticketFills.map((item) => ({ ...item })) : [];
+    session.lastAction = saved.lastAction || "";
+    return true;
+  }
+
+  function fill(session, side, slipBps, exactPrice, reason) {
     const bar = session.bars[Math.max(0, session.cursor - 1)];
     if (!bar) return view(session);
     const fee = session.params.fee_bps / 10000;
@@ -1830,6 +2021,7 @@ plot Sell = close crosses below baseline;</textarea>
       session.entryDate = bar.date;
       session.lastAction = "buy";
       session.lastFill = { side, quote: bar.close, price, slip_bps: Number(slipBps) || 0, fee_bps: session.params.fee_bps, at: Math.floor(Date.now() / 1000) };
+      logFill(session, "buy", shares, price, bar, 0, reason);
     } else if (side === "sell" && session.shares > 0) {
       const notional = session.shares * price;
       const proceeds = notional * (1 - fee);
@@ -1849,6 +2041,8 @@ plot Sell = close crosses below baseline;</textarea>
       session.cost = 0;
       session.lastAction = "sell";
       session.lastFill = { side, quote: bar.close, price, slip_bps: Number(slipBps) || 0, fee_bps: session.params.fee_bps, at: Math.floor(Date.now() / 1000) };
+      const closed = session.trades[session.trades.length - 1];
+      logFill(session, "sell", closed.shares, price, bar, closed.pnl, reason);
     }
     return view(session);
   }
@@ -1872,13 +2066,15 @@ plot Sell = close crosses below baseline;</textarea>
       return view(session);
     },
     fill,
+    snapshot,
+    restore,
     place,
     work,
     cancel,
     makeTicket,
     decide,
-    trade(session, slipBps) {
-      return fill(session, session.shares > 0 ? "sell" : "buy", slipBps);
+    trade(session, slipBps, reason) {
+      return fill(session, session.shares > 0 ? "sell" : "buy", slipBps, 0, reason || "trade");
     },
     sessionFromBars(symbol, bars, params) {
       const settings = {
@@ -1905,6 +2101,7 @@ plot Sell = close crosses below baseline;</textarea>
         lastAction: "",
         working: [],
         nextId: 1,
+        fills: [],
       };
     },
     replaceBars(session, bars) {
@@ -3776,8 +3973,433 @@ plot Sell = close crosses below baseline;</textarea>
     };
   }
 
+
+  const CLOCK_ZONES = {};
+
+  function clockOf(label, convert, zone) {
+    const match = /^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/.exec(String(label || ""));
+    if (!match) return null;
+    if (!convert) return { day: match[1], minutes: Number(match[2]) * 60 + Number(match[3]) };
+    const moment = new Date(match[1] + "T" + match[2] + ":" + match[3] + ":00Z");
+    if (!CLOCK_ZONES[zone]) {
+      CLOCK_ZONES[zone] = new Intl.DateTimeFormat("en-CA", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    }
+    const parts = {};
+    CLOCK_ZONES[zone].formatToParts(moment).forEach((part) => {
+      parts[part.type] = part.value;
+    });
+    return { day: parts.year + "-" + parts.month + "-" + parts.day, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+  }
+
+  function openingDay(rows, position, lastIndex, plan) {
+    const opener = rows[position];
+    const out = { day: opener.day, openLabel: opener.bar.date, high: opener.bar.high, low: opener.bar.low, state: "FORMING", entry: null, exit: null, r: null };
+    out.range = opener.bar.high - opener.bar.low;
+    out.trigger = opener.bar.high * (1 + plan.buffer);
+    out.floor = opener.bar.low * (1 - plan.buffer);
+    out.target = out.trigger + out.range * plan.multiple;
+    out.risk = out.trigger - out.floor;
+    out.closed = opener.index < lastIndex;
+    if (!out.closed || !(out.range > 0)) return out;
+    out.state = "ARMED";
+    const after = rows.slice(position + 1);
+    let longAt = -1;
+    for (let at = 0; at < after.length; at += 1) {
+      const bar = after[at].bar;
+      if (longAt < 0) {
+        const up = bar.high >= out.trigger;
+        const down = bar.low <= out.floor;
+        if (up && down) {
+          out.state = "BOTH";
+          return out;
+        }
+        if (down) {
+          out.state = "BREAK_DOWN";
+          return out;
+        }
+        if (up) {
+          longAt = at;
+          out.state = "LONG";
+          out.entry = out.trigger;
+        }
+        continue;
+      }
+      const stopped = bar.low <= out.floor;
+      const hit = bar.high >= out.target;
+      if (stopped) {
+        out.state = "STOPPED";
+        out.exit = out.floor;
+        out.r = -1;
+        return out;
+      }
+      if (hit) {
+        out.state = "TARGET";
+        out.exit = out.target;
+        out.r = out.risk > 0 ? (out.target - out.trigger) / out.risk : null;
+        return out;
+      }
+    }
+    if (longAt >= 0 && after.length) {
+      out.last = after[after.length - 1].bar.close;
+      out.r = out.risk > 0 ? (out.last - out.trigger) / out.risk : null;
+    } else if (longAt < 0 && after.length) {
+      out.last = after[after.length - 1].bar.close;
+    }
+    return out;
+  }
+
+  function openingRange(bars, options) {
+    const opt = options || {};
+    const list = Array.isArray(bars) ? bars : [];
+    const plan = {
+      buffer: opt.buffer > 0 ? opt.buffer : 0,
+      multiple: opt.multiple > 0 ? opt.multiple : 1,
+    };
+    const crypto = !!opt.crypto;
+    const openAt = Number.isFinite(opt.openAt) ? opt.openAt : crypto ? 0 : 570;
+    const convert = !!opt.utcLabels && !crypto;
+    const zone = opt.zone || "America/New_York";
+    const rows = [];
+    list.forEach((bar, index) => {
+      const clock = clockOf(bar.date, convert, zone);
+      if (clock) rows.push({ index, bar, day: clock.day, minutes: clock.minutes });
+    });
+    if (rows.length < 2) return { ready: false, reason: "The 15-minute strategy needs intraday bars." };
+    const days = [];
+    rows.forEach((row) => {
+      const last = days[days.length - 1];
+      if (last && last[0].day === row.day) last.push(row);
+      else days.push([row]);
+    });
+    const lastIndex = list.length - 1;
+    const results = [];
+    days.forEach((group, dayIndex) => {
+      let position = group.findIndex((row) => row.minutes === openAt);
+      let fallback = false;
+      if (position < 0 && dayIndex === days.length - 1) {
+        position = 0;
+        fallback = true;
+      }
+      if (position < 0) return;
+      const result = openingDay(group, position, lastIndex, plan);
+      result.fallback = fallback;
+      result.latest = dayIndex === days.length - 1;
+      results.push(result);
+    });
+    if (!results.length) return { ready: false, reason: "No opening bar found at that clock time." };
+    const latest = results[results.length - 1];
+    const past = results.filter((row) => !row.latest && row.closed);
+    const taken = past.filter((row) => row.entry != null);
+    const wins = taken.filter((row) => row.state === "TARGET").length;
+    const losses = taken.filter((row) => row.state === "STOPPED").length;
+    const rs = taken.map((row) => row.r).filter((value) => value != null && Number.isFinite(value));
+    return {
+      ready: true,
+      latest,
+      state: latest.state,
+      plan,
+      openAt,
+      record: {
+        days: past.length,
+        trades: taken.length,
+        wins,
+        losses,
+        open: taken.length - wins - losses,
+        avgR: rs.length ? rs.reduce((sum, value) => sum + value, 0) / rs.length : null,
+        totalR: rs.length ? rs.reduce((sum, value) => sum + value, 0) : null,
+        skipped: past.filter((row) => row.state === "BREAK_DOWN" || row.state === "BOTH").length,
+      },
+    };
+  }
+
+
+  function wilderRsi(closes, period) {
+    const out = new Array(closes.length).fill(null);
+    if (closes.length <= period) return out;
+    let gain = 0;
+    let loss = 0;
+    for (let index = 1; index <= period; index += 1) {
+      const change = closes[index] - closes[index - 1];
+      if (change > 0) gain += change;
+      else loss -= change;
+    }
+    gain /= period;
+    loss /= period;
+    out[period] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+    for (let index = period + 1; index < closes.length; index += 1) {
+      const change = closes[index] - closes[index - 1];
+      gain = (gain * (period - 1) + Math.max(0, change)) / period;
+      loss = (loss * (period - 1) + Math.max(0, -change)) / period;
+      out[index] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+    }
+    return out;
+  }
+
+  function simpleAverage(values, length) {
+    const out = new Array(values.length).fill(null);
+    let total = 0;
+    for (let index = 0; index < values.length; index += 1) {
+      total += values[index];
+      if (index >= length) total -= values[index - length];
+      if (index >= length - 1) out[index] = total / length;
+    }
+    return out;
+  }
+
+  function runRule(list, end, warm, rule) {
+    const trades = [];
+    let open = null;
+    let pending = null;
+    let barsIn = 0;
+    const close = (index, price, why) => {
+      trades.push({ entry: open.entry, exit: price, entryIndex: open.entryIndex, exitIndex: index, pct: price / open.entry - 1, why });
+      open = null;
+    };
+    for (let index = warm; index < end; index += 1) {
+      const bar = list[index];
+      if (pending && pending.type === "buy" && !open) open = { entry: bar.open, entryIndex: index, stop: pending.stop };
+      else if (pending && pending.type === "sell" && open) close(index, bar.open, "signal exit");
+      pending = null;
+      if (open && open.stop > 0 && bar.low <= open.stop) close(index, Math.min(bar.open, open.stop), "stop");
+      if (open) barsIn += 1;
+      if (index === end - 1) break;
+      if (open) {
+        if (rule.exit(index, open)) pending = { type: "sell" };
+      } else {
+        const entry = rule.enter(index);
+        if (entry) pending = { type: "buy", stop: entry.stop || 0 };
+      }
+    }
+    let wins = 0;
+    let growth = 1;
+    let worst = 0;
+    trades.forEach((trade) => {
+      if (trade.pct > 0) wins += 1;
+      growth *= 1 + trade.pct;
+      worst = Math.min(worst, trade.pct);
+    });
+    const lastClose = end > 0 ? list[end - 1].close : 0;
+    let openPct = null;
+    if (open) {
+      openPct = lastClose / open.entry - 1;
+      growth *= 1 + openPct;
+    }
+    const startPrice = warm < end ? list[warm].open : 0;
+    return {
+      trades,
+      wins,
+      open,
+      pending,
+      openPct,
+      total: growth - 1,
+      hold: startPrice > 0 ? lastClose / startPrice - 1 : 0,
+      worst,
+      exposure: end > warm ? barsIn / (end - warm) : 0,
+    };
+  }
+
+  const STRATEGY_INFO = {
+    edge: { name: "Edge · five checks", who: "This bot", idea: "Enters when all five checks turn on together on a closed bar. Exits on a momentum turn or the trailing stop." },
+    squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
+    donchian: { name: "20-day breakout", who: "Range breakout", idea: "Buy a close above the highest high of the last 20 bars. Exit on a close below the lowest low of the last 10 bars." },
+    rsi2: { name: "RSI 2 pullback", who: "Short pullback", idea: "In an uptrend (close above the 200-bar average) buy when 2-period RSI drops under 10. Exit when price closes above its 5-bar average." },
+  };
+
+  function strategies(bars, options) {
+    const list = bars || [];
+    const count = list.length;
+    const live = !!(options && options.live) && count > 0;
+    const end = live ? count - 1 : count;
+    const rows = [];
+    const closes = list.map((bar) => bar.close);
+    const finish = (id, run, extra) => {
+      const call = run.pending ? (run.pending.type === "buy" ? "BUY" : "SELL") : run.open ? "HOLD" : "WAIT";
+      rows.push({
+        id,
+        ...STRATEGY_INFO[id],
+        ready: true,
+        call,
+        trades: run.trades.length,
+        wins: run.wins,
+        winRate: run.trades.length ? run.wins / run.trades.length : 0,
+        total: run.total,
+        hold: run.hold,
+        worst: run.worst,
+        exposure: run.exposure,
+        entry: run.open ? run.open.entry : null,
+        openPct: run.openPct,
+        stop: run.pending && run.pending.stop > 0 ? run.pending.stop : run.open && run.open.stop > 0 ? run.open.stop : null,
+        ...(extra || {}),
+      });
+    };
+    const notReady = (id, why) => rows.push({ id, ...STRATEGY_INFO[id], ready: false, call: "WAIT", trades: 0, winRate: 0, total: 0, hold: 0, worst: 0, why });
+
+    const known = edge(list, { live });
+    if (known && known.ready) {
+      rows.push({
+        id: "edge",
+        ...STRATEGY_INFO.edge,
+        ready: true,
+        call: known.call,
+        trades: known.record.trades,
+        wins: Math.round(known.record.winRate * known.record.trades),
+        winRate: known.record.winRate,
+        total: known.record.total,
+        hold: known.record.hold,
+        worst: known.record.worst,
+        exposure: known.record.exposure,
+        entry: known.entry,
+        openPct: known.openPct,
+        stop: known.stop,
+        signalDate: known.signalDate,
+      });
+    } else notReady("edge", "Needs at least 52 bars.");
+
+    if (end >= 60) {
+      const study = compression(list, 20);
+      const mom = study.momentum;
+      const on = study.level.map((value) => value >= 2);
+      const fast = ema(closes, 8);
+      const slow = ema(closes, 21);
+      const rising = (index) => mom[index] != null && mom[index - 1] != null && mom[index] > 0 && mom[index] > mom[index - 1];
+      const run = runRule(list, end, 40, {
+        enter: (index) => (!on[index] && on[index - 1] && rising(index) ? { stop: list[index].low } : null),
+        exit: (index) => mom[index] != null && mom[index - 1] != null && mom[index - 2] != null && mom[index] < mom[index - 1] && mom[index - 1] < mom[index - 2],
+      });
+      let dots = 0;
+      for (let index = end - 1; index >= 0 && on[index]; index -= 1) dots += 1;
+      const last = end - 1;
+      const fired = !on[last] && on[last - 1];
+      finish("squeeze", run, {
+        dots,
+        squeezeOn: dots > 0,
+        fired,
+        momentum: mom[last],
+        momentumUp: rising(last),
+        trend: fast[last] != null && slow[last] != null && fast[last] > slow[last],
+        bearish: fired && mom[last] != null && mom[last] < 0 && mom[last - 1] != null && mom[last] < mom[last - 1],
+      });
+    } else notReady("squeeze", "Needs at least 60 bars.");
+
+    if (end >= 40) {
+      const run = runRule(list, end, 25, {
+        enter: (index) => {
+          let top = -Infinity;
+          for (let back = 1; back <= 20; back += 1) top = Math.max(top, list[index - back].high);
+          return list[index].close > top ? { stop: 0 } : null;
+        },
+        exit: (index) => {
+          let floor = Infinity;
+          for (let back = 1; back <= 10; back += 1) floor = Math.min(floor, list[index - back].low);
+          return list[index].close < floor;
+        },
+      });
+      finish("donchian", run);
+    } else notReady("donchian", "Needs at least 40 bars.");
+
+    if (end >= 230) {
+      const rsi = wilderRsi(closes, 2);
+      const long = simpleAverage(closes, 200);
+      const short = simpleAverage(closes, 5);
+      const run = runRule(list, end, 205, {
+        enter: (index) => (long[index] != null && closes[index] > long[index] && rsi[index] != null && rsi[index] < 10 ? { stop: 0 } : null),
+        exit: (index) => short[index] != null && closes[index] > short[index],
+      });
+      finish("rsi2", run);
+    } else notReady("rsi2", "Needs at least 230 bars.");
+
+    const ranked = rows
+      .filter((row) => row.ready && row.trades >= 5)
+      .sort((a, b) => b.total - a.total);
+    return { rows, best: ranked.length ? ranked[0].id : "", end };
+  }
+
+
+  function squeezeRead(bars, options) {
+    const all = bars || [];
+    const live = !!(options && options.live) && all.length > 0;
+    const list = live ? all.slice(0, -1) : all;
+    const count = list.length;
+    if (count < 60) return { ready: false, reason: "Needs at least 60 closed bars." };
+    const study = compression(list, 20);
+    const mom = study.momentum;
+    const on = study.level.map((value) => value >= 2);
+    const last = count - 1;
+    let dots = 0;
+    for (let index = last; index >= 0 && on[index]; index -= 1) dots += 1;
+    let firedAgo = -1;
+    if (!on[last]) {
+      for (let back = 1; back <= 3 && last - back >= 0; back += 1) {
+        if (on[last - back]) {
+          firedAgo = back - 1;
+          break;
+        }
+      }
+    }
+    const state = on[last] ? "ON" : firedAgo >= 0 ? "FIRED" : "OFF";
+    const value = mom[last];
+    const direction = value == null ? "" : value >= 0 ? "bull" : "bear";
+    const closes = list.map((bar) => bar.close);
+    const e8 = ema(closes, 8)[last];
+    const e21 = ema(closes, 21)[last];
+    const e50 = ema(closes, 50)[last];
+    const stack = e8 > e21 && e21 > e50 ? "positive" : e8 < e21 && e21 < e50 ? "negative" : "mixed";
+    let end = last;
+    let size = dots;
+    if (state === "FIRED") {
+      end = last - firedAgo - 1;
+      size = 0;
+      for (let index = end; index >= 0 && on[index]; index -= 1) size += 1;
+    }
+    let clean = size > 0 && direction !== "";
+    for (let index = end; clean && index > end - size; index -= 1) {
+      const level = mom[index];
+      if (level == null || (direction === "bull" && level < 0) || (direction === "bear" && level > 0)) clean = false;
+    }
+    const before = mom[last - 1];
+    const rising = value != null && before != null && (direction === "bull" ? value > before : value < before);
+    const level = study.level[state === "FIRED" ? end : last];
+    let weekly = false;
+    try {
+      const weeks = barsFor(list, frameById("1W"));
+      if (weeks.length >= 30) {
+        const weekStudy = compression(weeks, 20);
+        weekly = weekStudy.level[weeks.length - 1] >= 2;
+      }
+    } catch (error) {
+      weekly = false;
+    }
+    const lastBar = list[last];
+    return { ready: true, state, dots: size, level, firedAgo, direction, stack, clean, rising, momentum: value, weekly, price: lastBar.close, asOf: lastBar.date };
+  }
+
+  function squeezeScore(row, parents) {
+    if (!row || !row.ready || row.state === "OFF") return { score: 0, parts: [], triple: false };
+    const parts = [];
+    const add = (name, points) => {
+      if (points > 0) parts.push([name, points]);
+    };
+    add(row.state === "ON" ? "Squeeze on" : "Just fired", row.state === "ON" ? 30 : 25);
+    add("Energy built (dots)", Math.round((Math.min(row.dots, 8) / 8) * 10));
+    add("Tight squeeze", row.level >= 3 ? 5 : 0);
+    const aligned = (row.direction === "bull" && row.stack === "positive") || (row.direction === "bear" && row.stack === "negative");
+    add("Averages stacked with momentum", aligned ? 20 : 0);
+    add("Clean squeeze, momentum never crossed", row.clean ? 10 : 0);
+    add("Momentum building", row.rising ? 15 : 0);
+    add("Weekly squeeze too", row.weekly ? 5 : 0);
+    const flags = parents || {};
+    const triple = !!(row.state === "ON" && flags.sector && flags.index);
+    add("Triple squeeze: stock, sector, index", triple ? 10 : 0);
+    const total = parts.reduce((sum, item) => sum + item[1], 0);
+    return { score: Math.min(100, total), parts, triple };
+  }
+
   root.PaperFrames = {
     edge,
+    squeezeRead,
+    squeezeScore,
+    strategies,
+    openingRange,
     pro,
     liveBar,
     closedBars,
@@ -3880,7 +4502,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.38";
+const VERSION = "1.9.39";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -3959,11 +4581,62 @@ function stampQuote(bars) {
   if (bars && bars.tape) state.market.tape = Object.assign({}, state.market.tape || {}, bars.tape);
 }
 
+const BOOK_KEY = "paper_trader_book_v1";
+
+function readBook() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(BOOK_KEY) || "{}");
+    return raw && typeof raw.sessions === "object" && raw.sessions ? raw.sessions : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function writeBook() {
+  if (!state.offline || !state.book) return;
+  try {
+    const sessions = readBook();
+    Object.keys(state.book).forEach((symbol) => {
+      const session = state.book[symbol];
+      if (session && (session.shares > 0 || (session.fills && session.fills.length) || (session.working && session.working.length))) {
+        sessions[symbol] = PaperEngine.snapshot(session);
+      } else {
+        delete sessions[symbol];
+      }
+    });
+    const text = JSON.stringify({ version: 1, sessions });
+    if (state.bookText !== text) {
+      localStorage.setItem(BOOK_KEY, text);
+      state.bookText = text;
+    }
+  } catch (error) {
+    state.bookNote = "This browser would not save the paper book. Positions stay until the page closes.";
+  }
+}
+
+function openOfflineSession(symbol, bars, params, fresh) {
+  state.book = state.book || {};
+  const kept = state.book[symbol];
+  if (kept && !fresh) {
+    PaperEngine.replaceBars(kept, bars);
+    state.session = kept;
+    return kept;
+  }
+  const session = PaperEngine.sessionFromBars(symbol, bars, params || {});
+  if (!fresh) {
+    const saved = readBook()[symbol];
+    if (saved) PaperEngine.restore(session, saved);
+  }
+  state.book[symbol] = session;
+  state.session = session;
+  return session;
+}
+
 async function loadPhoneBars(symbol, params, fresh) {
   const row = state.catalog.find((item) => item.symbol === symbol);
   const bars = await PaperLive.daily(symbol, row ? row.category : "");
   if (fresh || !state.session || state.session.symbol !== symbol) {
-    state.session = PaperEngine.sessionFromBars(symbol, bars, params || {});
+    openOfflineSession(symbol, bars, params || {}, fresh);
   } else {
     PaperEngine.replaceBars(state.session, bars);
   }
@@ -3998,7 +4671,7 @@ async function paperCall(path, body) {
       state.session.dayBuys = state.session.dayBuys || [];
       state.session.dayBuys.push(day + "|" + state.session.symbol);
     }
-    return PaperEngine.trade(state.session, PAPER_SLIP_BPS);
+    return PaperEngine.trade(state.session, PAPER_SLIP_BPS, params.source === "auto" ? "auto" : "trade");
   }
   if (path === "/api/paper/mode") {
     if (params.mode === "live") throw new Error(LIVE_NOTE);
@@ -4428,7 +5101,7 @@ function haltPhone(reason) {
   const session = state.session;
   let paper = session ? PaperEngine.view(session) : state.paper;
   const held = !!(session && session.shares > 0);
-  if (held) paper = PaperEngine.fill(session, "sell", PAPER_SLIP_BPS);
+  if (held) paper = PaperEngine.fill(session, "sell", PAPER_SLIP_BPS, 0, "sell all");
   if (session) session.working = [];
   if (session) paper = PaperEngine.view(session);
   const data = readBreaker();
@@ -4769,7 +5442,7 @@ async function bootOffline() {
     throw lastError || new Error("The quote feed did not answer. Check the connection.");
   }
   const bars = found.bars;
-  state.session = PaperEngine.sessionFromBars(found.symbol, bars, { fee_bps: 5 });
+  openOfflineSession(found.symbol, bars, { fee_bps: 5 }, false);
   state.paper = PaperEngine.view(state.session);
   await refreshSymbols();
   fillForm(state.paper.params);
@@ -4935,6 +5608,7 @@ async function loadMarket(symbol) {
 function render(paper) {
   paper = guardPhone(paper, false);
   state.paper = paper;
+  writeBook();
   if (breakerState().tripped && state.auto) {
     state.auto = false;
     if (state.autoTimer) clearTimeout(state.autoTimer);
@@ -4975,6 +5649,8 @@ function render(paper) {
   fillTrades($("journal-body"), paper.trades || []);
   renderResult(paper);
   renderEdge();
+  renderBook(paper);
+  renderStrategies();
   renderPins();
   renderToday();
   renderScan();
@@ -5202,7 +5878,7 @@ function chooseSymbol(symbol) {
     if (state.offline) {
       const row = state.catalog.find((item) => item.symbol === symbol);
       const bars = await PaperLive.daily(symbol, row ? row.category : "");
-      state.session = PaperEngine.sessionFromBars(symbol, bars, formParams());
+      openOfflineSession(symbol, bars, formParams(), false);
       state.paper = PaperEngine.view(state.session);
       state.market = PaperEngine.market(state.session);
       stampQuote(bars);
@@ -5220,7 +5896,7 @@ function chooseSymbol(symbol) {
       showRead("Opened " + symbol + " on the chart.");
       return;
     }
-    const paper = await paperCall("/api/paper/reset", { ...formParams(), symbol });
+    const paper = await paperCall("/api/paper/reset", { ...formParams(), symbol, switch: true });
     state.paper = paper;
     await refreshSymbols();
     await loadMarket(paper.symbol);
@@ -5512,7 +6188,7 @@ function renderReadings() {
     ["Averages", averageName],
     ["Resistance", pivotsText(PaperFrames.trendPivots(bars), "high")],
     ["Support", pivotsText(PaperFrames.trendPivots(bars), "low")],
-    ["TMO", tmoText(PaperFrames.closedBars ? PaperFrames.closedBars(bars, chartCrypto()) : bars)],
+    ["True momentum", tmoText(PaperFrames.closedBars ? PaperFrames.closedBars(bars, chartCrypto()) : bars)],
     ["Lesson", lessonText(bars)],
     ["Fear and greed", moodText(bars)],
     ["Edge", (() => {
@@ -5592,7 +6268,7 @@ const EDGE_CHECKS = [
   ["dots", "5+ squeeze dots"],
   ["above", "Squeeze momentum above 0"],
   ["rising", "Squeeze momentum rising"],
-  ["tmo", "TMO main above signal"],
+  ["tmo", "True momentum above signal"],
   ["band", "Under the upper Bollinger band"],
 ];
 
@@ -5710,6 +6386,622 @@ function edgePlan(result) {
   if (result.call === "SELL") return "Sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
   return "No buy yet. Edge waits for all five checks to turn on together on a closed bar." + today;
+}
+
+
+function denverStamp(seconds) {
+  if (!(seconds > 0)) return "—";
+  return new Date(seconds * 1000).toLocaleString("en-US", { timeZone: "America/Denver", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
+}
+
+function phoneBook() {
+  const saved = readBook();
+  const live = state.book || {};
+  const out = { positions: [], fills: [], markets: 0, total_pnl: 0 };
+  new Set(Object.keys(saved).concat(Object.keys(live))).forEach((symbol) => {
+    const session = live[symbol];
+    const snap = session ? PaperEngine.snapshot(session) : saved[symbol];
+    if (!snap || !(snap.shares > 0 || (snap.fills && snap.fills.length))) return;
+    out.markets += 1;
+    const last = session && session.bars.length ? session.bars[session.bars.length - 1].close : snap.last;
+    const start = Number(snap.params && snap.params.cash) || 0;
+    const equity = session ? PaperEngine.view(session).equity : snap.cash + (snap.shares > 0 && last ? snap.shares * last : 0);
+    out.total_pnl += equity - start;
+    if (snap.shares > 0) {
+      out.positions.push({ symbol, shares: snap.shares, entry: snap.entryPrice, last, pnl: last && snap.entryPrice ? snap.shares * (last - snap.entryPrice) : null, current: !!session, opened: snap.entryDate, source: "fill" });
+    }
+    (snap.fills || []).forEach((item) => out.fills.push(item));
+  });
+  out.fills.sort((a, b) => (b.at || 0) - (a.at || 0));
+  out.fills = out.fills.slice(0, 300);
+  return out;
+}
+
+function moneyText(value) {
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  const number = Number(value);
+  return (number < 0 ? "-$" : "$") + Math.abs(number).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function addCells(row, values) {
+  values.forEach((value) => {
+    const cell = document.createElement("td");
+    if (value && typeof value === "object") {
+      cell.textContent = value.text;
+      if (value.cls) cell.className = value.cls;
+    } else {
+      cell.textContent = value;
+    }
+    row.appendChild(cell);
+  });
+}
+
+function renderBook(paper) {
+  const positions = $("positions-body");
+  const fills = $("fills-body");
+  if (!positions || !fills) return;
+  const book = state.offline ? phoneBook() : (paper && paper.book) || null;
+  if (!book) return;
+  const stamp = JSON.stringify([book.positions, book.fills.length, book.fills[0] || null, book.total_pnl, state.offline]);
+  if (sameStamp(positions, stamp)) return;
+  positions.replaceChildren();
+  fills.replaceChildren();
+  book.positions.forEach((item) => {
+    const row = document.createElement("tr");
+    const tone = item.pnl > 0 ? "up" : item.pnl < 0 ? "down" : "";
+    addCells(row, [
+      item.symbol + (item.current ? "" : " · saved"),
+      Number(item.shares).toFixed(4),
+      item.entry != null ? formatPrice(item.entry) : "—",
+      item.last != null ? formatPrice(item.last) : "—",
+      { text: moneyText(item.pnl), cls: tone },
+      (item.source === "replay" ? "History replay" : "Your fill or Auto") + (item.opened ? " · " + item.opened : ""),
+    ]);
+    positions.appendChild(row);
+  });
+  if (!book.positions.length) {
+    const row = document.createElement("tr");
+    addCells(row, ["No open positions. A buy appears here at once, in every market you traded.", "", "", "", "", ""]);
+    positions.appendChild(row);
+  }
+  book.fills.forEach((item) => {
+    const row = document.createElement("tr");
+    const tone = item.side === "sell" ? (item.pnl > 0 ? "up" : item.pnl < 0 ? "down" : "") : "";
+    addCells(row, [
+      denverStamp(item.at),
+      item.symbol,
+      { text: item.side === "buy" ? "Buy" : "Sell", cls: item.side === "buy" ? "up" : "down" },
+      Number(item.qty).toFixed(4),
+      formatPrice(item.price),
+      item.reason || "trade",
+      item.side === "sell" ? { text: moneyText(item.pnl), cls: tone } : "—",
+    ]);
+    fills.appendChild(row);
+  });
+  if (!book.fills.length) {
+    const row = document.createElement("tr");
+    addCells(row, ["No fills yet. Every buy, sell, ticket fill and Sell all is listed here with its time.", "", "", "", "", "", ""]);
+    fills.appendChild(row);
+  }
+  const total = $("book-total");
+  if (total) {
+    total.textContent = book.markets
+      ? "Across " + book.markets + " market" + (book.markets === 1 ? "" : "s") + ": " + moneyText(book.total_pnl) + " paper profit or loss so far. Each market has its own paper account." + (state.offline ? " Saved in this browser only." : " Saved on this computer.")
+      : "Nothing traded yet.";
+  }
+}
+
+const STRAT_KEY = "paper_trader_strategy_v1";
+
+function loadStrat() {
+  const base = { pick: "edge", on: false, acted: {}, note: "" };
+  try {
+    const raw = JSON.parse(localStorage.getItem(STRAT_KEY) || "{}");
+    return { ...base, pick: ["edge", "squeeze", "donchian", "rsi2"].includes(raw.pick) ? raw.pick : "edge", on: raw.on === true, acted: raw.acted && typeof raw.acted === "object" ? raw.acted : {} };
+  } catch (error) {
+    return base;
+  }
+}
+
+function saveStrat() {
+  try {
+    const keys = Object.keys(state.strat.acted);
+    if (keys.length > 200) keys.slice(0, keys.length - 200).forEach((key) => delete state.strat.acted[key]);
+    localStorage.setItem(STRAT_KEY, JSON.stringify({ pick: state.strat.pick, on: state.strat.on, acted: state.strat.acted }));
+  } catch (error) {
+    /* The pick still works for this visit. */
+  }
+}
+
+state.strat = loadStrat();
+
+function currentBoard(bars) {
+  const last = bars.length ? bars[bars.length - 1] : null;
+  const live = PaperFrames.liveBar(bars, chartCrypto());
+  const key = bars.length + ":" + live + ":" + (last ? last.date + ":" + last.close : "");
+  if (state.boardKey === key && state.board) return state.board;
+  state.board = PaperFrames.strategies(bars, { live });
+  state.boardKey = key;
+  return state.board;
+}
+
+function closedDate(bars) {
+  const live = PaperFrames.liveBar(bars, chartCrypto());
+  const list = live ? bars.slice(0, -1) : bars;
+  return list.length ? list[list.length - 1].date : "";
+}
+
+function cardLine(row) {
+  if (!row.ready) return row.why || "Not enough bars.";
+  const stop = row.stop != null ? " Stop " + formatPrice(row.stop) + "." : "";
+  if (row.id === "squeeze") {
+    const dots = row.squeezeOn ? "Squeeze on, " + row.dots + " dot" + (row.dots === 1 ? "" : "s") + (row.dots >= 5 ? " (five or more: compression has built)" : "") : row.fired ? "Squeeze just fired" : "No squeeze";
+    const mom = row.momentum == null ? "" : " · momentum " + (row.momentum > 0 ? "above" : "below") + " zero and " + (row.momentumUp ? "rising" : "not rising");
+    const trend = " · EMA 8 " + (row.trend ? "above" : "below") + " 21";
+    return dots + mom + trend + "." + (row.bearish ? " Bearish fire. This long-only desk stands aside." : "") + stop;
+  }
+  if (row.call === "HOLD") return "In since " + formatPrice(row.entry) + " · " + signedPercent(row.openPct) + "." + stop;
+  if (row.call === "BUY") return "Buy signal on the last closed bar. A paper buy fills at the next open." + stop;
+  if (row.call === "SELL") return "Exit signal on the last closed bar. A paper sell fills at the next open.";
+  return "Flat. Waiting for the entry rule to turn on.";
+}
+
+function renderStrategies() {
+  const body = $("strat-board");
+  if (!body || typeof PaperFrames === "undefined" || !PaperFrames.strategies) return;
+  const bars = seenBars();
+  if (bars.length < 2) return;
+  const board = currentBoard(bars);
+  const stamp = state.boardKey + "|" + state.strat.pick + "|" + state.strat.on + "|" + board.best;
+  if (sameStamp(body, stamp)) return;
+  body.replaceChildren();
+  board.rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    if (row.id === board.best) tr.className = "best";
+    const pill = document.createElement("span");
+    pill.className = "call-pill " + row.call.toLowerCase();
+    pill.textContent = row.call;
+    addCells(tr, [
+      row.name + " · " + row.who,
+      "",
+      row.ready ? String(row.trades) : "—",
+      row.ready && row.trades ? Math.round(row.winRate * 100) + "%" : "—",
+      row.ready ? { text: signedPercent(row.total), cls: row.total > 0 ? "up" : row.total < 0 ? "down" : "" } : "—",
+      row.ready ? signedPercent(row.hold) : "—",
+      row.ready && row.trades ? signedPercent(row.worst) : "—",
+    ]);
+    tr.children[1].appendChild(pill);
+    body.appendChild(tr);
+  });
+  const best = board.rows.find((row) => row.id === board.best);
+  $("strat-best").textContent = best
+    ? "Best on this market's history so far: " + best.name + ", " + signedPercent(best.total) + " over " + best.trades + " trades, against " + signedPercent(best.hold) + " for simply holding. Picking the winner after the fact flatters it. Past closed bars, not a forecast."
+    : "No strategy has five closed trades on this market yet, so none is ranked. More history is needed.";
+  const cards = $("strat-cards");
+  cards.replaceChildren();
+  board.rows.forEach((row) => {
+    const card = document.createElement("div");
+    card.className = "strat-card";
+    const title = document.createElement("h4");
+    title.textContent = row.name;
+    const idea = document.createElement("p");
+    idea.className = "muted";
+    idea.textContent = row.idea;
+    const line = document.createElement("p");
+    line.textContent = cardLine(row);
+    card.append(title, idea, line);
+    cards.appendChild(card);
+  });
+  const pick = $("strat-pick");
+  if (pick.value !== state.strat.pick) pick.value = state.strat.pick;
+  $("strat-auto-on").checked = state.strat.on;
+  renderAutoNote();
+}
+
+function renderAutoNote() {
+  const note = $("strat-auto-note");
+  if (!note) return;
+  const row = (state.board && state.board.rows.find((item) => item.id === state.strat.pick)) || null;
+  const name = row ? row.name : state.strat.pick;
+  note.textContent = state.strat.note || (state.strat.on
+    ? "On. While Auto runs, a fresh " + name + " buy or sell on a closed bar places one paper trade. It follows the scanner rules and stops at the circuit breaker."
+    : "Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.");
+}
+
+async function autoTrade() {
+  if (!state.strat.on || !state.paper || state.paper.paper !== true) return "";
+  if (breakerState().tripped) return "";
+  const bars = seenBars();
+  const board = currentBoard(bars);
+  const row = board.rows.find((item) => item.id === state.strat.pick);
+  if (!row || !row.ready) return "";
+  const held = state.paper.shares > 0;
+  const want = row.call === "BUY" && !held ? "buy" : row.call === "SELL" && held ? "sell" : "";
+  if (!want) return "";
+  const key = state.paper.symbol + "|" + row.id + "|" + want + "|" + closedDate(bars);
+  if (state.strat.acted[key]) return "";
+  try {
+    const paper = await paperCall("/api/paper/trade", { source: "auto" });
+    state.strat.acted[key] = Date.now();
+    saveStrat();
+    state.strat.note = "";
+    render(paper);
+    return row.name + ": paper " + want + ". " + (fillText(paper) || "");
+  } catch (error) {
+    state.strat.note = row.name + " wanted a " + want + ". Skipped: " + error.message;
+    renderAutoNote();
+    return state.strat.note;
+  }
+}
+
+function orbOptions() {
+  const clock = /^(\d{1,2}):(\d{2})$/.exec(($("strat-open").value || "").trim());
+  const openAt = clock && Number(clock[1]) < 24 && Number(clock[2]) < 60 ? Number(clock[1]) * 60 + Number(clock[2]) : undefined;
+  return {
+    crypto: chartCrypto(),
+    utcLabels: state.offline,
+    openAt,
+    buffer: Math.max(0, Number($("strat-buffer").value) || 0) / 100,
+    multiple: Math.max(0.25, Number($("strat-target").value) || 1),
+  };
+}
+
+const ORB_TEXT = {
+  FORMING: "The opening bar is still forming. Nothing is armed yet.",
+  ARMED: "The opening bar has closed and price is inside its range. A buy stop above the high is the entry.",
+  LONG: "The buy stop was reached. Keep the protective stop under the low of the opening bar.",
+  TARGET: "The buy stop was reached and then the target traded.",
+  STOPPED: "The buy stop was reached and then the protective stop traded.",
+  BOTH: "Both levels traded inside one 15-minute bar, so the order of events is not known. Stand aside.",
+  BREAK_DOWN: "Price broke below the opening low first. That is the bearish break. This long-only desk stands aside.",
+};
+
+function renderOrb() {
+  const box = $("strat-orb-state");
+  if (!box) return;
+  if (!state.orb || !state.paper || state.orb.symbol !== state.paper.symbol) {
+    box.textContent = "Press Load to read the real 15-minute bars for " + ((state.paper && state.paper.symbol) || "this market") + ".";
+    state.orbResult = null;
+    $("strat-orb-levels").replaceChildren();
+    $("strat-orb-record").replaceChildren();
+    $("strat-orb-plan").textContent = "";
+    return;
+  }
+  const result = PaperFrames.openingRange(state.orb.bars, orbOptions());
+  state.orbResult = result;
+  const levels = $("strat-orb-levels");
+  const record = $("strat-orb-record");
+  levels.replaceChildren();
+  record.replaceChildren();
+  if (!result.ready) {
+    box.textContent = result.reason;
+    $("strat-orb-plan").textContent = "";
+    return;
+  }
+  const latest = result.latest;
+  box.textContent = latest.state.replace("_", " ") + " · " + (ORB_TEXT[latest.state] || "") + (latest.fallback ? " No bar at that clock time today, so the first bar of the day was used." : "");
+  const fill = (target, items) => items.forEach(([name, value]) => {
+    const cell = document.createElement("div");
+    const label = document.createElement("dt");
+    const detail = document.createElement("dd");
+    label.textContent = name;
+    detail.textContent = value;
+    cell.append(label, detail);
+    target.appendChild(cell);
+  });
+  fill(levels, [
+    ["Opening bar", latest.openLabel],
+    ["Buy stop", formatPrice(latest.trigger)],
+    ["Protective stop", formatPrice(latest.floor)],
+    ["Target", formatPrice(latest.target)],
+    ["Range", formatPrice(latest.range)],
+  ]);
+  const rec = result.record;
+  fill(record, [
+    ["Past days read", String(rec.days)],
+    ["Long trades", String(rec.trades)],
+    ["Targets", String(rec.wins)],
+    ["Stops", String(rec.losses)],
+    ["Average", rec.avgR == null ? "—" : (rec.avgR > 0 ? "+" : "") + rec.avgR.toFixed(2) + " R"],
+    ["Bearish breaks", String(rec.skipped)],
+  ]);
+  $("strat-orb-plan").textContent = "Loaded " + new Date(state.orb.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" }) + " Denver. Opening bars are read from closed bars. R is the buy stop to protective stop distance. These are past days, not a forecast.";
+}
+
+async function loadOrb() {
+  const symbol = state.paper && state.paper.symbol;
+  if (!symbol) return;
+  $("strat-orb-state").textContent = "Reading the 15-minute bars…";
+  try {
+    let bars;
+    if (state.offline) {
+      const row = state.catalog.find((item) => item.symbol === symbol);
+      bars = await PaperLive.frame(symbol, row ? row.category : "", "15m");
+    } else {
+      bars = (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=15m")).bars;
+    }
+    state.orb = { symbol, bars, at: Date.now() };
+    renderOrb();
+  } catch (error) {
+    state.orb = null;
+    $("strat-orb-state").textContent = error.message;
+  }
+}
+
+function armPrice(value) {
+  return Number(Number(value).toFixed(Math.max(2, digitsFor(value) + 1)));
+}
+
+async function armOrb(kind) {
+  const say = (text) => {
+    $("status").textContent = text;
+  };
+  if (!$("strat-confirm").checked) return say("Check Confirm and arm first.");
+  const result = state.orbResult;
+  if (!result || !result.ready || !result.latest.closed) return say("Load the 15-minute bars and wait for the opening bar to close.");
+  if (!state.paper || state.paper.paper !== true) return say("Turn Paper on first.");
+  const level = result.latest;
+  const held = state.paper.shares > 0;
+  let ticket;
+  if (kind === "buy") {
+    if (held) return say("A paper long is already open.");
+    if (level.state !== "ARMED") return say("The buy stop is only armed while price is still inside the opening range.");
+    ticket = { side: "buy", kind: "stop", tif: "DAY", stop: armPrice(level.trigger) };
+  } else if (kind === "stop") {
+    if (!held) return say("Nothing to protect. The account is flat.");
+    ticket = { side: "sell", kind: "stop", tif: "GTC", stop: armPrice(level.floor) };
+  } else {
+    if (!held) return say("Nothing to sell. The account is flat.");
+    ticket = { side: "sell", kind: "limit", tif: "GTC", limit: armPrice(level.target) };
+  }
+  await withBusy(async () => {
+    const paper = await paperCall("/api/paper/ticket", { ...ticket, source: "strategy" });
+    $("strat-confirm").checked = false;
+    render(paper);
+    say(paper.last_action === "working" ? "Working paper order armed. It fills when the real quote reaches it. Nothing was sent to a broker." : (fillText(paper) || "Filled on the paper account.") + " Nothing was sent to a broker.");
+  });
+}
+
+
+async function phoneSafe() {
+  const items = [];
+  const add = (name, ok, detail, kind) => items.push({ name, ok: !!ok, detail, kind: kind || "safety" });
+  add("This device only", true, "No server, no login, no broker. Orders stay in this browser");
+  let locked = false;
+  try {
+    await paperCall("/api/paper/mode", { mode: "live" });
+  } catch (error) {
+    locked = true;
+  }
+  add("Live locked", locked, "No broker or bank link. Every order is paper");
+  add("Paper only", !state.paper || state.paper.paper === true, "Paper mode is on");
+  let rules = true;
+  try {
+    const market = 100.05;
+    const cases = [
+      [{ side: "buy", kind: "market" }, 100, true, market],
+      [{ side: "buy", kind: "limit", limit: 95 }, 100, false, null],
+      [{ side: "buy", kind: "limit", limit: 95 }, 94, true, 94],
+      [{ side: "sell", kind: "limit", limit: 105 }, 104, false, null],
+      [{ side: "sell", kind: "limit", limit: 105 }, 106, true, 106],
+      [{ side: "buy", kind: "stop", stop: 105 }, 100, false, null],
+      [{ side: "buy", kind: "stop", stop: 105 }, 106, true, market],
+      [{ side: "sell", kind: "stop", stop: 95 }, 94, true, market],
+    ];
+    cases.forEach(([raw, last, fills, price]) => {
+      const verdict = PaperEngine.decide(PaperEngine.makeTicket(raw), last, market);
+      if (verdict.fills !== fills || (price != null && Math.abs(verdict.price - price) > 1e-9)) rules = false;
+    });
+  } catch (error) {
+    rules = false;
+  }
+  add("Order rules", rules, rules ? "8 order rules passed" : "An order rule failed");
+  const breaker = breakerState();
+  add("Circuit breaker", true, breaker.tripped ? "Holding until tomorrow" : "Armed at " + breaker.drop_pct + "% a day");
+  let saves = false;
+  try {
+    localStorage.setItem("paper_trader_probe", "1");
+    saves = localStorage.getItem("paper_trader_probe") === "1";
+    localStorage.removeItem("paper_trader_probe");
+  } catch (error) {
+    saves = false;
+  }
+  add("Paper book saves", saves, saves ? "This browser keeps positions and fills" : "This browser blocks saving. Positions last until the page closes");
+  add("Quotes", !!state.market, state.market ? "A real quote is loaded" : "Waiting on the quote", "health");
+  add("Learning", true, "Runs only while this page is open", "health");
+  return { safe: items.filter((item) => item.kind === "safety").every((item) => item.ok), items };
+}
+
+async function runSafe(manual) {
+  const button = $("safe");
+  if (!button || state.safeBusy) return;
+  state.safeBusy = true;
+  try {
+    const report = state.offline ? await phoneSafe() : await getJSON("/api/safe");
+    const bad = report.items.filter((item) => item.kind === "safety" && !item.ok);
+    const warn = report.items.filter((item) => item.kind !== "safety" && !item.ok);
+    button.className = "safe-btn " + (bad.length ? "bad" : warn.length ? "warn" : "ok");
+    button.textContent = bad.length ? "Not safe" : warn.length ? "Safe · " + warn.length + " to check" : "Safe";
+    const stamp = new Date().toLocaleTimeString("en-US", { timeZone: "America/Denver" });
+    $("safe-note").textContent = bad.length
+      ? "Fix first: " + bad.map((item) => item.name).join(", ") + ". Auto is stopped."
+      : "All " + report.items.filter((item) => item.kind === "safety").length + " safety checks passed at " + stamp + " Denver." + (warn.length ? " Check: " + warn.map((item) => item.name).join(", ") + "." : "");
+    const list = $("safe-list");
+    list.replaceChildren();
+    report.items.forEach((item) => {
+      const row = document.createElement("li");
+      row.textContent = item.name + " · " + item.detail;
+      if (!item.ok) row.className = item.kind === "safety" ? "bad" : "warn";
+      list.appendChild(row);
+    });
+    state.safe = report;
+    if (bad.length && state.auto) stopAuto("Safe check failed: " + bad.map((item) => item.name).join(", ") + ". Auto is off.");
+    else if (manual) $("status").textContent = bad.length ? "Not safe: " + bad.map((item) => item.name).join(", ") + "." : "Safe. Every safety check passed.";
+  } catch (error) {
+    button.className = "safe-btn bad";
+    button.textContent = "Not safe";
+    $("safe-note").textContent = "The safety check could not run: " + error.message;
+    if (state.auto) stopAuto("The safety check could not run. Auto is off.");
+  } finally {
+    state.safeBusy = false;
+  }
+}
+
+
+const SQ_LISTS = {
+  starter: ["BTC-USD", "ETH-USD", "XRP-USD", "ES", "NQ", "YM", "RTY", "GC", "CL", "ZN", "SPY", "QQQ", "IWM", "DIA", "XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "SMH", "NVDA", "MSFT", "AAPL", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "AMD", "JPM", "HOOD", "DASH", "CRCL", "GE", "CAT", "XOM", "LLY", "WMT", "COST"],
+  sectors: ["SPY", "QQQ", "XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "SMH", "NVDA", "MSFT", "AAPL", "AVGO", "AMD", "AMZN", "TSLA", "DASH", "JPM", "HOOD", "V", "MA", "CRCL", "GE", "CAT", "HON", "BA", "LMT", "XOM", "CVX", "LLY", "WMT", "COST"],
+  crypto: ["BTC-USD", "ETH-USD", "XRP-USD", "SOL-USD", "XLM-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "LINK-USD", "AVAX-USD", "DOT-USD", "BCH-USD"],
+  futures: ["ES", "NQ", "YM", "RTY", "CL", "GC", "SI", "NG", "ZN", "ZB", "6E", "ZC", "ZS", "ZW"],
+};
+
+const SQ_SECTOR = {
+  NVDA: "XLK", MSFT: "XLK", AAPL: "XLK", AVGO: "XLK", AMD: "XLK",
+  AMZN: "XLY", TSLA: "XLY", DASH: "XLY",
+  JPM: "XLF", HOOD: "XLF", CRCL: "XLF", V: "XLF", MA: "XLF",
+  GE: "XLI", CAT: "XLI", HON: "XLI", BA: "XLI", LMT: "XLI",
+  XOM: "XLE", CVX: "XLE", LLY: "XLV", WMT: "XLP", COST: "XLP",
+};
+
+function sqIndexOf(symbol) {
+  const sector = SQ_SECTOR[symbol] || symbol;
+  if (sector === "XLK" || sector === "SMH") return "QQQ";
+  return /^XL[A-Z]$/.test(sector) ? "SPY" : "";
+}
+
+state.sq = { busy: false, stop: false, rows: [], skipped: [], at: 0 };
+
+function sqSymbols() {
+  const kind = $("sq-list").value;
+  let list;
+  if (kind === "custom") {
+    list = ($("sq-custom").value || "").toUpperCase().split(/[\s,;]+/).filter((item) => /^[A-Z0-9.^=-]{1,12}$/.test(item));
+  } else {
+    list = SQ_LISTS[kind] || SQ_LISTS.starter;
+  }
+  const seen = new Set();
+  const out = [];
+  list.forEach((symbol) => {
+    if (!seen.has(symbol)) {
+      seen.add(symbol);
+      out.push(symbol);
+    }
+  });
+  return out.slice(0, 80);
+}
+
+async function sqDaily(symbol) {
+  if (state.offline) {
+    const row = state.catalog.find((item) => item.symbol === symbol);
+    return PaperLive.daily(symbol, row ? row.category : "");
+  }
+  return (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
+}
+
+async function scanSqueeze() {
+  const sq = state.sq;
+  if (sq.busy) return;
+  const symbols = sqSymbols();
+  if (!symbols.length) {
+    $("sq-note").textContent = "Type at least one symbol for your own list.";
+    return;
+  }
+  sq.busy = true;
+  sq.stop = false;
+  const reads = {};
+  const skipped = [];
+  let next = 0;
+  let done = 0;
+  const known = state.catalog && state.catalog.length ? new Set(state.catalog.map((item) => item.symbol)) : null;
+  const worker = async () => {
+    while (!sq.stop && next < symbols.length) {
+      const symbol = symbols[next];
+      next += 1;
+      if (known && !known.has(symbol)) {
+        skipped.push(symbol + " (not in this bot's market list)");
+        done += 1;
+        continue;
+      }
+      try {
+        const bars = await sqDaily(symbol);
+        const read = PaperFrames.squeezeRead(bars, { live: PaperFrames.liveBar(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol))) });
+        if (read.ready) reads[symbol] = read;
+        else skipped.push(symbol + " (" + read.reason + ")");
+      } catch (error) {
+        skipped.push(symbol + " (" + error.message + ")");
+      }
+      done += 1;
+      $("sq-note").textContent = "Reading daily bars: " + done + " of " + symbols.length + "…";
+    }
+  };
+  try {
+    await Promise.all([worker(), worker(), worker(), worker()]);
+  } finally {
+    sq.busy = false;
+  }
+  const rows = [];
+  Object.keys(reads).forEach((symbol) => {
+    const read = reads[symbol];
+    if (read.state === "OFF") return;
+    const sector = SQ_SECTOR[symbol];
+    const index = sqIndexOf(symbol);
+    const flags = {
+      sector: !!(sector && reads[sector] && reads[sector].state === "ON"),
+      index: !!(index && reads[index] && reads[index].state === "ON"),
+    };
+    const scored = PaperFrames.squeezeScore(read, flags);
+    rows.push({ symbol, read, ...scored });
+  });
+  rows.sort((a, b) => b.score - a.score || b.read.dots - a.read.dots);
+  sq.rows = rows;
+  sq.skipped = skipped;
+  sq.scanned = Object.keys(reads).length;
+  sq.at = Date.now();
+  sq.listed = symbols.length;
+  renderSqueeze();
+}
+
+function renderSqueeze() {
+  const body = $("sq-body");
+  if (!body) return;
+  const sq = state.sq;
+  body.replaceChildren();
+  if (!sq.at) return;
+  const side = $("sq-side").value;
+  const shown = sq.rows.filter((row) => side === "all" || row.read.direction === side).slice(0, 25);
+  shown.forEach((row, index) => {
+    const read = row.read;
+    const tr = document.createElement("tr");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "quiet";
+    open.textContent = "Open";
+    open.addEventListener("click", () => chooseSymbol(row.symbol));
+    addCells(tr, [
+      String(index + 1),
+      row.symbol,
+      read.state === "ON" ? "On" : "Fired " + (read.firedAgo === 0 ? "now" : read.firedAgo + " bar" + (read.firedAgo === 1 ? "" : "s") + " ago"),
+      String(read.dots),
+      read.stack === "positive" ? "Stacked up" : read.stack === "negative" ? "Stacked down" : "Mixed",
+      (read.direction === "bull" ? "Above zero" : "Below zero") + (read.clean ? ", clean" : "") + (read.rising ? ", building" : ""),
+      read.weekly ? "Yes" : "No",
+      row.triple ? "Yes" : "—",
+      { text: String(row.score), cls: row.score >= 70 ? "up" : "" },
+      "",
+    ]);
+    tr.lastChild.appendChild(open);
+    body.appendChild(tr);
+  });
+  if (!shown.length) {
+    const tr = document.createElement("tr");
+    addCells(tr, ["", "No squeezes on this side right now. A quiet list is a normal answer.", "", "", "", "", "", "", "", ""]);
+    body.appendChild(tr);
+  }
+  const when = new Date(sq.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
+  $("sq-note").textContent = "Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired. Closed daily bars only.";
+  const top = shown[0];
+  $("sq-why").textContent = top ? "Top score " + top.score + " for " + top.symbol + ": " + top.parts.map((item) => item[0] + " +" + item[1]).join(", ") + "." : "";
+  $("sq-skip").textContent = sq.skipped.length ? "Not read: " + sq.skipped.join("; ") + "." : "";
 }
 
 function renderEdge() {
@@ -6322,7 +7614,7 @@ function drawTmo() {
     drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 11, false);
   });
   ctx.fillStyle = "#d7e2ea";
-  ctx.fillText("TMO", pad, 12);
+  ctx.fillText("Momentum", pad, 12);
 }
 
 function strokeOscillator(ctx, values, lead, other, y, pad, slot) {
@@ -6528,7 +7820,8 @@ async function autoTick() {
       $("status").textContent = "Auto stopped. Paper is off.";
       return;
     }
-    $("status").textContent = "Auto is on. Refreshing the market quote.";
+    const traded = await autoTrade();
+    $("status").textContent = traded || "Auto is on. Refreshing the market quote.";
   } catch (error) {
     state.auto = false;
     if (state.paper) render(state.paper);
@@ -6697,6 +7990,36 @@ $("cancel-all").addEventListener("click", () => withBusy(async () => {
   render(paper);
   $("status").textContent = "Canceled every working paper order.";
 }));
+
+$("safe").addEventListener("click", () => runSafe(true));
+$("sq-scan").addEventListener("click", scanSqueeze);
+$("sq-stop").addEventListener("click", () => {
+  state.sq.stop = true;
+  $("sq-note").textContent = "Stopping after the markets already being read.";
+});
+$("sq-side").addEventListener("change", renderSqueeze);
+setInterval(() => runSafe(false), 60000);
+
+$("strat-pick").addEventListener("change", () => {
+  state.strat.pick = $("strat-pick").value;
+  state.strat.note = "";
+  saveStrat();
+  state.boardKey = "";
+  renderStrategies();
+});
+$("strat-auto-on").addEventListener("change", () => {
+  state.strat.on = $("strat-auto-on").checked;
+  state.strat.note = "";
+  saveStrat();
+  state.boardKey = "";
+  renderStrategies();
+  $("status").textContent = state.strat.on ? "Strategy trading is on. Turn Auto on and it follows " + state.strat.pick + " on closed bars." : "Strategy trading is off.";
+});
+$("strat-load").addEventListener("click", loadOrb);
+["strat-open", "strat-buffer", "strat-target"].forEach((id) => $(id).addEventListener("change", renderOrb));
+$("strat-arm-buy").addEventListener("click", () => armOrb("buy"));
+$("strat-arm-stop").addEventListener("click", () => armOrb("stop"));
+$("strat-arm-target").addEventListener("click", () => armOrb("target"));
 
 $("trade").addEventListener("click", () => withBusy(async () => {
   stopAuto();
@@ -6880,6 +8203,12 @@ function restoreStudies() {
 }
 
 function showDock(name) {
+  if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
+    state.orbBusy = true;
+    loadOrb().finally(() => {
+      state.orbBusy = false;
+    });
+  }
   document.querySelectorAll(".dock-tab").forEach((button) => {
     button.classList.toggle("on", button.dataset.dock === name);
   });
@@ -7000,6 +8329,7 @@ bindZoom($("rsi-chart"), "chart");
 bindZoom($("frame-preview"), "preview");
 
 boot().then(() => {
+  runSafe(false);
   warnSqueeze();
   setInterval(warnSqueeze, 20000);
 }).catch((error) => {
