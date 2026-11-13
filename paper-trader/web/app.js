@@ -62,7 +62,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.42";
+const VERSION = "1.9.43";
 
 function selectedSymbol() {
   const node = $("symbol");

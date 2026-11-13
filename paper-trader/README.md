@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Phone page (1.9.43)
+
+The iPhone copy is one web page. Open it from its web address in Safari. A link on github.com, including the raw file link, is sent as plain text, so the phone shows the code and the desk never starts. Saving PaperTrader.html and opening it from Files, then Share, then Edge, still works.
+
 ## Edge on every timeframe, the price box, and BUY/SELL tags (1.9.42)
 
 **Edge reads all ten timeframes.** Under the Edge box, a row of chips shows Edge's call on 1m, 5m, 15m, 30m, 1h, 4h, daily, weekly, monthly, and quarterly, each read from that timeframe's own closed bars. The Timeframes tab has the same list as a table with checks, stop, past trades, win rate, and result. Click a row to put that timeframe in the preview. A timeframe with fewer than 52 bars shows a dash instead of a guess. The summary line says how many timeframes are buying or holding, selling, or waiting. The second-warning window lists that count as a line-up item. Auto and the strategies still read the daily bars only. The preview and every timeframe window also draw the Edge stop line and Edge buy and sell dots, and say Edge's current call.

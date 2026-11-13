@@ -1,8 +1,8 @@
 Paper Trader on a phone or tablet
 
-1. Install Microsoft Edge if it is not already on the device. Use the App Store on iPhone or iPad, or the Play Store on Android.
-2. Copy PaperTrader.html onto the device. If it arrives as a text file, rename it to PaperTrader.html.
-3. On iPhone or iPad, open the Files app, tap the Share button on PaperTrader.html, then tap Edge.
+1. On iPhone, open the Paper Trader web address in Safari. A github.com link shows the file as code and does not run it.
+2. To keep a copy on the phone, save PaperTrader.html. If it arrives as a text file, rename it to PaperTrader.html.
+3. Open the Files app, tap the Share button on PaperTrader.html, then tap Edge.
 4. On Android or another phone or tablet, open Files or Downloads, tap PaperTrader.html, choose Open with, then tap Edge.
 5. The desk runs in Edge. The chart, the fear and greed clock, and the Daily scan use live quotes. Crypto uses the exchanges. Stocks, ETFs, and futures use the public quote feed. The Type choice stays on Stocks, ETFs, Futures, or Crypto. If a quote does not answer, that error is written on the chart and the page does not invent a price.
 6. Nothing is sent to a broker. This desk is not an app-store app. The page cannot switch to Edge by itself.
