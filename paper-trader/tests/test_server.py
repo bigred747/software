@@ -527,6 +527,8 @@ class ServerTests(unittest.TestCase):
             self.assertIn(word, script)
         for word in ("function describeBar", "function showTip", "function attachPick", "function edgeLine", "paperPick"):
             self.assertIn(word, frames)
+        self.assertIn("drawEdgeCalls", script)
+        self.assertIn("function drawEdgeCalls", frames)
         self.assertIn("attachPick", popup)
         self.assertIn("edgeLine", popup)
 
@@ -702,7 +704,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.41", script)
+        self.assertIn(b"1.9.42", script)
         self.assertIn(b"drawPriceLine", script)
         self.assertIn(b'id="edge-call"', page)
         self.assertIn(b"It is not a forecast.", page)

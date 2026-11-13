@@ -62,7 +62,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.41";
+const VERSION = "1.9.42";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -3723,8 +3723,10 @@ function drawTmo() {
     ctx.fillStyle = "#ff6b7a";
     drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 11, false);
   });
+  const calls = currentEdge(history);
+  if (calls && calls.ready) PaperFrames.drawEdgeCalls(ctx, calls.marks, dropped, view.bars.length, (index) => pad + index * slot + slot / 2, 14, height - 4, pad, plotRight);
   ctx.fillStyle = "#d7e2ea";
-  ctx.fillText("Momentum", pad, 12);
+  ctx.fillText("Momentum" + (calls && calls.ready ? " · Edge " + calls.call : ""), pad, 12);
 }
 
 function strokeOscillator(ctx, values, lead, other, y, pad, slot) {

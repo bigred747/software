@@ -686,6 +686,34 @@
     return value;
   }
 
+  function drawEdgeCalls(ctx, marks, dropped, count, xAt, top, bottom, left, right) {
+    ctx.save();
+    ctx.font = "bold 10px Segoe UI, sans-serif";
+    ctx.textBaseline = "middle";
+    (marks || []).forEach((mark) => {
+      const index = mark.index - dropped;
+      if (index < 0 || index >= count) return;
+      const buy = mark.side === "buy";
+      const label = buy ? "BUY" : "SELL";
+      const width = ctx.measureText(label).width + 8;
+      const x = Math.max(left + width / 2, Math.min(right - width / 2, xAt(index)));
+      const y = buy ? top + 8 : bottom - 8;
+      ctx.setLineDash([2, 3]);
+      ctx.strokeStyle = buy ? "rgba(61,220,151,.55)" : "rgba(255,107,122,.55)";
+      ctx.beginPath();
+      ctx.moveTo(xAt(index), top);
+      ctx.lineTo(xAt(index), bottom);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = buy ? "#3ddc97" : "#ff6b7a";
+      ctx.fillRect(x - width / 2, y - 7, width, 14);
+      ctx.fillStyle = "#07090b";
+      ctx.textAlign = "center";
+      ctx.fillText(label, x, y);
+    });
+    ctx.restore();
+  }
+
   function draw(canvas, bars, zoomStop, options) {
     if (!canvas || !bars || !bars.length) return;
     const history = bars;
@@ -746,6 +774,7 @@
     const slot = (width - padLeft - padRight) / bars.length;
     const xAt = (index) => padLeft + index * slot + slot / 2;
     canvas.paperMap = { bars, history, dropped, pad: padLeft, slot, crypto: !!(options && options.crypto), symbol: (options && options.symbol) || "", label: (options && options.label) || "" };
+    const edgeRead = history.length > EDGE_WARM + 2 && !(options && options.edge === false) ? edge(history, { live: liveBar(history, !!(options && options.crypto)) }) : null;
     ctx.strokeStyle = "#2a3340";
     ctx.fillStyle = "#93a0ad";
     const grids = height < 150 ? 2 : 4;
@@ -818,6 +847,7 @@
         ctx.arc(x, zero, Math.max(2, Math.min(4, slot * 0.22)), 0, Math.PI * 2);
         ctx.fill();
       });
+      if (edgeRead && edgeRead.ready) drawEdgeCalls(ctx, edgeRead.marks, dropped, bars.length, xAt, histoTop, histoBottom, padLeft, width - padRight);
     }
     const tone = fitted.mood;
     if (tone && tone.score != null && height >= 150) {
@@ -825,8 +855,8 @@
       ctx.fillStyle = tone.label === "Fear" ? "#ff6b7a" : tone.label === "Greed" ? "#3ddc97" : "#d7e2ea";
       ctx.fillText(moodText, Math.max(padLeft, (width - ctx.measureText(moodText).width) / 2), 14);
     }
-    if (history.length > EDGE_WARM + 2 && !(options && options.edge === false)) {
-      const known = edge(history, { live: liveBar(history, !!(options && options.crypto)) });
+    {
+      const known = edgeRead;
       if (known && known.ready) {
         ctx.save();
         ctx.strokeStyle = "#e2b15a";
@@ -2039,6 +2069,7 @@
 
   root.PaperFrames = {
     edge,
+    drawEdgeCalls,
     describeBar,
     showTip,
     hideTip,
