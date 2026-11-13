@@ -97,7 +97,7 @@ The desk only answers programs on this computer. It refuses any client that is n
 
 ## Phone page (1.9.44)
 
-Popup windows for a timeframe or the brief are filled with plain text, so a market name cannot become markup. Quote reads, including the daily scan, the squeeze scan, a strategy list, and the timeframe reads, go one at a time with a pause between them.
+Popup windows for a timeframe or the brief are filled with plain text, so a market name cannot become markup. Quote reads, including the daily scan, the squeeze scan, a strategy list, and the timeframe reads, go one at a time with a pause between them. The web address serves one page. The saved file for Files and Edge stays in the Windows zip only.
 
 ## Phone page (1.9.43)
 
