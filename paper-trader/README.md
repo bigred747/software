@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Phone page (1.9.44)
+
+Popup windows for a timeframe or the brief are filled with plain text, so a market name cannot become markup. Quote reads, including the daily scan, the squeeze scan, a strategy list, and the timeframe reads, go one at a time with a pause between them.
+
 ## Phone page (1.9.43)
 
 The iPhone copy is one web page. Open it from its web address in Safari. A link on github.com, including the raw file link, is sent as plain text, so the phone shows the code and the desk never starts. Saving PaperTrader.html and opening it from Files, then Share, then Edge, still works.

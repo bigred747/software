@@ -116,15 +116,31 @@
     });
   }
 
+  let quoteGate = Promise.resolve();
+  let quoteNext = 0;
+
+  function oneQuote(task) {
+    const run = quoteGate.then(async () => {
+      const wait = quoteNext - Date.now();
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+      quoteNext = Date.now() + 800;
+      return task();
+    });
+    quoteGate = run.then(() => {}, () => {});
+    return run;
+  }
+
   async function pull(url) {
-    let response;
-    try {
-      response = await timed(fetch(url));
-    } catch (error) {
-      throw new Error("The quote feed did not answer. Check the connection.");
-    }
-    if (!response.ok) throw new Error("No live quote");
-    return response.json();
+    return oneQuote(async () => {
+      let response;
+      try {
+        response = await timed(fetch(url));
+      } catch (error) {
+        throw new Error("The quote feed did not answer. Check the connection.");
+      }
+      if (!response.ok) throw new Error("No live quote");
+      return response.json();
+    });
   }
 
   async function gemini(symbol, frameId, withTime) {

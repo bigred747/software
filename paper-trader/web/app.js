@@ -53,16 +53,34 @@ function sameStamp(node, stamp) {
   return false;
 }
 
-async function getJSON(url, options) {
-  const response = await fetch(url, options);
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.error || "Request failed");
-  }
-  return payload;
+let barGate = Promise.resolve();
+let barNext = 0;
+
+function oneBarRead(task) {
+  const run = barGate.then(async () => {
+    const wait = barNext - Date.now();
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    barNext = Date.now() + 800;
+    return task();
+  });
+  barGate = run.then(() => {}, () => {});
+  return run;
 }
 
-const VERSION = "1.9.43";
+async function getJSON(url, options) {
+  const read = async () => {
+    const response = await fetch(url, options);
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Request failed");
+    }
+    return payload;
+  };
+  if (String(url).indexOf("/api/bars") === 0) return oneBarRead(read);
+  return read();
+}
+
+const VERSION = "1.9.44";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -715,8 +733,8 @@ function renderBreaker() {
 const SCAN_KEY = "paperTraderScan";
 const TYPE_KEY = "paperTraderType";
 const phoneBarCache = new Map();
-const SCAN_READERS = 3;
-const SCAN_GAP = 150;
+const SCAN_READERS = 1;
+const SCAN_GAP = 800;
 let phoneScanToken = 0;
 
 function readScanOn() {
@@ -1613,8 +1631,11 @@ function writeOfflineFrame(win, frameId) {
   const moodLine = tone && tone.score != null ? " " + tone.label + " " + tone.score + "." : "";
   win.document.open();
   const quoteLine = bars.length ? "Market quote." : "Loading the market quote.";
-  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px 0\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + moodLine + (bars.length ? " " + PaperFrames.edgeLine(bars, cryptoNow) + ". Click any candle for its price box." : "") + "</p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
+  win.document.write("<!DOCTYPE html><title>Timeframe</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px 0\"></p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
   win.document.close();
+  win.document.title = heading;
+  const note = win.document.getElementById("note");
+  if (note) note.textContent = heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + moodLine + (bars.length ? " " + PaperFrames.edgeLine(bars, cryptoNow) + ". Click any candle for its price box." : "");
   let zoomStop = PaperFrames.DEFAULT_ZOOM;
   const paint = () => {
     const canvas = win.document.getElementById("c");
@@ -1679,7 +1700,7 @@ async function openFrame(frameId) {
   return true;
 }
 
-function openAllFrames() {
+async function openAllFrames() {
   let opened = 0;
   const openedWindows = [];
   PaperFrames.FRAMES.forEach((frame) => {
@@ -1690,9 +1711,9 @@ function openAllFrames() {
     }
   });
   if (state.offline) {
-    openedWindows.forEach(({ id, win }) => {
-      paintPhoneFrame(win, id);
-    });
+    for (const openedWindow of openedWindows) {
+      await paintPhoneFrame(openedWindow.win, openedWindow.id);
+    }
   }
   showDock("frames");
   $("status").textContent = opened
@@ -1728,10 +1749,20 @@ function openBrief() {
     $("status").textContent = "The brief is in the Timeframes panel.";
     return;
   }
-  const body = [note.lead].concat(note.lines).map((line) => "<p>" + line.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch])) + "</p>").join("");
   win.document.open();
-  win.document.write("<!DOCTYPE html><title>" + note.title + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:18px/1.5 Segoe UI,sans-serif\"><article style=\"max-width:640px;padding:28px\"><p style=\"letter-spacing:.08em;text-transform:uppercase;color:#8fd0c4;font-size:12px\">Brief</p><h1 style=\"font-size:28px\">" + note.title + "</h1>" + body + "<p style=\"color:#93a0ad\">Market quotes are not a forecast. Paper orders stay on this device.</p></article></body>");
+  win.document.write("<!DOCTYPE html><title>Brief</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:18px/1.5 Segoe UI,sans-serif\"><article style=\"max-width:640px;padding:28px\"><p style=\"letter-spacing:.08em;text-transform:uppercase;color:#8fd0c4;font-size:12px\">Brief</p><h1 id=\"brief-title\" style=\"font-size:28px\"></h1><div id=\"brief-lines\"></div><p style=\"color:#93a0ad\">Market quotes are not a forecast. Paper orders stay on this device.</p></article></body>");
   win.document.close();
+  win.document.title = note.title;
+  const title = win.document.getElementById("brief-title");
+  if (title) title.textContent = note.title;
+  const lines = win.document.getElementById("brief-lines");
+  if (lines) {
+    [note.lead].concat(note.lines).forEach((line) => {
+      const paragraph = win.document.createElement("p");
+      paragraph.textContent = line;
+      lines.appendChild(paragraph);
+    });
+  }
   $("status").textContent = "The brief opened in its own window.";
 }
 
@@ -2375,7 +2406,7 @@ async function sweepStrategy() {
   };
   $("strat-sweep").disabled = true;
   try {
-    await Promise.all([worker(), worker(), worker(), worker()]);
+    await worker();
   } finally {
     fresh.busy = false;
     fresh.at = Date.now();
@@ -2823,7 +2854,7 @@ async function scanSqueeze() {
     }
   };
   try {
-    await Promise.all([worker(), worker(), worker(), worker()]);
+    await worker();
   } finally {
     sq.busy = false;
   }
@@ -2930,7 +2961,7 @@ async function loadInternals(force) {
     }
   };
   try {
-    await Promise.all([worker(), worker(), worker(), worker()]);
+    await worker();
     box.result = PaperFrames.internals(data);
     box.at = Date.now();
     box.error = "";
@@ -3026,7 +3057,7 @@ async function loadEdgeFrames(force) {
     }
   };
   try {
-    await Promise.all([worker(), worker(), worker()]);
+    await worker();
   } finally {
     if (ef.token === token) {
       ef.busy = false;
