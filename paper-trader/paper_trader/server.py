@@ -170,6 +170,9 @@ def _url_host(url: str) -> str:
     return urlparse(url.replace("{symbol}", "X")).hostname or ""
 
 
+CONFIRM_PATHS = frozenset({"/api/paper/trade", "/api/paper/ticket", "/api/paper/halt"})
+CONFIRM_NOTE = "Confirm first. Every paper buy and sell needs the second warning, even from Auto."
+
 LOUD_CALLS = ("task" + "kill", "os." + "kill(", "winreg", "schtasks", "rmtree(", "Terminate" + "Process")
 LOUD_ALLOWED = {"install.py": {"rmtree("}}
 
@@ -1043,6 +1046,8 @@ class DeskHandler(BaseHTTPRequestHandler):
             self._json(self.desk.backtest(raw))
             return
         body = self._body() if method == "POST" else {}
+        if method == "POST" and path in CONFIRM_PATHS and body.get("confirmed") is not True:
+            raise ValueError(CONFIRM_NOTE)
         if method == "POST" and path == "/api/windows":
             self._json(self.desk.windows_set(body))
             return

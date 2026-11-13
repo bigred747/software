@@ -1536,6 +1536,15 @@
         entry: run.open ? run.open.entry : null,
         openPct: run.openPct,
         stop: run.pending && run.pending.stop > 0 ? run.pending.stop : run.open && run.open.stop > 0 ? run.open.stop : null,
+        log: run.trades.slice(-12).map((trade) => ({
+          entryDate: list[trade.entryIndex].date,
+          exitDate: list[trade.exitIndex].date,
+          entry: trade.entry,
+          exit: trade.exit,
+          pct: trade.pct,
+          why: trade.why,
+        })),
+        openSince: run.open ? list[run.open.entryIndex].date : null,
         ...(extra || {}),
       });
     };
@@ -1559,6 +1568,15 @@
         openPct: known.openPct,
         stop: known.stop,
         signalDate: known.signalDate,
+        log: known.trades.slice(-12).map((trade) => ({
+          entryDate: trade.entryDate,
+          exitDate: trade.exitDate,
+          entry: trade.entry,
+          exit: trade.exit,
+          pct: trade.pct,
+          why: trade.why || "Exit rule",
+        })),
+        openSince: known.entry ? ((known.marks || []).filter((mark) => mark.side === "buy").slice(-1).map((mark) => list[mark.index].date)[0] || null) : null,
       });
     } else notReady("edge", "Needs at least 52 bars.");
 

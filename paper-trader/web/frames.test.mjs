@@ -338,6 +338,19 @@ test("strategies report four rows from closed bars only", () => {
   assert.deepEqual(withLive.rows.map((row) => row.total), board.rows.map((row) => row.total));
 });
 
+test("each strategy lists its own past trades with dates", () => {
+  const bars = walk(700, 5, 0.0009);
+  const board = JSON.parse(JSON.stringify(strategies(bars, { live: false })));
+  board.rows.filter((row) => row.ready).forEach((row) => {
+    assert.ok(Array.isArray(row.log) && row.log.length <= 12);
+    assert.ok(row.log.length === Math.min(12, row.trades));
+    row.log.forEach((trade) => {
+      assert.ok(trade.entryDate && trade.exitDate && trade.entryDate <= trade.exitDate);
+      assert.ok(Number.isFinite(trade.pct) && trade.entry > 0 && trade.exit > 0);
+    });
+  });
+});
+
 test("a strategy never changes its past when new bars arrive", () => {
   const bars = walk(620, 11, 0.0005);
   const early = strategies(bars.slice(0, 560), { live: false });

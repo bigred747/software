@@ -95,6 +95,14 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Second warning and strategy testing (1.9.40)
+
+**Every buy and sell asks twice.** Pressing Trade, Send on the ticket, Sell all, or arming an opening-bar order opens a window that says what will happen, the market, the latest quote, your paper cash and shares, who started it, and a line-up list: Paper only, Safe check, Circuit breaker (buys), Internals (buys), and whether the chosen strategy agrees. A STOP line (paper is off, the Safe check failed, the breaker is on) disables the Yes button. No is the default, and Escape or a click outside also cancels. The desk itself refuses a buy or sell that does not carry the confirmation, so nothing, not even a script, can trade without it.
+
+**Auto signals ask too.** When the strategy you picked gives a fresh buy or sell on a closed bar, the same window opens and nothing trades until you press Yes. Pressing No skips that signal for good. When you press Yes the desk checks the signal is still on, and if it is not, nothing trades. Working limit and stop orders were approved when you placed them, and that OK covers their later fill. The circuit breaker is the one automatic sell kept on purpose: a 5% daily paper drop sells everything to cash and stops buys until tomorrow.
+
+**Click a strategy to test it.** In the Strategies tab, click any strategy row. A panel shows that strategy's own past trades on the market you are on (dates, entry, exit, result, why it closed). Press Run on the list to run it on a list of markets from the starter, sector, crypto, or futures lists, ranked by result, and click a market in that list to open it. It reads real daily bars and places nothing. These are past closed bars, not a forecast.
+
 ## Quiet installer (1.9.39)
 
 Security programs watch for programs that end other programs, delete folders they did not make, or write sign-in files without asking. This copy does none of those. The installer never ends another program and never deletes another folder. When a Paper Trader Learn window from an older copy is open, it leaves a small request file and that window closes itself. Other copies are listed in the Safe check as a note. The sign-in file and the Desktop file made by the desk are off until you tick them under Windows extras in the Safe check, and each can be removed by unticking. The Safe check item Quiet installer scans this program's own files for calls that end programs, edit the registry, or schedule tasks.

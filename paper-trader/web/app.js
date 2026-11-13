@@ -62,7 +62,7 @@ async function getJSON(url, options) {
   return payload;
 }
 
-const VERSION = "1.9.39";
+const VERSION = "1.9.40";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -205,7 +205,11 @@ async function loadPhoneBars(symbol, params, fresh) {
   return PaperEngine.view(state.session);
 }
 
+const CONFIRM_PATHS = ["/api/paper/trade", "/api/paper/ticket", "/api/paper/halt"];
+const CONFIRM_NOTE = "Confirm first. Every paper buy and sell needs the second warning, even from Auto.";
+
 async function paperCall(path, body) {
+  if (CONFIRM_PATHS.includes(path) && !(body && body.confirmed === true)) throw new Error(CONFIRM_NOTE);
   if (!state.offline) return post(path, body);
   const params = body || {};
   if (path === "/api/paper/step" || path === "/api/paper/run") {
@@ -2051,6 +2055,123 @@ function renderBook(paper) {
   }
 }
 
+
+let confirmWait = null;
+
+function closeConfirm(answer) {
+  if (!confirmWait) return;
+  const resolve = confirmWait;
+  confirmWait = null;
+  $("confirm-modal").hidden = true;
+  resolve(answer);
+}
+
+function confirmOrder(plan) {
+  if (confirmWait) return Promise.resolve(false);
+  const box = $("confirm-modal");
+  box.className = "modal " + plan.side;
+  $("cm-title").textContent = plan.title;
+  const rows = $("cm-rows");
+  rows.replaceChildren();
+  plan.rows.forEach(([name, value]) => {
+    const term = document.createElement("dt");
+    term.textContent = name;
+    const def = document.createElement("dd");
+    def.textContent = value;
+    rows.append(term, def);
+  });
+  const list = $("cm-checks");
+  list.replaceChildren();
+  plan.checks.forEach((check) => {
+    const item = document.createElement("li");
+    item.textContent = check.label + " · " + check.detail;
+    if (!check.ok) item.className = check.block ? "stop" : "warn";
+    list.appendChild(item);
+  });
+  const blocked = plan.checks.some((check) => check.block && !check.ok);
+  $("cm-yes").disabled = blocked;
+  $("cm-warn").textContent = blocked
+    ? "This cannot go ahead until the STOP line is fixed. Nothing was traded."
+    : "Do you really want to do this? It is paper money only and nothing goes to a broker.";
+  box.hidden = false;
+  $("cm-no").focus();
+  return new Promise((resolve) => {
+    confirmWait = resolve;
+  });
+}
+
+function lineUp(side, symbol, source, row) {
+  const checks = [];
+  const add = (label, ok, detail, block) => checks.push({ label, ok: !!ok, detail, block: !!block });
+  add("Paper only", state.paper && state.paper.paper === true, "No broker. Nothing real is bought or sold", true);
+  const safe = state.safe;
+  add("Safe check", !safe || safe.safe, safe ? (safe.safe ? "Every safety check passed" : "A safety check failed. Press Safe check to see which") : "Not run yet", !!(safe && !safe.safe));
+  if (side === "buy") {
+    const tripped = breakerState().tripped;
+    add("Circuit breaker", !tripped, tripped ? "Tripped. Buys stop until tomorrow" : "Armed, buys allowed", true);
+    const held = internalsGate(symbol);
+    const read = state.int && state.int.result;
+    add("Internals", !held, held || (read && read.ready ? read.label + " (" + read.score + ")" : "Not read yet"), false);
+  }
+  const board = state.board;
+  const picked = row || (board && board.rows.find((item) => item.id === state.strat.pick)) || null;
+  if (picked && picked.ready) {
+    const agrees = (side === "buy" && picked.call === "BUY") || (side === "sell" && picked.call === "SELL");
+    add("Strategy", agrees, picked.name + " says " + picked.call + (agrees ? "" : ". It does not call for this " + side), false);
+  }
+  return checks;
+}
+
+function quoteLine(symbol) {
+  const bars = seenBars();
+  const last = bars.length ? bars[bars.length - 1].close : 0;
+  return last > 0 ? formatPrice(last) + " (latest real quote for " + symbol + ")" : "No quote yet";
+}
+
+function orderPlan(side, symbol, source, extra) {
+  const paper = state.paper || {};
+  const kind = extra && extra.ticket ? extra.ticket : null;
+  const rows = [["Market", symbol]];
+  if (kind) {
+    const price = kind.kind === "limit" ? " at " + formatPrice(kind.limit) : kind.kind === "stop" ? " when price reaches " + formatPrice(kind.stop) : kind.kind === "stop_limit" ? " (stop " + formatPrice(kind.stop) + ", limit " + formatPrice(kind.limit) + ")" : " now";
+    rows.push(["Order", side.toUpperCase() + " · " + String(kind.kind).replace("_", " ") + price + (kind.tif ? " · " + kind.tif : "")]);
+    if (kind.kind !== "market") rows.push(["Then", "It waits and fills by itself when the real quote reaches it. This OK covers that fill."]);
+  } else if (side === "buy") {
+    rows.push(["Action", "BUY: puts all paper cash into one position"]);
+  } else {
+    rows.push(["Action", extra && extra.all ? "SELL ALL: closes the whole paper position now. Buys stop until tomorrow" : "SELL: closes the whole paper position (" + Number(paper.shares || 0) + " shares)"]);
+  }
+  rows.push(["Last quote", quoteLine(symbol)]);
+  rows.push(["Paper account", "Cash " + (paper.cash != null ? formatPrice(paper.cash) : "—") + " · " + Number(paper.shares || 0) + " shares"]);
+  rows.push(["Fill", "Latest real trade at the moment you press Yes, moved 5 bps against you, plus the fee"]);
+  rows.push(["Started by", source === "auto" ? "AUTO SIGNAL · " + (extra.row ? extra.row.name : "strategy") + " on the closed bar " + (extra.closed || "") + ", seen " + new Date().toLocaleTimeString("en-US", { timeZone: "America/Denver", timeZoneName: "short" }) : source === "strategy" ? "Armed from the opening-bar panel" : "You pressed it"]);
+  return {
+    side,
+    title: (source === "auto" ? "Auto signal: " : "Confirm: ") + (extra && extra.all ? "SELL ALL" : side.toUpperCase()) + " " + symbol,
+    rows,
+    checks: lineUp(side, symbol, source, extra && extra.row),
+  };
+}
+
+async function askFirst(side, symbol, source, extra) {
+  const ok = await confirmOrder(orderPlan(side, symbol, source, extra));
+  if (!ok) $("status").textContent = "Canceled at the second warning. Nothing was traded.";
+  return ok;
+}
+
+function whenIdle() {
+  return new Promise((resolve) => {
+    let waited = 0;
+    const timer = setInterval(() => {
+      waited += 100;
+      if (!state.busy || waited > 8000) {
+        clearInterval(timer);
+        resolve();
+      }
+    }, 100);
+  });
+}
+
 const STRAT_KEY = "paper_trader_strategy_v1";
 
 function loadStrat() {
@@ -2117,7 +2238,11 @@ function renderStrategies() {
   body.replaceChildren();
   board.rows.forEach((row) => {
     const tr = document.createElement("tr");
-    if (row.id === board.best) tr.className = "best";
+    tr.className = "pickable" + (row.id === board.best ? " best" : "") + (row.id === state.strat.pick ? " picked" : "");
+    tr.tabIndex = 0;
+    tr.setAttribute("role", "button");
+    tr.setAttribute("aria-label", "Test " + row.name + " on this market");
+    tr.dataset.strategy = row.id;
     const pill = document.createElement("span");
     pill.className = "call-pill " + row.call.toLowerCase();
     pill.textContent = row.call;
@@ -2156,6 +2281,129 @@ function renderStrategies() {
   if (pick.value !== state.strat.pick) pick.value = state.strat.pick;
   $("strat-auto-on").checked = state.strat.on;
   renderAutoNote();
+  renderStratDetail(board);
+}
+
+function pickStrategy(id) {
+  if (!["edge", "squeeze", "donchian", "rsi2"].includes(id)) return;
+  state.strat.pick = id;
+  state.strat.note = "";
+  saveStrat();
+  state.boardKey = "";
+  state.sweep = { busy: false, id: "", rows: [], at: 0 };
+  renderStrategies();
+  const row = state.board && state.board.rows.find((item) => item.id === id);
+  $("status").textContent = "Testing " + (row ? row.name : id) + " on " + ((state.paper && state.paper.symbol) || "this market") + ". Auto follows it only if strategy trading is on.";
+}
+
+function renderStratDetail(board) {
+  const box = $("strat-detail");
+  if (!box) return;
+  const row = board.rows.find((item) => item.id === state.strat.pick);
+  box.hidden = !row;
+  if (!row) return;
+  const symbol = (state.paper && state.paper.symbol) || "this market";
+  $("strat-detail-title").textContent = row.name + " on " + symbol;
+  $("strat-detail-line").textContent = row.ready
+    ? row.idea + " Now: " + row.call + ". " + row.trades + " past trade" + (row.trades === 1 ? "" : "s") + ", " + signedPercent(row.total) + " compounded, against " + signedPercent(row.hold) + " for holding. " + cardLine(row)
+    : row.idea + " " + (row.why || "Not enough bars.");
+  const log = $("strat-log");
+  log.replaceChildren();
+  const trades = row.ready ? row.log || [] : [];
+  trades.slice().reverse().forEach((trade) => {
+    const tr = document.createElement("tr");
+    addCells(tr, [trade.entryDate, trade.exitDate, formatPrice(trade.entry), formatPrice(trade.exit), { text: signedPercent(trade.pct), cls: trade.pct > 0 ? "up" : trade.pct < 0 ? "down" : "" }, trade.why || ""]);
+    log.appendChild(tr);
+  });
+  if (row.ready && row.openSince) {
+    const tr = document.createElement("tr");
+    addCells(tr, [row.openSince, "still open", formatPrice(row.entry), "—", { text: signedPercent(row.openPct), cls: row.openPct > 0 ? "up" : row.openPct < 0 ? "down" : "" }, "Open at the last close"]);
+    log.insertBefore(tr, log.firstChild);
+  }
+  if (!log.children.length) {
+    const tr = document.createElement("tr");
+    addCells(tr, ["No closed trades on this market yet.", "", "", "", "", ""]);
+    log.appendChild(tr);
+  }
+  renderSweep();
+}
+
+state.sweep = { busy: false, id: "", rows: [], at: 0 };
+
+async function sweepStrategy() {
+  const sweep = state.sweep;
+  if (sweep.busy) return;
+  const id = state.strat.pick;
+  const symbols = (SQ_LISTS[$("strat-sweep-list").value] || SQ_LISTS.starter).slice(0, 45);
+  const known = state.catalog && state.catalog.length ? new Set(state.catalog.map((item) => item.symbol)) : null;
+  const fresh = { busy: true, id, rows: [], at: 0, skipped: 0 };
+  state.sweep = fresh;
+  let next = 0;
+  let done = 0;
+  const worker = async () => {
+    while (next < symbols.length && state.sweep === fresh) {
+      const symbol = symbols[next];
+      next += 1;
+      try {
+        if (known && !known.has(symbol)) throw new Error("not listed");
+        const bars = await sqDaily(symbol);
+        const board = PaperFrames.strategies(bars, { live: PaperFrames.liveBar(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol))) });
+        const row = board.rows.find((item) => item.id === id);
+        if (row && row.ready) fresh.rows.push({ symbol, row });
+        else fresh.skipped += 1;
+      } catch (error) {
+        fresh.skipped += 1;
+      }
+      done += 1;
+      $("strat-sweep-note").textContent = "Reading daily bars: " + done + " of " + symbols.length + "…";
+    }
+  };
+  $("strat-sweep").disabled = true;
+  try {
+    await Promise.all([worker(), worker(), worker(), worker()]);
+  } finally {
+    fresh.busy = false;
+    fresh.at = Date.now();
+    $("strat-sweep").disabled = false;
+  }
+  if (state.sweep === fresh) renderSweep();
+}
+
+function renderSweep() {
+  const body = $("strat-sweep-body");
+  const note = $("strat-sweep-note");
+  if (!body) return;
+  const sweep = state.sweep;
+  body.replaceChildren();
+  if (!sweep.at || sweep.id !== state.strat.pick) {
+    if (!sweep.busy) note.textContent = "Press Run on the list to test this strategy on each market. It reads real daily bars and places nothing.";
+    return;
+  }
+  sweep.rows.sort((a, b) => b.row.total - a.row.total);
+  sweep.rows.forEach((item) => {
+    const row = item.row;
+    const tr = document.createElement("tr");
+    tr.className = "pickable";
+    tr.tabIndex = 0;
+    tr.setAttribute("role", "button");
+    tr.setAttribute("aria-label", "Open " + item.symbol);
+    addCells(tr, [item.symbol, "", String(row.trades), row.trades ? Math.round(row.winRate * 100) + "%" : "—", { text: signedPercent(row.total), cls: row.total > 0 ? "up" : row.total < 0 ? "down" : "" }, signedPercent(row.hold), row.trades ? signedPercent(row.worst) : "—"]);
+    const pill = document.createElement("span");
+    pill.className = "call-pill " + row.call.toLowerCase();
+    pill.textContent = row.call;
+    tr.children[1].appendChild(pill);
+    const open = () => chooseSymbol(item.symbol);
+    tr.addEventListener("click", open);
+    tr.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+    body.appendChild(tr);
+  });
+  const when = new Date(sweep.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
+  note.textContent = "Tested on " + sweep.rows.length + " market" + (sweep.rows.length === 1 ? "" : "s") + " at " + when + " Denver" + (sweep.skipped ? ", " + sweep.skipped + " skipped" : "") + ". Sorted by result. Click a market to open it. Past closed bars, not a forecast.";
 }
 
 function renderAutoNote() {
@@ -2164,7 +2412,7 @@ function renderAutoNote() {
   const row = (state.board && state.board.rows.find((item) => item.id === state.strat.pick)) || null;
   const name = row ? row.name : state.strat.pick;
   note.textContent = state.strat.note || (state.strat.on
-    ? "On. While Auto runs, a fresh " + name + " buy or sell on a closed bar places one paper trade. It follows the scanner rules and stops at the circuit breaker. " + internalsLine()
+    ? "On. While Auto runs, a fresh " + name + " buy or sell on a closed bar opens the second warning. Nothing trades until you press Yes. It follows the scanner rules and stops at the circuit breaker. " + internalsLine()
     : "Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.");
 }
 
@@ -2188,17 +2436,41 @@ async function autoTrade() {
       return state.strat.note;
     }
   }
-  try {
-    const paper = await paperCall("/api/paper/trade", { source: "auto" });
-    state.strat.acted[key] = Date.now();
-    saveStrat();
-    state.strat.note = "";
-    render(paper);
-    return row.name + ": paper " + want + ". " + (fillText(paper) || "");
-  } catch (error) {
-    state.strat.note = row.name + " wanted a " + want + ". Skipped: " + error.message;
+  if (confirmWait) return "Waiting for your answer on the open warning.";
+  state.strat.acted[key] = Date.now();
+  saveStrat();
+  state.strat.note = row.name + " signal: paper " + want + ". Waiting for your Yes.";
+  renderAutoNote();
+  answerAuto(row, want, state.paper.symbol, closedDate(bars));
+  return state.strat.note;
+}
+
+async function answerAuto(row, want, symbol, closed) {
+  const say = (text) => {
+    state.strat.note = text;
     renderAutoNote();
-    return state.strat.note;
+    $("status").textContent = text;
+  };
+  const ok = await confirmOrder(orderPlan(want, symbol, "auto", { row, closed }));
+  if (!ok) {
+    say(row.name + " " + want + " signal declined. Nothing was traded.");
+    return;
+  }
+  await whenIdle();
+  state.boardKey = "";
+  const held = !!(state.paper && state.paper.shares > 0);
+  const now = state.paper && state.paper.symbol === symbol ? currentBoard(seenBars()).rows.find((item) => item.id === row.id) : null;
+  const still = now && now.ready && ((want === "buy" && now.call === "BUY" && !held) || (want === "sell" && now.call === "SELL" && held));
+  if (!still) {
+    say("That " + row.name + " " + want + " signal was no longer on when you said Yes. Nothing was traded.");
+    return;
+  }
+  try {
+    const paper = await paperCall("/api/paper/trade", { source: "auto", confirmed: true });
+    render(paper);
+    say(row.name + ": paper " + want + ". " + (fillText(paper) || ""));
+  } catch (error) {
+    say(row.name + " wanted a " + want + ". Skipped: " + error.message);
   }
 }
 
@@ -2322,8 +2594,9 @@ async function armOrb(kind) {
     if (!held) return say("Nothing to sell. The account is flat.");
     ticket = { side: "sell", kind: "limit", tif: "GTC", limit: armPrice(level.target) };
   }
+  if (!(await askFirst(ticket.side, state.paper.symbol, "strategy", { ticket }))) return;
   await withBusy(async () => {
-    const paper = await paperCall("/api/paper/ticket", { ...ticket, source: "strategy" });
+    const paper = await paperCall("/api/paper/ticket", { ...ticket, source: "strategy", confirmed: true });
     $("strat-confirm").checked = false;
     render(paper);
     say(paper.last_action === "working" ? "Working paper order armed. It fills when the real quote reaches it. Nothing was sent to a broker." : (fillText(paper) || "Filled on the paper account.") + " Nothing was sent to a broker.");
@@ -3658,13 +3931,15 @@ $("send").addEventListener("click", () => withBusy(async () => {
     $("status").textContent = "Check Confirm and Send, then send the paper order.";
     return;
   }
-  const paper = await paperCall("/api/paper/ticket", {
+  const ticket = {
     side: state.side,
     kind: $("kind").value,
     tif: $("tif").value,
     stop: Number($("stop-price").value) || 0,
     limit: Number($("limit-price").value) || 0,
-  });
+  };
+  if (!(await askFirst(ticket.side, (state.paper && state.paper.symbol) || selectedSymbol(), "you", { ticket }))) return;
+  const paper = await paperCall("/api/paper/ticket", { ...ticket, confirmed: true });
   $("confirm").checked = false;
   render(paper);
   if (paper.last_action === "working") {
@@ -3704,13 +3979,7 @@ $("sq-stop").addEventListener("click", () => {
 $("sq-side").addEventListener("change", renderSqueeze);
 setInterval(() => runSafe(false), 60000);
 
-$("strat-pick").addEventListener("change", () => {
-  state.strat.pick = $("strat-pick").value;
-  state.strat.note = "";
-  saveStrat();
-  state.boardKey = "";
-  renderStrategies();
-});
+$("strat-pick").addEventListener("change", () => pickStrategy($("strat-pick").value));
 $("strat-auto-on").addEventListener("change", () => {
   state.strat.on = $("strat-auto-on").checked;
   state.strat.note = "";
@@ -3719,29 +3988,57 @@ $("strat-auto-on").addEventListener("change", () => {
   renderStrategies();
   $("status").textContent = state.strat.on ? "Strategy trading is on. Turn Auto on and it follows " + state.strat.pick + " on closed bars." : "Strategy trading is off.";
 });
+$("strat-board").addEventListener("click", (event) => {
+  const row = event.target.closest("tr[data-strategy]");
+  if (row) pickStrategy(row.dataset.strategy);
+});
+$("strat-board").addEventListener("keydown", (event) => {
+  const row = event.target.closest("tr[data-strategy]");
+  if (row && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    pickStrategy(row.dataset.strategy);
+  }
+});
+$("strat-sweep").addEventListener("click", sweepStrategy);
+$("cm-yes").addEventListener("click", () => closeConfirm(true));
+$("cm-no").addEventListener("click", () => closeConfirm(false));
+$("confirm-modal").addEventListener("click", (event) => {
+  if (event.target === $("confirm-modal")) closeConfirm(false);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && confirmWait) closeConfirm(false);
+});
 $("strat-load").addEventListener("click", loadOrb);
 ["strat-open", "strat-buffer", "strat-target"].forEach((id) => $(id).addEventListener("change", renderOrb));
 $("strat-arm-buy").addEventListener("click", () => armOrb("buy"));
 $("strat-arm-stop").addEventListener("click", () => armOrb("stop"));
 $("strat-arm-target").addEventListener("click", () => armOrb("target"));
 
-$("trade").addEventListener("click", () => withBusy(async () => {
+$("trade").addEventListener("click", async () => {
+  if (state.busy || !state.paper) return;
+  const side = state.paper.shares > 0 ? "sell" : "buy";
+  if (!(await askFirst(side, state.paper.symbol, "you", {}))) return;
+  tradeNow();
+});
+
+const tradeNow = () => withBusy(async () => {
   stopAuto();
-  const paper = await paperCall("/api/paper/trade", {});
+  const paper = await paperCall("/api/paper/trade", { confirmed: true });
   render(paper);
   const verb = paper.last_action === "sell" ? "Sold" : "Bought";
   const caution = paper.last_action === "buy" ? internalsGate(paper.symbol) : "";
   $("status").textContent = (fillText(paper) || verb + " one simulated position on the paper account.") + (caution ? " Heads up: " + caution : "");
   await loadSignals();
-}));
+});
 
 $("halt").addEventListener("click", async () => {
   const button = $("halt");
-  if (button.disabled) return;
+  if (button.disabled || !state.paper) return;
+  if (!(await askFirst("sell", state.paper.symbol, "you", { all: true }))) return;
   button.disabled = true;
   stopAuto("Selling everything on the paper account…");
   try {
-    const paper = await paperCall("/api/paper/halt", {});
+    const paper = await paperCall("/api/paper/halt", { confirmed: true });
     render(paper);
     $("status").textContent = (paper.last_action === "sell" ? "Sold everything to paper cash. " + fillText(paper) : "Already in paper cash.") + " Buys stop until tomorrow.";
   } catch (error) {

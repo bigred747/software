@@ -239,6 +239,34 @@ plot Sell = close crosses below baseline;</textarea>
           </table>
         </div>
         <p id="strat-best" class="muted"></p>
+        <p class="muted">Click a strategy row to test it. The panel below shows its own past trades on this market, and you can run it on a whole list of markets. Click a market in that list to open it.</p>
+        <div id="strat-detail" class="strat-detail" hidden>
+          <h3 id="strat-detail-title"></h3>
+          <p id="strat-detail-line" class="muted"></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>In</th><th>Out</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why it closed</th></tr></thead>
+              <tbody id="strat-log"></tbody>
+            </table>
+          </div>
+          <div class="strat-orb-inputs">
+            <label for="strat-sweep-list">Test it on</label>
+            <select id="strat-sweep-list">
+              <option value="starter">Starter list</option>
+              <option value="sectors">Sector funds and big holdings</option>
+              <option value="crypto">Crypto</option>
+              <option value="futures">Futures</option>
+            </select>
+            <button id="strat-sweep" type="button">Run on the list</button>
+          </div>
+          <p id="strat-sweep-note" class="muted"></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Market</th><th>Now</th><th>Trades</th><th>Wins</th><th>Result</th><th>Hold</th><th>Worst trade</th></tr></thead>
+              <tbody id="strat-sweep-body"></tbody>
+            </table>
+          </div>
+        </div>
         <div class="strat-auto">
           <label for="strat-pick">Auto follows</label>
           <select id="strat-pick">
@@ -432,6 +460,18 @@ plot Sell = close crosses below baseline;</textarea>
     }
   });
   </script>
+  <div id="confirm-modal" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="cm-title" hidden>
+    <div class="modal-card">
+      <h2 id="cm-title">Confirm</h2>
+      <dl id="cm-rows" class="modal-rows"></dl>
+      <ul id="cm-checks" class="safe-list"></ul>
+      <p id="cm-warn" class="modal-warn"></p>
+      <div class="modal-buttons">
+        <button id="cm-no" type="button" class="quiet">No, cancel</button>
+        <button id="cm-yes" type="button">Yes, do it</button>
+      </div>
+    </div>
+  </div>
   <script src="live.js"></script>
   <script src="engine.js"></script>
   <script src="study.js"></script>

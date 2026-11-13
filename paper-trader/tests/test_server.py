@@ -125,7 +125,7 @@ class ServerTests(unittest.TestCase):
         status, raw = self.open("/api/paper")
         self.assertEqual(status, 200)
         before = json.loads(raw)
-        status, traded = self.open("/api/paper/trade", "POST", {})
+        status, traded = self.open("/api/paper/trade", "POST", {"confirmed": True})
         if status == 400:
             self.assertIn(b"today", traded)
             self.assertEqual(json.loads(self.open("/api/paper")[1])["cursor"], before["cursor"])
@@ -250,7 +250,7 @@ class ServerTests(unittest.TestCase):
         status, raw = self.open("/api/paper/mode", "POST", {"mode": "live"})
         self.assertEqual(status, 400)
         self.assertIn(b"Live is locked", raw)
-        status, raw = self.open("/api/paper/halt", "POST", {})
+        status, raw = self.open("/api/paper/halt", "POST", {"confirmed": True})
         self.assertEqual(status, 200)
         payload = json.loads(raw)
         self.assertEqual(payload["shares"], 0)
@@ -447,7 +447,7 @@ class ServerTests(unittest.TestCase):
                 halted = desk.halt()
                 self.assertEqual(halted["working"], [])
                 with self.assertRaises(ValueError) as blocked:
-                    desk.place({"side": "buy", "kind": "market"})
+                    desk.place({"side": "buy", "kind": "market", "confirmed": True})
                 self.assertIn("circuit breaker", str(blocked.exception))
 
     def test_day_orders_expire_and_gtc_orders_stay(self) -> None:
@@ -471,7 +471,7 @@ class ServerTests(unittest.TestCase):
         status, placed = self.open(
             "/api/paper/ticket",
             "POST",
-            {"side": "buy", "kind": "limit", "limit": 0.01, "tif": "GTC"},
+            {"side": "buy", "kind": "limit", "limit": 0.01, "tif": "GTC", "confirmed": True},
         )
         self.assertEqual(status, 200)
         payload = json.loads(placed)
@@ -479,12 +479,41 @@ class ServerTests(unittest.TestCase):
         status, canceled = self.open("/api/paper/cancel", "POST", {"id": "all"})
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(canceled)["working"], [])
-        status, bought = self.open("/api/paper/ticket", "POST", {"side": "buy", "kind": "market"})
+        status, bought = self.open("/api/paper/ticket", "POST", {"side": "buy", "kind": "market", "confirmed": True})
         self.assertEqual(status, 200)
         fill = json.loads(bought)["fill"]
         self.assertEqual(fill["slip_bps"], 5.0)
         self.assertGreater(fill["price"], fill["quote"])
-        self.assertEqual(self.open("/api/paper/ticket", "POST", {"side": "buy", "kind": "market"})[0], 400)
+        self.assertEqual(self.open("/api/paper/ticket", "POST", {"side": "buy", "kind": "market", "confirmed": True})[0], 400)
+
+    def test_every_buy_and_sell_needs_the_second_warning(self) -> None:
+        before = json.loads(self.open("/api/paper")[1])
+        for path, body in (
+            ("/api/paper/trade", {}),
+            ("/api/paper/trade", {"source": "auto"}),
+            ("/api/paper/trade", {"confirmed": "yes"}),
+            ("/api/paper/ticket", {"side": "buy", "kind": "market"}),
+            ("/api/paper/halt", {}),
+        ):
+            status, raw = self.open(path, "POST", body)
+            self.assertEqual(status, 400, path)
+            self.assertIn(b"Confirm first", raw)
+        after = json.loads(self.open("/api/paper")[1])
+        self.assertEqual(after["shares"], before["shares"])
+        self.assertEqual(after.get("fills"), before.get("fills"))
+
+    def test_page_has_the_second_warning_and_strategy_testing_wired(self) -> None:
+        web = Path(__file__).resolve().parents[1] / "web"
+        page = (web / "index.html").read_text(encoding="utf-8")
+        script = (web / "app.js").read_text(encoding="utf-8")
+        for name in ("confirm-modal", "cm-yes", "cm-no", "cm-checks", "strat-detail", "strat-log", "strat-sweep", "strat-sweep-body"):
+            self.assertIn(f'id="{name}"', page)
+        for call in ("/api/paper/trade", "/api/paper/ticket", "/api/paper/halt"):
+            for line in script.splitlines():
+                if f'paperCall("{call}"' in line:
+                    self.assertIn("confirmed: true", line, line)
+        self.assertIn("answerAuto", script)
+        self.assertNotIn('paperCall("/api/paper/trade", { source: "auto" })', script)
 
     def test_only_this_computer_can_reach_the_desk(self) -> None:
         from paper_trader.server import _local_client, _local_origin
@@ -658,7 +687,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.39", script)
+        self.assertIn(b"1.9.40", script)
         self.assertIn(b"drawPriceLine", script)
         self.assertIn(b'id="edge-call"', page)
         self.assertIn(b"It is not a forecast.", page)

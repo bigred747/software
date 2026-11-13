@@ -658,3 +658,23 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 .win-box{margin-top:8px;display:grid;gap:4px;font-size:12px}
 .win-box h4{margin:0;font-size:12px}
 .win-box label{display:flex;gap:6px;align-items:center}
+
+tr.pickable{cursor:pointer}
+tr.pickable:hover td,tr.picked td{background:rgba(255,255,255,.06)}
+tr.picked td:first-child{box-shadow:inset 3px 0 0 #6ea8ff;font-weight:700}
+.strat-detail{border:1px solid var(--line,#2a3442);border-radius:10px;padding:10px 12px;margin:10px 0}
+.strat-detail h3{margin:0 0 4px}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:12px}
+.modal[hidden]{display:none}
+.modal-card{background:#111823;border:2px solid #6ea8ff;border-radius:12px;max-width:520px;width:100%;padding:16px 18px;max-height:92vh;overflow:auto;color:#e8eef7}
+.modal.buy .modal-card{border-color:#3ddc97}
+.modal.sell .modal-card{border-color:#ff6b7a}
+.modal-card h2{margin:0 0 8px;font-size:18px}
+.modal-rows{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0 0 8px;font-size:13px}
+.modal-rows dt{color:#9fb0c6}
+.modal-rows dd{margin:0}
+.modal-warn{font-weight:700;margin:10px 0}
+.modal-buttons{display:flex;gap:10px;justify-content:flex-end}
+.modal-buttons button{min-width:130px;padding:10px 14px}
+#cm-checks li.stop::before{content:"STOP  ";font-weight:700;color:#ff6b7a}
+#cm-yes:disabled{opacity:.4;cursor:not-allowed}
