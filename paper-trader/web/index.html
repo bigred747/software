@@ -127,6 +127,7 @@
       </div>
       <div class="safe-box" id="safe-box">
         <button id="safe" type="button" class="safe-btn">Safe check</button>
+        <button id="internals-pill" type="button" class="internals-pill">Internals · reading…</button>
         <p id="safe-note" class="breaker-note">Press to run the safety check. It runs by itself every minute.</p>
         <ul id="safe-list" class="safe-list"></ul>
       </div>
@@ -192,6 +193,7 @@
         <button type="button" class="dock-tab on" data-dock="study">Study</button>
         <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
+        <button type="button" class="dock-tab" data-dock="internals">Internals</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">B4 readings</button>
         <button type="button" class="dock-tab" data-dock="journal">Journal</button>
@@ -300,6 +302,26 @@ plot Sell = close crosses below baseline;</textarea>
         </div>
         <p id="sq-why" class="muted"></p>
         <p id="sq-skip" class="muted"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="internals">
+        <h2>Market internals</h2>
+        <p id="int-lead" class="muted">Reads the fear gauges, index trend, how many sectors take part, small against large, offense against defense, credit, rates, and the dollar from real daily bars, then rolls them into one label: Supportive, Mixed, or Defensive. It reads closed bars only and looks backward. It is not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <button id="int-refresh" type="button">Refresh internals</button>
+          <label class="strat-switch"><input id="int-gate" type="checkbox" checked> Respect internals: Auto skips buys in stocks, ETFs, and futures while internals are Defensive</label>
+        </div>
+        <p id="int-head" class="muted">Press Refresh internals.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Internal</th><th>Says</th><th>Points</th><th>Reading</th></tr>
+            </thead>
+            <tbody id="int-body"></tbody>
+          </table>
+        </div>
+        <p id="int-miss" class="muted"></p>
+        <p class="muted">NYSE TICK, ADD, TRIN, and VOLD are not shown. The free quote feeds this desk uses do not carry them, and nothing here is guessed in their place. Sells are never blocked by internals. Crypto is not gated, because these are US market internals.</p>
       </div>
 
       <div class="dock-page" data-dock-page="frames">

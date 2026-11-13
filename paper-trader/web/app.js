@@ -2164,7 +2164,7 @@ function renderAutoNote() {
   const row = (state.board && state.board.rows.find((item) => item.id === state.strat.pick)) || null;
   const name = row ? row.name : state.strat.pick;
   note.textContent = state.strat.note || (state.strat.on
-    ? "On. While Auto runs, a fresh " + name + " buy or sell on a closed bar places one paper trade. It follows the scanner rules and stops at the circuit breaker."
+    ? "On. While Auto runs, a fresh " + name + " buy or sell on a closed bar places one paper trade. It follows the scanner rules and stops at the circuit breaker. " + internalsLine()
     : "Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.");
 }
 
@@ -2180,6 +2180,14 @@ async function autoTrade() {
   if (!want) return "";
   const key = state.paper.symbol + "|" + row.id + "|" + want + "|" + closedDate(bars);
   if (state.strat.acted[key]) return "";
+  if (want === "buy") {
+    const held = internalsGate(state.paper.symbol);
+    if (held) {
+      state.strat.note = row.name + " wanted a buy. Skipped: " + held;
+      renderAutoNote();
+      return state.strat.note;
+    }
+  }
   try {
     const paper = await paperCall("/api/paper/trade", { source: "auto" });
     state.strat.acted[key] = Date.now();
@@ -2378,6 +2386,7 @@ async function runSafe(manual) {
   state.safeBusy = true;
   try {
     const report = state.offline ? await phoneSafe() : await getJSON("/api/safe");
+    report.items.push({ name: "Internals", ok: !!(state.int.result && state.int.result.ready), detail: state.int.result ? internalsLine() : "Not read yet", kind: "health" });
     const bad = report.items.filter((item) => item.kind === "safety" && !item.ok);
     const warn = report.items.filter((item) => item.kind !== "safety" && !item.ok);
     button.className = "safe-btn " + (bad.length ? "bad" : warn.length ? "warn" : "ok");
@@ -2558,10 +2567,101 @@ function renderSqueeze() {
     body.appendChild(tr);
   }
   const when = new Date(sq.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
-  $("sq-note").textContent = "Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired. Closed daily bars only.";
+  $("sq-note").textContent = "Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired. Closed daily bars only. " + internalsLine();
   const top = shown[0];
   $("sq-why").textContent = top ? "Top score " + top.score + " for " + top.symbol + ": " + top.parts.map((item) => item[0] + " +" + item[1]).join(", ") + "." : "";
   $("sq-skip").textContent = sq.skipped.length ? "Not read: " + sq.skipped.join("; ") + "." : "";
+}
+
+
+const INT_KEY = "paper_trader_internals_v1";
+const INT_GAUGES = ["^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP"];
+
+function loadIntGate() {
+  try {
+    return JSON.parse(localStorage.getItem(INT_KEY) || "{}").gate !== false;
+  } catch (error) {
+    return true;
+  }
+}
+
+state.int = { gate: loadIntGate(), result: null, at: 0, busy: false, error: "" };
+
+async function internalBars(symbol) {
+  if (state.offline && INT_GAUGES.includes(symbol)) return PaperLive.gauge(symbol);
+  return sqDaily(symbol);
+}
+
+async function loadInternals(force) {
+  const box = state.int;
+  if (box.busy || (!force && box.at && Date.now() - box.at < 600000)) return;
+  box.busy = true;
+  const symbols = PaperFrames.INTERNAL_SYMBOLS;
+  const data = {};
+  let next = 0;
+  const worker = async () => {
+    while (next < symbols.length) {
+      const symbol = symbols[next];
+      next += 1;
+      try {
+        data[symbol] = await internalBars(symbol);
+      } catch (error) {
+        /* A gauge that does not answer is listed as not read. */
+      }
+    }
+  };
+  try {
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    box.result = PaperFrames.internals(data);
+    box.at = Date.now();
+    box.error = "";
+  } catch (error) {
+    box.error = error.message;
+  } finally {
+    box.busy = false;
+  }
+  renderInternals();
+  runSafe(false);
+}
+
+function internalsLine() {
+  const result = state.int.result;
+  if (!result) return "Internals not read yet.";
+  if (!result.ready) return "Internals unknown: only " + result.coverage + " of 100 points could be read.";
+  return "Internals " + result.label + " " + result.score + " as of the " + result.asOf + " close.";
+}
+
+function renderInternals() {
+  const pill = $("internals-pill");
+  if (!pill) return;
+  const result = state.int.result;
+  pill.className = "internals-pill " + (result && result.ready ? result.label.toLowerCase() : "");
+  pill.textContent = result ? (result.ready ? "Internals · " + result.label + " " + result.score : "Internals · unknown") : state.int.error ? "Internals · could not read" : "Internals · reading…";
+  const body = $("int-body");
+  if (!body) return;
+  body.replaceChildren();
+  $("int-gate").checked = state.int.gate;
+  if (!result) {
+    $("int-head").textContent = state.int.error || "Press Refresh internals.";
+    return;
+  }
+  result.parts.forEach((part) => {
+    const row = document.createElement("tr");
+    addCells(row, [part.name, { text: part.says === "good" ? "Good" : part.says === "bad" ? "Bad" : "Neutral", cls: part.says === "good" ? "up" : part.says === "bad" ? "down" : "" }, part.points + " of " + part.weight, part.text]);
+    body.appendChild(row);
+  });
+  const when = new Date(state.int.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
+  $("int-head").textContent = internalsLine() + " Read at " + when + " Denver." + (result.ready && result.label === "Defensive" ? " Auto skips new stock, ETF, and futures buys while this holds." : "");
+  $("int-miss").textContent = result.missing.length ? "Not read: " + result.missing.join(", ") + ". The score uses only what was read." : "";
+  renderAutoNote();
+}
+
+function internalsGate(symbol) {
+  const result = state.int.result;
+  if (!state.int.gate || !result || !result.ready || result.label !== "Defensive") return "";
+  const row = state.catalog.find((item) => item.symbol === symbol);
+  if (phoneCrypto(symbol, row)) return "";
+  return "Internals are Defensive (" + result.score + "), so new buys are held back.";
 }
 
 function renderEdge() {
@@ -3552,6 +3652,17 @@ $("cancel-all").addEventListener("click", () => withBusy(async () => {
 }));
 
 $("safe").addEventListener("click", () => runSafe(true));
+$("int-refresh").addEventListener("click", () => loadInternals(true));
+$("internals-pill").addEventListener("click", () => showDock("internals"));
+$("int-gate").addEventListener("change", () => {
+  state.int.gate = $("int-gate").checked;
+  try {
+    localStorage.setItem(INT_KEY, JSON.stringify({ gate: state.int.gate }));
+  } catch (error) {
+    /* The switch still works for this visit. */
+  }
+  renderInternals();
+});
 $("sq-scan").addEventListener("click", scanSqueeze);
 $("sq-stop").addEventListener("click", () => {
   state.sq.stop = true;
@@ -3586,7 +3697,8 @@ $("trade").addEventListener("click", () => withBusy(async () => {
   const paper = await paperCall("/api/paper/trade", {});
   render(paper);
   const verb = paper.last_action === "sell" ? "Sold" : "Bought";
-  $("status").textContent = fillText(paper) || verb + " one simulated position on the paper account.";
+  const caution = paper.last_action === "buy" ? internalsGate(paper.symbol) : "";
+  $("status").textContent = (fillText(paper) || verb + " one simulated position on the paper account.") + (caution ? " Heads up: " + caution : "");
   await loadSignals();
 }));
 
@@ -3763,6 +3875,7 @@ function restoreStudies() {
 }
 
 function showDock(name) {
+  if (name === "internals") loadInternals(false);
   if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
     state.orbBusy = true;
     loadOrb().finally(() => {
@@ -3890,6 +4003,8 @@ bindZoom($("frame-preview"), "preview");
 
 boot().then(() => {
   runSafe(false);
+  loadInternals(false);
+  setInterval(() => loadInternals(true), 600000);
   warnSqueeze();
   setInterval(warnSqueeze, 20000);
 }).catch((error) => {

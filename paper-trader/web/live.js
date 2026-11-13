@@ -519,5 +519,13 @@
     return withLastTrade(symbol, await candles(symbol, frameId, frameId !== "1D"));
   }
 
-  root.PaperLive = { daily, frame, lastTrade };
+  const GAUGES = { "^VIX": ".VIX", "^VXN": ".VXN", "^VIX9D": ".VIX9D", "^TNX": "US10Y", "DX-Y.NYB": ".DXY", RSP: "RSP" };
+
+  async function gauge(symbol) {
+    const feed = GAUGES[symbol];
+    if (!feed) throw new Error("No gauge for " + symbol);
+    return cnbcBars(feed, "", "1D", 400, false);
+  }
+
+  root.PaperLive = { daily, frame, lastTrade, gauge };
 })(typeof globalThis !== "undefined" ? globalThis : this);

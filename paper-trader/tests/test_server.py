@@ -335,6 +335,17 @@ class ServerTests(unittest.TestCase):
         for name in ("strategies", "squeeze", "journal"):
             self.assertIn(name, tabs)
 
+    def test_internal_gauges_are_readable_without_being_in_the_market_list(self) -> None:
+        from paper_trader import quotes
+
+        for symbol in ("^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP"):
+            self.assertEqual(quotes.yahoo_symbol(symbol), symbol)
+        with self.assertRaises(ValueError):
+            quotes.yahoo_symbol("^NOTAGAUGE")
+        for name in ("internals", "int-gate", "int-refresh", "internals-pill"):
+            page = (Path(__file__).resolve().parents[1] / "web" / "index.html").read_text(encoding="utf-8")
+            self.assertIn(name, page)
+
     def test_safe_check_answers_green_and_names_every_item(self) -> None:
         with patch("paper_trader.quotes.ping", return_value="Market quote ready"):
             status, raw = self.open("/api/safe")

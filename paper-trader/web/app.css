@@ -649,3 +649,8 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 .safe-list li::before{content:"OK  ";font-weight:700;color:#3ddc97}
 .safe-list li.warn::before{content:"CHECK  ";color:#ffd166}
 .safe-list li.bad::before{content:"FAIL  ";color:#ff6b7a}
+
+.internals-pill{width:100%;margin:6px 0;text-align:left;border:1px solid #3a4656;background:#1c242c;color:var(--text,#e6edf3);padding:8px 12px;border-radius:10px;font-weight:600}
+.internals-pill.supportive{border-color:#3ddc97;color:#bff5db}
+.internals-pill.mixed{border-color:#ffd166;color:#ffe9b0}
+.internals-pill.defensive{border-color:#ff6b7a;color:#ffc7ce}

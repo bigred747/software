@@ -1701,8 +1701,137 @@
     return { score: Math.min(100, total), parts, triple };
   }
 
+
+  const SECTOR_FUNDS = ["XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "XLRE"];
+  const INTERNAL_SYMBOLS = ["^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP", "SPY", "QQQ", "IWM", "HYG", "IEF"].concat(SECTOR_FUNDS);
+
+  function internals(data) {
+    const source = data || {};
+    const closedOf = (symbol) => {
+      const bars = source[symbol];
+      if (!Array.isArray(bars) || bars.length < 30) return null;
+      const list = closedBars(bars, false);
+      return list.length >= 30 ? list : null;
+    };
+    const lastOf = (list) => list[list.length - 1].close;
+    const emaLast = (values, length) => {
+      const out = ema(values, length);
+      return out[out.length - 1];
+    };
+    const ratioOf = (top, bottom) => {
+      const a = closedOf(top);
+      const b = closedOf(bottom);
+      if (!a || !b) return null;
+      const base = {};
+      b.forEach((bar) => {
+        base[bar.date] = bar.close;
+      });
+      const out = [];
+      a.forEach((bar) => {
+        if (base[bar.date] > 0) out.push({ date: bar.date, close: bar.close / base[bar.date] });
+      });
+      return out.length >= 30 ? out : null;
+    };
+    const ratioSays = (list) => {
+      if (!list) return null;
+      const values = list.map((bar) => bar.close);
+      const gap = values[values.length - 1] / emaLast(values, 21) - 1;
+      return gap > 0.002 ? "good" : gap < -0.002 ? "bad" : "neutral";
+    };
+    const parts = [];
+    const missing = [];
+    const add = (id, name, weight, says, text) => {
+      if (says == null) {
+        missing.push(name);
+        return;
+      }
+      parts.push({ id, name, weight, says, points: says === "good" ? weight : says === "neutral" ? weight / 2 : 0, text });
+    };
+    const fixed = (value, places) => (Number.isFinite(value) ? value.toFixed(places == null ? 2 : places) : "—");
+
+    const vix = closedOf("^VIX");
+    if (vix) {
+      const level = lastOf(vix);
+      const average = vix.slice(-20).reduce((sum, bar) => sum + bar.close, 0) / Math.min(20, vix.length);
+      const says = level >= 25 || level > average * 1.25 ? "bad" : level <= 20 && level <= average * 1.05 ? "good" : "neutral";
+      add("vix", "Fear gauge (VIX)", 15, says, "VIX " + fixed(level) + " against its 20-day average " + fixed(average) + ".");
+    } else add("vix", "Fear gauge (VIX)", 15, null);
+
+    const short = closedOf("^VIX9D");
+    if (vix && short) {
+      const gap = lastOf(short) / lastOf(vix);
+      add("term", "Short-term fear against 30-day", 10, gap > 1.05 ? "bad" : gap < 0.95 ? "good" : "neutral", "9-day VIX " + fixed(lastOf(short)) + " against VIX " + fixed(lastOf(vix)) + (gap > 1.05 ? ". Near-term fear is higher than the 30-day, which is a stress sign." : "."));
+    } else add("term", "Short-term fear against 30-day", 10, null);
+
+    const vxn = closedOf("^VXN");
+    if (vxn) {
+      const values = vxn.map((bar) => bar.close);
+      const gap = values[values.length - 1] / emaLast(values, 21) - 1;
+      add("vxn", "Nasdaq fear (VXN)", 5, gap > 0.05 ? "bad" : gap < 0 ? "good" : "neutral", "VXN " + fixed(lastOf(vxn)) + ", " + fixed(gap * 100, 1) + "% from its 21-day average.");
+    } else add("vxn", "Nasdaq fear (VXN)", 5, null);
+
+    const trends = ["SPY", "QQQ"].map((symbol) => {
+      const list = closedOf(symbol);
+      if (!list) return null;
+      const closes = list.map((bar) => bar.close);
+      const close = closes[closes.length - 1];
+      const e21 = emaLast(closes, 21);
+      const e50 = emaLast(closes, 50);
+      return { symbol, score: close > e21 && e21 > e50 ? 1 : close > e50 ? 0.5 : 0 };
+    }).filter(Boolean);
+    if (trends.length) {
+      const mean = trends.reduce((sum, item) => sum + item.score, 0) / trends.length;
+      add("trend", "Index trend (SPY, QQQ)", 20, mean >= 0.75 ? "good" : mean <= 0.25 ? "bad" : "neutral", trends.map((item) => item.symbol + (item.score === 1 ? " stacked up" : item.score === 0.5 ? " above its 50-day" : " below its 50-day")).join(", ") + ".");
+    } else add("trend", "Index trend (SPY, QQQ)", 20, null);
+
+    const sectors = SECTOR_FUNDS.map((symbol) => {
+      const list = closedOf(symbol);
+      if (!list) return null;
+      const closes = list.map((bar) => bar.close);
+      return closes[closes.length - 1] > emaLast(closes, 21);
+    }).filter((value) => value !== null);
+    if (sectors.length >= 7) {
+      const share = sectors.filter(Boolean).length / sectors.length;
+      add("sectors", "Sector participation", 15, share >= 0.7 ? "good" : share <= 0.4 ? "bad" : "neutral", sectors.filter(Boolean).length + " of " + sectors.length + " sector funds are above their 21-day average.");
+    } else add("sectors", "Sector participation", 15, null);
+
+    const equal = ratioSays(ratioOf("RSP", "SPY"));
+    add("equal", "Equal weight against cap weight (RSP/SPY)", 5, equal, equal === "good" ? "The average stock is keeping up with the biggest ones." : equal === "bad" ? "The biggest names are carrying the index." : "About even.");
+    const small = ratioSays(ratioOf("IWM", "SPY"));
+    add("small", "Small against large (IWM/SPY)", 5, small, small === "good" ? "Small companies are leading, a risk-on sign." : small === "bad" ? "Small companies are lagging." : "About even.");
+
+    const offense = [ratioSays(ratioOf("XLY", "XLP")), ratioSays(ratioOf("XLK", "XLU"))].filter(Boolean);
+    if (offense.length) {
+      const value = offense.reduce((sum, item) => sum + (item === "good" ? 1 : item === "bad" ? -1 : 0), 0) / offense.length;
+      add("offense", "Offense against defense", 10, value > 0.25 ? "good" : value < -0.25 ? "bad" : "neutral", value > 0.25 ? "Discretionary and tech are leading staples and utilities." : value < -0.25 ? "Staples and utilities are leading, a defensive tilt." : "No clear lead.");
+    } else add("offense", "Offense against defense", 10, null);
+
+    const credit = ratioSays(ratioOf("HYG", "IEF"));
+    add("credit", "Credit appetite (HYG/IEF)", 10, credit, credit === "good" ? "Junk bonds are holding up against Treasuries." : credit === "bad" ? "Junk bonds are lagging Treasuries, a stress sign." : "About even.");
+
+    const yields = closedOf("^TNX");
+    const dollar = closedOf("DX-Y.NYB");
+    if (yields || dollar) {
+      const move = (list) => (list ? lastOf(list) / list[Math.max(0, list.length - 11)].close - 1 : 0);
+      const dy = move(yields);
+      const dd = move(dollar);
+      const bad = dy > 0.08 || dd > 0.02;
+      const good = dy < -0.02 && dd < 0 && !bad;
+      add("rates", "Rates and dollar", 5, bad ? "bad" : good ? "good" : "neutral", "10-year yield " + fixed(dy * 100, 1) + "% and dollar " + fixed(dd * 100, 1) + "% over 10 bars.");
+    } else add("rates", "Rates and dollar", 5, null);
+
+    const total = parts.reduce((sum, item) => sum + item.weight, 0);
+    const earned = parts.reduce((sum, item) => sum + item.points, 0);
+    const score = total > 0 ? Math.round((earned / total) * 100) : 0;
+    const label = total < 60 ? "Unknown" : score >= 65 ? "Supportive" : score >= 40 ? "Mixed" : "Defensive";
+    const dated = closedOf("SPY") || closedOf("^VIX");
+    return { ready: total >= 60, label, score, coverage: total, parts, missing, asOf: dated ? dated[dated.length - 1].date : "" };
+  }
+
   root.PaperFrames = {
     edge,
+    internals,
+    INTERNAL_SYMBOLS,
     squeezeRead,
     squeezeScore,
     strategies,

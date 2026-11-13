@@ -664,6 +664,11 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 .safe-list li.warn::before{content:"CHECK  ";color:#ffd166}
 .safe-list li.bad::before{content:"FAIL  ";color:#ff6b7a}
 
+.internals-pill{width:100%;margin:6px 0;text-align:left;border:1px solid #3a4656;background:#1c242c;color:var(--text,#e6edf3);padding:8px 12px;border-radius:10px;font-weight:600}
+.internals-pill.supportive{border-color:#3ddc97;color:#bff5db}
+.internals-pill.mixed{border-color:#ffd166;color:#ffe9b0}
+.internals-pill.defensive{border-color:#ff6b7a;color:#ffc7ce}
+
 </style>
 </head>
 <body data-tab="chart">
@@ -780,6 +785,7 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
       </div>
       <div class="safe-box" id="safe-box">
         <button id="safe" type="button" class="safe-btn">Safe check</button>
+        <button id="internals-pill" type="button" class="internals-pill">Internals · reading…</button>
         <p id="safe-note" class="breaker-note">Press to run the safety check. It runs by itself every minute.</p>
         <ul id="safe-list" class="safe-list"></ul>
       </div>
@@ -845,6 +851,7 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
         <button type="button" class="dock-tab on" data-dock="study">Study</button>
         <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
+        <button type="button" class="dock-tab" data-dock="internals">Internals</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">B4 readings</button>
         <button type="button" class="dock-tab" data-dock="journal">Journal</button>
@@ -953,6 +960,26 @@ plot Sell = close crosses below baseline;</textarea>
         </div>
         <p id="sq-why" class="muted"></p>
         <p id="sq-skip" class="muted"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="internals">
+        <h2>Market internals</h2>
+        <p id="int-lead" class="muted">Reads the fear gauges, index trend, how many sectors take part, small against large, offense against defense, credit, rates, and the dollar from real daily bars, then rolls them into one label: Supportive, Mixed, or Defensive. It reads closed bars only and looks backward. It is not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <button id="int-refresh" type="button">Refresh internals</button>
+          <label class="strat-switch"><input id="int-gate" type="checkbox" checked> Respect internals: Auto skips buys in stocks, ETFs, and futures while internals are Defensive</label>
+        </div>
+        <p id="int-head" class="muted">Press Refresh internals.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Internal</th><th>Says</th><th>Points</th><th>Reading</th></tr>
+            </thead>
+            <tbody id="int-body"></tbody>
+          </table>
+        </div>
+        <p id="int-miss" class="muted"></p>
+        <p class="muted">NYSE TICK, ADD, TRIN, and VOLD are not shown. The free quote feeds this desk uses do not carry them, and nothing here is guessed in their place. Sells are never blocked by internals. Crypto is not gated, because these are US market internals.</p>
       </div>
 
       <div class="dock-page" data-dock-page="frames">
@@ -1579,7 +1606,15 @@ plot Sell = close crosses below baseline;</textarea>
     return withLastTrade(symbol, await candles(symbol, frameId, frameId !== "1D"));
   }
 
-  root.PaperLive = { daily, frame, lastTrade };
+  const GAUGES = { "^VIX": ".VIX", "^VXN": ".VXN", "^VIX9D": ".VIX9D", "^TNX": "US10Y", "DX-Y.NYB": ".DXY", RSP: "RSP" };
+
+  async function gauge(symbol) {
+    const feed = GAUGES[symbol];
+    if (!feed) throw new Error("No gauge for " + symbol);
+    return cnbcBars(feed, "", "1D", 400, false);
+  }
+
+  root.PaperLive = { daily, frame, lastTrade, gauge };
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
 </script>
@@ -4394,8 +4429,137 @@ plot Sell = close crosses below baseline;</textarea>
     return { score: Math.min(100, total), parts, triple };
   }
 
+
+  const SECTOR_FUNDS = ["XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "XLRE"];
+  const INTERNAL_SYMBOLS = ["^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP", "SPY", "QQQ", "IWM", "HYG", "IEF"].concat(SECTOR_FUNDS);
+
+  function internals(data) {
+    const source = data || {};
+    const closedOf = (symbol) => {
+      const bars = source[symbol];
+      if (!Array.isArray(bars) || bars.length < 30) return null;
+      const list = closedBars(bars, false);
+      return list.length >= 30 ? list : null;
+    };
+    const lastOf = (list) => list[list.length - 1].close;
+    const emaLast = (values, length) => {
+      const out = ema(values, length);
+      return out[out.length - 1];
+    };
+    const ratioOf = (top, bottom) => {
+      const a = closedOf(top);
+      const b = closedOf(bottom);
+      if (!a || !b) return null;
+      const base = {};
+      b.forEach((bar) => {
+        base[bar.date] = bar.close;
+      });
+      const out = [];
+      a.forEach((bar) => {
+        if (base[bar.date] > 0) out.push({ date: bar.date, close: bar.close / base[bar.date] });
+      });
+      return out.length >= 30 ? out : null;
+    };
+    const ratioSays = (list) => {
+      if (!list) return null;
+      const values = list.map((bar) => bar.close);
+      const gap = values[values.length - 1] / emaLast(values, 21) - 1;
+      return gap > 0.002 ? "good" : gap < -0.002 ? "bad" : "neutral";
+    };
+    const parts = [];
+    const missing = [];
+    const add = (id, name, weight, says, text) => {
+      if (says == null) {
+        missing.push(name);
+        return;
+      }
+      parts.push({ id, name, weight, says, points: says === "good" ? weight : says === "neutral" ? weight / 2 : 0, text });
+    };
+    const fixed = (value, places) => (Number.isFinite(value) ? value.toFixed(places == null ? 2 : places) : "—");
+
+    const vix = closedOf("^VIX");
+    if (vix) {
+      const level = lastOf(vix);
+      const average = vix.slice(-20).reduce((sum, bar) => sum + bar.close, 0) / Math.min(20, vix.length);
+      const says = level >= 25 || level > average * 1.25 ? "bad" : level <= 20 && level <= average * 1.05 ? "good" : "neutral";
+      add("vix", "Fear gauge (VIX)", 15, says, "VIX " + fixed(level) + " against its 20-day average " + fixed(average) + ".");
+    } else add("vix", "Fear gauge (VIX)", 15, null);
+
+    const short = closedOf("^VIX9D");
+    if (vix && short) {
+      const gap = lastOf(short) / lastOf(vix);
+      add("term", "Short-term fear against 30-day", 10, gap > 1.05 ? "bad" : gap < 0.95 ? "good" : "neutral", "9-day VIX " + fixed(lastOf(short)) + " against VIX " + fixed(lastOf(vix)) + (gap > 1.05 ? ". Near-term fear is higher than the 30-day, which is a stress sign." : "."));
+    } else add("term", "Short-term fear against 30-day", 10, null);
+
+    const vxn = closedOf("^VXN");
+    if (vxn) {
+      const values = vxn.map((bar) => bar.close);
+      const gap = values[values.length - 1] / emaLast(values, 21) - 1;
+      add("vxn", "Nasdaq fear (VXN)", 5, gap > 0.05 ? "bad" : gap < 0 ? "good" : "neutral", "VXN " + fixed(lastOf(vxn)) + ", " + fixed(gap * 100, 1) + "% from its 21-day average.");
+    } else add("vxn", "Nasdaq fear (VXN)", 5, null);
+
+    const trends = ["SPY", "QQQ"].map((symbol) => {
+      const list = closedOf(symbol);
+      if (!list) return null;
+      const closes = list.map((bar) => bar.close);
+      const close = closes[closes.length - 1];
+      const e21 = emaLast(closes, 21);
+      const e50 = emaLast(closes, 50);
+      return { symbol, score: close > e21 && e21 > e50 ? 1 : close > e50 ? 0.5 : 0 };
+    }).filter(Boolean);
+    if (trends.length) {
+      const mean = trends.reduce((sum, item) => sum + item.score, 0) / trends.length;
+      add("trend", "Index trend (SPY, QQQ)", 20, mean >= 0.75 ? "good" : mean <= 0.25 ? "bad" : "neutral", trends.map((item) => item.symbol + (item.score === 1 ? " stacked up" : item.score === 0.5 ? " above its 50-day" : " below its 50-day")).join(", ") + ".");
+    } else add("trend", "Index trend (SPY, QQQ)", 20, null);
+
+    const sectors = SECTOR_FUNDS.map((symbol) => {
+      const list = closedOf(symbol);
+      if (!list) return null;
+      const closes = list.map((bar) => bar.close);
+      return closes[closes.length - 1] > emaLast(closes, 21);
+    }).filter((value) => value !== null);
+    if (sectors.length >= 7) {
+      const share = sectors.filter(Boolean).length / sectors.length;
+      add("sectors", "Sector participation", 15, share >= 0.7 ? "good" : share <= 0.4 ? "bad" : "neutral", sectors.filter(Boolean).length + " of " + sectors.length + " sector funds are above their 21-day average.");
+    } else add("sectors", "Sector participation", 15, null);
+
+    const equal = ratioSays(ratioOf("RSP", "SPY"));
+    add("equal", "Equal weight against cap weight (RSP/SPY)", 5, equal, equal === "good" ? "The average stock is keeping up with the biggest ones." : equal === "bad" ? "The biggest names are carrying the index." : "About even.");
+    const small = ratioSays(ratioOf("IWM", "SPY"));
+    add("small", "Small against large (IWM/SPY)", 5, small, small === "good" ? "Small companies are leading, a risk-on sign." : small === "bad" ? "Small companies are lagging." : "About even.");
+
+    const offense = [ratioSays(ratioOf("XLY", "XLP")), ratioSays(ratioOf("XLK", "XLU"))].filter(Boolean);
+    if (offense.length) {
+      const value = offense.reduce((sum, item) => sum + (item === "good" ? 1 : item === "bad" ? -1 : 0), 0) / offense.length;
+      add("offense", "Offense against defense", 10, value > 0.25 ? "good" : value < -0.25 ? "bad" : "neutral", value > 0.25 ? "Discretionary and tech are leading staples and utilities." : value < -0.25 ? "Staples and utilities are leading, a defensive tilt." : "No clear lead.");
+    } else add("offense", "Offense against defense", 10, null);
+
+    const credit = ratioSays(ratioOf("HYG", "IEF"));
+    add("credit", "Credit appetite (HYG/IEF)", 10, credit, credit === "good" ? "Junk bonds are holding up against Treasuries." : credit === "bad" ? "Junk bonds are lagging Treasuries, a stress sign." : "About even.");
+
+    const yields = closedOf("^TNX");
+    const dollar = closedOf("DX-Y.NYB");
+    if (yields || dollar) {
+      const move = (list) => (list ? lastOf(list) / list[Math.max(0, list.length - 11)].close - 1 : 0);
+      const dy = move(yields);
+      const dd = move(dollar);
+      const bad = dy > 0.08 || dd > 0.02;
+      const good = dy < -0.02 && dd < 0 && !bad;
+      add("rates", "Rates and dollar", 5, bad ? "bad" : good ? "good" : "neutral", "10-year yield " + fixed(dy * 100, 1) + "% and dollar " + fixed(dd * 100, 1) + "% over 10 bars.");
+    } else add("rates", "Rates and dollar", 5, null);
+
+    const total = parts.reduce((sum, item) => sum + item.weight, 0);
+    const earned = parts.reduce((sum, item) => sum + item.points, 0);
+    const score = total > 0 ? Math.round((earned / total) * 100) : 0;
+    const label = total < 60 ? "Unknown" : score >= 65 ? "Supportive" : score >= 40 ? "Mixed" : "Defensive";
+    const dated = closedOf("SPY") || closedOf("^VIX");
+    return { ready: total >= 60, label, score, coverage: total, parts, missing, asOf: dated ? dated[dated.length - 1].date : "" };
+  }
+
   root.PaperFrames = {
     edge,
+    internals,
+    INTERNAL_SYMBOLS,
     squeezeRead,
     squeezeScore,
     strategies,
@@ -6604,7 +6768,7 @@ function renderAutoNote() {
   const row = (state.board && state.board.rows.find((item) => item.id === state.strat.pick)) || null;
   const name = row ? row.name : state.strat.pick;
   note.textContent = state.strat.note || (state.strat.on
-    ? "On. While Auto runs, a fresh " + name + " buy or sell on a closed bar places one paper trade. It follows the scanner rules and stops at the circuit breaker."
+    ? "On. While Auto runs, a fresh " + name + " buy or sell on a closed bar places one paper trade. It follows the scanner rules and stops at the circuit breaker. " + internalsLine()
     : "Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.");
 }
 
@@ -6620,6 +6784,14 @@ async function autoTrade() {
   if (!want) return "";
   const key = state.paper.symbol + "|" + row.id + "|" + want + "|" + closedDate(bars);
   if (state.strat.acted[key]) return "";
+  if (want === "buy") {
+    const held = internalsGate(state.paper.symbol);
+    if (held) {
+      state.strat.note = row.name + " wanted a buy. Skipped: " + held;
+      renderAutoNote();
+      return state.strat.note;
+    }
+  }
   try {
     const paper = await paperCall("/api/paper/trade", { source: "auto" });
     state.strat.acted[key] = Date.now();
@@ -6818,6 +6990,7 @@ async function runSafe(manual) {
   state.safeBusy = true;
   try {
     const report = state.offline ? await phoneSafe() : await getJSON("/api/safe");
+    report.items.push({ name: "Internals", ok: !!(state.int.result && state.int.result.ready), detail: state.int.result ? internalsLine() : "Not read yet", kind: "health" });
     const bad = report.items.filter((item) => item.kind === "safety" && !item.ok);
     const warn = report.items.filter((item) => item.kind !== "safety" && !item.ok);
     button.className = "safe-btn " + (bad.length ? "bad" : warn.length ? "warn" : "ok");
@@ -6998,10 +7171,101 @@ function renderSqueeze() {
     body.appendChild(tr);
   }
   const when = new Date(sq.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
-  $("sq-note").textContent = "Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired. Closed daily bars only.";
+  $("sq-note").textContent = "Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired. Closed daily bars only. " + internalsLine();
   const top = shown[0];
   $("sq-why").textContent = top ? "Top score " + top.score + " for " + top.symbol + ": " + top.parts.map((item) => item[0] + " +" + item[1]).join(", ") + "." : "";
   $("sq-skip").textContent = sq.skipped.length ? "Not read: " + sq.skipped.join("; ") + "." : "";
+}
+
+
+const INT_KEY = "paper_trader_internals_v1";
+const INT_GAUGES = ["^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP"];
+
+function loadIntGate() {
+  try {
+    return JSON.parse(localStorage.getItem(INT_KEY) || "{}").gate !== false;
+  } catch (error) {
+    return true;
+  }
+}
+
+state.int = { gate: loadIntGate(), result: null, at: 0, busy: false, error: "" };
+
+async function internalBars(symbol) {
+  if (state.offline && INT_GAUGES.includes(symbol)) return PaperLive.gauge(symbol);
+  return sqDaily(symbol);
+}
+
+async function loadInternals(force) {
+  const box = state.int;
+  if (box.busy || (!force && box.at && Date.now() - box.at < 600000)) return;
+  box.busy = true;
+  const symbols = PaperFrames.INTERNAL_SYMBOLS;
+  const data = {};
+  let next = 0;
+  const worker = async () => {
+    while (next < symbols.length) {
+      const symbol = symbols[next];
+      next += 1;
+      try {
+        data[symbol] = await internalBars(symbol);
+      } catch (error) {
+        /* A gauge that does not answer is listed as not read. */
+      }
+    }
+  };
+  try {
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    box.result = PaperFrames.internals(data);
+    box.at = Date.now();
+    box.error = "";
+  } catch (error) {
+    box.error = error.message;
+  } finally {
+    box.busy = false;
+  }
+  renderInternals();
+  runSafe(false);
+}
+
+function internalsLine() {
+  const result = state.int.result;
+  if (!result) return "Internals not read yet.";
+  if (!result.ready) return "Internals unknown: only " + result.coverage + " of 100 points could be read.";
+  return "Internals " + result.label + " " + result.score + " as of the " + result.asOf + " close.";
+}
+
+function renderInternals() {
+  const pill = $("internals-pill");
+  if (!pill) return;
+  const result = state.int.result;
+  pill.className = "internals-pill " + (result && result.ready ? result.label.toLowerCase() : "");
+  pill.textContent = result ? (result.ready ? "Internals · " + result.label + " " + result.score : "Internals · unknown") : state.int.error ? "Internals · could not read" : "Internals · reading…";
+  const body = $("int-body");
+  if (!body) return;
+  body.replaceChildren();
+  $("int-gate").checked = state.int.gate;
+  if (!result) {
+    $("int-head").textContent = state.int.error || "Press Refresh internals.";
+    return;
+  }
+  result.parts.forEach((part) => {
+    const row = document.createElement("tr");
+    addCells(row, [part.name, { text: part.says === "good" ? "Good" : part.says === "bad" ? "Bad" : "Neutral", cls: part.says === "good" ? "up" : part.says === "bad" ? "down" : "" }, part.points + " of " + part.weight, part.text]);
+    body.appendChild(row);
+  });
+  const when = new Date(state.int.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
+  $("int-head").textContent = internalsLine() + " Read at " + when + " Denver." + (result.ready && result.label === "Defensive" ? " Auto skips new stock, ETF, and futures buys while this holds." : "");
+  $("int-miss").textContent = result.missing.length ? "Not read: " + result.missing.join(", ") + ". The score uses only what was read." : "";
+  renderAutoNote();
+}
+
+function internalsGate(symbol) {
+  const result = state.int.result;
+  if (!state.int.gate || !result || !result.ready || result.label !== "Defensive") return "";
+  const row = state.catalog.find((item) => item.symbol === symbol);
+  if (phoneCrypto(symbol, row)) return "";
+  return "Internals are Defensive (" + result.score + "), so new buys are held back.";
 }
 
 function renderEdge() {
@@ -7992,6 +8256,17 @@ $("cancel-all").addEventListener("click", () => withBusy(async () => {
 }));
 
 $("safe").addEventListener("click", () => runSafe(true));
+$("int-refresh").addEventListener("click", () => loadInternals(true));
+$("internals-pill").addEventListener("click", () => showDock("internals"));
+$("int-gate").addEventListener("change", () => {
+  state.int.gate = $("int-gate").checked;
+  try {
+    localStorage.setItem(INT_KEY, JSON.stringify({ gate: state.int.gate }));
+  } catch (error) {
+    /* The switch still works for this visit. */
+  }
+  renderInternals();
+});
 $("sq-scan").addEventListener("click", scanSqueeze);
 $("sq-stop").addEventListener("click", () => {
   state.sq.stop = true;
@@ -8026,7 +8301,8 @@ $("trade").addEventListener("click", () => withBusy(async () => {
   const paper = await paperCall("/api/paper/trade", {});
   render(paper);
   const verb = paper.last_action === "sell" ? "Sold" : "Bought";
-  $("status").textContent = fillText(paper) || verb + " one simulated position on the paper account.";
+  const caution = paper.last_action === "buy" ? internalsGate(paper.symbol) : "";
+  $("status").textContent = (fillText(paper) || verb + " one simulated position on the paper account.") + (caution ? " Heads up: " + caution : "");
   await loadSignals();
 }));
 
@@ -8203,6 +8479,7 @@ function restoreStudies() {
 }
 
 function showDock(name) {
+  if (name === "internals") loadInternals(false);
   if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
     state.orbBusy = true;
     loadOrb().finally(() => {
@@ -8330,6 +8607,8 @@ bindZoom($("frame-preview"), "preview");
 
 boot().then(() => {
   runSafe(false);
+  loadInternals(false);
+  setInterval(() => loadInternals(true), 600000);
   warnSqueeze();
   setInterval(warnSqueeze, 20000);
 }).catch((error) => {

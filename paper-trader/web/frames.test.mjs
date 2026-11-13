@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -377,4 +377,21 @@ test("squeeze score is bounded and ranks a stacked clean squeeze above a mixed o
   assert.equal(read.ready, true);
   assert.ok(["ON", "FIRED", "OFF"].includes(read.state));
   assert.equal(squeezeRead(walk(30, 5, 0), {}).ready, false);
+});
+
+test("internals roll real gauges into a label and never guess a missing one", () => {
+  const data = {};
+  INTERNAL_SYMBOLS.forEach((symbol, index) => {
+    data[symbol] = walk(300, 20 + index, symbol === "^VIX" ? -0.001 : 0.001);
+  });
+  const full = JSON.parse(JSON.stringify(internals(data)));
+  assert.equal(full.ready, true);
+  assert.ok(["Supportive", "Mixed", "Defensive"].includes(full.label));
+  assert.equal(full.coverage, 100);
+  assert.equal(full.missing.length, 0);
+  const partial = JSON.parse(JSON.stringify(internals({ SPY: data.SPY, QQQ: data.QQQ })));
+  assert.equal(partial.ready, false);
+  assert.equal(partial.label, "Unknown");
+  assert.ok(partial.missing.includes("Fear gauge (VIX)"));
+  assert.equal(internals({}).ready, false);
 });
