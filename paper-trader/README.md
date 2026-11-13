@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Squeeze scan (1.9.45)
+
+The squeeze scan lists a market as soon as that market's daily bars come back, instead of waiting until the whole list is finished. While it is running, the daily scan, internals, and timeframe reads wait, so the squeeze scan is not stuck behind them. Each read is still one quote at a time. A feed that does not answer is skipped for the rest of that scan.
+
 ## Phone page (1.9.44)
 
 Popup windows for a timeframe or the brief are filled with plain text, so a market name cannot become markup. Quote reads, including the daily scan, the squeeze scan, a strategy list, and the timeframe reads, go one at a time with a pause between them. The web address serves one page. The saved file for Files and Edge stays in the Windows zip only.

@@ -60,7 +60,7 @@ function oneBarRead(task) {
   const run = barGate.then(async () => {
     const wait = barNext - Date.now();
     if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
-    barNext = Date.now() + 800;
+    barNext = Date.now() + 300;
     return task();
   });
   barGate = run.then(() => {}, () => {});
@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.44";
+const VERSION = "1.9.45";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -734,7 +734,7 @@ const SCAN_KEY = "paperTraderScan";
 const TYPE_KEY = "paperTraderType";
 const phoneBarCache = new Map();
 const SCAN_READERS = 1;
-const SCAN_GAP = 800;
+const SCAN_GAP = 300;
 let phoneScanToken = 0;
 
 function readScanOn() {
@@ -918,6 +918,8 @@ async function scanPhone() {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         if (!live()) return;
       }
+      await afterSqueeze();
+      if (!live()) return;
       const symbol = symbols[next];
       next += 1;
       const open = (state.paper && state.paper.symbol) || "";
@@ -2812,7 +2814,7 @@ function sqSymbols() {
 async function sqDaily(symbol) {
   if (state.offline) {
     const row = state.catalog.find((item) => item.symbol === symbol);
-    return PaperLive.daily(symbol, row ? row.category : "");
+    return PaperLive.daily(symbol, row ? row.category : "", true);
   }
   return (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
 }
@@ -2827,6 +2829,8 @@ async function scanSqueeze() {
   }
   sq.busy = true;
   sq.stop = false;
+  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(6000);
+  $("sq-note").textContent = "Reading daily bars: 0 of " + symbols.length + ". Names show up as each market comes back.";
   const reads = {};
   const skipped = [];
   let next = 0;
@@ -2839,6 +2843,7 @@ async function scanSqueeze() {
       if (known && !known.has(symbol)) {
         skipped.push(symbol + " (not in this bot's market list)");
         done += 1;
+        publishSqueeze(reads, skipped, symbols.length, done, false);
         continue;
       }
       try {
@@ -2850,14 +2855,26 @@ async function scanSqueeze() {
         skipped.push(symbol + " (" + error.message + ")");
       }
       done += 1;
-      $("sq-note").textContent = "Reading daily bars: " + done + " of " + symbols.length + "…";
+      publishSqueeze(reads, skipped, symbols.length, done, false);
     }
   };
   try {
     await worker();
   } finally {
     sq.busy = false;
+    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
   }
+  publishSqueeze(reads, skipped, symbols.length, done, true);
+}
+
+async function afterSqueeze() {
+  while (state.sq && state.sq.busy) {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+}
+
+function publishSqueeze(reads, skipped, listed, done, finished) {
+  const sq = state.sq;
   const rows = [];
   Object.keys(reads).forEach((symbol) => {
     const read = reads[symbol];
@@ -2876,7 +2893,8 @@ async function scanSqueeze() {
   sq.skipped = skipped;
   sq.scanned = Object.keys(reads).length;
   sq.at = Date.now();
-  sq.listed = symbols.length;
+  sq.listed = listed;
+  sq.progress = finished ? "" : "Reading daily bars: " + done + " of " + listed + ". " + rows.length + " squeeze" + (rows.length === 1 ? "" : "s") + " so far.";
   renderSqueeze();
 }
 
@@ -2911,13 +2929,13 @@ function renderSqueeze() {
     tr.lastChild.appendChild(open);
     body.appendChild(tr);
   });
-  if (!shown.length) {
+  if (!shown.length && !sq.progress) {
     const tr = document.createElement("tr");
     addCells(tr, ["", "No squeezes on this side right now. A quiet list is a normal answer.", "", "", "", "", "", "", "", ""]);
     body.appendChild(tr);
   }
   const when = new Date(sq.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
-  $("sq-note").textContent = "Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired. Closed daily bars only. " + internalsLine();
+  $("sq-note").textContent = sq.progress || ("Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired. Closed daily bars only. " + internalsLine());
   const top = shown[0];
   $("sq-why").textContent = top ? "Top score " + top.score + " for " + top.symbol + ": " + top.parts.map((item) => item[0] + " +" + item[1]).join(", ") + "." : "";
   $("sq-skip").textContent = sq.skipped.length ? "Not read: " + sq.skipped.join("; ") + "." : "";
@@ -2951,6 +2969,7 @@ async function loadInternals(force) {
   let next = 0;
   const worker = async () => {
     while (next < symbols.length) {
+      await afterSqueeze();
       const symbol = symbols[next];
       next += 1;
       try {
@@ -3040,6 +3059,8 @@ async function loadEdgeFrames(force) {
   let next = 0;
   const worker = async () => {
     while (next < frames.length && ef.token === token) {
+      await afterSqueeze();
+      if (ef.token !== token) return;
       const frame = frames[next];
       next += 1;
       try {
