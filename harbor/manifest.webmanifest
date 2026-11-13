@@ -10,5 +10,9 @@
   "icons": [
     { "src": "./icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
     { "src": "./favicon-32.png", "sizes": "32x32", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Flare", "short_name": "Flare", "url": "./#flare", "description": "The bad pain" },
+    { "name": "Foods", "short_name": "Foods", "url": "./#foods/easy", "description": "Foods that need no cooking" }
   ]
 }

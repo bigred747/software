@@ -1,4 +1,4 @@
-const CACHE_NAME = "harbor-2026-11-13c";
+const CACHE_NAME = "harbor-2026-11-13d";
 const STORAGE_KEY = "harbor.v1";
 
 const FALLBACK_EMERGENCY = [
@@ -48,6 +48,15 @@ let lastScreen = "";
 let breathTimer = null;
 let currentUtterance = null;
 let eraseArmed = false;
+let gateIndex = 0;
+let gateDanger = false;
+let clockTimer = null;
+
+const GATE = [
+  { ask: "Can you keep a sip of water down?", safe: "yes" },
+  { ask: "Can you find a position that eases the pain, even a little?", safe: "yes" },
+  { ask: "Do you have a fever, trouble breathing, faintness, yellow skin, blood, or chest pain?", safe: "no" }
+];
 
 const state = loadState();
 
@@ -65,16 +74,32 @@ function loadState() {
     theme: "auto",
     big: false,
     emergencyNumber: "911",
+    allergies: "",
+    nursePhone: "",
+    pharmacyName: "",
+    pharmacyPhone: "",
+    painPlace: "",
+    flareStart: 0,
+    installHintSeen: false,
     bothers: [],
     sat: {},
     shop: {},
     sips: { date: "", count: 0 },
-    flares: []
+    flares: [],
+    eaten: []
   };
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
     if (!saved || typeof saved !== "object") return blank;
-    return { ...blank, ...saved, bothers: saved.bothers || [], sat: saved.sat || {}, shop: saved.shop || {}, flares: saved.flares || [] };
+    return {
+      ...blank,
+      ...saved,
+      bothers: saved.bothers || [],
+      sat: saved.sat || {},
+      shop: saved.shop || {},
+      flares: saved.flares || [],
+      eaten: saved.eaten || []
+    };
   } catch (error) {
     return blank;
   }
@@ -130,7 +155,7 @@ function route() {
   const [name, extra] = raw.split("/");
   if (name === "food") return { name: "food", id: extra || "" };
   if (name === "foods") return { name: "foods", filter: extra || "all" };
-  if (name === "flare" || name === "guide" || name === "signals") return { name };
+  if (name === "flare" || name === "guide" || name === "signals" || name === "card") return { name };
   return { name: "now" };
 }
 
@@ -255,6 +280,7 @@ function render() {
   else if (where.name === "food") node = screenFood(where.id);
   else if (where.name === "guide") node = screenGuide();
   else if (where.name === "signals") node = screenSignals();
+  else if (where.name === "card") node = screenCard();
   else node = screenNow();
   const screenName = !state.onboarded && where.name === "now" ? "onboard" : where.name;
   root.replaceChildren(...shell(screenName === "onboard" ? "now" : screenName, node));
@@ -272,6 +298,7 @@ function render() {
     window.scrollTo(0, 0);
   }
   paintDot();
+  armClock();
 }
 
 function screenOnboard() {
@@ -280,7 +307,7 @@ function screenOnboard() {
     h("h1", {}, "A calm place for hard days"),
     h("p", { class: "lead" }, "Harbor is not a doctor. It will not decide if you are safe. If the pain is severe, get emergency care."),
     h("div", { class: "card" }, [
-      h("p", {}, "The Flare tab is three steps, in large type."),
+      h("p", {}, "The Flare tab asks three yes-or-no questions, then shows three steps in large type."),
       h("p", {}, "The Foods tab is a long list for a flare. The easiest ones need no cooking."),
       h("p", {}, "Your clinician's own words can be saved on this phone. They are not sent anywhere."),
       h("p", {}, "Green means the app itself is working. It does not mean a food or a symptom is safe.")
@@ -297,13 +324,20 @@ function screenNow() {
   const hello = state.name ? "Hello, " + state.name : "Hello";
   const parts = [
     h("p", { class: "eyebrow" }, hello),
-    h("h1", {}, "How is your body?"),
-    h("div", { class: "stack" }, [
+    h("h1", {}, "How is your body?")
+  ];
+  if (state.flareStart) {
+    parts.push(h("button", { class: "choice flare", type: "button", onclick: () => go("#flare") }, [
+      h("strong", {}, "Flare clock is running"),
+      h("span", { id: "now-clock" }, formatElapsed(Date.now() - Number(state.flareStart)))
+    ]));
+  }
+  if (!installed() && !state.installHintSeen) parts.push(installCard());
+  parts.push(h("div", { class: "stack" }, [
       choice("steady", "Steady", "I can eat and move", () => setMode("steady")),
       choice("sore", "Sore", "Food hurts. The pain is there.", () => setMode("sore")),
       choice("flare", "Flare", "This is the bad pain.", () => go("#flare"))
-    ])
-  ];
+    ]));
   if (mode === "steady") parts.push(steadyPanel());
   if (mode === "sore") parts.push(sorePanel());
   parts.push(sipCard());
@@ -358,7 +392,26 @@ function sorePanel() {
     h("p", {}, "Sit up. Keep the meal small. If this becomes pain you cannot sit with, open Flare."),
     h("button", { class: "button solid", type: "button", onclick: () => go("#foods/easy") }, "Foods that need no cooking")
   ]);
+  const known = packOk ? pack.foods.filter((food) => state.sat[food.id] === "well" && food.group !== "avoid").slice(0, 3) : [];
+  for (const food of known) {
+    wrap.append(h("button", { class: "button quiet", type: "button", onclick: () => go("#food/" + food.id) }, food.name));
+  }
   return wrap;
+}
+
+function installed() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function installCard() {
+  return h("div", { class: "card" }, [
+    h("h2", {}, "Put Harbor on this iPhone"),
+    h("p", {}, "Open this page in Safari. Tap Share, the square with the arrow. Tap Add to Home Screen, then Add. It then opens like an app, full screen."),
+    h("div", { class: "row-buttons" }, [
+      h("button", { class: "button quiet", type: "button", onclick: () => { state.installHintSeen = true; saveState(); render(); } }, "Not now"),
+      h("button", { class: "button solid", type: "button", onclick: () => { state.installHintSeen = true; saveState(); render(); } }, "I added it")
+    ])
+  ]);
 }
 
 function sipCard() {
@@ -404,24 +457,150 @@ function screenFlare() {
     h("summary", {}, "Every warning sign"),
     list
   ]);
-  return h("div", {}, [
+  const passed = gateIndex >= GATE.length || Boolean(state.flareStart);
+  const page = [
     h("p", { class: "eyebrow" }, "The bad pain"),
-    h("h1", {}, "First, are you safe?"),
+    h("h1", {}, gateDanger ? "Call now" : "First, are you safe?"),
+    h("a", { class: "button danger", href: telHref(state.emergencyNumber) }, callLabel())
+  ];
+  if (gateDanger) {
+    page.push(
+      h("p", { class: "lead" }, "That answer means call now. Do not wait this out at home."),
+      h("button", { class: "button quiet", type: "button", onclick: () => { gateDanger = false; gateIndex = 0; render(); window.scrollTo(0, 0); } }, "Ask me again")
+    );
+  } else if (!passed) {
+    const question = GATE[gateIndex];
+    page.push(
+      h("p", { class: "lead" }, question.ask),
+      h("p", { class: "note" }, "If you cannot choose, use the call button."),
+      gateButtons(question.safe)
+    );
+  } else {
+    page.push(
+      h("h2", {}, "If you are still here"),
+      h("p", {}, "These three steps do not end a flare. They keep the next minutes simpler."),
+      stepBox,
+      h("div", { class: "stack" }, [
+        h("button", { class: "button quiet", type: "button", onclick: () => speak(flareScript(items, steps)) }, "Read the steps aloud"),
+        h("button", { class: "button quiet", type: "button", onclick: () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); } }, "Stop reading")
+      ]),
+      clockCard(),
+      planCard(),
+      careCard(),
+      h("button", { class: "button quiet", type: "button", onclick: () => go("#card") }, "Show my pocket card"),
+      h("button", { class: "button solid", type: "button", onclick: () => go("#foods/easy") }, "Foods for this flare")
+    );
+  }
+  page.push(signs, breathCard(), flareLogCard());
+  return h("div", {}, page);
+}
+
+function gateButtons(safe) {
+  const yesSafe = safe === "yes";
+  return h("div", { class: "row-buttons" }, [
+    h("button", { class: yesSafe ? "button solid" : "button danger", type: "button", onclick: () => answerGate("yes", safe) }, "Yes"),
+    h("button", { class: yesSafe ? "button danger" : "button solid", type: "button", onclick: () => answerGate("no", safe) }, "No")
+  ]);
+}
+
+function answerGate(answer, safe) {
+  if (answer === safe) {
+    gateIndex += 1;
+    gateDanger = false;
+  } else {
+    gateDanger = true;
+  }
+  render();
+  window.scrollTo(0, 0);
+}
+
+function formatElapsed(ms) {
+  const total = Math.max(0, Math.floor(Number(ms) / 60000));
+  const hours = Math.floor(total / 60);
+  const mins = total % 60;
+  if (hours <= 0) return total + (total === 1 ? " minute" : " minutes");
+  return hours + (hours === 1 ? " hour " : " hours ") + mins + " min";
+}
+
+function armClock() {
+  if (clockTimer) clearInterval(clockTimer);
+  clockTimer = null;
+  const tick = () => {
+    if (!state.flareStart) return;
+    const text = formatElapsed(Date.now() - Number(state.flareStart));
+    for (const id of ["flare-clock", "now-clock"]) {
+      const node = document.getElementById(id);
+      if (node) node.textContent = text;
+    }
+  };
+  tick();
+  if (state.flareStart && (document.getElementById("flare-clock") || document.getElementById("now-clock"))) {
+    clockTimer = setInterval(tick, 1000);
+  }
+}
+
+function clockCard() {
+  const running = Boolean(state.flareStart);
+  const read = h("p", { class: "clock-read", id: "flare-clock" }, running ? formatElapsed(Date.now() - Number(state.flareStart)) : "Not started");
+  const button = h("button", { class: "button quiet", type: "button" }, running ? "The pain has eased. Stop the clock." : "The pain started now");
+  button.addEventListener("click", () => {
+    state.flareStart = running ? 0 : Date.now();
+    saveState();
+    render();
+  });
+  return h("div", { class: "card" }, [
+    h("h2", {}, "Flare clock"),
+    h("p", { class: "note" }, "Doctors ask when it started. This is a timer, not a treatment."),
+    read,
+    button
+  ]);
+}
+
+function careCard() {
+  const links = [
+    callLink(state.doctorPhone, state.doctorName ? "Call " + state.doctorName : "Call my clinician"),
+    callLink(state.nursePhone, "Call the nurse line"),
+    callLink(state.pharmacyPhone, state.pharmacyName ? "Call " + state.pharmacyName : "Call the pharmacy"),
+    callLink(state.personPhone, state.personName ? "Call " + state.personName : "Call my person")
+  ].filter(Boolean);
+  if (!links.length) {
+    return h("div", { class: "card" }, [
+      h("h2", {}, "People to call"),
+      h("p", {}, "Save a clinician, a nurse line, a pharmacy, or a person on a calm day. The buttons will be here next time."),
+      h("button", { class: "button quiet", type: "button", onclick: () => go("#signals") }, "Save numbers")
+    ]);
+  }
+  return h("div", { class: "stack" }, links);
+}
+
+function callLink(phone, label) {
+  if (!digitsTel(phone)) return null;
+  return h("a", { class: "button quiet", href: telHref(phone) }, label);
+}
+
+function screenCard() {
+  const lines = [
+    ["Name", state.name || "Not typed"],
+    ["Condition", "Chronic pancreatitis"],
+    ["Allergies", state.allergies || "None typed on this phone"],
+    ["Medicines typed here", state.medicines || "None typed"],
+    ["Clinician", [state.doctorName, state.doctorPhone].filter(Boolean).join(" ") || "Not typed"],
+    ["If I am vomiting", "Do not give me food. I may have been told to take nothing by mouth."]
+  ];
+  const facts = h("div", {});
+  for (const [label, value] of lines) {
+    const block = h("div", { class: "card" }, [h("p", { class: "eyebrow" }, label), h("p", { class: "lead" })]);
+    block.lastChild.textContent = value;
+    facts.append(block);
+  }
+  return h("div", {}, [
+    h("p", { class: "eyebrow" }, "Show this to someone helping"),
+    h("h1", {}, "Pocket card"),
+    h("p", {}, "This is what was typed on this phone. It is not a medical record."),
+    facts,
+    careCard(),
     h("a", { class: "button danger", href: telHref(state.emergencyNumber) }, callLabel()),
-    h("p", { class: "lead" }, "Call now if you cannot sit still, you cannot keep water down, you have a fever, breathing is hard, you feel faint, your skin looks yellow, or there is blood."),
-    signs,
-    h("h2", {}, "If none of that is happening"),
-    h("p", {}, "These three steps do not end a flare. They keep the next minutes simpler."),
-    stepBox,
-    h("div", { class: "stack" }, [
-      h("button", { class: "button quiet", type: "button", onclick: () => speak(flareScript(items, steps)) }, "Read the steps aloud"),
-      h("button", { class: "button quiet", type: "button", onclick: () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); } }, "Stop reading")
-    ]),
-    planCard(),
-    personCard(),
-    h("button", { class: "button solid", type: "button", onclick: () => go("#foods/easy") }, "Foods for this flare"),
-    breathCard(),
-    flareLogCard()
+    h("button", { class: "button quiet", type: "button", onclick: () => go("#flare") }, "Back to the flare")
   ]);
 }
 
@@ -551,7 +730,8 @@ function flareLogCard() {
   for (let n = 1; n <= 10; n += 1) {
     const button = h("button", { type: "button" }, String(n));
     button.addEventListener("click", () => {
-      state.flares.unshift({ at: new Date().toISOString(), score: n });
+      const minutes = state.flareStart ? Math.max(0, Math.round((Date.now() - Number(state.flareStart)) / 60000)) : null;
+      state.flares.unshift({ at: new Date().toISOString(), score: n, place: state.painPlace || "", minutes });
       state.flares = state.flares.slice(0, 40);
       saveState();
       saved.textContent = "Saved on this phone. Pain " + n + " of 10.";
@@ -560,9 +740,19 @@ function flareLogCard() {
     });
     scores.append(button);
   }
+  const places = h("div", { class: "stack" });
+  for (const place of ["Upper belly", "Through to my back", "Both"]) {
+    places.append(h("button", {
+      class: "button quiet",
+      type: "button",
+      "aria-pressed": state.painPlace === place ? "true" : "false",
+      onclick: () => { state.painPlace = place; saveState(); render(); }
+    }, place));
+  }
   return h("div", { class: "card" }, [
     h("h2", {}, "Mark this flare"),
-    h("p", {}, "1 is milder. 10 is the worst. This is your note, not a diagnosis."),
+    h("p", {}, "Where is it, then how strong. 1 is milder. 10 is the worst. This is your note, not a diagnosis."),
+    places,
     scores,
     saved
   ]);
@@ -752,6 +942,19 @@ function screenFood(id) {
     ]));
   }
   if (food.group !== "avoid") {
+    const ate = h("p", { id: "ate-note", class: "note" }, "");
+    parts.push(
+      h("button", {
+        class: "button solid",
+        type: "button",
+        onclick: () => {
+          state.eaten = [{ at: new Date().toISOString(), id: food.id, name: food.name }, ...(state.eaten || [])].slice(0, 40);
+          saveState();
+          ate.textContent = "Saved. " + food.name + " is on the visit list.";
+        }
+      }, "I ate this"),
+      ate
+    );
     parts.push(h("div", { class: "row-buttons" }, [
       h("button", {
         class: "button quiet",
@@ -863,7 +1066,7 @@ function screenSignals() {
     h("div", { class: "card" }, [
       h("h2", {}, "Put Harbor on the Home Screen"),
       h("p", {}, "On this iPhone, open Harbor in Safari. Tap the Share button, the square with the arrow. Tap Add to Home Screen, then Add."),
-      h("p", { class: "note" }, "Set this up on her phone. Notes stay in that phone’s browser. They are not on a server, and they will not appear on a different phone.")
+      h("p", { class: "note" }, "Do this on the iPhone that will be used during a flare. Notes stay in that phone’s browser. They are not on a server, and they will not appear on a different phone.")
     ]),
     eraseCard()
   ]);
@@ -875,6 +1078,10 @@ function settingsCard() {
   const doctorPhone = field("Clinician’s phone", "tel", state.doctorPhone, "tel", (value) => { state.doctorPhone = value; });
   const personName = field("A person to call", "text", state.personName, "name", (value) => { state.personName = value; });
   const personPhone = field("Their phone", "tel", state.personPhone, "tel", (value) => { state.personPhone = value; });
+  const nursePhone = field("Nurse line", "tel", state.nursePhone, "tel", (value) => { state.nursePhone = value; });
+  const pharmacyName = field("Pharmacy name", "text", state.pharmacyName, "organization", (value) => { state.pharmacyName = value; });
+  const pharmacyPhone = field("Pharmacy phone", "tel", state.pharmacyPhone, "tel", (value) => { state.pharmacyPhone = value; });
+  const allergies = field("Allergies", "text", state.allergies, "off", (value) => { state.allergies = value; });
   const emergency = field("Emergency number", "tel", state.emergencyNumber, "tel", (value) => { state.emergencyNumber = value.trim() || "911"; });
   const plan = h("textarea", { rows: "4" });
   plan.value = state.flarePlan;
@@ -903,7 +1110,8 @@ function settingsCard() {
   }
   return h("div", { class: "card" }, [
     h("h2", {}, "On this phone"),
-    name, doctorName, doctorPhone, personName, personPhone, emergency,
+    name, allergies, doctorName, doctorPhone, nursePhone, pharmacyName, pharmacyPhone, personName, personPhone, emergency,
+    h("button", { class: "button quiet", type: "button", onclick: () => go("#card") }, "Open my pocket card"),
     h("label", { class: "field" }, [h("span", {}, "Flare plan, in your clinician’s words"), plan]),
     h("label", { class: "field" }, [h("span", {}, "Medicines they already prescribed"), meds]),
     h("label", { class: "checkline" }, [enzymes, "Enzyme pills were prescribed"]),
@@ -947,13 +1155,18 @@ function visitCard() {
   if (state.name) lines.push("Name: " + state.name);
   if (state.doctorName || state.doctorPhone) lines.push("Clinician: " + [state.doctorName, state.doctorPhone].filter(Boolean).join(" "));
   if (state.flarePlan) lines.push("Flare plan: " + state.flarePlan);
+  if (state.allergies) lines.push("Allergies typed here: " + state.allergies);
   if (state.medicines) lines.push("Medicines typed here: " + state.medicines);
+  for (const bite of (state.eaten || []).slice(0, 8)) {
+    lines.push(new Date(bite.at).toLocaleString() + " — ate " + bite.name);
+  }
   const well = Object.entries(state.sat).filter(([, mark]) => mark === "well").map(([id]) => foodName(id));
   const badly = Object.entries(state.sat).filter(([, mark]) => mark === "badly").map(([id]) => foodName(id));
   if (well.length) lines.push("Foods that sat well: " + well.join(", "));
   if (badly.length) lines.push("Foods that sat badly: " + badly.join(", "));
   for (const flare of state.flares.slice(0, 8)) {
-    lines.push(new Date(flare.at).toLocaleString() + " — pain " + flare.score + " of 10");
+    const extra = [flare.place, flare.minutes == null ? "" : flare.minutes + " min"].filter(Boolean).join(", ");
+    lines.push(new Date(flare.at).toLocaleString() + " — pain " + flare.score + " of 10" + (extra ? " (" + extra + ")" : ""));
   }
   lines.push("These are notes typed on the phone. They are not a medical record.");
   const box = h("textarea", { class: "summary", readonly: "true", rows: "8" });

@@ -1,4 +1,4 @@
-const CACHE = "harbor-2026-11-13c";
+const CACHE = "harbor-2026-11-13d";
 const FILES = [
   "./",
   "./index.html",
