@@ -450,6 +450,65 @@ class Desk:
         rows = [item for item in fills if isinstance(item, dict)]
         return "fill" if rows and rows[-1].get("side") == "buy" else "replay"
 
+    def _phone_session(self, journal, view: dict) -> dict:
+        """Shape one market's paper account so the phone page can load it."""
+        shares = float(view.get("shares") or 0)
+        entry = view.get("entry_price")
+        cash = float(view.get("cash") or 0)
+        cost = float(shares) * float(entry) if shares > 0 and entry else 0.0
+        return {
+            "symbol": journal.symbol,
+            "params": journal.params.to_dict(),
+            "cash": cash,
+            "shares": shares,
+            "entryPrice": entry,
+            "entryDate": view.get("entry_date"),
+            "cost": cost,
+            "trades": [dict(item) for item in (view.get("trades") or []) if isinstance(item, dict)],
+            "working": [dict(item) for item in journal.working if isinstance(item, dict)],
+            "nextId": max(1, int(journal.next_order_id or 1)),
+            "fills": [dict(item) for item in journal.fills if isinstance(item, dict)],
+            "ticketFills": [],
+            "lastAction": "",
+            "last": view.get("last_close"),
+        }
+
+    def export_book(self) -> dict:
+        """Downloadable paper book for the phone page. Computer and phone keep separate books until you load this file."""
+        with self.lock:
+            self._shelve_locked()
+            sessions: dict = {}
+            try:
+                current = view_journal(self.journal)
+            except ValueError:
+                current = {"cash": self.journal.params.cash, "shares": 0, "trades": []}
+            if self.journal.fills or self.journal.working or float(current.get("shares") or 0) > 0:
+                sessions[self.journal.symbol] = self._phone_session(self.journal, current)
+            for symbol, row in self._read_shelf().items():
+                if symbol in sessions or not isinstance(row, dict) or not isinstance(row.get("journal"), dict):
+                    continue
+                journal = journal_from_dict(row["journal"])
+                try:
+                    view = view_journal(journal)
+                except ValueError:
+                    note = row.get("summary") or {}
+                    view = {
+                        "cash": note.get("cash") or journal.params.cash,
+                        "shares": note.get("shares") or 0,
+                        "entry_price": note.get("entry"),
+                        "entry_date": note.get("opened"),
+                        "last_close": note.get("last"),
+                        "trades": [],
+                    }
+                if journal.fills or journal.working or float(view.get("shares") or 0) > 0:
+                    sessions[symbol] = self._phone_session(journal, view)
+            return {
+                "version": 1,
+                "sessions": sessions,
+                "markets": len(sessions),
+                "note": "Paper book for the phone page. Load it under Journal on the phone. Nothing goes to a broker.",
+            }
+
     def account_book(self, view: dict) -> dict:
         """Every market's paper account: open positions, working orders, and every fill."""
         positions: list[dict] = []
@@ -1050,6 +1109,9 @@ class DeskHandler(BaseHTTPRequestHandler):
             return
         if method == "GET" and path == "/api/paper":
             self._json(self.desk.snapshot())
+            return
+        if method == "GET" and path == "/api/paper/book":
+            self._json(self.desk.export_book())
             return
         if method == "GET" and path == "/api/market":
             symbol = query.get("symbol") or self.desk.journal.symbol

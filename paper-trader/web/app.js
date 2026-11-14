@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.47";
+const VERSION = "1.9.48";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -2014,20 +2014,126 @@ function phoneBook() {
     const working = (snap && snap.working) || [];
     if (!snap || !(snap.shares > 0 || (snap.fills && snap.fills.length) || working.length)) return;
     out.markets += 1;
-    const last = session && session.bars.length ? session.bars[session.bars.length - 1].close : snap.last;
+    const last = session && session.bars && session.bars.length ? session.bars[session.bars.length - 1].close : snap.last;
     const start = Number(snap.params && snap.params.cash) || 0;
     const equity = session ? PaperEngine.view(session).equity : snap.cash + (snap.shares > 0 && last ? snap.shares * last : 0);
     out.total_pnl += equity - start;
     if (snap.shares > 0) {
       out.positions.push({ symbol, shares: snap.shares, entry: snap.entryPrice, last, pnl: last && snap.entryPrice ? snap.shares * (last - snap.entryPrice) : null, current: !!session, opened: snap.entryDate, source: "fill" });
     }
-    working.forEach((ticket) => out.working.push({ ...ticket, symbol }));
+    working.forEach((ticket) => out.working.push({ ...ticket, symbol: ticket.symbol || symbol }));
     (snap.fills || []).forEach((item) => out.fills.push(item));
   });
   out.fills.sort((a, b) => (b.at || 0) - (a.at || 0));
   out.fills = out.fills.slice(0, 300);
   out.working.sort((a, b) => String(a.symbol).localeCompare(String(b.symbol)) || String(a.id).localeCompare(String(b.id)));
   return out;
+}
+
+function exportPhonePayload() {
+  writeBook();
+  const sessions = readBook();
+  if (state.book) {
+    Object.keys(state.book).forEach((symbol) => {
+      const session = state.book[symbol];
+      if (session && (session.shares > 0 || (session.fills && session.fills.length) || (session.working && session.working.length))) {
+        sessions[symbol] = PaperEngine.snapshot(session);
+      }
+    });
+  }
+  return {
+    version: 1,
+    sessions,
+    markets: Object.keys(sessions).length,
+    note: "Paper book for this desk. Load it under Journal. Nothing goes to a broker.",
+  };
+}
+
+async function sharePaperBook(download) {
+  const note = $("book-share-note");
+  try {
+    const payload = state.offline ? exportPhonePayload() : await getJSON("/api/paper/book");
+    const text = JSON.stringify(payload, null, 2);
+    if (!payload.sessions || !Object.keys(payload.sessions).length) {
+      if (note) note.textContent = "Nothing to share yet. Open a paper trade or place a limit order first.";
+      return;
+    }
+    if (download) {
+      const blob = new Blob([text], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "paper-book.json";
+      link.click();
+      URL.revokeObjectURL(url);
+      if (note) note.textContent = "Downloaded paper-book.json with " + payload.markets + " market" + (payload.markets === 1 ? "" : "s") + ". On the phone: Journal → Load paper book → pick that file.";
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      if (note) note.textContent = "Copied the paper book for " + payload.markets + " market" + (payload.markets === 1 ? "" : "s") + ". On the phone you can paste it into a file named paper-book.json, then Journal → Load paper book.";
+      return;
+    }
+    if (note) note.textContent = "This browser would not copy. Use Share paper book to download the file.";
+  } catch (error) {
+    if (note) note.textContent = error.message || "The paper book could not be shared.";
+  }
+}
+
+function cleanImportedSession(raw, symbol) {
+  if (!raw || typeof raw !== "object") return null;
+  const shares = Number(raw.shares);
+  const cash = Number(raw.cash);
+  if (!(cash >= 0) || !(shares >= 0)) return null;
+  const working = Array.isArray(raw.working) ? raw.working.filter((item) => item && item.id) : [];
+  const fills = Array.isArray(raw.fills) ? raw.fills : [];
+  if (!(shares > 0 || fills.length || working.length)) return null;
+  return {
+    symbol: String(raw.symbol || symbol),
+    params: raw.params && typeof raw.params === "object" ? { ...raw.params } : {},
+    cash,
+    shares,
+    entryPrice: raw.entryPrice == null ? null : Number(raw.entryPrice),
+    entryDate: raw.entryDate || null,
+    cost: Number(raw.cost) || 0,
+    trades: Array.isArray(raw.trades) ? raw.trades.map((item) => ({ ...item })) : [],
+    working: working.map((item) => ({ ...item })),
+    nextId: Math.max(1, Number(raw.nextId) || 1),
+    fills: fills.map((item) => ({ ...item })),
+    ticketFills: Array.isArray(raw.ticketFills) ? raw.ticketFills.map((item) => ({ ...item })) : [],
+    lastAction: raw.lastAction || "",
+    last: raw.last == null ? null : Number(raw.last),
+  };
+}
+
+async function importPaperBook(payload) {
+  const note = $("book-share-note");
+  const sessions = payload && payload.sessions && typeof payload.sessions === "object" ? payload.sessions : null;
+  if (!sessions) throw new Error("That file is not a Paper Trader book.");
+  const kept = {};
+  Object.keys(sessions).forEach((symbol) => {
+    const row = cleanImportedSession(sessions[symbol], symbol);
+    if (row) kept[symbol] = row;
+  });
+  if (!Object.keys(kept).length) throw new Error("That paper book had no open trades or working orders.");
+  const merged = { ...readBook(), ...kept };
+  localStorage.setItem(BOOK_KEY, JSON.stringify({ version: 1, sessions: merged }));
+  state.bookText = "";
+  state.book = state.book || {};
+  Object.keys(kept).forEach((symbol) => {
+    if (state.book[symbol]) PaperEngine.restore(state.book[symbol], kept[symbol]);
+  });
+  const current = state.paper && state.paper.symbol;
+  if (current && kept[current] && state.session && state.session.symbol === current) {
+    PaperEngine.restore(state.session, kept[current]);
+  }
+  if (state.session) {
+    render(PaperEngine.view(state.session));
+  } else {
+    renderBook(state.paper);
+  }
+  if (note) note.textContent = "Loaded " + Object.keys(kept).length + " market" + (Object.keys(kept).length === 1 ? "" : "s") + " into this phone's paper book. Open positions and working orders are in Journal.";
+  $("status").textContent = "Paper book loaded on this device.";
 }
 
 function moneyText(value) {
@@ -2136,6 +2242,12 @@ function renderBook(paper) {
     total.textContent = book.markets
       ? "Across " + book.markets + " market" + (book.markets === 1 ? "" : "s") + ": " + moneyText(book.total_pnl) + " paper profit or loss so far. " + working.length + " working order" + (working.length === 1 ? "" : "s") + ". Each market has its own paper account." + (state.offline ? " Saved in this browser only." : " Saved on this computer.")
       : "Nothing traded yet.";
+  }
+  const device = $("book-device");
+  if (device) {
+    device.textContent = state.offline
+      ? "This phone keeps its own paper book. To see trades from the computer desk, tap Share paper book there, AirDrop or save paper-book.json, then Load paper book here."
+      : "This computer keeps its own paper book. Tap Share paper book, then on the phone open Journal and Load paper book.";
   }
 }
 
@@ -4224,6 +4336,36 @@ $("cancel-all").addEventListener("click", () => withBusy(async () => {
   $("status").textContent = "Canceled every working paper order.";
 }));
 
+const bookShare = $("book-share");
+if (bookShare) bookShare.addEventListener("click", () => sharePaperBook(true));
+const bookCopy = $("book-copy");
+if (bookCopy) bookCopy.addEventListener("click", () => sharePaperBook(false));
+const bookFile = $("book-file");
+if (bookFile) {
+  bookFile.addEventListener("change", () => {
+    const file = bookFile.files && bookFile.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => withBusy(async () => {
+      try {
+        const payload = JSON.parse(String(reader.result || ""));
+        await importPaperBook(payload);
+      } catch (error) {
+        const note = $("book-share-note");
+        if (note) note.textContent = error.message || "That file could not be read.";
+      } finally {
+        bookFile.value = "";
+      }
+    });
+    reader.onerror = () => {
+      const note = $("book-share-note");
+      if (note) note.textContent = "That file could not be read.";
+      bookFile.value = "";
+    };
+    reader.readAsText(file);
+  });
+}
+
 $("safe").addEventListener("click", () => runSafe(true));
 $("win-startup").addEventListener("change", (event) => setWindows("startup", event.target));
 $("win-desktop").addEventListener("change", (event) => setWindows("desktop", event.target));
@@ -4509,6 +4651,11 @@ function showDock(name) {
   document.querySelectorAll(".dock-page").forEach((page) => {
     page.classList.toggle("on", page.dataset.dockPage === name);
   });
+  if (name === "journal") {
+    const box = $("positions-body");
+    if (box) delete box.dataset.stamp;
+    renderBook(state.paper);
+  }
   if (window.matchMedia("(max-width: 980px)").matches) {
     document.body.dataset.tab = "study";
     document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {

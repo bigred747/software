@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Share the paper book with the phone (1.9.48)
+
+The computer desk and the phone each keep their own paper book. Under Journal, **Share paper book** downloads `paper-book.json` with every open position and working limit or stop order. On the phone, open Journal and **Load paper book**, then pick that file. Copy paper book puts the same JSON on the clipboard when the browser allows it.
+
 ## Chart candles, SMA stack, and true momentum (1.9.47)
 
 Price candles are hollow on up bars and solid on down bars. A layer draws simple averages 5, 9, 21, 50, 100, and 200 on the chart's own bars. The lower panel is this desk's true momentum (14/5/3) with a Main/Signal cloud and arrows that mark crosses only after the bar closes. No third-party study source is included.

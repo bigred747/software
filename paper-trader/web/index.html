@@ -406,6 +406,13 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="journal">
         <h2>Open positions</h2>
+        <p id="book-device" class="muted">The computer desk and the phone each keep their own paper book. Share the book below to move open trades and limit orders to the phone.</p>
+        <div class="strat-orb-inputs">
+          <button id="book-share" type="button">Share paper book</button>
+          <button id="book-copy" type="button" class="quiet">Copy paper book</button>
+          <label class="quiet book-load">Load paper book<input id="book-file" type="file" accept="application/json,.json,text/plain" hidden></label>
+        </div>
+        <p id="book-share-note" class="muted"></p>
         <div class="table-wrap">
           <table>
             <thead>

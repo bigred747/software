@@ -314,6 +314,19 @@ button.quiet { background: transparent; }
 .chart-head, .legend { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .chart-head { flex-wrap: wrap; }
 .chart-back { display: none; min-height: 36px; width: auto; }
+.book-load {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid #2a3340;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text);
+  background: #151a20;
+}
+.book-load input { display: none; }
 .frame-head { display: flex; align-items: center; gap: 12px; }
 .frame-head h1 { margin: 0; }
 .legend, .chart-note { margin: 0; font-size: 12px; }

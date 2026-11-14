@@ -465,6 +465,26 @@ class ServerTests(unittest.TestCase):
                 canceled = desk.cancel({"id": view["working"][0]["id"]})
                 self.assertEqual(canceled["working"], [])
 
+    def test_paper_book_export_includes_working_orders_for_the_phone(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)):
+                desk.place({"side": "buy", "kind": "market", "tif": "DAY"})
+                desk.place({"side": "sell", "kind": "limit", "limit": 120, "tif": "GTC"})
+                book = desk.export_book()
+                self.assertEqual(book["version"], 1)
+                self.assertGreaterEqual(book["markets"], 1)
+                row = book["sessions"][desk.journal.symbol]
+                self.assertGreater(row["shares"], 0)
+                self.assertTrue(any(item.get("kind") == "limit" for item in row["working"]))
+            status, raw = self.open("/api/paper/book")
+            self.assertEqual(status, 200)
+            payload = json.loads(raw)
+            self.assertEqual(payload["version"], 1)
+            self.assertIn("sessions", payload)
+
     def test_ticket_market_order_fills_with_slippage_and_http_routes_answer(self) -> None:
         status, raw = self.open("/api/paper")
         self.assertEqual(status, 200)
@@ -704,11 +724,15 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.47", script)
+        self.assertIn(b"1.9.48", script)
         self.assertIn(b"stackAverages", script)
         self.assertIn(b"paintCandles", script)
         self.assertIn(b"SMA 5", script)
         self.assertIn(b"SMA stack", page)
+        self.assertIn(b'id="book-share"', page)
+        self.assertIn(b'id="book-file"', page)
+        self.assertIn(b"/api/paper/book", desk)
+        self.assertIn(b"importPaperBook", script)
         self.assertNotIn(b"Mobius", script)
         self.assertNotIn(b"Spot_Inflow", script)
         self.assertNotIn(b"avgs_mtf_10x", script)
