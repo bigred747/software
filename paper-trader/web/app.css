@@ -642,8 +642,14 @@ footer { display: none; }
 .ticket-box table.working th, .ticket-box table.working td { padding: 5px 4px; }
 .ticket-box table.working button { padding: 3px 8px; font-size: 12px; }
 
-.strat-auto,.strat-orb-inputs,.strat-triggers{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:10px 0}
+.strat-auto,.strat-orb-inputs,.strat-triggers,.strat-trade{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:10px 0}
 .strat-triggers{margin-bottom:14px}
+.strat-trade{gap:10px 14px;margin:8px 0 14px}
+.strat-trade #strat-trade-note{flex:1 1 220px;margin:0}
+.strat-trade .buy,.strat-trade .sell{min-width:88px;font-weight:600}
+.strat-trade .buy{background:#163528;border-color:var(--up);color:var(--up)}
+.strat-trade .sell{background:#3a1820;border-color:var(--down);color:var(--down)}
+.strat-trade button:disabled{opacity:.45}
 .strat-orb-inputs input{width:84px}
 .strat-switch{display:inline-flex;gap:6px;align-items:center}
 .strat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:12px 0}

@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Strategies Buy and Sell (1.9.53)
+
+After you pick the best strategy on the Strategies tab, **Buy** and **Sell** place a paper trade on the open market through the same second warning. Buy is for a flat book; Sell closes an open paper long. The lineup still shows whether that strategy agrees. Paper only.
+
 ## Ten classic strategies and desk triggers (1.9.52)
 
 The Strategies tab now scores ten classic public closed-bar rules on this market’s history: Edge, squeeze release, 20-day breakout, RSI 2 pullback, 50/200 average cross, 20/50 EMA cross, MACD cross, Bollinger reversion, EMA trend with an ATR trail, and the 7-day low pullback. Auto can still follow the one you pick. Desk triggers (Voice) cover squeeze five dots/steam, Edge BUY on pinned markets, the followed strategy’s BUY/SELL, and a new process. Closed bars only. Not a forecast. None of these is a third-party or trademarked system.
