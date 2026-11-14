@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -113,6 +113,11 @@ test("true momentum stays inside the length and confirms arrows on a closed bar"
   assert.equal(study.down[39], false);
   assert.equal(study.main[18], 14);
   assert.equal(study.down[25], true);
+  const stack = stackAverages(bars);
+  assert.equal(stack.length, 6);
+  assert.equal(stack.map((row) => row.length).join(","), "5,9,21,50,100,200");
+  assert.equal(stack[0].values[4] != null, true);
+  assert.equal(stack[5].values[39], null);
 });
 
 test("edge fills at the next open and later bars do not move closed trades", () => {

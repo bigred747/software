@@ -243,6 +243,7 @@
     const signal = ema(main, smooth);
     const up = new Array(count).fill(false);
     const down = new Array(count).fill(false);
+    // Arrows mark a Main/Signal cross on the closed bar only, so a forming bar never moves them.
     for (let index = 2; index < count; index += 1) {
       const crossedUp = main[index - 1] > signal[index - 1] && main[index - 2] <= signal[index - 2];
       const crossedDown = main[index - 1] < signal[index - 1] && main[index - 2] >= signal[index - 2];
@@ -251,6 +252,59 @@
     }
     const bound = Math.round(window * 0.7);
     return { main, signal, up, down, length: window, ob: bound, os: -bound };
+  }
+
+  const STACK_AVGS = [
+    { length: 5, color: "#e879f9", name: "5" },
+    { length: 9, color: "#22d3ee", name: "9" },
+    { length: 21, color: "#f9a8d4", name: "21" },
+    { length: 50, color: "#94a3b8", name: "50" },
+    { length: 100, color: "#fb923c", name: "100" },
+    { length: 200, color: "#f87171", name: "200" },
+  ];
+
+  function stackAverages(bars) {
+    const closes = (bars || []).map((bar) => bar.close);
+    return STACK_AVGS.map((row) => ({
+      length: row.length,
+      color: row.color,
+      name: row.name,
+      values: simpleAverage(closes, row.length),
+    }));
+  }
+
+  function paintCandles(ctx, bars, xAt, y, slot) {
+    const bodyW = Math.max(2, Math.min(slot * 0.64, Math.max(2, slot - 1.5)));
+    bars.forEach((bar, index) => {
+      const x = xAt(index);
+      const up = bar.close >= bar.open;
+      const topPrice = Math.max(bar.open, bar.close);
+      const bottomPrice = Math.min(bar.open, bar.close);
+      const top = y(topPrice);
+      const bottom = y(bottomPrice);
+      const bodyH = Math.max(1, bottom - top);
+      ctx.strokeStyle = up ? "#2bbf8a" : "#d95563";
+      ctx.lineWidth = Math.max(1, Math.min(2.25, slot * 0.14));
+      ctx.beginPath();
+      ctx.moveTo(x, y(bar.high));
+      ctx.lineTo(x, y(bar.low));
+      ctx.stroke();
+      const left = x - bodyW / 2;
+      if (up) {
+        ctx.fillStyle = "rgba(7, 9, 11, 0.55)";
+        ctx.fillRect(left, top, bodyW, bodyH);
+        ctx.strokeStyle = "#3ddc97";
+        ctx.lineWidth = 1.35;
+        ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
+      } else {
+        ctx.fillStyle = "#ff6b7a";
+        ctx.fillRect(left, top, bodyW, bodyH);
+        ctx.strokeStyle = "#d95563";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
+      }
+    });
+    ctx.lineWidth = 1;
   }
 
   function tickSize(price) {
@@ -748,9 +802,10 @@
     };
     const lower = height >= 220;
     const priceBottom = lower ? Math.round(height * 0.7) : height - (height < 150 ? 8 : 18);
+    const stack = stackAverages(history);
     let low = Math.min(...bars.map((bar) => bar.low));
     let high = Math.max(...bars.map((bar) => bar.high));
-    [lines.high, lines.close, lines.low].forEach((series) => {
+    [lines.high, lines.close, lines.low].concat(stack.map((row) => row.values.slice(dropped))).forEach((series) => {
       series.forEach((value) => {
         if (value == null) return;
         if (value < low) low = value;
@@ -787,22 +842,15 @@
       ctx.stroke();
       ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
     }
-    bars.forEach((bar, index) => {
-      const x = xAt(index);
-      const rising = bar.close >= bar.open;
-      ctx.strokeStyle = rising ? "#3ddc97" : "#ff6b7a";
-      ctx.fillStyle = ctx.strokeStyle;
-      ctx.beginPath();
-      ctx.moveTo(x, y(bar.high));
-      ctx.lineTo(x, y(bar.low));
-      ctx.stroke();
-      const top = y(Math.max(bar.open, bar.close));
-      const bottom = y(Math.min(bar.open, bar.close));
-      ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
+    paintCandles(ctx, bars, xAt, y, slot);
+    stack.forEach((row) => {
+      strokeSeries(ctx, row.values.slice(dropped), xAt, y, row.color, row.length >= 100 ? 1.75 : 1.25);
     });
-    strokeSeries(ctx, lines.high, xAt, y, "#3ddc97", 2);
-    strokeSeries(ctx, lines.close, xAt, y, "#5b9dff", 2);
-    strokeSeries(ctx, lines.low, xAt, y, "#ff6b7a", 2);
+    if (options && options.averages === true) {
+      strokeSeries(ctx, lines.high, xAt, y, "#3ddc97", 1.5);
+      strokeSeries(ctx, lines.close, xAt, y, "#5b9dff", 1.5);
+      strokeSeries(ctx, lines.low, xAt, y, "#ff6b7a", 1.5);
+    }
     paintPivots(ctx, pivots, xAt, y, bars.length - 1);
     fitted.arrows.forEach((mark) => {
       const index = mark.index - dropped;
@@ -2101,6 +2149,8 @@
     draw,
     intradayDay,
     averages,
+    stackAverages,
+    paintCandles,
     momentumTone,
     squeezeTone,
     squeezeName,

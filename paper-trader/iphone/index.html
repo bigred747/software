@@ -392,6 +392,7 @@ button.quiet { background: transparent; }
 .swatch.high { background: #3ddc97; }
 .swatch.close { background: #5b9dff; }
 .swatch.low { background: #ff6b7a; }
+.swatch.stack { background: linear-gradient(90deg, #e879f9, #22d3ee, #f9a8d4, #94a3b8, #fb923c, #f87171); }
 .swatch.ema200 { background: #b48cff; }
 .swatch.vwap { background: #3fd0e0; }
 .swatch.poc { background: #ffd166; }
@@ -784,7 +785,7 @@ tr.picked td:first-child{box-shadow:inset 3px 0 0 #6ea8ff;font-weight:700}
       <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line and a signal line. Its arrows mark only zero-line crosses after the bar closes: a buy cross at or below zero and a sell cross at or above zero. Dots show this desk's squeeze compression: orange high, red mid, black low, green off. Arrows touching the candle are paper orders. Layers picks what the chart draws. The clean view shows the candles, your paper trades, the Edge stop, the 200-day EMA, and the volume profile, and the legend names only what is on. The violet line is the 200-day EMA, the dashed cyan line is the 20-day volume-weighted average price (VWAP), the dotted gray lines are the Bollinger bands (20 days, two deviations), and the bars on the left are the volume profile of the last 120 days, with the brighter bars in the value area where 70% of the volume traded and the dashed gold line at the point of control (POC), the price with the most volume. A feed with no volume shows no VWAP or profile instead of a guess. Tap a candle to drop a vertical price line on that bar. The close is marked on the right. Dark pool books, iceberg orders, and institutional blotters are private; B4 readings show public-tape proxies such as relative volume and absorption, and those lines do not paint arrows. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+        <p class="muted chart-note">Up candles are hollow green and down candles are solid red. The SMA stack is 5, 9, 21, 50, 100, and 200 on this chart's own bars. Green, blue, and red lines are the high, close, and low averages when that layer is on. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is squeeze momentum. The lower study is this desk's true momentum (14/5/3), with a main line, a signal line, and a cloud between them. Its arrows mark Main/Signal crosses only after the bar closes, so they do not move on a forming bar. Dots show this desk's squeeze compression: orange high, red mid, black low, green off. Arrows touching the candle are paper orders. Layers picks what the chart draws. The clean view shows the candles, your paper trades, the Edge stop, the 200-day EMA, and the volume profile, and the legend names only what is on. The violet line is the 200-day EMA, the dashed cyan line is the 20-day volume-weighted average price (VWAP), the dotted gray lines are the Bollinger bands (20 days, two deviations), and the bars on the left are the volume profile of the last 120 days, with the brighter bars in the value area where 70% of the volume traded and the dashed gold line at the point of control (POC), the price with the most volume. A feed with no volume shows no VWAP or profile instead of a guess. Tap a candle to drop a vertical price line on that bar. The close is marked on the right. Dark pool books, iceberg orders, and institutional blotters are private; B4 readings show public-tape proxies such as relative volume and absorption, and those lines do not paint arrows. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
       </details>
     </section>
 
@@ -3114,6 +3115,7 @@ plot Sell = close crosses below baseline;</textarea>
     const signal = ema(main, smooth);
     const up = new Array(count).fill(false);
     const down = new Array(count).fill(false);
+    // Arrows mark a Main/Signal cross on the closed bar only, so a forming bar never moves them.
     for (let index = 2; index < count; index += 1) {
       const crossedUp = main[index - 1] > signal[index - 1] && main[index - 2] <= signal[index - 2];
       const crossedDown = main[index - 1] < signal[index - 1] && main[index - 2] >= signal[index - 2];
@@ -3122,6 +3124,59 @@ plot Sell = close crosses below baseline;</textarea>
     }
     const bound = Math.round(window * 0.7);
     return { main, signal, up, down, length: window, ob: bound, os: -bound };
+  }
+
+  const STACK_AVGS = [
+    { length: 5, color: "#e879f9", name: "5" },
+    { length: 9, color: "#22d3ee", name: "9" },
+    { length: 21, color: "#f9a8d4", name: "21" },
+    { length: 50, color: "#94a3b8", name: "50" },
+    { length: 100, color: "#fb923c", name: "100" },
+    { length: 200, color: "#f87171", name: "200" },
+  ];
+
+  function stackAverages(bars) {
+    const closes = (bars || []).map((bar) => bar.close);
+    return STACK_AVGS.map((row) => ({
+      length: row.length,
+      color: row.color,
+      name: row.name,
+      values: simpleAverage(closes, row.length),
+    }));
+  }
+
+  function paintCandles(ctx, bars, xAt, y, slot) {
+    const bodyW = Math.max(2, Math.min(slot * 0.64, Math.max(2, slot - 1.5)));
+    bars.forEach((bar, index) => {
+      const x = xAt(index);
+      const up = bar.close >= bar.open;
+      const topPrice = Math.max(bar.open, bar.close);
+      const bottomPrice = Math.min(bar.open, bar.close);
+      const top = y(topPrice);
+      const bottom = y(bottomPrice);
+      const bodyH = Math.max(1, bottom - top);
+      ctx.strokeStyle = up ? "#2bbf8a" : "#d95563";
+      ctx.lineWidth = Math.max(1, Math.min(2.25, slot * 0.14));
+      ctx.beginPath();
+      ctx.moveTo(x, y(bar.high));
+      ctx.lineTo(x, y(bar.low));
+      ctx.stroke();
+      const left = x - bodyW / 2;
+      if (up) {
+        ctx.fillStyle = "rgba(7, 9, 11, 0.55)";
+        ctx.fillRect(left, top, bodyW, bodyH);
+        ctx.strokeStyle = "#3ddc97";
+        ctx.lineWidth = 1.35;
+        ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
+      } else {
+        ctx.fillStyle = "#ff6b7a";
+        ctx.fillRect(left, top, bodyW, bodyH);
+        ctx.strokeStyle = "#d95563";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
+      }
+    });
+    ctx.lineWidth = 1;
   }
 
   function tickSize(price) {
@@ -3619,9 +3674,10 @@ plot Sell = close crosses below baseline;</textarea>
     };
     const lower = height >= 220;
     const priceBottom = lower ? Math.round(height * 0.7) : height - (height < 150 ? 8 : 18);
+    const stack = stackAverages(history);
     let low = Math.min(...bars.map((bar) => bar.low));
     let high = Math.max(...bars.map((bar) => bar.high));
-    [lines.high, lines.close, lines.low].forEach((series) => {
+    [lines.high, lines.close, lines.low].concat(stack.map((row) => row.values.slice(dropped))).forEach((series) => {
       series.forEach((value) => {
         if (value == null) return;
         if (value < low) low = value;
@@ -3658,22 +3714,15 @@ plot Sell = close crosses below baseline;</textarea>
       ctx.stroke();
       ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
     }
-    bars.forEach((bar, index) => {
-      const x = xAt(index);
-      const rising = bar.close >= bar.open;
-      ctx.strokeStyle = rising ? "#3ddc97" : "#ff6b7a";
-      ctx.fillStyle = ctx.strokeStyle;
-      ctx.beginPath();
-      ctx.moveTo(x, y(bar.high));
-      ctx.lineTo(x, y(bar.low));
-      ctx.stroke();
-      const top = y(Math.max(bar.open, bar.close));
-      const bottom = y(Math.min(bar.open, bar.close));
-      ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
+    paintCandles(ctx, bars, xAt, y, slot);
+    stack.forEach((row) => {
+      strokeSeries(ctx, row.values.slice(dropped), xAt, y, row.color, row.length >= 100 ? 1.75 : 1.25);
     });
-    strokeSeries(ctx, lines.high, xAt, y, "#3ddc97", 2);
-    strokeSeries(ctx, lines.close, xAt, y, "#5b9dff", 2);
-    strokeSeries(ctx, lines.low, xAt, y, "#ff6b7a", 2);
+    if (options && options.averages === true) {
+      strokeSeries(ctx, lines.high, xAt, y, "#3ddc97", 1.5);
+      strokeSeries(ctx, lines.close, xAt, y, "#5b9dff", 1.5);
+      strokeSeries(ctx, lines.low, xAt, y, "#ff6b7a", 1.5);
+    }
     paintPivots(ctx, pivots, xAt, y, bars.length - 1);
     fitted.arrows.forEach((mark) => {
       const index = mark.index - dropped;
@@ -4972,6 +5021,8 @@ plot Sell = close crosses below baseline;</textarea>
     draw,
     intradayDay,
     averages,
+    stackAverages,
+    paintCandles,
     momentumTone,
     squeezeTone,
     squeezeName,
@@ -5074,7 +5125,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.46";
+const VERSION = "1.9.47";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -8362,6 +8413,7 @@ function drawCandles(retry) {
   const highLine = studyLines.high.slice(dropped);
   const midLine = studyLines.close.slice(dropped);
   const lowLine = studyLines.low.slice(dropped);
+  const stack = PaperFrames.stackAverages(history).map((row) => ({ ...row, values: row.values.slice(dropped) }));
   const pivots = PaperFrames.trendPivots(history);
   const layers = state.layers;
   const fast = layers.fastslow ? visible(state.market.fast) : [];
@@ -8377,7 +8429,9 @@ function drawCandles(retry) {
   const priceBottom = Math.min(height - 36, Math.max(72, Math.round(height * 0.72)));
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
-  [layers.averages ? highLine : [], layers.averages ? midLine : [], layers.averages ? lowLine : [], fast, slow].forEach((series) => {
+  [layers.averages ? highLine : [], layers.averages ? midLine : [], layers.averages ? lowLine : [], fast, slow]
+    .concat(layers.stack ? stack.map((row) => row.values) : [])
+    .forEach((series) => {
     series.forEach((value) => {
       if (value == null) return;
       if (value < low) low = value;
@@ -8409,6 +8463,7 @@ function drawCandles(retry) {
   const y = (price) => 16 + ((high - price) / (high - low)) * (priceBottom - 28);
   const slot = (width - pad - rightGap) / bars.length;
   const plotRight = width - rightGap;
+  const xAt = (index) => pad + index * slot + slot / 2;
   state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.strokeStyle = "#2d3640";
   ctx.fillStyle = "#9aa6b2";
@@ -8422,22 +8477,13 @@ function drawCandles(retry) {
     ctx.stroke();
     ctx.fillText(formatPrice(price), 4, line - 2);
   }
-  bars.forEach((bar, index) => {
-    const x = pad + index * slot + slot / 2;
-    const up = bar.close >= bar.open;
-    ctx.strokeStyle = up ? "#3ddc97" : "#ff6b7a";
-    ctx.fillStyle = ctx.strokeStyle;
-    ctx.beginPath();
-    ctx.moveTo(x, y(bar.high));
-    ctx.lineTo(x, y(bar.low));
-    ctx.stroke();
-    const top = y(Math.max(bar.open, bar.close));
-    const bottom = y(Math.min(bar.open, bar.close));
-    ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
-  });
+  PaperFrames.paintCandles(ctx, bars, xAt, y, slot);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
+  if (layers.stack) {
+    stack.forEach((row) => drawLine(ctx, row.values, y, pad, slot, row.color, row.length >= 100 ? 1.75 : 1.25));
+  }
   if (layers.averages) {
     drawLine(ctx, highLine, y, pad, slot, "#3ddc97", 2);
     drawLine(ctx, midLine, y, pad, slot, "#5b9dff", 2);
@@ -8657,7 +8703,8 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 
 const LAYERS = [
   ["edge", "Edge stop", "edgestop", true],
-  ["ema200", "200 EMA", "ema200", true],
+  ["stack", "SMA 5 · 9 · 21 · 50 · 100 · 200", "stack", true],
+  ["ema200", "200 EMA", "ema200", false],
   ["profile", "Volume + POC", "poc", true],
   ["vwap", "VWAP", "vwap", false],
   ["bands", "Bands", "band", false],
@@ -8816,30 +8863,34 @@ function drawTmo() {
   });
   ctx.setLineDash([]);
   for (let index = 1; index < main.length; index += 1) {
-    if (main[index] == null || signal[index] == null) continue;
+    if (main[index] == null || signal[index] == null || main[index - 1] == null || signal[index - 1] == null) continue;
     const left = pad + (index - 1) * slot + slot / 2;
     const right = pad + index * slot + slot / 2;
-    const top = Math.min(y(main[index]), y(signal[index]));
-    const bottom = Math.max(y(main[index]), y(signal[index]));
-    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.55)" : "rgba(122, 28, 40, 0.55)";
-    ctx.fillRect(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
+    ctx.beginPath();
+    ctx.moveTo(left, y(main[index - 1]));
+    ctx.lineTo(right, y(main[index]));
+    ctx.lineTo(right, y(signal[index]));
+    ctx.lineTo(left, y(signal[index - 1]));
+    ctx.closePath();
+    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.42)" : "rgba(122, 28, 40, 0.42)";
+    ctx.fill();
   }
   strokeOscillator(ctx, main, main, signal, y, pad, slot);
   strokeOscillator(ctx, signal, main, signal, y, pad, slot);
   up.forEach((mark, index) => {
-    if (!mark || main[index] == null || main[index] > 0) return;
+    if (!mark || main[index] == null) return;
     ctx.fillStyle = "#67e8f9";
-    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) + 11, true);
+    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) + 12, true);
   });
   down.forEach((mark, index) => {
-    if (!mark || main[index] == null || main[index] < 0) return;
-    ctx.fillStyle = "#ff6b7a";
-    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 11, false);
+    if (!mark || main[index] == null) return;
+    ctx.fillStyle = "#e879f9";
+    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 12, false);
   });
   const calls = currentEdge(history);
   if (calls && calls.ready) PaperFrames.drawEdgeCalls(ctx, calls.marks, dropped, view.bars.length, (index) => pad + index * slot + slot / 2, 14, height - 4, pad, plotRight);
   ctx.fillStyle = "#d7e2ea";
-  ctx.fillText("Momentum" + (calls && calls.ready ? " · Edge " + calls.call : ""), pad, 12);
+  ctx.fillText("True momentum 14/5/3" + (calls && calls.ready ? " · Edge " + calls.call : ""), pad, 12);
 }
 
 function strokeOscillator(ctx, values, lead, other, y, pad, slot) {

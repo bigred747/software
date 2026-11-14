@@ -378,6 +378,7 @@ button.quiet { background: transparent; }
 .swatch.high { background: #3ddc97; }
 .swatch.close { background: #5b9dff; }
 .swatch.low { background: #ff6b7a; }
+.swatch.stack { background: linear-gradient(90deg, #e879f9, #22d3ee, #f9a8d4, #94a3b8, #fb923c, #f87171); }
 .swatch.ema200 { background: #b48cff; }
 .swatch.vwap { background: #3fd0e0; }
 .swatch.poc { background: #ffd166; }

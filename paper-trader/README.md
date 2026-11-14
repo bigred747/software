@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Chart candles, SMA stack, and true momentum (1.9.47)
+
+Price candles are hollow on up bars and solid on down bars. A layer draws simple averages 5, 9, 21, 50, 100, and 200 on the chart's own bars. The lower panel is this desk's true momentum (14/5/3) with a Main/Signal cloud and arrows that mark crosses only after the bar closes. No third-party study source is included.
+
 ## Squeeze lists, journal orders, and chart Back (1.9.46)
 
 The squeeze scan has separate lists for all stocks, the 13 main ETFs, all futures, and all crypto in this desk's catalog. Names still appear as each market comes back. The Journal tab lists working limit, stop, and stop-limit paper orders for every market next to open positions and fills. Chart and timeframe windows have a Back button. This desk's squeeze uses its own high, mid, and low compression levels. It is not a third-party study and does not use third-party source.

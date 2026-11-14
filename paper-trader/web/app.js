@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.46";
+const VERSION = "1.9.47";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -3368,6 +3368,7 @@ function drawCandles(retry) {
   const highLine = studyLines.high.slice(dropped);
   const midLine = studyLines.close.slice(dropped);
   const lowLine = studyLines.low.slice(dropped);
+  const stack = PaperFrames.stackAverages(history).map((row) => ({ ...row, values: row.values.slice(dropped) }));
   const pivots = PaperFrames.trendPivots(history);
   const layers = state.layers;
   const fast = layers.fastslow ? visible(state.market.fast) : [];
@@ -3383,7 +3384,9 @@ function drawCandles(retry) {
   const priceBottom = Math.min(height - 36, Math.max(72, Math.round(height * 0.72)));
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
-  [layers.averages ? highLine : [], layers.averages ? midLine : [], layers.averages ? lowLine : [], fast, slow].forEach((series) => {
+  [layers.averages ? highLine : [], layers.averages ? midLine : [], layers.averages ? lowLine : [], fast, slow]
+    .concat(layers.stack ? stack.map((row) => row.values) : [])
+    .forEach((series) => {
     series.forEach((value) => {
       if (value == null) return;
       if (value < low) low = value;
@@ -3415,6 +3418,7 @@ function drawCandles(retry) {
   const y = (price) => 16 + ((high - price) / (high - low)) * (priceBottom - 28);
   const slot = (width - pad - rightGap) / bars.length;
   const plotRight = width - rightGap;
+  const xAt = (index) => pad + index * slot + slot / 2;
   state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.strokeStyle = "#2d3640";
   ctx.fillStyle = "#9aa6b2";
@@ -3428,22 +3432,13 @@ function drawCandles(retry) {
     ctx.stroke();
     ctx.fillText(formatPrice(price), 4, line - 2);
   }
-  bars.forEach((bar, index) => {
-    const x = pad + index * slot + slot / 2;
-    const up = bar.close >= bar.open;
-    ctx.strokeStyle = up ? "#3ddc97" : "#ff6b7a";
-    ctx.fillStyle = ctx.strokeStyle;
-    ctx.beginPath();
-    ctx.moveTo(x, y(bar.high));
-    ctx.lineTo(x, y(bar.low));
-    ctx.stroke();
-    const top = y(Math.max(bar.open, bar.close));
-    const bottom = y(Math.min(bar.open, bar.close));
-    ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
-  });
+  PaperFrames.paintCandles(ctx, bars, xAt, y, slot);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
+  if (layers.stack) {
+    stack.forEach((row) => drawLine(ctx, row.values, y, pad, slot, row.color, row.length >= 100 ? 1.75 : 1.25));
+  }
   if (layers.averages) {
     drawLine(ctx, highLine, y, pad, slot, "#3ddc97", 2);
     drawLine(ctx, midLine, y, pad, slot, "#5b9dff", 2);
@@ -3663,7 +3658,8 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 
 const LAYERS = [
   ["edge", "Edge stop", "edgestop", true],
-  ["ema200", "200 EMA", "ema200", true],
+  ["stack", "SMA 5 · 9 · 21 · 50 · 100 · 200", "stack", true],
+  ["ema200", "200 EMA", "ema200", false],
   ["profile", "Volume + POC", "poc", true],
   ["vwap", "VWAP", "vwap", false],
   ["bands", "Bands", "band", false],
@@ -3822,30 +3818,34 @@ function drawTmo() {
   });
   ctx.setLineDash([]);
   for (let index = 1; index < main.length; index += 1) {
-    if (main[index] == null || signal[index] == null) continue;
+    if (main[index] == null || signal[index] == null || main[index - 1] == null || signal[index - 1] == null) continue;
     const left = pad + (index - 1) * slot + slot / 2;
     const right = pad + index * slot + slot / 2;
-    const top = Math.min(y(main[index]), y(signal[index]));
-    const bottom = Math.max(y(main[index]), y(signal[index]));
-    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.55)" : "rgba(122, 28, 40, 0.55)";
-    ctx.fillRect(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
+    ctx.beginPath();
+    ctx.moveTo(left, y(main[index - 1]));
+    ctx.lineTo(right, y(main[index]));
+    ctx.lineTo(right, y(signal[index]));
+    ctx.lineTo(left, y(signal[index - 1]));
+    ctx.closePath();
+    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.42)" : "rgba(122, 28, 40, 0.42)";
+    ctx.fill();
   }
   strokeOscillator(ctx, main, main, signal, y, pad, slot);
   strokeOscillator(ctx, signal, main, signal, y, pad, slot);
   up.forEach((mark, index) => {
-    if (!mark || main[index] == null || main[index] > 0) return;
+    if (!mark || main[index] == null) return;
     ctx.fillStyle = "#67e8f9";
-    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) + 11, true);
+    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) + 12, true);
   });
   down.forEach((mark, index) => {
-    if (!mark || main[index] == null || main[index] < 0) return;
-    ctx.fillStyle = "#ff6b7a";
-    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 11, false);
+    if (!mark || main[index] == null) return;
+    ctx.fillStyle = "#e879f9";
+    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 12, false);
   });
   const calls = currentEdge(history);
   if (calls && calls.ready) PaperFrames.drawEdgeCalls(ctx, calls.marks, dropped, view.bars.length, (index) => pad + index * slot + slot / 2, 14, height - 4, pad, plotRight);
   ctx.fillStyle = "#d7e2ea";
-  ctx.fillText("Momentum" + (calls && calls.ready ? " · Edge " + calls.call : ""), pad, 12);
+  ctx.fillText("True momentum 14/5/3" + (calls && calls.ready ? " · Edge " + calls.call : ""), pad, 12);
 }
 
 function strokeOscillator(ctx, values, lead, other, y, pad, slot) {
