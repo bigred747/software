@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Squeeze lists, journal orders, and chart Back (1.9.46)
+
+The squeeze scan has separate lists for all stocks, the 13 main ETFs, all futures, and all crypto in this desk's catalog. Names still appear as each market comes back. The Journal tab lists working limit, stop, and stop-limit paper orders for every market next to open positions and fills. Chart and timeframe windows have a Back button. This desk's squeeze uses its own high, mid, and low compression levels. It is not a third-party study and does not use third-party source.
+
 ## Squeeze scan (1.9.45)
 
 The squeeze scan lists a market as soon as that market's daily bars come back, instead of waiting until the whole list is finished. While it is running, the daily scan, internals, and timeframe reads wait, so the squeeze scan is not stuck behind them. Each read is still one quote at a time. A feed that does not answer is skipped for the rest of that scan.

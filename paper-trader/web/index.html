@@ -34,7 +34,7 @@
       <span id="quote-mood" class="mood">—</span>
     </div>
     <p id="lede" class="lede">Loading the paper desk…</p>
-    <p id="open-help" class="open-help">On iPhone, open the Paper Trader web address in Safari. A github.com link to this file shows the code and does not run the app. If you saved PaperTrader.html, open the Files app, tap Share, then Edge.</p>
+    <p id="open-help" class="open-help">On iPhone, open the Paper Trader web address in Safari. Tap Share, then Add to Home Screen so the desk opens like an app and you stay signed in. A github.com link to this file shows the code and does not run the app. If you saved PaperTrader.html, open the Files app, tap Share, then Edge.</p>
     <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
   </header>
 
@@ -70,6 +70,7 @@
 
     <section id="view-chart" class="panel chart-panel" aria-label="Chart">
       <div class="chart-head">
+        <button id="chart-back" type="button" class="quiet chart-back">Back</button>
         <h2 id="chart-title">Chart</h2>
         <p id="legend" class="legend"></p>
       </div>
@@ -88,7 +89,7 @@
       <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line and a signal line. Its arrows mark only zero-line crosses after the bar closes: a buy cross at or below zero and a sell cross at or above zero. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. Layers picks what the chart draws. The clean view shows the candles, your paper trades, the Edge stop, the 200-day EMA, and the volume profile, and the legend names only what is on. The violet line is the 200-day EMA, the dashed cyan line is the 20-day volume-weighted average price (VWAP), the dotted gray lines are the Bollinger bands (20 days, two deviations), and the bars on the left are the volume profile of the last 120 days, with the brighter bars in the value area where 70% of the volume traded and the dashed gold line at the point of control (POC), the price with the most volume. A feed with no volume shows no VWAP or profile instead of a guess. Tap a candle to drop a vertical price line on that bar. The close is marked on the right. Dark pool books, iceberg orders, and institutional blotters are private; B4 readings show public-tape proxies such as relative volume and absorption, and those lines do not paint arrows. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line and a signal line. Its arrows mark only zero-line crosses after the bar closes: a buy cross at or below zero and a sell cross at or above zero. Dots show this desk's squeeze compression: orange high, red mid, black low, green off. Arrows touching the candle are paper orders. Layers picks what the chart draws. The clean view shows the candles, your paper trades, the Edge stop, the 200-day EMA, and the volume profile, and the legend names only what is on. The violet line is the 200-day EMA, the dashed cyan line is the 20-day volume-weighted average price (VWAP), the dotted gray lines are the Bollinger bands (20 days, two deviations), and the bars on the left are the volume profile of the last 120 days, with the brighter bars in the value area where 70% of the volume traded and the dashed gold line at the point of control (POC), the price with the most volume. A feed with no volume shows no VWAP or profile instead of a guess. Tap a candle to drop a vertical price line on that bar. The close is marked on the right. Dark pool books, iceberg orders, and institutional blotters are private; B4 readings show public-tape proxies such as relative volume and absorption, and those lines do not paint arrows. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
       </details>
     </section>
 
@@ -310,14 +311,16 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="squeeze">
         <h2>Squeeze scan</h2>
-        <p class="muted">Finds markets where the Bollinger Bands sit inside the Keltner Channels, or left them in the last three bars, and ranks them on closed daily bars. Points: squeeze on or just fired, energy built over more bars, a tight squeeze, moving averages stacked with momentum, a clean squeeze, momentum building, a weekly squeeze too, and the same squeeze in the stock, its sector fund, and its index fund. The ranking looks backward. It is not a forecast.</p>
+        <p class="muted">This desk's own squeeze: Bollinger Bands inside Keltner Channels at three compression levels (high, mid, low), or just left them. It ranks closed daily bars on squeeze on or just fired, energy built, compression level, averages stacked with momentum, a clean squeeze, momentum building, a weekly squeeze too, and the same squeeze in the stock, its sector fund, and its index fund. The ranking looks backward. It is not a forecast. It is not a third-party study.</p>
         <div class="strat-orb-inputs">
           <label for="sq-list">List</label>
           <select id="sq-list">
+            <option value="stocks">All stocks</option>
+            <option value="main_etfs">13 main ETFs</option>
+            <option value="futures">All futures</option>
+            <option value="crypto">All crypto</option>
             <option value="starter">Starter list</option>
             <option value="sectors">Sector funds and big holdings</option>
-            <option value="crypto">Crypto</option>
-            <option value="futures">Futures</option>
             <option value="custom">My own list</option>
           </select>
           <input id="sq-custom" type="text" maxlength="400" placeholder="BTC-USD, NVDA, XLK" aria-label="Your own list of symbols, separated by commas">
@@ -330,11 +333,11 @@ plot Sell = close crosses below baseline;</textarea>
           <button id="sq-scan" type="button">Scan now</button>
           <button id="sq-stop" type="button" class="quiet">Stop</button>
         </div>
-        <p id="sq-note" class="muted">Press Scan now. Each market is read from its real daily bars. Nothing is guessed.</p>
+        <p id="sq-note" class="muted">Press Scan now. Names show up as each market comes back. Large lists take longer. Nothing is guessed.</p>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>#</th><th>Market</th><th>State</th><th>Dots</th><th>Averages</th><th>Momentum</th><th>Weekly</th><th>Triple</th><th>Score</th><th></th></tr>
+              <tr><th>#</th><th>Market</th><th>State</th><th>Level</th><th>Dots</th><th>Averages</th><th>Momentum</th><th>Weekly</th><th>Triple</th><th>Score</th><th></th></tr>
             </thead>
             <tbody id="sq-body"></tbody>
           </table>
@@ -412,6 +415,16 @@ plot Sell = close crosses below baseline;</textarea>
           </table>
         </div>
         <p id="book-total" class="muted"></p>
+        <h2>Working orders</h2>
+        <p class="muted">Limit, stop, and stop-limit paper orders across every market you are trading. Cancel here or on the Trade ticket.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Market</th><th>Id</th><th>Side</th><th>Type</th><th>Stop</th><th>Limit</th><th>TIF</th><th></th></tr>
+            </thead>
+            <tbody id="journal-working-body"></tbody>
+          </table>
+        </div>
         <h2>Every fill</h2>
         <div class="table-wrap">
           <table>

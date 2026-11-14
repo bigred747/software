@@ -312,6 +312,10 @@ button.quiet { background: transparent; }
 .dot.on { background: var(--up); }
 
 .chart-head, .legend { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.chart-head { flex-wrap: wrap; }
+.chart-back { display: none; min-height: 36px; width: auto; }
+.frame-head { display: flex; align-items: center; gap: 12px; }
+.frame-head h1 { margin: 0; }
 .legend, .chart-note { margin: 0; font-size: 12px; }
 .chart-note { margin-top: 6px; }
 .chart-fold { margin-top: 6px; }
@@ -521,6 +525,7 @@ footer { display: none; }
     overflow: hidden;
     padding: 8px 10px 6px;
   }
+  body[data-tab="chart"] .chart-back { display: inline-flex; }
   body[data-tab="chart"] .chart-head { flex-wrap: wrap; gap: 2px 8px; margin: 0; }
   body[data-tab="chart"] .legend { flex: 1 0 100%; font-size: 11px; white-space: nowrap; overflow: hidden; }
   body[data-tab="chart"] .legend { white-space: normal; overflow: visible; gap: 2px 8px; }

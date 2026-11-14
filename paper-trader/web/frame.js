@@ -70,4 +70,15 @@ document.getElementById("frame-chart").addEventListener("wheel", (event) => {
   paint();
 }, { passive: false });
 
+const frameBack = document.getElementById("frame-back");
+if (frameBack) {
+  frameBack.addEventListener("click", () => {
+    if (window.opener && !window.opener.closed) {
+      window.close();
+      return;
+    }
+    location.href = "/";
+  });
+}
+
 window.addEventListener("resize", paint);

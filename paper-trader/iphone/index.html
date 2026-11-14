@@ -326,6 +326,10 @@ button.quiet { background: transparent; }
 .dot.on { background: var(--up); }
 
 .chart-head, .legend { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.chart-head { flex-wrap: wrap; }
+.chart-back { display: none; min-height: 36px; width: auto; }
+.frame-head { display: flex; align-items: center; gap: 12px; }
+.frame-head h1 { margin: 0; }
 .legend, .chart-note { margin: 0; font-size: 12px; }
 .chart-note { margin-top: 6px; }
 .chart-fold { margin-top: 6px; }
@@ -535,6 +539,7 @@ footer { display: none; }
     overflow: hidden;
     padding: 8px 10px 6px;
   }
+  body[data-tab="chart"] .chart-back { display: inline-flex; }
   body[data-tab="chart"] .chart-head { flex-wrap: wrap; gap: 2px 8px; margin: 0; }
   body[data-tab="chart"] .legend { flex: 1 0 100%; font-size: 11px; white-space: nowrap; overflow: hidden; }
   body[data-tab="chart"] .legend { white-space: normal; overflow: visible; gap: 2px 8px; }
@@ -724,7 +729,7 @@ tr.picked td:first-child{box-shadow:inset 3px 0 0 #6ea8ff;font-weight:700}
       <span id="quote-mood" class="mood">—</span>
     </div>
     <p id="lede" class="lede">Loading the paper desk…</p>
-    <p id="open-help" class="open-help">On iPhone, open the Paper Trader web address in Safari. A github.com link to this file shows the code and does not run the app. If you saved PaperTrader.html, open the Files app, tap Share, then Edge.</p>
+    <p id="open-help" class="open-help">On iPhone, open the Paper Trader web address in Safari. Tap Share, then Add to Home Screen so the desk opens like an app and you stay signed in. A github.com link to this file shows the code and does not run the app. If you saved PaperTrader.html, open the Files app, tap Share, then Edge.</p>
     <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
   </header>
 
@@ -760,6 +765,7 @@ tr.picked td:first-child{box-shadow:inset 3px 0 0 #6ea8ff;font-weight:700}
 
     <section id="view-chart" class="panel chart-panel" aria-label="Chart">
       <div class="chart-head">
+        <button id="chart-back" type="button" class="quiet chart-back">Back</button>
         <h2 id="chart-title">Chart</h2>
         <p id="legend" class="legend"></p>
       </div>
@@ -778,7 +784,7 @@ tr.picked td:first-child{box-shadow:inset 3px 0 0 #6ea8ff;font-weight:700}
       <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line and a signal line. Its arrows mark only zero-line crosses after the bar closes: a buy cross at or below zero and a sell cross at or above zero. Dots show squeeze compression: orange high, red mid, gray wide, green off. Arrows touching the candle are paper orders. Layers picks what the chart draws. The clean view shows the candles, your paper trades, the Edge stop, the 200-day EMA, and the volume profile, and the legend names only what is on. The violet line is the 200-day EMA, the dashed cyan line is the 20-day volume-weighted average price (VWAP), the dotted gray lines are the Bollinger bands (20 days, two deviations), and the bars on the left are the volume profile of the last 120 days, with the brighter bars in the value area where 70% of the volume traded and the dashed gold line at the point of control (POC), the price with the most volume. A feed with no volume shows no VWAP or profile instead of a guess. Tap a candle to drop a vertical price line on that bar. The close is marked on the right. Dark pool books, iceberg orders, and institutional blotters are private; B4 readings show public-tape proxies such as relative volume and absorption, and those lines do not paint arrows. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
+        <p class="muted chart-note">Candles are green when the close is at or above the open, and red when it is below. Green, blue, and red lines are the high, close, and low averages. The red resistance line and green support line mark the latest pivot. The line beside each one is the confirmation, and a dashed line is the risk-off. The panel under the price is momentum. The lower study is true momentum, with a main line and a signal line. Its arrows mark only zero-line crosses after the bar closes: a buy cross at or below zero and a sell cross at or above zero. Dots show this desk's squeeze compression: orange high, red mid, black low, green off. Arrows touching the candle are paper orders. Layers picks what the chart draws. The clean view shows the candles, your paper trades, the Edge stop, the 200-day EMA, and the volume profile, and the legend names only what is on. The violet line is the 200-day EMA, the dashed cyan line is the 20-day volume-weighted average price (VWAP), the dotted gray lines are the Bollinger bands (20 days, two deviations), and the bars on the left are the volume profile of the last 120 days, with the brighter bars in the value area where 70% of the volume traded and the dashed gold line at the point of control (POC), the price with the most volume. A feed with no volume shows no VWAP or profile instead of a guess. Tap a candle to drop a vertical price line on that bar. The close is marked on the right. Dark pool books, iceberg orders, and institutional blotters are private; B4 readings show public-tape proxies such as relative volume and absorption, and those lines do not paint arrows. The amber step line is the Edge trailing stop while Edge holds. A green dot is an Edge buy at that open and a red dot is an Edge sell at that open. Arrows farther out are the lesson from closed bars, and that score is not a forecast. Fear or greed is where the last close sits in the recent range. The computer keeps scoring closed bars after this window closes, and it starts again when you sign in to Windows, while the computer is on and you are signed in. Zoom in and Zoom out change how many bars this chart and the study under it show.</p>
       </details>
     </section>
 
@@ -1000,14 +1006,16 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="squeeze">
         <h2>Squeeze scan</h2>
-        <p class="muted">Finds markets where the Bollinger Bands sit inside the Keltner Channels, or left them in the last three bars, and ranks them on closed daily bars. Points: squeeze on or just fired, energy built over more bars, a tight squeeze, moving averages stacked with momentum, a clean squeeze, momentum building, a weekly squeeze too, and the same squeeze in the stock, its sector fund, and its index fund. The ranking looks backward. It is not a forecast.</p>
+        <p class="muted">This desk's own squeeze: Bollinger Bands inside Keltner Channels at three compression levels (high, mid, low), or just left them. It ranks closed daily bars on squeeze on or just fired, energy built, compression level, averages stacked with momentum, a clean squeeze, momentum building, a weekly squeeze too, and the same squeeze in the stock, its sector fund, and its index fund. The ranking looks backward. It is not a forecast. It is not a third-party study.</p>
         <div class="strat-orb-inputs">
           <label for="sq-list">List</label>
           <select id="sq-list">
+            <option value="stocks">All stocks</option>
+            <option value="main_etfs">13 main ETFs</option>
+            <option value="futures">All futures</option>
+            <option value="crypto">All crypto</option>
             <option value="starter">Starter list</option>
             <option value="sectors">Sector funds and big holdings</option>
-            <option value="crypto">Crypto</option>
-            <option value="futures">Futures</option>
             <option value="custom">My own list</option>
           </select>
           <input id="sq-custom" type="text" maxlength="400" placeholder="BTC-USD, NVDA, XLK" aria-label="Your own list of symbols, separated by commas">
@@ -1020,11 +1028,11 @@ plot Sell = close crosses below baseline;</textarea>
           <button id="sq-scan" type="button">Scan now</button>
           <button id="sq-stop" type="button" class="quiet">Stop</button>
         </div>
-        <p id="sq-note" class="muted">Press Scan now. Each market is read from its real daily bars. Nothing is guessed.</p>
+        <p id="sq-note" class="muted">Press Scan now. Names show up as each market comes back. Large lists take longer. Nothing is guessed.</p>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>#</th><th>Market</th><th>State</th><th>Dots</th><th>Averages</th><th>Momentum</th><th>Weekly</th><th>Triple</th><th>Score</th><th></th></tr>
+              <tr><th>#</th><th>Market</th><th>State</th><th>Level</th><th>Dots</th><th>Averages</th><th>Momentum</th><th>Weekly</th><th>Triple</th><th>Score</th><th></th></tr>
             </thead>
             <tbody id="sq-body"></tbody>
           </table>
@@ -1102,6 +1110,16 @@ plot Sell = close crosses below baseline;</textarea>
           </table>
         </div>
         <p id="book-total" class="muted"></p>
+        <h2>Working orders</h2>
+        <p class="muted">Limit, stop, and stop-limit paper orders across every market you are trading. Cancel here or on the Trade ticket.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Market</th><th>Id</th><th>Side</th><th>Type</th><th>Stop</th><th>Limit</th><th>TIF</th><th></th></tr>
+            </thead>
+            <tbody id="journal-working-body"></tbody>
+          </table>
+        </div>
         <h2>Every fill</h2>
         <div class="table-wrap">
           <table>
@@ -3046,7 +3064,7 @@ plot Sell = close crosses below baseline;</textarea>
   function squeezeTone(level) {
     if (level >= 3) return "#ff9f1c";
     if (level === 2) return "#ff4d4d";
-    if (level === 1) return "#c5d0dc";
+    if (level === 1) return "#101418";
     return "#3ddc97";
   }
 
@@ -3072,7 +3090,7 @@ plot Sell = close crosses below baseline;</textarea>
   function squeezeName(level) {
     if (level >= 3) return "High";
     if (level === 2) return "Mid";
-    if (level === 1) return "Wide";
+    if (level === 1) return "Low";
     return "Off";
   }
 
@@ -4640,7 +4658,7 @@ plot Sell = close crosses below baseline;</textarea>
     };
     add(row.state === "ON" ? "Squeeze on" : "Just fired", row.state === "ON" ? 30 : 25);
     add("Energy built (dots)", Math.round((Math.min(row.dots, 8) / 8) * 10));
-    add("Tight squeeze", row.level >= 3 ? 5 : 0);
+    add(row.level >= 3 ? "High compression" : row.level === 2 ? "Mid compression" : row.level === 1 ? "Low compression" : "", row.level >= 3 ? 10 : row.level === 2 ? 5 : row.level === 1 ? 2 : 0);
     const aligned = (row.direction === "bull" && row.stack === "positive") || (row.direction === "bear" && row.stack === "negative");
     add("Averages stacked with momentum", aligned ? 20 : 0);
     add("Clean squeeze, momentum never crossed", row.clean ? 10 : 0);
@@ -5056,7 +5074,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.45";
+const VERSION = "1.9.46";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -5217,7 +5235,13 @@ async function paperCall(path, body) {
     return PaperEngine.place(state.session, params, PAPER_SLIP_BPS, denverDay());
   }
   if (path === "/api/paper/cancel") {
-    return PaperEngine.cancel(state.session, params.id);
+    const symbol = params.symbol || (state.session && state.session.symbol) || "";
+    const target = (state.book && state.book[symbol]) || state.session;
+    if (!target) throw new Error("That working order was not found");
+    const view = PaperEngine.cancel(target, params.id);
+    writeBook();
+    if (state.session && state.session.symbol === target.symbol) return view;
+    return state.session ? PaperEngine.view(state.session) : view;
   }
   if (path === "/api/paper/trade") {
     await loadPhoneBars(state.session.symbol, state.session.params, false);
@@ -6392,12 +6416,7 @@ function showRead(text) {
 
 function showChart() {
   const narrow = window.matchMedia("(max-width: 980px)").matches;
-  if (narrow) {
-    document.body.dataset.tab = "chart";
-    document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
-      button.classList.toggle("on", button.dataset.tab === "chart");
-    });
-  }
+  if (narrow) showPhoneTab("chart");
   requestAnimationFrame(() => {
     if (state.market && state.paper) {
       drawCandles();
@@ -6609,7 +6628,7 @@ function writeOfflineFrame(win, frameId) {
   const moodLine = tone && tone.score != null ? " " + tone.label + " " + tone.score + "." : "";
   win.document.open();
   const quoteLine = bars.length ? "Market quote." : "Loading the market quote.";
-  win.document.write("<!DOCTYPE html><title>Timeframe</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px 0\"></p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
+  win.document.write("<!DOCTYPE html><title>Timeframe</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p style=\"padding:12px 16px 0\"><button id=\"back\" type=\"button\">Back</button></p><p id=\"note\" style=\"padding:4px 16px 0\"></p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
   win.document.close();
   win.document.title = heading;
   const note = win.document.getElementById("note");
@@ -6629,6 +6648,8 @@ function writeOfflineFrame(win, frameId) {
     if (inn) inn.disabled = view.atMin;
     if (out) out.disabled = view.atMax;
   };
+  const back = win.document.getElementById("back");
+  if (back) back.addEventListener("click", () => win.close());
   const inn = win.document.getElementById("in");
   const out = win.document.getElementById("out");
   if (inn) inn.addEventListener("click", () => {
@@ -6980,11 +7001,12 @@ function denverStamp(seconds) {
 function phoneBook() {
   const saved = readBook();
   const live = state.book || {};
-  const out = { positions: [], fills: [], markets: 0, total_pnl: 0 };
+  const out = { positions: [], fills: [], working: [], markets: 0, total_pnl: 0 };
   new Set(Object.keys(saved).concat(Object.keys(live))).forEach((symbol) => {
     const session = live[symbol];
     const snap = session ? PaperEngine.snapshot(session) : saved[symbol];
-    if (!snap || !(snap.shares > 0 || (snap.fills && snap.fills.length))) return;
+    const working = (snap && snap.working) || [];
+    if (!snap || !(snap.shares > 0 || (snap.fills && snap.fills.length) || working.length)) return;
     out.markets += 1;
     const last = session && session.bars.length ? session.bars[session.bars.length - 1].close : snap.last;
     const start = Number(snap.params && snap.params.cash) || 0;
@@ -6993,10 +7015,12 @@ function phoneBook() {
     if (snap.shares > 0) {
       out.positions.push({ symbol, shares: snap.shares, entry: snap.entryPrice, last, pnl: last && snap.entryPrice ? snap.shares * (last - snap.entryPrice) : null, current: !!session, opened: snap.entryDate, source: "fill" });
     }
+    working.forEach((ticket) => out.working.push({ ...ticket, symbol }));
     (snap.fills || []).forEach((item) => out.fills.push(item));
   });
   out.fills.sort((a, b) => (b.at || 0) - (a.at || 0));
   out.fills = out.fills.slice(0, 300);
+  out.working.sort((a, b) => String(a.symbol).localeCompare(String(b.symbol)) || String(a.id).localeCompare(String(b.id)));
   return out;
 }
 
@@ -7022,13 +7046,16 @@ function addCells(row, values) {
 function renderBook(paper) {
   const positions = $("positions-body");
   const fills = $("fills-body");
+  const workingBody = $("journal-working-body");
   if (!positions || !fills) return;
   const book = state.offline ? phoneBook() : (paper && paper.book) || null;
   if (!book) return;
-  const stamp = JSON.stringify([book.positions, book.fills.length, book.fills[0] || null, book.total_pnl, state.offline]);
+  const working = book.working || [];
+  const stamp = JSON.stringify([book.positions, working, book.fills.length, book.fills[0] || null, book.total_pnl, state.offline]);
   if (sameStamp(positions, stamp)) return;
   positions.replaceChildren();
   fills.replaceChildren();
+  if (workingBody) workingBody.replaceChildren();
   book.positions.forEach((item) => {
     const row = document.createElement("tr");
     const tone = item.pnl > 0 ? "up" : item.pnl < 0 ? "down" : "";
@@ -7046,6 +7073,38 @@ function renderBook(paper) {
     const row = document.createElement("tr");
     addCells(row, ["No open positions. A buy appears here at once, in every market you traded.", "", "", "", "", ""]);
     positions.appendChild(row);
+  }
+  if (workingBody) {
+    working.forEach((order) => {
+      const row = document.createElement("tr");
+      const kind = order.kind === "stop_limit" ? "STP LMT" : String(order.kind || "").toUpperCase();
+      addCells(row, [
+        order.symbol || "",
+        order.id,
+        { text: String(order.side || "").toUpperCase(), cls: order.side === "buy" ? "up" : "down" },
+        kind,
+        order.stop > 0 ? formatPrice(order.stop) : "—",
+        order.limit > 0 ? formatPrice(order.limit) : "—",
+        order.tif || "—",
+        "",
+      ]);
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "quiet";
+      cancel.textContent = "Cancel";
+      cancel.addEventListener("click", () => withBusy(async () => {
+        const next = await paperCall("/api/paper/cancel", { id: order.id, symbol: order.symbol });
+        render(next);
+        $("status").textContent = "Canceled working paper order " + order.id + " on " + (order.symbol || "this market") + ".";
+      }));
+      row.lastChild.appendChild(cancel);
+      workingBody.appendChild(row);
+    });
+    if (!working.length) {
+      const row = document.createElement("tr");
+      addCells(row, ["No working limit, stop, or stop-limit orders. They show here for every market.", "", "", "", "", "", "", ""]);
+      workingBody.appendChild(row);
+    }
   }
   book.fills.forEach((item) => {
     const row = document.createElement("tr");
@@ -7069,7 +7128,7 @@ function renderBook(paper) {
   const total = $("book-total");
   if (total) {
     total.textContent = book.markets
-      ? "Across " + book.markets + " market" + (book.markets === 1 ? "" : "s") + ": " + moneyText(book.total_pnl) + " paper profit or loss so far. Each market has its own paper account." + (state.offline ? " Saved in this browser only." : " Saved on this computer.")
+      ? "Across " + book.markets + " market" + (book.markets === 1 ? "" : "s") + ": " + moneyText(book.total_pnl) + " paper profit or loss so far. " + working.length + " working order" + (working.length === 1 ? "" : "s") + ". Each market has its own paper account." + (state.offline ? " Saved in this browser only." : " Saved on this computer.")
       : "Nothing traded yet.";
   }
 }
@@ -7745,12 +7804,37 @@ async function runSafe(manual) {
 }
 
 
+const MAIN_ETFS = ["SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB"];
+
 const SQ_LISTS = {
   starter: ["BTC-USD", "ETH-USD", "XRP-USD", "ES", "NQ", "YM", "RTY", "GC", "CL", "ZN", "SPY", "QQQ", "IWM", "DIA", "XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "SMH", "NVDA", "MSFT", "AAPL", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "AMD", "JPM", "HOOD", "DASH", "CRCL", "GE", "CAT", "XOM", "LLY", "WMT", "COST"],
   sectors: ["SPY", "QQQ", "XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "SMH", "NVDA", "MSFT", "AAPL", "AVGO", "AMD", "AMZN", "TSLA", "DASH", "JPM", "HOOD", "V", "MA", "CRCL", "GE", "CAT", "HON", "BA", "LMT", "XOM", "CVX", "LLY", "WMT", "COST"],
+  main_etfs: MAIN_ETFS.slice(),
   crypto: ["BTC-USD", "ETH-USD", "XRP-USD", "SOL-USD", "XLM-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "LINK-USD", "AVAX-USD", "DOT-USD", "BCH-USD"],
   futures: ["ES", "NQ", "YM", "RTY", "CL", "GC", "SI", "NG", "ZN", "ZB", "6E", "ZC", "ZS", "ZW"],
 };
+
+function catalogByKind(kind) {
+  return (state.catalog || []).filter((row) => row.category === kind).map((row) => row.symbol);
+}
+
+function sqCatalogList(kind) {
+  if (kind === "stocks") return catalogByKind("stock");
+  if (kind === "crypto") {
+    const all = catalogByKind("crypto");
+    return all.length ? all : SQ_LISTS.crypto.slice();
+  }
+  if (kind === "futures") {
+    const all = catalogByKind("future");
+    return all.length ? all : SQ_LISTS.futures.slice();
+  }
+  if (kind === "main_etfs") {
+    const known = new Set(catalogByKind("etf"));
+    const listed = MAIN_ETFS.filter((symbol) => !known.size || known.has(symbol));
+    return listed.length ? listed : MAIN_ETFS.slice();
+  }
+  return SQ_LISTS[kind] || SQ_LISTS.starter;
+}
 
 const SQ_SECTOR = {
   NVDA: "XLK", MSFT: "XLK", AAPL: "XLK", AVGO: "XLK", AMD: "XLK",
@@ -7774,7 +7858,7 @@ function sqSymbols() {
   if (kind === "custom") {
     list = ($("sq-custom").value || "").toUpperCase().split(/[\s,;]+/).filter((item) => /^[A-Z0-9.^=-]{1,12}$/.test(item));
   } else {
-    list = SQ_LISTS[kind] || SQ_LISTS.starter;
+    list = sqCatalogList(kind);
   }
   const seen = new Set();
   const out = [];
@@ -7784,7 +7868,7 @@ function sqSymbols() {
       out.push(symbol);
     }
   });
-  return out.slice(0, 80);
+  return kind === "custom" ? out.slice(0, 80) : out;
 }
 
 async function sqDaily(symbol) {
@@ -7894,6 +7978,7 @@ function renderSqueeze() {
       String(index + 1),
       row.symbol,
       read.state === "ON" ? "On" : "Fired " + (read.firedAgo === 0 ? "now" : read.firedAgo + " bar" + (read.firedAgo === 1 ? "" : "s") + " ago"),
+      PaperFrames.squeezeName(read.level || 0),
       String(read.dots),
       read.stack === "positive" ? "Stacked up" : read.stack === "negative" ? "Stacked down" : "Mixed",
       (read.direction === "bull" ? "Above zero" : "Below zero") + (read.clean ? ", clean" : "") + (read.rising ? ", building" : ""),
@@ -7907,7 +7992,7 @@ function renderSqueeze() {
   });
   if (!shown.length && !sq.progress) {
     const tr = document.createElement("tr");
-    addCells(tr, ["", "No squeezes on this side right now. A quiet list is a normal answer.", "", "", "", "", "", "", "", ""]);
+    addCells(tr, ["", "No squeezes on this side right now. A quiet list is a normal answer.", "", "", "", "", "", "", "", "", ""]);
     body.appendChild(tr);
   }
   const when = new Date(sq.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
@@ -9475,16 +9560,31 @@ $("study-list").addEventListener("change", () => {
 $("frames-all").addEventListener("click", () => openAllFrames());
 $("brief-window").addEventListener("click", () => openBrief());
 
+function showPhoneTab(name) {
+  document.body.dataset.tab = name;
+  document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
+  if (state.market && state.paper && (name === "chart" || name === "study")) {
+    drawCandles();
+    drawTmo();
+  }
+}
+
 document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
-  button.addEventListener("click", () => {
-    document.body.dataset.tab = button.dataset.tab;
-    document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item === button));
-    if (state.market && state.paper) {
-      drawCandles();
-      drawTmo();
-    }
-  });
+  button.addEventListener("click", () => showPhoneTab(button.dataset.tab));
 });
+
+const chartBack = $("chart-back");
+if (chartBack) {
+  chartBack.addEventListener("click", () => {
+    if (window.matchMedia("(max-width: 980px)").matches) {
+      showPhoneTab("markets");
+      $("status").textContent = "Back to markets.";
+      return;
+    }
+    showDock("journal");
+    $("status").textContent = "Journal is open.";
+  });
+}
 
 const signalSum = $("signal-sum");
 if (signalSum) signalSum.addEventListener("click", () => showDock("signals"));

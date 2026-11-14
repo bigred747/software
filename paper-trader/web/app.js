@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.45";
+const VERSION = "1.9.46";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -241,7 +241,13 @@ async function paperCall(path, body) {
     return PaperEngine.place(state.session, params, PAPER_SLIP_BPS, denverDay());
   }
   if (path === "/api/paper/cancel") {
-    return PaperEngine.cancel(state.session, params.id);
+    const symbol = params.symbol || (state.session && state.session.symbol) || "";
+    const target = (state.book && state.book[symbol]) || state.session;
+    if (!target) throw new Error("That working order was not found");
+    const view = PaperEngine.cancel(target, params.id);
+    writeBook();
+    if (state.session && state.session.symbol === target.symbol) return view;
+    return state.session ? PaperEngine.view(state.session) : view;
   }
   if (path === "/api/paper/trade") {
     await loadPhoneBars(state.session.symbol, state.session.params, false);
@@ -1416,12 +1422,7 @@ function showRead(text) {
 
 function showChart() {
   const narrow = window.matchMedia("(max-width: 980px)").matches;
-  if (narrow) {
-    document.body.dataset.tab = "chart";
-    document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
-      button.classList.toggle("on", button.dataset.tab === "chart");
-    });
-  }
+  if (narrow) showPhoneTab("chart");
   requestAnimationFrame(() => {
     if (state.market && state.paper) {
       drawCandles();
@@ -1633,7 +1634,7 @@ function writeOfflineFrame(win, frameId) {
   const moodLine = tone && tone.score != null ? " " + tone.label + " " + tone.score + "." : "";
   win.document.open();
   const quoteLine = bars.length ? "Market quote." : "Loading the market quote.";
-  win.document.write("<!DOCTYPE html><title>Timeframe</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px 0\"></p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
+  win.document.write("<!DOCTYPE html><title>Timeframe</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p style=\"padding:12px 16px 0\"><button id=\"back\" type=\"button\">Back</button></p><p id=\"note\" style=\"padding:4px 16px 0\"></p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
   win.document.close();
   win.document.title = heading;
   const note = win.document.getElementById("note");
@@ -1653,6 +1654,8 @@ function writeOfflineFrame(win, frameId) {
     if (inn) inn.disabled = view.atMin;
     if (out) out.disabled = view.atMax;
   };
+  const back = win.document.getElementById("back");
+  if (back) back.addEventListener("click", () => win.close());
   const inn = win.document.getElementById("in");
   const out = win.document.getElementById("out");
   if (inn) inn.addEventListener("click", () => {
@@ -2004,11 +2007,12 @@ function denverStamp(seconds) {
 function phoneBook() {
   const saved = readBook();
   const live = state.book || {};
-  const out = { positions: [], fills: [], markets: 0, total_pnl: 0 };
+  const out = { positions: [], fills: [], working: [], markets: 0, total_pnl: 0 };
   new Set(Object.keys(saved).concat(Object.keys(live))).forEach((symbol) => {
     const session = live[symbol];
     const snap = session ? PaperEngine.snapshot(session) : saved[symbol];
-    if (!snap || !(snap.shares > 0 || (snap.fills && snap.fills.length))) return;
+    const working = (snap && snap.working) || [];
+    if (!snap || !(snap.shares > 0 || (snap.fills && snap.fills.length) || working.length)) return;
     out.markets += 1;
     const last = session && session.bars.length ? session.bars[session.bars.length - 1].close : snap.last;
     const start = Number(snap.params && snap.params.cash) || 0;
@@ -2017,10 +2021,12 @@ function phoneBook() {
     if (snap.shares > 0) {
       out.positions.push({ symbol, shares: snap.shares, entry: snap.entryPrice, last, pnl: last && snap.entryPrice ? snap.shares * (last - snap.entryPrice) : null, current: !!session, opened: snap.entryDate, source: "fill" });
     }
+    working.forEach((ticket) => out.working.push({ ...ticket, symbol }));
     (snap.fills || []).forEach((item) => out.fills.push(item));
   });
   out.fills.sort((a, b) => (b.at || 0) - (a.at || 0));
   out.fills = out.fills.slice(0, 300);
+  out.working.sort((a, b) => String(a.symbol).localeCompare(String(b.symbol)) || String(a.id).localeCompare(String(b.id)));
   return out;
 }
 
@@ -2046,13 +2052,16 @@ function addCells(row, values) {
 function renderBook(paper) {
   const positions = $("positions-body");
   const fills = $("fills-body");
+  const workingBody = $("journal-working-body");
   if (!positions || !fills) return;
   const book = state.offline ? phoneBook() : (paper && paper.book) || null;
   if (!book) return;
-  const stamp = JSON.stringify([book.positions, book.fills.length, book.fills[0] || null, book.total_pnl, state.offline]);
+  const working = book.working || [];
+  const stamp = JSON.stringify([book.positions, working, book.fills.length, book.fills[0] || null, book.total_pnl, state.offline]);
   if (sameStamp(positions, stamp)) return;
   positions.replaceChildren();
   fills.replaceChildren();
+  if (workingBody) workingBody.replaceChildren();
   book.positions.forEach((item) => {
     const row = document.createElement("tr");
     const tone = item.pnl > 0 ? "up" : item.pnl < 0 ? "down" : "";
@@ -2070,6 +2079,38 @@ function renderBook(paper) {
     const row = document.createElement("tr");
     addCells(row, ["No open positions. A buy appears here at once, in every market you traded.", "", "", "", "", ""]);
     positions.appendChild(row);
+  }
+  if (workingBody) {
+    working.forEach((order) => {
+      const row = document.createElement("tr");
+      const kind = order.kind === "stop_limit" ? "STP LMT" : String(order.kind || "").toUpperCase();
+      addCells(row, [
+        order.symbol || "",
+        order.id,
+        { text: String(order.side || "").toUpperCase(), cls: order.side === "buy" ? "up" : "down" },
+        kind,
+        order.stop > 0 ? formatPrice(order.stop) : "—",
+        order.limit > 0 ? formatPrice(order.limit) : "—",
+        order.tif || "—",
+        "",
+      ]);
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "quiet";
+      cancel.textContent = "Cancel";
+      cancel.addEventListener("click", () => withBusy(async () => {
+        const next = await paperCall("/api/paper/cancel", { id: order.id, symbol: order.symbol });
+        render(next);
+        $("status").textContent = "Canceled working paper order " + order.id + " on " + (order.symbol || "this market") + ".";
+      }));
+      row.lastChild.appendChild(cancel);
+      workingBody.appendChild(row);
+    });
+    if (!working.length) {
+      const row = document.createElement("tr");
+      addCells(row, ["No working limit, stop, or stop-limit orders. They show here for every market.", "", "", "", "", "", "", ""]);
+      workingBody.appendChild(row);
+    }
   }
   book.fills.forEach((item) => {
     const row = document.createElement("tr");
@@ -2093,7 +2134,7 @@ function renderBook(paper) {
   const total = $("book-total");
   if (total) {
     total.textContent = book.markets
-      ? "Across " + book.markets + " market" + (book.markets === 1 ? "" : "s") + ": " + moneyText(book.total_pnl) + " paper profit or loss so far. Each market has its own paper account." + (state.offline ? " Saved in this browser only." : " Saved on this computer.")
+      ? "Across " + book.markets + " market" + (book.markets === 1 ? "" : "s") + ": " + moneyText(book.total_pnl) + " paper profit or loss so far. " + working.length + " working order" + (working.length === 1 ? "" : "s") + ". Each market has its own paper account." + (state.offline ? " Saved in this browser only." : " Saved on this computer.")
       : "Nothing traded yet.";
   }
 }
@@ -2769,12 +2810,37 @@ async function runSafe(manual) {
 }
 
 
+const MAIN_ETFS = ["SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB"];
+
 const SQ_LISTS = {
   starter: ["BTC-USD", "ETH-USD", "XRP-USD", "ES", "NQ", "YM", "RTY", "GC", "CL", "ZN", "SPY", "QQQ", "IWM", "DIA", "XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "SMH", "NVDA", "MSFT", "AAPL", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "AMD", "JPM", "HOOD", "DASH", "CRCL", "GE", "CAT", "XOM", "LLY", "WMT", "COST"],
   sectors: ["SPY", "QQQ", "XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "SMH", "NVDA", "MSFT", "AAPL", "AVGO", "AMD", "AMZN", "TSLA", "DASH", "JPM", "HOOD", "V", "MA", "CRCL", "GE", "CAT", "HON", "BA", "LMT", "XOM", "CVX", "LLY", "WMT", "COST"],
+  main_etfs: MAIN_ETFS.slice(),
   crypto: ["BTC-USD", "ETH-USD", "XRP-USD", "SOL-USD", "XLM-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "LINK-USD", "AVAX-USD", "DOT-USD", "BCH-USD"],
   futures: ["ES", "NQ", "YM", "RTY", "CL", "GC", "SI", "NG", "ZN", "ZB", "6E", "ZC", "ZS", "ZW"],
 };
+
+function catalogByKind(kind) {
+  return (state.catalog || []).filter((row) => row.category === kind).map((row) => row.symbol);
+}
+
+function sqCatalogList(kind) {
+  if (kind === "stocks") return catalogByKind("stock");
+  if (kind === "crypto") {
+    const all = catalogByKind("crypto");
+    return all.length ? all : SQ_LISTS.crypto.slice();
+  }
+  if (kind === "futures") {
+    const all = catalogByKind("future");
+    return all.length ? all : SQ_LISTS.futures.slice();
+  }
+  if (kind === "main_etfs") {
+    const known = new Set(catalogByKind("etf"));
+    const listed = MAIN_ETFS.filter((symbol) => !known.size || known.has(symbol));
+    return listed.length ? listed : MAIN_ETFS.slice();
+  }
+  return SQ_LISTS[kind] || SQ_LISTS.starter;
+}
 
 const SQ_SECTOR = {
   NVDA: "XLK", MSFT: "XLK", AAPL: "XLK", AVGO: "XLK", AMD: "XLK",
@@ -2798,7 +2864,7 @@ function sqSymbols() {
   if (kind === "custom") {
     list = ($("sq-custom").value || "").toUpperCase().split(/[\s,;]+/).filter((item) => /^[A-Z0-9.^=-]{1,12}$/.test(item));
   } else {
-    list = SQ_LISTS[kind] || SQ_LISTS.starter;
+    list = sqCatalogList(kind);
   }
   const seen = new Set();
   const out = [];
@@ -2808,7 +2874,7 @@ function sqSymbols() {
       out.push(symbol);
     }
   });
-  return out.slice(0, 80);
+  return kind === "custom" ? out.slice(0, 80) : out;
 }
 
 async function sqDaily(symbol) {
@@ -2918,6 +2984,7 @@ function renderSqueeze() {
       String(index + 1),
       row.symbol,
       read.state === "ON" ? "On" : "Fired " + (read.firedAgo === 0 ? "now" : read.firedAgo + " bar" + (read.firedAgo === 1 ? "" : "s") + " ago"),
+      PaperFrames.squeezeName(read.level || 0),
       String(read.dots),
       read.stack === "positive" ? "Stacked up" : read.stack === "negative" ? "Stacked down" : "Mixed",
       (read.direction === "bull" ? "Above zero" : "Below zero") + (read.clean ? ", clean" : "") + (read.rising ? ", building" : ""),
@@ -2931,7 +2998,7 @@ function renderSqueeze() {
   });
   if (!shown.length && !sq.progress) {
     const tr = document.createElement("tr");
-    addCells(tr, ["", "No squeezes on this side right now. A quiet list is a normal answer.", "", "", "", "", "", "", "", ""]);
+    addCells(tr, ["", "No squeezes on this side right now. A quiet list is a normal answer.", "", "", "", "", "", "", "", "", ""]);
     body.appendChild(tr);
   }
   const when = new Date(sq.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
@@ -4499,16 +4566,31 @@ $("study-list").addEventListener("change", () => {
 $("frames-all").addEventListener("click", () => openAllFrames());
 $("brief-window").addEventListener("click", () => openBrief());
 
+function showPhoneTab(name) {
+  document.body.dataset.tab = name;
+  document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
+  if (state.market && state.paper && (name === "chart" || name === "study")) {
+    drawCandles();
+    drawTmo();
+  }
+}
+
 document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
-  button.addEventListener("click", () => {
-    document.body.dataset.tab = button.dataset.tab;
-    document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item === button));
-    if (state.market && state.paper) {
-      drawCandles();
-      drawTmo();
-    }
-  });
+  button.addEventListener("click", () => showPhoneTab(button.dataset.tab));
 });
+
+const chartBack = $("chart-back");
+if (chartBack) {
+  chartBack.addEventListener("click", () => {
+    if (window.matchMedia("(max-width: 980px)").matches) {
+      showPhoneTab("markets");
+      $("status").textContent = "Back to markets.";
+      return;
+    }
+    showDock("journal");
+    $("status").textContent = "Journal is open.";
+  });
+}
 
 const signalSum = $("signal-sum");
 if (signalSum) signalSum.addEventListener("click", () => showDock("signals"));

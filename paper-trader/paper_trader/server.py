@@ -351,7 +351,25 @@ class Desk:
 
     def cancel(self, raw: dict) -> dict:
         order_id = str(raw.get("id") or "")
+        symbol = str(raw.get("symbol") or self.journal.symbol)
         with self.lock:
+            if symbol and symbol != self.journal.symbol:
+                rows = self._read_shelf()
+                row = rows.get(symbol)
+                if not isinstance(row, dict) or not isinstance(row.get("journal"), dict):
+                    raise ValueError("That working order was not found")
+                journal = journal_from_dict(row["journal"])
+                if order_id == "all":
+                    journal.working = []
+                else:
+                    before = len(journal.working)
+                    journal.working = [item for item in journal.working if item.get("id") != order_id]
+                    if len(journal.working) == before:
+                        raise ValueError("That working order was not found")
+                row["journal"] = journal_to_dict(journal)
+                rows[symbol] = row
+                self._write_shelf(rows)
+                return self._guard(view_journal(self.journal))
             if order_id == "all":
                 self.journal.working = []
             else:
@@ -433,15 +451,18 @@ class Desk:
         return "fill" if rows and rows[-1].get("side") == "buy" else "replay"
 
     def account_book(self, view: dict) -> dict:
-        """Every market's paper account: open positions and every fill, newest first."""
+        """Every market's paper account: open positions, working orders, and every fill."""
         positions: list[dict] = []
+        working: list[dict] = []
         fills: list[dict] = list(reversed(self.journal.fills))
         total = 0.0
         markets = 0
         shares = float(view.get("shares") or 0)
-        if shares > 0 or self.journal.fills:
+        current_working = [dict(item, symbol=self.journal.symbol) for item in self.journal.working]
+        if shares > 0 or self.journal.fills or current_working:
             markets += 1
             total += float(view.get("equity") or 0) - float(view.get("start_cash") or 0)
+        working.extend(current_working)
         if shares > 0:
             entry = view.get("entry_price")
             last = view.get("last_close")
@@ -461,7 +482,10 @@ class Desk:
             if symbol == self.journal.symbol or not isinstance(row, dict):
                 continue
             note = row.get("summary") or {}
-            fills.extend(item for item in reversed((row.get("journal") or {}).get("fills", [])) if isinstance(item, dict))
+            shelf_journal = row.get("journal") or {}
+            fills.extend(item for item in reversed(shelf_journal.get("fills", [])) if isinstance(item, dict))
+            shelf_working = [dict(item, symbol=symbol) for item in shelf_journal.get("working", []) if isinstance(item, dict)]
+            working.extend(shelf_working)
             markets += 1
             try:
                 total += float(note.get("equity") or 0) - float(note.get("start") or 0)
@@ -480,11 +504,12 @@ class Desk:
                         "current": False,
                         "as_of": row.get("at"),
                         "opened": note.get("opened"),
-                        "source": self._position_source((row.get("journal") or {}).get("fills", [])),
+                        "source": self._position_source(shelf_journal.get("fills", [])),
                     }
                 )
         fills.sort(key=lambda item: -int(item.get("at") or 0))
-        return {"positions": positions, "fills": fills[:300], "markets": markets, "total_pnl": total}
+        working.sort(key=lambda item: (str(item.get("symbol") or ""), str(item.get("id") or "")))
+        return {"positions": positions, "working": working, "fills": fills[:300], "markets": markets, "total_pnl": total}
 
     def breaker(self) -> dict:
         return breaker_view(load_breaker(self.breaker_path), desk_day())

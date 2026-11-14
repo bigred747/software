@@ -386,6 +386,10 @@ test("squeeze score is bounded and ranks a stacked clean squeeze above a mixed o
   assert.ok(strong.score <= 100 && strong.score > weak.score);
   assert.equal(strong.triple, true);
   assert.equal(squeezeScore({ ready: true, state: "OFF" }, {}).score, 0);
+  assert.equal(squeezeName(3), "High");
+  assert.equal(squeezeName(2), "Mid");
+  assert.equal(squeezeName(1), "Low");
+  assert.equal(squeezeName(0), "Off");
   const read = squeezeRead(walk(300, 5, 0.0003), { live: false });
   assert.equal(read.ready, true);
   assert.ok(["ON", "FIRED", "OFF"].includes(read.state));

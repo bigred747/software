@@ -193,7 +193,7 @@
   function squeezeTone(level) {
     if (level >= 3) return "#ff9f1c";
     if (level === 2) return "#ff4d4d";
-    if (level === 1) return "#c5d0dc";
+    if (level === 1) return "#101418";
     return "#3ddc97";
   }
 
@@ -219,7 +219,7 @@
   function squeezeName(level) {
     if (level >= 3) return "High";
     if (level === 2) return "Mid";
-    if (level === 1) return "Wide";
+    if (level === 1) return "Low";
     return "Off";
   }
 
@@ -1787,7 +1787,7 @@
     };
     add(row.state === "ON" ? "Squeeze on" : "Just fired", row.state === "ON" ? 30 : 25);
     add("Energy built (dots)", Math.round((Math.min(row.dots, 8) / 8) * 10));
-    add("Tight squeeze", row.level >= 3 ? 5 : 0);
+    add(row.level >= 3 ? "High compression" : row.level === 2 ? "Mid compression" : row.level === 1 ? "Low compression" : "", row.level >= 3 ? 10 : row.level === 2 ? 5 : row.level === 1 ? 2 : 0);
     const aligned = (row.direction === "bull" && row.stack === "positive") || (row.direction === "bear" && row.stack === "negative");
     add("Averages stacked with momentum", aligned ? 20 : 0);
     add("Clean squeeze, momentum never crossed", row.clean ? 10 : 0);
