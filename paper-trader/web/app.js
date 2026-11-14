@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.51";
+const VERSION = "1.9.52";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -2530,14 +2530,46 @@ function whenIdle() {
 }
 
 const STRAT_KEY = "paper_trader_strategy_v1";
+const STRAT_IDS = ["edge", "squeeze", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"];
+const TRIG_KEY = "paper_trader_triggers_v1";
+
+function strategyIds() {
+  return typeof PaperFrames !== "undefined" && Array.isArray(PaperFrames.STRATEGY_IDS) && PaperFrames.STRATEGY_IDS.length
+    ? PaperFrames.STRATEGY_IDS
+    : STRAT_IDS;
+}
 
 function loadStrat() {
   const base = { pick: "edge", on: false, acted: {}, note: "" };
   try {
     const raw = JSON.parse(localStorage.getItem(STRAT_KEY) || "{}");
-    return { ...base, pick: ["edge", "squeeze", "donchian", "rsi2"].includes(raw.pick) ? raw.pick : "edge", on: raw.on === true, acted: raw.acted && typeof raw.acted === "object" ? raw.acted : {} };
+    const ids = strategyIds();
+    return { ...base, pick: ids.includes(raw.pick) ? raw.pick : "edge", on: raw.on === true, acted: raw.acted && typeof raw.acted === "object" ? raw.acted : {} };
   } catch (error) {
     return base;
+  }
+}
+
+function loadTriggers() {
+  const base = { squeeze: true, edge: true, strategy: true, process: true };
+  try {
+    const raw = JSON.parse(localStorage.getItem(TRIG_KEY) || "{}");
+    return {
+      squeeze: raw.squeeze !== false,
+      edge: raw.edge !== false,
+      strategy: raw.strategy !== false,
+      process: raw.process !== false,
+    };
+  } catch (error) {
+    return base;
+  }
+}
+
+function saveTriggers() {
+  try {
+    localStorage.setItem(TRIG_KEY, JSON.stringify(state.triggers));
+  } catch (error) {
+    /* Triggers still work for this visit. */
   }
 }
 
@@ -2552,6 +2584,7 @@ function saveStrat() {
 }
 
 state.strat = loadStrat();
+state.triggers = loadTriggers();
 
 function currentBoard(bars) {
   const last = bars.length ? bars[bars.length - 1] : null;
@@ -2637,12 +2670,13 @@ function renderStrategies() {
   const pick = $("strat-pick");
   if (pick.value !== state.strat.pick) pick.value = state.strat.pick;
   $("strat-auto-on").checked = state.strat.on;
+  syncTriggerChecks();
   renderAutoNote();
   renderStratDetail(board);
 }
 
 function pickStrategy(id) {
-  if (!["edge", "squeeze", "donchian", "rsi2"].includes(id)) return;
+  if (!strategyIds().includes(id)) return;
   state.strat.pick = id;
   state.strat.note = "";
   saveStrat();
@@ -2691,6 +2725,15 @@ function announceNewProcess(symbol, rule, previous) {
   learnTouchNote = "New process · " + newProcessNote + ". Paper fills updated. Closed bars only. Not a forecast.";
   setStatus(learnTouchNote);
   refreshLearnSignal();
+  if (state.voice && state.triggers && state.triggers.process) {
+    speakWarning({
+      symbol: symbol || "",
+      date: String(newProcessAt),
+      kind: "process",
+      side: "buy",
+      detail: "New process. " + newProcessNote + ". Closed bars only.",
+    });
+  }
 }
 
 function touchPhoneLearn(tab, symbols) {
@@ -4348,7 +4391,9 @@ function stopAuto(message) {
 }
 
 function speakWarning(item) {
-  if (!state.voice || !item || (item.side !== "buy" && item.side !== "sell") || !item.detail) return;
+  if (!state.voice || !item || !item.detail) return;
+  const kinds = { steam: 1, dots: 1, squeeze: 1, edge: 1, strategy: 1, process: 1 };
+  if (item.side !== "buy" && item.side !== "sell" && !kinds[item.kind]) return;
   const key = [item.symbol, item.date, item.kind, item.side].join("|");
   let heard = [];
   try {
@@ -4360,7 +4405,7 @@ function speakWarning(item) {
   if (heard.indexOf(key) >= 0) return;
   heard.push(key);
   try {
-    sessionStorage.setItem("paperTraderHeard", JSON.stringify(heard));
+    sessionStorage.setItem("paperTraderHeard", JSON.stringify(heard.slice(-40)));
   } catch (error) {
     /* The warning still shows on the desk. */
   }
@@ -4371,8 +4416,22 @@ function speakWarning(item) {
   window.speechSynthesis.speak(message);
 }
 
-async function warnSqueeze() {
+function syncTriggerChecks() {
+  const map = {
+    "trig-squeeze": "squeeze",
+    "trig-edge": "edge",
+    "trig-strategy": "strategy",
+    "trig-process": "process",
+  };
+  Object.keys(map).forEach((id) => {
+    const box = $(id);
+    if (box) box.checked = !!state.triggers[map[id]];
+  });
+}
+
+async function warnDesk() {
   if (!state.voice) return;
+  const triggers = state.triggers || loadTriggers();
   const symbols = readPins();
   const current = state.paper && state.paper.symbol;
   if (current && symbols.indexOf(current) < 0) symbols.push(current);
@@ -4382,23 +4441,89 @@ async function warnSqueeze() {
       for (let index = 0; index < symbols.length; index += 1) {
         const symbol = symbols[index];
         const row = state.catalog.find((item) => item.symbol === symbol);
-        if (typeof PaperLive === "undefined" || !PaperFrames.squeezeAlert) continue;
+        if (typeof PaperLive === "undefined" || typeof PaperFrames === "undefined") continue;
         const bars = PaperFrames.closedBars(await PaperLive.daily(symbol, row ? row.category : ""), phoneCrypto(symbol, row));
-        const alert = PaperFrames.squeezeAlert(bars);
-        if (!alert.side) continue;
+        if (!bars.length) continue;
         const name = pinLabel(symbol);
-        const detail = alert.kind === "steam"
-          ? "Sell. " + name + ". The daily squeeze ran out of steam."
-          : (alert.side === "buy" ? "Buy warning. " : "Sell warning. ") + name + ". Five squeeze dots on the daily.";
-        speakWarning({ symbol, date: bars[alert.index] ? bars[alert.index].date : "", kind: alert.kind, side: alert.side, detail });
+        const closed = closedDate(bars) || (bars[bars.length - 1] && bars[bars.length - 1].date) || "";
+        if (triggers.squeeze && PaperFrames.squeezeAlert) {
+          const alert = PaperFrames.squeezeAlert(bars);
+          if (alert.side) {
+            const detail = alert.kind === "steam"
+              ? "Sell. " + name + ". The daily squeeze ran out of steam."
+              : (alert.side === "buy" ? "Buy warning. " : "Sell warning. ") + name + ". Five squeeze dots on the daily.";
+            speakWarning({ symbol, date: bars[alert.index] ? bars[alert.index].date : closed, kind: alert.kind || "squeeze", side: alert.side, detail });
+          }
+        }
+        if (triggers.edge && PaperFrames.edge) {
+          const timing = PaperFrames.edge(bars, { live: false });
+          if (timing && timing.ready && timing.call === "BUY") {
+            speakWarning({
+              symbol,
+              date: timing.signalDate || closed,
+              kind: "edge",
+              side: "buy",
+              detail: "Buy warning. " + name + ". Edge five checks on the daily.",
+            });
+          }
+        }
+        if (triggers.strategy && PaperFrames.strategies) {
+          const board = PaperFrames.strategies(bars, { live: false });
+          const pick = board.rows.find((item) => item.id === state.strat.pick);
+          if (pick && pick.ready && (pick.call === "BUY" || pick.call === "SELL")) {
+            speakWarning({
+              symbol,
+              date: closed,
+              kind: "strategy",
+              side: pick.call === "BUY" ? "buy" : "sell",
+              detail: (pick.call === "BUY" ? "Buy warning. " : "Sell warning. ") + name + ". " + pick.name + " on the daily.",
+            });
+          }
+        }
       }
       return;
     }
-    const report = await getJSON("/api/voice?symbols=" + encodeURIComponent(symbols.join(",")));
-    (report.items || []).forEach(speakWarning);
+    if (triggers.squeeze) {
+      const report = await getJSON("/api/voice?symbols=" + encodeURIComponent(symbols.join(",")));
+      (report.items || []).forEach(speakWarning);
+    }
+    if ((triggers.edge || triggers.strategy) && current && state.market && state.market.bars) {
+      const bars = PaperFrames.closedBars(state.market.bars, chartCrypto());
+      const name = pinLabel(current);
+      const closed = closedDate(bars) || "";
+      if (triggers.edge && PaperFrames.edge) {
+        const timing = PaperFrames.edge(bars, { live: false });
+        if (timing && timing.ready && timing.call === "BUY") {
+          speakWarning({
+            symbol: current,
+            date: timing.signalDate || closed,
+            kind: "edge",
+            side: "buy",
+            detail: "Buy warning. " + name + ". Edge five checks on the daily.",
+          });
+        }
+      }
+      if (triggers.strategy && PaperFrames.strategies) {
+        const board = currentBoard(state.market.bars);
+        const pick = board.rows.find((item) => item.id === state.strat.pick);
+        if (pick && pick.ready && (pick.call === "BUY" || pick.call === "SELL")) {
+          speakWarning({
+            symbol: current,
+            date: closed,
+            kind: "strategy",
+            side: pick.call === "BUY" ? "buy" : "sell",
+            detail: (pick.call === "BUY" ? "Buy warning. " : "Sell warning. ") + name + ". " + pick.name + " on the daily.",
+          });
+        }
+      }
+    }
   } catch (error) {
     return;
   }
+}
+
+async function warnSqueeze() {
+  return warnDesk();
 }
 
 async function autoTick() {
@@ -4486,8 +4611,8 @@ if (voiceButton) {
     state.voice = !state.voice;
     voiceButton.setAttribute("aria-pressed", state.voice ? "true" : "false");
     if (!state.voice && window.speechSynthesis) window.speechSynthesis.cancel();
-    $("status").textContent = state.voice ? "Voice is on. Daily squeeze warnings." : "Voice is off.";
-    if (state.voice) warnSqueeze();
+    $("status").textContent = state.voice ? "Voice is on. Desk triggers on closed bars." : "Voice is off.";
+    if (state.voice) warnDesk();
   });
 }
 
@@ -4707,6 +4832,23 @@ $("strat-auto-on").addEventListener("change", () => {
   renderStrategies();
   $("status").textContent = state.strat.on ? "Strategy trading is on. Turn Auto on and it follows " + state.strat.pick + " on closed bars." : "Strategy trading is off.";
 });
+[
+  ["trig-squeeze", "squeeze"],
+  ["trig-edge", "edge"],
+  ["trig-strategy", "strategy"],
+  ["trig-process", "process"],
+].forEach(([id, key]) => {
+  const box = $(id);
+  if (!box) return;
+  box.addEventListener("change", () => {
+    state.triggers[key] = box.checked;
+    saveTriggers();
+    $("status").textContent = box.checked
+      ? "Trigger on: " + key + ". Voice speaks it on closed bars when Voice is on."
+      : "Trigger off: " + key + ".";
+  });
+});
+syncTriggerChecks();
 $("strat-board").addEventListener("click", (event) => {
   const row = event.target.closest("tr[data-strategy]");
   if (row) pickStrategy(row.dataset.strategy);
@@ -5171,8 +5313,9 @@ boot().then(() => {
   runSafe(false);
   loadInternals(false);
   setInterval(() => loadInternals(true), 600000);
-  warnSqueeze();
-  setInterval(warnSqueeze, 20000);
+  syncTriggerChecks();
+  warnDesk();
+  setInterval(warnDesk, 20000);
   setInterval(() => {
     if (state.paper) renderQuote(state.paper);
     syncDeskStatus();

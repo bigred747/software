@@ -1639,7 +1639,14 @@
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     donchian: { name: "20-day breakout", who: "Range breakout", idea: "Buy a close above the highest high of the last 20 bars. Exit on a close below the lowest low of the last 10 bars." },
     rsi2: { name: "RSI 2 pullback", who: "Short pullback", idea: "In an uptrend (close above the 200-bar average) buy when 2-period RSI drops under 10. Exit when price closes above its 5-bar average." },
+    golden: { name: "50/200 average cross", who: "Long trend", idea: "Buy when the 50-bar average crosses above the 200-bar average. Exit when the 50-bar average crosses back below." },
+    dualema: { name: "20/50 EMA cross", who: "Swing trend", idea: "Buy when the 20-bar EMA crosses above the 50-bar EMA. Exit when it crosses back below." },
+    macdx: { name: "MACD cross", who: "Momentum cross", idea: "Buy when the MACD line crosses above its signal line. Exit when it crosses back below." },
+    bollrev: { name: "Bollinger reversion", who: "Mean reversion", idea: "In an uptrend above the 200-bar average, buy a close under the lower Bollinger band. Exit when price closes back at or above the middle band." },
+    atrtrail: { name: "EMA trend · ATR trail", who: "Volatility trail", idea: "Buy when the 20-bar EMA crosses above the 50-bar EMA. Exit when the close falls 2.5 ATR under the best high since entry." },
+    weeklow: { name: "7-day low pullback", who: "Weekly pullback", idea: "Above the 200-bar average, buy a close that is the lowest of the last 7 bars. Exit on a close that is the highest of the last 7 bars." },
   };
+  const STRATEGY_IDS = Object.keys(STRATEGY_INFO);
 
   function strategies(bars, options) {
     const list = bars || [];
@@ -1761,6 +1768,91 @@
       });
       finish("rsi2", run);
     } else notReady("rsi2", "Needs at least 230 bars.");
+
+    if (end >= 220) {
+      const fast = simpleAverage(closes, 50);
+      const slow = simpleAverage(closes, 200);
+      const run = runRule(list, end, 205, {
+        enter: (index) => (fast[index] != null && slow[index] != null && fast[index - 1] != null && slow[index - 1] != null && fast[index] > slow[index] && fast[index - 1] <= slow[index - 1] ? { stop: 0 } : null),
+        exit: (index) => fast[index] != null && slow[index] != null && fast[index - 1] != null && slow[index - 1] != null && fast[index] < slow[index] && fast[index - 1] >= slow[index - 1],
+      });
+      finish("golden", run);
+    } else notReady("golden", "Needs at least 220 bars.");
+
+    if (end >= 80) {
+      const fast = ema(closes, 20);
+      const slow = ema(closes, 50);
+      const run = runRule(list, end, 55, {
+        enter: (index) => (fast[index] != null && slow[index] != null && fast[index - 1] != null && slow[index - 1] != null && fast[index] > slow[index] && fast[index - 1] <= slow[index - 1] ? { stop: 0 } : null),
+        exit: (index) => fast[index] != null && slow[index] != null && fast[index - 1] != null && slow[index - 1] != null && fast[index] < slow[index] && fast[index - 1] >= slow[index - 1],
+      });
+      finish("dualema", run);
+    } else notReady("dualema", "Needs at least 80 bars.");
+
+    if (end >= 60) {
+      const trend = macd(list);
+      const run = runRule(list, end, 40, {
+        enter: (index) => {
+          const line = trend.line[index];
+          const signal = trend.signal[index];
+          const priorLine = trend.line[index - 1];
+          const priorSignal = trend.signal[index - 1];
+          return line != null && signal != null && priorLine != null && priorSignal != null && line > signal && priorLine <= priorSignal ? { stop: 0 } : null;
+        },
+        exit: (index) => {
+          const line = trend.line[index];
+          const signal = trend.signal[index];
+          const priorLine = trend.line[index - 1];
+          const priorSignal = trend.signal[index - 1];
+          return line != null && signal != null && priorLine != null && priorSignal != null && line < signal && priorLine >= priorSignal;
+        },
+      });
+      finish("macdx", run);
+    } else notReady("macdx", "Needs at least 60 bars.");
+
+    if (end >= 230) {
+      const long = simpleAverage(closes, 200);
+      const bands = bollinger(list, 20, 2);
+      const run = runRule(list, end, 205, {
+        enter: (index) => (long[index] != null && closes[index] > long[index] && bands.lower[index] != null && closes[index] < bands.lower[index] ? { stop: 0 } : null),
+        exit: (index) => bands.mid[index] != null && closes[index] >= bands.mid[index],
+      });
+      finish("bollrev", run);
+    } else notReady("bollrev", "Needs at least 230 bars.");
+
+    if (end >= 80) {
+      const fast = ema(closes, 20);
+      const slow = ema(closes, 50);
+      const ranges = edgeAtr(list, 14);
+      const run = runRule(list, end, 55, {
+        enter: (index) => (fast[index] != null && slow[index] != null && fast[index - 1] != null && slow[index - 1] != null && ranges[index] != null && fast[index] > slow[index] && fast[index - 1] <= slow[index - 1] ? { stop: list[index].close - 2.5 * ranges[index] } : null),
+        exit: (index, open) => {
+          if (!open || ranges[index] == null) return false;
+          let peak = open.entry;
+          for (let back = open.entryIndex; back <= index; back += 1) peak = Math.max(peak, list[back].high);
+          return closes[index] < peak - 2.5 * ranges[index];
+        },
+      });
+      finish("atrtrail", run);
+    } else notReady("atrtrail", "Needs at least 80 bars.");
+
+    if (end >= 220) {
+      const long = simpleAverage(closes, 200);
+      const run = runRule(list, end, 205, {
+        enter: (index) => {
+          if (long[index] == null || closes[index] <= long[index]) return null;
+          let floor = Infinity;
+          for (let back = 0; back < 7; back += 1) floor = Math.min(floor, closes[index - back]);
+          return closes[index] === floor ? { stop: 0 } : null;
+        },
+        exit: (index) => {
+          let top = -Infinity;
+          for (let back = 0; back < 7; back += 1) top = Math.max(top, closes[index - back]);
+          return closes[index] === top;
+        },
+      });
+      finish("weeklow", run);
+    } else notReady("weeklow", "Needs at least 220 bars.");
 
     const ranked = rows
       .filter((row) => row.ready && row.trades >= 5)
@@ -2129,6 +2221,8 @@
     squeezeRead,
     squeezeScore,
     strategies,
+    STRATEGY_INFO,
+    STRATEGY_IDS,
     openingRange,
     pro,
     liveBar,

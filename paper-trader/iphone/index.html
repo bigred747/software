@@ -656,7 +656,8 @@ footer { display: none; }
 .ticket-box table.working th, .ticket-box table.working td { padding: 5px 4px; }
 .ticket-box table.working button { padding: 3px 8px; font-size: 12px; }
 
-.strat-auto,.strat-orb-inputs{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:10px 0}
+.strat-auto,.strat-orb-inputs,.strat-triggers{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:10px 0}
+.strat-triggers{margin-bottom:14px}
 .strat-orb-inputs input{width:84px}
 .strat-switch{display:inline-flex;gap:6px;align-items:center}
 .strat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:12px 0}
@@ -1091,7 +1092,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="strategies">
         <h2>Strategies</h2>
-        <p id="strat-lead" class="muted">Each strategy reads closed bars only and is scored on this market's own history. The ranking looks backward. It is not a forecast.</p>
+        <p id="strat-lead" class="muted">Ten classic public closed-bar rules. Each is scored on this market's own history. The ranking looks backward. Past bars only. Not a forecast, and none of these is a third-party or trademarked system.</p>
         <div class="table-wrap">
           <table>
             <thead>
@@ -1136,10 +1137,24 @@ plot Sell = close crosses below baseline;</textarea>
             <option value="squeeze">Squeeze release</option>
             <option value="donchian">20-day breakout</option>
             <option value="rsi2">RSI 2 pullback</option>
+            <option value="golden">50/200 average cross</option>
+            <option value="dualema">20/50 EMA cross</option>
+            <option value="macdx">MACD cross</option>
+            <option value="bollrev">Bollinger reversion</option>
+            <option value="atrtrail">EMA trend · ATR trail</option>
+            <option value="weeklow">7-day low pullback</option>
           </select>
           <label class="strat-switch"><input id="strat-auto-on" type="checkbox"> Let Auto place paper trades from it</label>
         </div>
         <p id="strat-auto-note" class="muted">Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.</p>
+        <h3>Desk triggers</h3>
+        <p class="muted">Voice and status alerts for closed-bar events on the open market and pinned names. Paper only. Not a forecast.</p>
+        <div class="strat-triggers">
+          <label class="strat-switch"><input id="trig-squeeze" type="checkbox" checked> Squeeze five dots / steam</label>
+          <label class="strat-switch"><input id="trig-edge" type="checkbox" checked> Edge BUY on pinned markets</label>
+          <label class="strat-switch"><input id="trig-strategy" type="checkbox" checked> Followed strategy BUY / SELL</label>
+          <label class="strat-switch"><input id="trig-process" type="checkbox" checked> New process learned</label>
+        </div>
         <div id="strat-cards" class="strat-cards"></div>
 
         <h3>15-minute opening bar breakout</h3>
@@ -4679,7 +4694,14 @@ plot Sell = close crosses below baseline;</textarea>
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     donchian: { name: "20-day breakout", who: "Range breakout", idea: "Buy a close above the highest high of the last 20 bars. Exit on a close below the lowest low of the last 10 bars." },
     rsi2: { name: "RSI 2 pullback", who: "Short pullback", idea: "In an uptrend (close above the 200-bar average) buy when 2-period RSI drops under 10. Exit when price closes above its 5-bar average." },
+    golden: { name: "50/200 average cross", who: "Long trend", idea: "Buy when the 50-bar average crosses above the 200-bar average. Exit when the 50-bar average crosses back below." },
+    dualema: { name: "20/50 EMA cross", who: "Swing trend", idea: "Buy when the 20-bar EMA crosses above the 50-bar EMA. Exit when it crosses back below." },
+    macdx: { name: "MACD cross", who: "Momentum cross", idea: "Buy when the MACD line crosses above its signal line. Exit when it crosses back below." },
+    bollrev: { name: "Bollinger reversion", who: "Mean reversion", idea: "In an uptrend above the 200-bar average, buy a close under the lower Bollinger band. Exit when price closes back at or above the middle band." },
+    atrtrail: { name: "EMA trend · ATR trail", who: "Volatility trail", idea: "Buy when the 20-bar EMA crosses above the 50-bar EMA. Exit when the close falls 2.5 ATR under the best high since entry." },
+    weeklow: { name: "7-day low pullback", who: "Weekly pullback", idea: "Above the 200-bar average, buy a close that is the lowest of the last 7 bars. Exit on a close that is the highest of the last 7 bars." },
   };
+  const STRATEGY_IDS = Object.keys(STRATEGY_INFO);
 
   function strategies(bars, options) {
     const list = bars || [];
@@ -4801,6 +4823,91 @@ plot Sell = close crosses below baseline;</textarea>
       });
       finish("rsi2", run);
     } else notReady("rsi2", "Needs at least 230 bars.");
+
+    if (end >= 220) {
+      const fast = simpleAverage(closes, 50);
+      const slow = simpleAverage(closes, 200);
+      const run = runRule(list, end, 205, {
+        enter: (index) => (fast[index] != null && slow[index] != null && fast[index - 1] != null && slow[index - 1] != null && fast[index] > slow[index] && fast[index - 1] <= slow[index - 1] ? { stop: 0 } : null),
+        exit: (index) => fast[index] != null && slow[index] != null && fast[index - 1] != null && slow[index - 1] != null && fast[index] < slow[index] && fast[index - 1] >= slow[index - 1],
+      });
+      finish("golden", run);
+    } else notReady("golden", "Needs at least 220 bars.");
+
+    if (end >= 80) {
+      const fast = ema(closes, 20);
+      const slow = ema(closes, 50);
+      const run = runRule(list, end, 55, {
+        enter: (index) => (fast[index] != null && slow[index] != null && fast[index - 1] != null && slow[index - 1] != null && fast[index] > slow[index] && fast[index - 1] <= slow[index - 1] ? { stop: 0 } : null),
+        exit: (index) => fast[index] != null && slow[index] != null && fast[index - 1] != null && slow[index - 1] != null && fast[index] < slow[index] && fast[index - 1] >= slow[index - 1],
+      });
+      finish("dualema", run);
+    } else notReady("dualema", "Needs at least 80 bars.");
+
+    if (end >= 60) {
+      const trend = macd(list);
+      const run = runRule(list, end, 40, {
+        enter: (index) => {
+          const line = trend.line[index];
+          const signal = trend.signal[index];
+          const priorLine = trend.line[index - 1];
+          const priorSignal = trend.signal[index - 1];
+          return line != null && signal != null && priorLine != null && priorSignal != null && line > signal && priorLine <= priorSignal ? { stop: 0 } : null;
+        },
+        exit: (index) => {
+          const line = trend.line[index];
+          const signal = trend.signal[index];
+          const priorLine = trend.line[index - 1];
+          const priorSignal = trend.signal[index - 1];
+          return line != null && signal != null && priorLine != null && priorSignal != null && line < signal && priorLine >= priorSignal;
+        },
+      });
+      finish("macdx", run);
+    } else notReady("macdx", "Needs at least 60 bars.");
+
+    if (end >= 230) {
+      const long = simpleAverage(closes, 200);
+      const bands = bollinger(list, 20, 2);
+      const run = runRule(list, end, 205, {
+        enter: (index) => (long[index] != null && closes[index] > long[index] && bands.lower[index] != null && closes[index] < bands.lower[index] ? { stop: 0 } : null),
+        exit: (index) => bands.mid[index] != null && closes[index] >= bands.mid[index],
+      });
+      finish("bollrev", run);
+    } else notReady("bollrev", "Needs at least 230 bars.");
+
+    if (end >= 80) {
+      const fast = ema(closes, 20);
+      const slow = ema(closes, 50);
+      const ranges = edgeAtr(list, 14);
+      const run = runRule(list, end, 55, {
+        enter: (index) => (fast[index] != null && slow[index] != null && fast[index - 1] != null && slow[index - 1] != null && ranges[index] != null && fast[index] > slow[index] && fast[index - 1] <= slow[index - 1] ? { stop: list[index].close - 2.5 * ranges[index] } : null),
+        exit: (index, open) => {
+          if (!open || ranges[index] == null) return false;
+          let peak = open.entry;
+          for (let back = open.entryIndex; back <= index; back += 1) peak = Math.max(peak, list[back].high);
+          return closes[index] < peak - 2.5 * ranges[index];
+        },
+      });
+      finish("atrtrail", run);
+    } else notReady("atrtrail", "Needs at least 80 bars.");
+
+    if (end >= 220) {
+      const long = simpleAverage(closes, 200);
+      const run = runRule(list, end, 205, {
+        enter: (index) => {
+          if (long[index] == null || closes[index] <= long[index]) return null;
+          let floor = Infinity;
+          for (let back = 0; back < 7; back += 1) floor = Math.min(floor, closes[index - back]);
+          return closes[index] === floor ? { stop: 0 } : null;
+        },
+        exit: (index) => {
+          let top = -Infinity;
+          for (let back = 0; back < 7; back += 1) top = Math.max(top, closes[index - back]);
+          return closes[index] === top;
+        },
+      });
+      finish("weeklow", run);
+    } else notReady("weeklow", "Needs at least 220 bars.");
 
     const ranked = rows
       .filter((row) => row.ready && row.trades >= 5)
@@ -5169,6 +5276,8 @@ plot Sell = close crosses below baseline;</textarea>
     squeezeRead,
     squeezeScore,
     strategies,
+    STRATEGY_INFO,
+    STRATEGY_IDS,
     openingRange,
     pro,
     liveBar,
@@ -5292,7 +5401,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.51";
+const VERSION = "1.9.52";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -7742,14 +7851,46 @@ function whenIdle() {
 }
 
 const STRAT_KEY = "paper_trader_strategy_v1";
+const STRAT_IDS = ["edge", "squeeze", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"];
+const TRIG_KEY = "paper_trader_triggers_v1";
+
+function strategyIds() {
+  return typeof PaperFrames !== "undefined" && Array.isArray(PaperFrames.STRATEGY_IDS) && PaperFrames.STRATEGY_IDS.length
+    ? PaperFrames.STRATEGY_IDS
+    : STRAT_IDS;
+}
 
 function loadStrat() {
   const base = { pick: "edge", on: false, acted: {}, note: "" };
   try {
     const raw = JSON.parse(localStorage.getItem(STRAT_KEY) || "{}");
-    return { ...base, pick: ["edge", "squeeze", "donchian", "rsi2"].includes(raw.pick) ? raw.pick : "edge", on: raw.on === true, acted: raw.acted && typeof raw.acted === "object" ? raw.acted : {} };
+    const ids = strategyIds();
+    return { ...base, pick: ids.includes(raw.pick) ? raw.pick : "edge", on: raw.on === true, acted: raw.acted && typeof raw.acted === "object" ? raw.acted : {} };
   } catch (error) {
     return base;
+  }
+}
+
+function loadTriggers() {
+  const base = { squeeze: true, edge: true, strategy: true, process: true };
+  try {
+    const raw = JSON.parse(localStorage.getItem(TRIG_KEY) || "{}");
+    return {
+      squeeze: raw.squeeze !== false,
+      edge: raw.edge !== false,
+      strategy: raw.strategy !== false,
+      process: raw.process !== false,
+    };
+  } catch (error) {
+    return base;
+  }
+}
+
+function saveTriggers() {
+  try {
+    localStorage.setItem(TRIG_KEY, JSON.stringify(state.triggers));
+  } catch (error) {
+    /* Triggers still work for this visit. */
   }
 }
 
@@ -7764,6 +7905,7 @@ function saveStrat() {
 }
 
 state.strat = loadStrat();
+state.triggers = loadTriggers();
 
 function currentBoard(bars) {
   const last = bars.length ? bars[bars.length - 1] : null;
@@ -7849,12 +7991,13 @@ function renderStrategies() {
   const pick = $("strat-pick");
   if (pick.value !== state.strat.pick) pick.value = state.strat.pick;
   $("strat-auto-on").checked = state.strat.on;
+  syncTriggerChecks();
   renderAutoNote();
   renderStratDetail(board);
 }
 
 function pickStrategy(id) {
-  if (!["edge", "squeeze", "donchian", "rsi2"].includes(id)) return;
+  if (!strategyIds().includes(id)) return;
   state.strat.pick = id;
   state.strat.note = "";
   saveStrat();
@@ -7903,6 +8046,15 @@ function announceNewProcess(symbol, rule, previous) {
   learnTouchNote = "New process · " + newProcessNote + ". Paper fills updated. Closed bars only. Not a forecast.";
   setStatus(learnTouchNote);
   refreshLearnSignal();
+  if (state.voice && state.triggers && state.triggers.process) {
+    speakWarning({
+      symbol: symbol || "",
+      date: String(newProcessAt),
+      kind: "process",
+      side: "buy",
+      detail: "New process. " + newProcessNote + ". Closed bars only.",
+    });
+  }
 }
 
 function touchPhoneLearn(tab, symbols) {
@@ -9560,7 +9712,9 @@ function stopAuto(message) {
 }
 
 function speakWarning(item) {
-  if (!state.voice || !item || (item.side !== "buy" && item.side !== "sell") || !item.detail) return;
+  if (!state.voice || !item || !item.detail) return;
+  const kinds = { steam: 1, dots: 1, squeeze: 1, edge: 1, strategy: 1, process: 1 };
+  if (item.side !== "buy" && item.side !== "sell" && !kinds[item.kind]) return;
   const key = [item.symbol, item.date, item.kind, item.side].join("|");
   let heard = [];
   try {
@@ -9572,7 +9726,7 @@ function speakWarning(item) {
   if (heard.indexOf(key) >= 0) return;
   heard.push(key);
   try {
-    sessionStorage.setItem("paperTraderHeard", JSON.stringify(heard));
+    sessionStorage.setItem("paperTraderHeard", JSON.stringify(heard.slice(-40)));
   } catch (error) {
     /* The warning still shows on the desk. */
   }
@@ -9583,8 +9737,22 @@ function speakWarning(item) {
   window.speechSynthesis.speak(message);
 }
 
-async function warnSqueeze() {
+function syncTriggerChecks() {
+  const map = {
+    "trig-squeeze": "squeeze",
+    "trig-edge": "edge",
+    "trig-strategy": "strategy",
+    "trig-process": "process",
+  };
+  Object.keys(map).forEach((id) => {
+    const box = $(id);
+    if (box) box.checked = !!state.triggers[map[id]];
+  });
+}
+
+async function warnDesk() {
   if (!state.voice) return;
+  const triggers = state.triggers || loadTriggers();
   const symbols = readPins();
   const current = state.paper && state.paper.symbol;
   if (current && symbols.indexOf(current) < 0) symbols.push(current);
@@ -9594,23 +9762,89 @@ async function warnSqueeze() {
       for (let index = 0; index < symbols.length; index += 1) {
         const symbol = symbols[index];
         const row = state.catalog.find((item) => item.symbol === symbol);
-        if (typeof PaperLive === "undefined" || !PaperFrames.squeezeAlert) continue;
+        if (typeof PaperLive === "undefined" || typeof PaperFrames === "undefined") continue;
         const bars = PaperFrames.closedBars(await PaperLive.daily(symbol, row ? row.category : ""), phoneCrypto(symbol, row));
-        const alert = PaperFrames.squeezeAlert(bars);
-        if (!alert.side) continue;
+        if (!bars.length) continue;
         const name = pinLabel(symbol);
-        const detail = alert.kind === "steam"
-          ? "Sell. " + name + ". The daily squeeze ran out of steam."
-          : (alert.side === "buy" ? "Buy warning. " : "Sell warning. ") + name + ". Five squeeze dots on the daily.";
-        speakWarning({ symbol, date: bars[alert.index] ? bars[alert.index].date : "", kind: alert.kind, side: alert.side, detail });
+        const closed = closedDate(bars) || (bars[bars.length - 1] && bars[bars.length - 1].date) || "";
+        if (triggers.squeeze && PaperFrames.squeezeAlert) {
+          const alert = PaperFrames.squeezeAlert(bars);
+          if (alert.side) {
+            const detail = alert.kind === "steam"
+              ? "Sell. " + name + ". The daily squeeze ran out of steam."
+              : (alert.side === "buy" ? "Buy warning. " : "Sell warning. ") + name + ". Five squeeze dots on the daily.";
+            speakWarning({ symbol, date: bars[alert.index] ? bars[alert.index].date : closed, kind: alert.kind || "squeeze", side: alert.side, detail });
+          }
+        }
+        if (triggers.edge && PaperFrames.edge) {
+          const timing = PaperFrames.edge(bars, { live: false });
+          if (timing && timing.ready && timing.call === "BUY") {
+            speakWarning({
+              symbol,
+              date: timing.signalDate || closed,
+              kind: "edge",
+              side: "buy",
+              detail: "Buy warning. " + name + ". Edge five checks on the daily.",
+            });
+          }
+        }
+        if (triggers.strategy && PaperFrames.strategies) {
+          const board = PaperFrames.strategies(bars, { live: false });
+          const pick = board.rows.find((item) => item.id === state.strat.pick);
+          if (pick && pick.ready && (pick.call === "BUY" || pick.call === "SELL")) {
+            speakWarning({
+              symbol,
+              date: closed,
+              kind: "strategy",
+              side: pick.call === "BUY" ? "buy" : "sell",
+              detail: (pick.call === "BUY" ? "Buy warning. " : "Sell warning. ") + name + ". " + pick.name + " on the daily.",
+            });
+          }
+        }
       }
       return;
     }
-    const report = await getJSON("/api/voice?symbols=" + encodeURIComponent(symbols.join(",")));
-    (report.items || []).forEach(speakWarning);
+    if (triggers.squeeze) {
+      const report = await getJSON("/api/voice?symbols=" + encodeURIComponent(symbols.join(",")));
+      (report.items || []).forEach(speakWarning);
+    }
+    if ((triggers.edge || triggers.strategy) && current && state.market && state.market.bars) {
+      const bars = PaperFrames.closedBars(state.market.bars, chartCrypto());
+      const name = pinLabel(current);
+      const closed = closedDate(bars) || "";
+      if (triggers.edge && PaperFrames.edge) {
+        const timing = PaperFrames.edge(bars, { live: false });
+        if (timing && timing.ready && timing.call === "BUY") {
+          speakWarning({
+            symbol: current,
+            date: timing.signalDate || closed,
+            kind: "edge",
+            side: "buy",
+            detail: "Buy warning. " + name + ". Edge five checks on the daily.",
+          });
+        }
+      }
+      if (triggers.strategy && PaperFrames.strategies) {
+        const board = currentBoard(state.market.bars);
+        const pick = board.rows.find((item) => item.id === state.strat.pick);
+        if (pick && pick.ready && (pick.call === "BUY" || pick.call === "SELL")) {
+          speakWarning({
+            symbol: current,
+            date: closed,
+            kind: "strategy",
+            side: pick.call === "BUY" ? "buy" : "sell",
+            detail: (pick.call === "BUY" ? "Buy warning. " : "Sell warning. ") + name + ". " + pick.name + " on the daily.",
+          });
+        }
+      }
+    }
   } catch (error) {
     return;
   }
+}
+
+async function warnSqueeze() {
+  return warnDesk();
 }
 
 async function autoTick() {
@@ -9698,8 +9932,8 @@ if (voiceButton) {
     state.voice = !state.voice;
     voiceButton.setAttribute("aria-pressed", state.voice ? "true" : "false");
     if (!state.voice && window.speechSynthesis) window.speechSynthesis.cancel();
-    $("status").textContent = state.voice ? "Voice is on. Daily squeeze warnings." : "Voice is off.";
-    if (state.voice) warnSqueeze();
+    $("status").textContent = state.voice ? "Voice is on. Desk triggers on closed bars." : "Voice is off.";
+    if (state.voice) warnDesk();
   });
 }
 
@@ -9919,6 +10153,23 @@ $("strat-auto-on").addEventListener("change", () => {
   renderStrategies();
   $("status").textContent = state.strat.on ? "Strategy trading is on. Turn Auto on and it follows " + state.strat.pick + " on closed bars." : "Strategy trading is off.";
 });
+[
+  ["trig-squeeze", "squeeze"],
+  ["trig-edge", "edge"],
+  ["trig-strategy", "strategy"],
+  ["trig-process", "process"],
+].forEach(([id, key]) => {
+  const box = $(id);
+  if (!box) return;
+  box.addEventListener("change", () => {
+    state.triggers[key] = box.checked;
+    saveTriggers();
+    $("status").textContent = box.checked
+      ? "Trigger on: " + key + ". Voice speaks it on closed bars when Voice is on."
+      : "Trigger off: " + key + ".";
+  });
+});
+syncTriggerChecks();
 $("strat-board").addEventListener("click", (event) => {
   const row = event.target.closest("tr[data-strategy]");
   if (row) pickStrategy(row.dataset.strategy);
@@ -10383,8 +10634,9 @@ boot().then(() => {
   runSafe(false);
   loadInternals(false);
   setInterval(() => loadInternals(true), 600000);
-  warnSqueeze();
-  setInterval(warnSqueeze, 20000);
+  syncTriggerChecks();
+  warnDesk();
+  setInterval(warnDesk, 20000);
   setInterval(() => {
     if (state.paper) renderQuote(state.paper);
     syncDeskStatus();

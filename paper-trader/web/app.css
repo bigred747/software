@@ -642,7 +642,8 @@ footer { display: none; }
 .ticket-box table.working th, .ticket-box table.working td { padding: 5px 4px; }
 .ticket-box table.working button { padding: 3px 8px; font-size: 12px; }
 
-.strat-auto,.strat-orb-inputs{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:10px 0}
+.strat-auto,.strat-orb-inputs,.strat-triggers{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:10px 0}
+.strat-triggers{margin-bottom:14px}
 .strat-orb-inputs input{width:84px}
 .strat-switch{display:inline-flex;gap:6px;align-items:center}
 .strat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:12px 0}

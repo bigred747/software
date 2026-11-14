@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Ten classic strategies and desk triggers (1.9.52)
+
+The Strategies tab now scores ten classic public closed-bar rules on this market’s history: Edge, squeeze release, 20-day breakout, RSI 2 pullback, 50/200 average cross, 20/50 EMA cross, MACD cross, Bollinger reversion, EMA trend with an ATR trail, and the 7-day low pullback. Auto can still follow the one you pick. Desk triggers (Voice) cover squeeze five dots/steam, Edge BUY on pinned markets, the followed strategy’s BUY/SELL, and a new process. Closed bars only. Not a forecast. None of these is a third-party or trademarked system.
+
 ## New process green signal (1.9.51)
 
 When the closed-bar scorer finds a better process for a market, the desk lights a green **New process** signal, stamps that process on the market’s paper fills, and keeps updating those fills as learning continues. Tab clicks and strategy tests still feed the learn book. Closed bars only. Not a forecast.

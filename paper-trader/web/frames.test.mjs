@@ -331,10 +331,10 @@ function walk(count, seed, drift) {
   return bars;
 }
 
-test("strategies report four rows from closed bars only", () => {
+test("strategies report ten classic public rows from closed bars only", () => {
   const bars = walk(600, 7, 0.0008);
   const board = JSON.parse(JSON.stringify(strategies(bars, { live: false })));
-  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "donchian", "rsi2"]);
+  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"]);
   board.rows.forEach((row) => {
     assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(row.call));
     assert.ok(Number.isFinite(row.total));
