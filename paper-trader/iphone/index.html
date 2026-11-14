@@ -8021,7 +8021,7 @@ function renderStratTrade(board) {
   const row = board && board.rows ? board.rows.find((item) => item.id === state.strat.pick) : null;
   const best = board && board.best ? board.rows.find((item) => item.id === board.best) : null;
   const held = !!(paper && Number(paper.shares) > 0);
-  const ready = !!(paper && paper.paper === true && !state.busy);
+  const ready = !!(paper && paper.paper === true);
   buy.disabled = !ready || held;
   sell.disabled = !ready || !held;
   if (!note) return;
