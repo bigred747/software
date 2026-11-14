@@ -4,8 +4,8 @@ The score uses bars that have already printed. It is not a forecast.
 The last bar never receives an arrow. Orders stay on the paper account.
 
 The scorer is its own process. Closing the desk window does not stop it.
-On Windows it starts again each time you sign in, and it keeps going while
-the computer is on and you are signed in.
+It keeps going while the computer is on and you are signed in. Starting it
+at sign-in is optional and is turned on from the desk, never automatically.
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import signal
 import subprocess
 import sys
 import threading
@@ -550,6 +549,29 @@ def write_startup(root: Path, folder: Path | None = None) -> Path | None:
     return path
 
 
+STARTUP_NAME = "Paper Trader Learn.bat"
+
+
+def startup_present(folder: Path | None = None) -> bool:
+    destination = folder if folder is not None else startup_folder()
+    return destination is not None and (destination / STARTUP_NAME).is_file()
+
+
+def remove_startup(folder: Path | None = None) -> bool:
+    """Remove only the sign-in file this program wrote."""
+    destination = folder if folder is not None else startup_folder()
+    if destination is None:
+        return False
+    path = destination / STARTUP_NAME
+    try:
+        if path.is_file() and "Paper Trader Learn" in path.read_text(encoding="utf-8", errors="ignore"):
+            path.unlink()
+            return True
+    except OSError:
+        return False
+    return False
+
+
 def read_watch(path: Path) -> tuple[str, tuple[str, ...] | None]:
     if not path.is_file():
         return "", None
@@ -589,6 +611,133 @@ def remember_focus(path: Path, symbol: str) -> None:
     with _WATCH_LOCK:
         _focus, extra = read_watch(path)
         write_watch(path, symbol, extra)
+
+
+def _process_event(symbol: str, rule: str, previous: str, tab: str, source: str) -> dict:
+    return {
+        "at": time.time(),
+        "day": desk_day(),
+        "symbol": symbol,
+        "rule": rule,
+        "previous": previous,
+        "tab": str(tab or "")[:40],
+        "source": str(source or "touch")[:24],
+    }
+
+
+def record_process_change(saved: dict, symbol: str, rule: str, previous: str, tab: str = "", source: str = "touch") -> dict | None:
+    """Remember when the best closed-bar process for a market changes."""
+    if not rule or rule == previous:
+        return None
+    event = _process_event(symbol, rule, previous, tab, source)
+    history = list(saved.get("processes") or [])
+    history.append(event)
+    saved["processes"] = history[-200:]
+    saved["last_process"] = event
+    saved["last_process_at"] = event["at"]
+    return event
+
+
+def current_process(state_path: Path, symbol: str) -> str:
+    """The latest learned process name for a market, if the book has one."""
+    if not _SYMBOL.fullmatch(symbol or ""):
+        return ""
+    saved = _load(state_path)
+    row = dict(saved.get("symbols") or {}).get(symbol) or {}
+    return str(row.get("rule") or "")
+
+
+def note_new_process(
+    state_path: Path,
+    symbol: str,
+    rule: str,
+    previous: str = "",
+    tab: str = "",
+    source: str = "desk",
+) -> dict | None:
+    """Record a new closed-bar process and keep the market's rule current."""
+    if not rule or not _SYMBOL.fullmatch(symbol or ""):
+        return None
+    with _WATCH_LOCK:
+        saved = _load(state_path)
+        last = saved.get("last_process") if isinstance(saved.get("last_process"), dict) else None
+        if last and last.get("symbol") == symbol and last.get("rule") == rule:
+            event = last
+        else:
+            event = record_process_change(saved, symbol, rule, previous, tab=tab, source=source)
+        rows = dict(saved.get("symbols") or {})
+        row = dict(rows.get(symbol) or {})
+        row["rule"] = rule
+        rows[symbol] = row
+        saved["symbols"] = rows
+        saved["updated"] = time.time()
+        _store(state_path, saved)
+    return event
+
+
+def stamp_process_on_fills(fills: list[dict], symbol: str, rule: str) -> int:
+    """Update every paper fill for this market with the latest learned process."""
+    if not rule or not symbol:
+        return 0
+    changed = 0
+    for fill in fills:
+        if not isinstance(fill, dict):
+            continue
+        if str(fill.get("symbol") or "") not in {"", symbol}:
+            continue
+        if fill.get("process") == rule:
+            continue
+        fill["process"] = rule
+        changed += 1
+    return changed
+
+
+def touch_symbol(state_path: Path, symbol: str, bars: list[Bar] | None = None, tab: str = "") -> dict:
+    """Score one market on closed bars now and merge it into the learn book.
+
+    Used when the desk opens a tab or tests a strategy so that click feeds the
+    scorer without waiting for the next background pass. Not a forecast.
+    """
+    if not _SYMBOL.fullmatch(symbol or ""):
+        raise ValueError(f"Unknown market {symbol}. Search the list.")
+    loaded = bars if bars is not None else quotes.load_bars(symbol, refresh=True)
+    lesson = score_row(loaded, symbol)
+    summary = {
+        "rule": lesson["rule"],
+        "seen": lesson["seen"],
+        "matched": lesson["matched"],
+        "average": lesson["average"],
+        "squeeze": lesson["squeeze"],
+        "calc": lesson["calc"],
+        "smooth": lesson["smooth"],
+        "candle": lesson["candle"],
+        "mood": lesson["mood"],
+        "as_of": lesson["as_of"],
+        "setup": lesson["setup"],
+        "tab": str(tab or "")[:40],
+    }
+    with _WATCH_LOCK:
+        saved = _load(state_path)
+        symbols = dict(saved.get("symbols") or {})
+        previous = str((symbols.get(symbol) or {}).get("rule") or "")
+        event = record_process_change(saved, symbol, str(summary["rule"] or ""), previous, tab=tab, source="touch")
+        symbols[symbol] = summary
+        saved["version"] = 1
+        saved["passes"] = int(saved.get("passes") or 0) + 1
+        saved["last_error"] = ""
+        saved["last_symbol"] = symbol
+        saved["updated"] = time.time()
+        saved["symbols"] = symbols
+        saved["last_touch"] = desk_day()
+        saved["last_touch_at"] = time.time()
+        saved["last_touch_tab"] = str(tab or "")[:40]
+        saved["last_touch_symbol"] = symbol
+        _store(state_path, saved)
+    summary["previous_rule"] = previous
+    summary["new_process"] = bool(event)
+    if event:
+        summary["process_event"] = event
+    return summary
 
 
 def remember_symbols(path: Path, symbols: list) -> None:
@@ -737,6 +886,7 @@ def learning_report(state_path: Path, *, expect: bool, now: float | None = None)
 def book_view(state_path: Path, *, expect: bool) -> dict:
     saved = _load(state_path)
     report = learning_report(state_path, expect=expect)
+    last_process = saved.get("last_process") if isinstance(saved.get("last_process"), dict) else None
     return {
         "running": bool(report["running"]),
         "passes": int(saved.get("passes") or 0),
@@ -745,34 +895,43 @@ def book_view(state_path: Path, *, expect: bool) -> dict:
         "symbols": json.loads(json.dumps(saved.get("symbols") or {})),
         "ok": bool(report["ok"]),
         "detail": str(report["detail"]),
+        "last_process": json.loads(json.dumps(last_process)) if last_process else None,
+        "last_process_at": float(saved.get("last_process_at") or 0),
+        "processes": json.loads(json.dumps(list(saved.get("processes") or [])[-20:])),
     }
 
 
-def _terminate(pid: int) -> None:
-    try:
-        os.kill(pid, signal.SIGTERM)
-    except OSError:
-        return
+STOP_FLAG = "learn_stop.flag"
 
 
 def stop_learner(state_path: Path, killer=None) -> int | None:
-    """Stop the scorer recorded in this folder. Leave every other process alone."""
+    """Ask the scorer recorded in this folder to close itself. It never ends another program.
+
+    A request file is left next to the lock. The scorer checks for it every second and
+    exits on its own. A killer is only used when a caller passes one in.
+    """
     lock_path = state_path.with_name("learn.lock")
     pid = lock_holder(lock_path)
     if not pid or pid == os.getpid():
         return None
-    end = killer or _terminate
-    end(pid)
-    deadline = time.monotonic() + 2
+    flag = state_path.with_name(STOP_FLAG)
+    try:
+        flag.write_text("close\n", encoding="utf-8")
+    except OSError:
+        return pid
+    deadline = time.monotonic() + 8
     while time.monotonic() < deadline:
         if lock_holder(lock_path) != pid:
+            flag.unlink(missing_ok=True)
             return pid
-        time.sleep(0.05)
-    end(pid)
+        time.sleep(0.1)
+    if killer is not None:
+        killer(pid)
+    flag.unlink(missing_ok=True)
     return pid
 
 
-def stop_learners(home: Path, source: Path | None = None, killer=None) -> list[int]:
+def ask_learners_to_close(home: Path, source: Path | None = None, killer=None) -> list[int]:
     from paper_trader.install import desk_folders
 
     folders = list(desk_folders(home))
@@ -817,7 +976,6 @@ def spawn_learner(root: Path) -> None:
 
 def ensure_learner(root: Path, state_path: Path, spawn=None, wait: float = 2.0) -> bool:
     """Start the scorer when it is not already running. Leave a live one alone."""
-    write_startup(root)
     if learner_healthy(state_path):
         return True
     if lock_holder(state_path.with_name("learn.lock")):
@@ -856,6 +1014,7 @@ class Watcher:
         self.watch_path = path.with_name("learn_watch.json")
         self.scan_path = path.with_name("scan_state.json")
         self.lock_path = path.with_name("learn.lock")
+        self.stop_path = path.with_name(STOP_FLAG)
         self._names_day = ""
         self._names_list: list[str] = []
         self._scan = _load_scan(self.scan_path)
@@ -877,6 +1036,7 @@ class Watcher:
             return False
         _write_pid(fd, os.getpid())
         self._lock_fd = fd
+        self.stop_path.unlink(missing_ok=True)
         return True
 
     def release(self) -> None:
@@ -913,8 +1073,21 @@ class Watcher:
         except (OSError, ValueError, AttributeError):
             self._awake = ""
 
+    def _nap(self, seconds: float) -> bool:
+        """Wait in short slices so a close request is noticed within a second."""
+        end = time.monotonic() + max(0.0, seconds)
+        while time.monotonic() < end:
+            if self.stop_path.exists():
+                self._stop.set()
+            if self._stop.wait(min(1.0, max(0.0, end - time.monotonic()))):
+                return True
+        return self._stop.is_set()
+
     def _loop(self) -> None:
         while not self._stop.is_set():
+            if self.stop_path.exists():
+                self._stop.set()
+                return
             self._keep_awake()
             self._pass()
             if self._stop.is_set():
@@ -968,6 +1141,8 @@ class Watcher:
         }
         with self._lock:
             symbols = dict(self._saved.get("symbols") or {})
+            previous = str((symbols.get(symbol) or {}).get("rule") or "")
+            record_process_change(self._saved, symbol, str(summary["rule"] or ""), previous, tab="learner", source="learner")
             symbols[symbol] = summary
             self._saved = {
                 "version": 1,
@@ -979,6 +1154,9 @@ class Watcher:
                 "updated": time.time(),
                 "awake": self._awake,
                 "symbols": symbols,
+                "processes": list(self._saved.get("processes") or []),
+                "last_process": self._saved.get("last_process"),
+                "last_process_at": self._saved.get("last_process_at"),
             }
             _store(self.path, self._saved)
 
@@ -996,7 +1174,7 @@ class Watcher:
             if self._scan_finished():
                 return
             pause = self._scan_one()
-            if self._stop.wait(pause):
+            if self._nap(pause):
                 return
 
     def _scan_finished(self) -> bool:

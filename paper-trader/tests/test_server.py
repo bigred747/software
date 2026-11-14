@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import threading
@@ -124,7 +125,7 @@ class ServerTests(unittest.TestCase):
         status, raw = self.open("/api/paper")
         self.assertEqual(status, 200)
         before = json.loads(raw)
-        status, traded = self.open("/api/paper/trade", "POST", {})
+        status, traded = self.open("/api/paper/trade", "POST", {"confirmed": True})
         if status == 400:
             self.assertIn(b"today", traded)
             self.assertEqual(json.loads(self.open("/api/paper")[1])["cursor"], before["cursor"])
@@ -182,6 +183,65 @@ class ServerTests(unittest.TestCase):
                 self.assertFalse(paused["scan_on"])
                 self.assertIn("Scanner is off", paused["scan_note"])
                 self.assertTrue(any(row["symbol"] == "BTC-USD" for row in paused["leaders"]))
+
+    def test_learn_touch_scores_the_open_market_when_a_tab_is_opened(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            bars = self._flat_bars(100.0)
+            with patch("paper_trader.quotes.load_bars", return_value=bars):
+                touched = desk.learn_touch({"tab": "strategies", "symbols": [desk.journal.symbol, "ETH-USD"]})
+                self.assertIn(desk.journal.symbol, touched.get("touched") or [])
+                note = touched.get("touch_note") or ""
+                self.assertTrue("strategies" in note or "New process" in note, note)
+                self.assertEqual(touched.get("touch_tab"), "strategies")
+                self.assertIn("new_processes", touched)
+            status, raw = self.open("/api/learn/touch", "POST", {"tab": "journal", "symbols": ["BTC-USD"]})
+            self.assertEqual(status, 200)
+            payload = json.loads(raw)
+            self.assertIn("touch_note", payload)
+            self.assertTrue(payload.get("touched"))
+
+    def test_new_process_updates_fills_and_lights_a_green_signal(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            bars = self._flat_bars(100.0)
+            desk.journal.fills = [
+                {
+                    "at": 1,
+                    "symbol": desk.journal.symbol,
+                    "side": "buy",
+                    "qty": 1,
+                    "price": 100,
+                    "quote": 100,
+                    "fee_bps": 5,
+                    "pnl": 0,
+                    "reason": "trade",
+                }
+            ]
+            with patch("paper_trader.quotes.load_bars", return_value=bars), patch(
+                "paper_trader.server.touch_symbol",
+                return_value={
+                    "rule": "Squeeze 20",
+                    "previous_rule": "True momentum 5/3 with the candle",
+                    "new_process": True,
+                    "seen": 20,
+                    "matched": 12,
+                },
+            ):
+                touched = desk.learn_touch({"tab": "strategies", "symbols": [desk.journal.symbol]})
+                self.assertEqual(len(touched.get("new_processes") or []), 1)
+                self.assertIn("New process", touched.get("touch_note") or "")
+                self.assertEqual(desk.journal.fills[0].get("process"), "Squeeze 20")
+                self.assertGreaterEqual(touched.get("fills_updated") or 0, 1)
+            checks = desk.checks()
+            names = {item["name"]: item for item in checks["items"]}
+            self.assertIn("New process", names)
+            self.assertTrue(names["New process"]["ok"])
+            self.assertIn("Squeeze 20", names["New process"]["detail"])
 
     def test_sell_all_sells_everything_and_stops_buys_for_the_denver_day(self) -> None:
         from datetime import date, timedelta
@@ -249,7 +309,7 @@ class ServerTests(unittest.TestCase):
         status, raw = self.open("/api/paper/mode", "POST", {"mode": "live"})
         self.assertEqual(status, 400)
         self.assertIn(b"Live is locked", raw)
-        status, raw = self.open("/api/paper/halt", "POST", {})
+        status, raw = self.open("/api/paper/halt", "POST", {"confirmed": True})
         self.assertEqual(status, 200)
         payload = json.loads(raw)
         self.assertEqual(payload["shares"], 0)
@@ -258,6 +318,408 @@ class ServerTests(unittest.TestCase):
         status, page = self.open("/")
         for marker in (b'id="halt"', b'id="live"', b">Live<", b"Sell all", b'id="breaker-note"'):
             self.assertIn(marker, page)
+
+    def _flat_bars(self, last: float = 100.0, low: float | None = None):
+        from datetime import date, timedelta
+
+        from paper_trader.model import Bar
+
+        start = date(2024, 1, 1)
+        bars = [Bar((start + timedelta(days=index)).isoformat(), 100.0, 101.0, 99.0, 100.0, 1.0) for index in range(40)]
+        floor = min(99.0, last) if low is None else low
+        bars[-1] = Bar(bars[-1].date, 100.0, max(101.0, last), floor, last, 1.0)
+        return bars
+
+    def test_switching_markets_keeps_the_open_position_and_logs_every_fill(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)), patch(
+                "paper_trader.server.allow_entry", return_value=""
+            ):
+                first = desk.trade("auto")
+                self.assertGreater(first["shares"], 0)
+                self.assertEqual(first["book"]["fills"][0]["reason"], "auto")
+                self.assertEqual(first["book"]["fills"][0]["side"], "buy")
+                symbol = first["symbol"]
+                other = "ETH-USD" if symbol != "ETH-USD" else "BTC-USD"
+                away = desk.reset({"symbol": other, "switch": True})
+                self.assertEqual(away["symbol"], other)
+                self.assertEqual(away["shares"], 0)
+                held = [row for row in away["book"]["positions"] if row["symbol"] == symbol]
+                self.assertEqual(len(held), 1)
+                self.assertGreater(held[0]["shares"], 0)
+                self.assertEqual(len(away["book"]["fills"]), 1)
+                back = desk.reset({"symbol": symbol, "switch": True})
+                self.assertGreater(back["shares"], 0)
+                sold = desk.trade()
+                self.assertEqual(sold["shares"], 0)
+                reasons = [row["reason"] for row in sold["book"]["fills"]]
+                self.assertEqual(reasons, ["trade", "auto"])
+                wiped = desk.reset({"symbol": symbol})
+                self.assertEqual(wiped["shares"], 0)
+                reloaded = Desk(Path(folder) / "paper_state.json")
+                self.assertEqual(reloaded.journal.symbol, symbol)
+
+    def test_book_survives_a_restart(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "paper_state.json"
+            desk = Desk(path)
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)), patch(
+                "paper_trader.server.allow_entry", return_value=""
+            ):
+                desk.trade()
+                desk.reset({"symbol": "ETH-USD" if desk.journal.symbol != "ETH-USD" else "BTC-USD", "switch": True})
+                again = Desk(path)
+                view = again.snapshot()
+                self.assertTrue(any(row["shares"] > 0 for row in view["book"]["positions"]))
+                self.assertEqual(len(view["book"]["fills"]), 1)
+
+    def test_every_element_the_page_script_looks_up_exists(self) -> None:
+        import re
+
+        root = Path(__file__).resolve().parents[1] / "web"
+        script = (root / "app.js").read_text(encoding="utf-8")
+        page = (root / "index.html").read_text(encoding="utf-8")
+        used = set(re.findall(r'\$\("([A-Za-z0-9_-]+)"\)', script))
+        present = set(re.findall(r'\bid="([^"]+)"', page))
+        self.assertEqual(sorted(used - present), [])
+        for button in re.findall(r'<button[^>]*\bid="([^"]+)"', page):
+            self.assertIn(f'"{button}"', script, f"button {button} has no code behind it")
+        tabs = re.findall(r'data-dock="([a-z]+)"', page)
+        pages = re.findall(r'data-dock-page="([a-z]+)"', page)
+        self.assertEqual(sorted(tabs), sorted(pages))
+        for name in ("strategies", "squeeze", "journal"):
+            self.assertIn(name, tabs)
+
+    def test_internal_gauges_are_readable_without_being_in_the_market_list(self) -> None:
+        from paper_trader import quotes
+
+        for symbol in ("^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP"):
+            self.assertEqual(quotes.yahoo_symbol(symbol), symbol)
+        with self.assertRaises(ValueError):
+            quotes.yahoo_symbol("^NOTAGAUGE")
+        for name in ("internals", "int-gate", "int-refresh", "internals-pill"):
+            page = (Path(__file__).resolve().parents[1] / "web" / "index.html").read_text(encoding="utf-8")
+            self.assertIn(name, page)
+
+    def test_safe_check_answers_green_and_names_every_item(self) -> None:
+        with patch("paper_trader.quotes.ping", return_value="Market quote ready"):
+            status, raw = self.open("/api/safe")
+        self.assertEqual(status, 200)
+        report = json.loads(raw)
+        self.assertTrue(report["safe"], report)
+        names = {item["name"] for item in report["items"]}
+        for name in ("This computer only", "Strangers blocked", "Live locked", "Quote hosts", "Circuit breaker", "Order rules", "Journal saves", "Program unchanged", "Launchers clean", "Quiet installer"):
+            self.assertIn(name, names)
+        self.assertTrue(all(item["ok"] for item in report["items"] if item["kind"] == "safety"))
+
+    def test_windows_extras_are_off_by_default_and_wired(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            view = desk.windows_view()
+            self.assertFalse(view["startup"])
+            self.assertFalse(view["desktop"])
+            if os.name != "nt":
+                self.assertFalse(view["windows"])
+                with self.assertRaises(ValueError):
+                    desk.windows_set({"startup": True})
+        status, raw = self.open("/api/windows")
+        self.assertEqual(status, 200)
+        self.assertIn("startup", json.loads(raw))
+        page = (Path(__file__).resolve().parents[1] / "web" / "index.html").read_text(encoding="utf-8")
+        for name in ("win-box", "win-startup", "win-desktop"):
+            self.assertIn(name, page)
+
+    def test_safe_check_turns_red_when_a_program_file_changes_after_start(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            desk.fingerprint = "changed"
+            with patch("paper_trader.quotes.ping", return_value="ok"):
+                report = desk.safe_report()
+            self.assertFalse(report["safe"])
+            self.assertIn("Program unchanged", [item["name"] for item in report["items"] if not item["ok"]])
+            report = desk.safe_report("0.0.0.0")
+            self.assertFalse(report["safe"])
+
+    def test_ticket_limit_waits_for_the_real_quote_then_fills_on_paper(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)):
+                placed = desk.place({"side": "buy", "kind": "limit", "limit": 95, "tif": "GTC"})
+                self.assertEqual(placed["last_action"], "working")
+                self.assertEqual(len(placed["working"]), 1)
+                self.assertEqual(placed["shares"], 0)
+                self.assertFalse(placed["live"])
+                self.assertEqual(desk.snapshot()["shares"], 0)
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(94.0)):
+                filled = desk.step(1)
+                self.assertGreater(filled["shares"], 0)
+                self.assertEqual(filled["working"], [])
+                self.assertAlmostEqual(desk.journal.close_orders[-1][2], 94.0)
+                self.assertEqual(filled["ticket_fills"][-1]["kind"], "limit")
+
+    def test_ticket_stop_rules_and_stop_limit_trigger(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)):
+                with self.assertRaises(ValueError):
+                    desk.place({"side": "buy", "kind": "stop", "stop": 99})
+                with self.assertRaises(ValueError):
+                    desk.place({"side": "sell", "kind": "limit", "limit": 101})
+                with self.assertRaises(ValueError):
+                    desk.place({"side": "buy", "kind": "limit"})
+                desk.place({"side": "buy", "kind": "stop_limit", "stop": 102, "limit": 103, "tif": "GTC"})
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(104.0)):
+                held = desk.step(1)
+                self.assertEqual(held["shares"], 0)
+                self.assertTrue(held["working"][0]["triggered"])
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(102.5)):
+                filled = desk.step(1)
+                self.assertGreater(filled["shares"], 0)
+                self.assertAlmostEqual(desk.journal.close_orders[-1][2], 102.5)
+                sold = desk.place({"side": "sell", "kind": "stop", "stop": 100, "tif": "GTC"})
+                self.assertEqual(sold["last_action"], "working")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(99.0)):
+                out = desk.step(1)
+                self.assertEqual(out["shares"], 0)
+                self.assertAlmostEqual(desk.journal.close_orders[-1][2], 99.0 * (1 - 0.0005))
+
+    def test_sell_all_cancels_working_orders_and_the_breaker_blocks_ticket_buys(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)):
+                desk.place({"side": "buy", "kind": "limit", "limit": 90, "tif": "GTC"})
+                halted = desk.halt()
+                self.assertEqual(halted["working"], [])
+                with self.assertRaises(ValueError) as blocked:
+                    desk.place({"side": "buy", "kind": "market", "confirmed": True})
+                self.assertIn("circuit breaker", str(blocked.exception))
+
+    def test_day_orders_expire_and_gtc_orders_stay(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)):
+                desk.place({"side": "buy", "kind": "limit", "limit": 90, "tif": "DAY"})
+                desk.place({"side": "buy", "kind": "limit", "limit": 91, "tif": "GTC"})
+                for ticket in desk.journal.working:
+                    ticket["day"] = "2000-01-01"
+                view = desk.snapshot()
+                self.assertEqual([item["tif"] for item in view["working"]], ["GTC"])
+                canceled = desk.cancel({"id": view["working"][0]["id"]})
+                self.assertEqual(canceled["working"], [])
+
+    def test_paper_book_export_includes_working_orders_for_the_phone(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            with patch("paper_trader.quotes.load_bars", return_value=self._flat_bars(100.0)):
+                desk.place({"side": "buy", "kind": "market", "tif": "DAY"})
+                desk.place({"side": "sell", "kind": "limit", "limit": 120, "tif": "GTC"})
+                book = desk.export_book()
+                self.assertEqual(book["version"], 1)
+                self.assertGreaterEqual(book["markets"], 1)
+                row = book["sessions"][desk.journal.symbol]
+                self.assertGreater(row["shares"], 0)
+                self.assertTrue(any(item.get("kind") == "limit" for item in row["working"]))
+            status, raw = self.open("/api/paper/book")
+            self.assertEqual(status, 200)
+            payload = json.loads(raw)
+            self.assertEqual(payload["version"], 1)
+            self.assertIn("sessions", payload)
+
+    def test_paper_book_import_merges_open_trades_onto_the_computer(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            bars = self._flat_bars(100.0)
+            with patch("paper_trader.quotes.load_bars", return_value=bars):
+                payload = {
+                    "version": 1,
+                    "sessions": {
+                        desk.journal.symbol: {
+                            "symbol": desk.journal.symbol,
+                            "shares": 10,
+                            "cash": 100,
+                            "entryPrice": 100,
+                            "entryDate": bars[-1].date,
+                            "working": [
+                                {
+                                    "id": "W9",
+                                    "side": "sell",
+                                    "kind": "limit",
+                                    "limit": 120,
+                                    "stop": 0,
+                                    "tif": "GTC",
+                                    "day": bars[-1].date,
+                                }
+                            ],
+                            "fills": [],
+                            "nextId": 10,
+                            "params": desk.journal.params.to_dict(),
+                            "last": 100,
+                        }
+                    },
+                }
+                view = desk.import_book(payload)
+                self.assertGreaterEqual(view.get("book_loaded") or 0, 1)
+                self.assertGreater(float(view.get("shares") or 0), 0)
+                self.assertTrue(any(item.get("id") == "W9" for item in view.get("working") or []))
+            status, raw = self.open(
+                "/api/paper/book",
+                "POST",
+                {
+                    "version": 1,
+                    "sessions": {
+                        "BTC-USD": {
+                            "symbol": "BTC-USD",
+                            "shares": 0,
+                            "cash": 1000,
+                            "working": [
+                                {
+                                    "id": "P1",
+                                    "side": "buy",
+                                    "kind": "limit",
+                                    "limit": 1,
+                                    "stop": 0,
+                                    "tif": "GTC",
+                                    "day": "2000-01-01",
+                                }
+                            ],
+                            "fills": [],
+                            "nextId": 2,
+                            "last": 1,
+                        }
+                    },
+                },
+            )
+            self.assertEqual(status, 200)
+            body = json.loads(raw)
+            self.assertGreaterEqual(body.get("book_loaded") or 0, 1)
+
+    def test_ticket_market_order_fills_with_slippage_and_http_routes_answer(self) -> None:
+        status, raw = self.open("/api/paper")
+        self.assertEqual(status, 200)
+        status, placed = self.open(
+            "/api/paper/ticket",
+            "POST",
+            {"side": "buy", "kind": "limit", "limit": 0.01, "tif": "GTC", "confirmed": True},
+        )
+        self.assertEqual(status, 200)
+        payload = json.loads(placed)
+        self.assertEqual(payload["last_action"], "working")
+        status, canceled = self.open("/api/paper/cancel", "POST", {"id": "all"})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(canceled)["working"], [])
+        status, bought = self.open("/api/paper/ticket", "POST", {"side": "buy", "kind": "market", "confirmed": True})
+        self.assertEqual(status, 200)
+        fill = json.loads(bought)["fill"]
+        self.assertEqual(fill["slip_bps"], 5.0)
+        self.assertGreater(fill["price"], fill["quote"])
+        self.assertEqual(self.open("/api/paper/ticket", "POST", {"side": "buy", "kind": "market", "confirmed": True})[0], 400)
+
+    def test_every_buy_and_sell_needs_the_second_warning(self) -> None:
+        before = json.loads(self.open("/api/paper")[1])
+        for path, body in (
+            ("/api/paper/trade", {}),
+            ("/api/paper/trade", {"source": "auto"}),
+            ("/api/paper/trade", {"confirmed": "yes"}),
+            ("/api/paper/ticket", {"side": "buy", "kind": "market"}),
+            ("/api/paper/halt", {}),
+        ):
+            status, raw = self.open(path, "POST", body)
+            self.assertEqual(status, 400, path)
+            self.assertIn(b"Confirm first", raw)
+        after = json.loads(self.open("/api/paper")[1])
+        self.assertEqual(after["shares"], before["shares"])
+        self.assertEqual(after.get("fills"), before.get("fills"))
+
+    def test_page_has_the_second_warning_and_strategy_testing_wired(self) -> None:
+        web = Path(__file__).resolve().parents[1] / "web"
+        page = (web / "index.html").read_text(encoding="utf-8")
+        script = (web / "app.js").read_text(encoding="utf-8")
+        for name in ("confirm-modal", "cm-yes", "cm-no", "cm-checks", "strat-detail", "strat-log", "strat-sweep", "strat-sweep-body"):
+            self.assertIn(f'id="{name}"', page)
+        for call in ("/api/paper/trade", "/api/paper/ticket", "/api/paper/halt"):
+            for line in script.splitlines():
+                if f'paperCall("{call}"' in line:
+                    self.assertIn("confirmed: true", line, line)
+        self.assertIn("answerAuto", script)
+        self.assertNotIn('paperCall("/api/paper/trade", { source: "auto" })', script)
+
+    def test_edge_on_every_timeframe_and_the_price_box_are_wired(self) -> None:
+        web = Path(__file__).resolve().parents[1] / "web"
+        page = (web / "index.html").read_text(encoding="utf-8")
+        script = (web / "app.js").read_text(encoding="utf-8")
+        frames = (web / "frames.js").read_text(encoding="utf-8")
+        popup = (web / "frame.js").read_text(encoding="utf-8")
+        for name in ("edge-frames", "edge-frames-line", "edge-frames-body", "edge-frames-refresh", "edge-frames-note"):
+            self.assertIn(f'id="{name}"', page)
+        for word in ("loadEdgeFrames", "renderEdgeFrames", "showChartTip", "state.tmoMap", "attachPick"):
+            self.assertIn(word, script)
+        for word in ("function describeBar", "function showTip", "function attachPick", "function edgeLine", "paperPick"):
+            self.assertIn(word, frames)
+        self.assertIn("drawEdgeCalls", script)
+        self.assertIn("function drawEdgeCalls", frames)
+        self.assertIn("attachPick", popup)
+        self.assertIn("edgeLine", popup)
+
+    def test_only_this_computer_can_reach_the_desk(self) -> None:
+        from paper_trader.server import _local_client, _local_origin
+
+        self.assertTrue(_local_client(("127.0.0.1", 5000)))
+        self.assertTrue(_local_client(("::1", 5000, 0, 0)))
+        self.assertFalse(_local_client(("192.168.1.25", 5000)))
+        self.assertFalse(_local_client(("203.0.113.9", 5000)))
+        self.assertTrue(_local_origin(""))
+        self.assertTrue(_local_origin("http://127.0.0.1:8765"))
+        self.assertTrue(_local_origin("http://localhost:8765/"))
+        self.assertFalse(_local_origin("https://evil.example"))
+        self.assertFalse(_local_origin("http://127.0.0.1.evil.example"))
+        request = Request(self.base + "/api/health", headers={"Origin": "https://evil.example"})
+        with self.assertRaises(HTTPError) as blocked:
+            urlopen(request, timeout=5)
+        self.assertEqual(blocked.exception.code, 404)
+        status, health = self.open("/api/health")
+        self.assertTrue(json.loads(health)["loopback"])
+
+    def test_page_has_the_order_ticket(self) -> None:
+        status, page = self.open("/")
+        for marker in (
+            b'id="ticket"',
+            b"Order ticket",
+            b'id="kind"',
+            b"Stop Limit",
+            b'id="tif"',
+            b">GTC<",
+            b"Confirm and Send",
+            b"Working orders",
+            b'id="working-body"',
+            b'id="side-buy"',
+            b'id="side-sell"',
+            b'id="halt"',
+        ):
+            self.assertIn(marker, page)
+        status, script = self.open("/app.js")
+        for marker in (b"/api/paper/ticket", b"/api/paper/cancel", b"PaperEngine.place"):
+            self.assertIn(marker, script)
 
     def test_step_and_backtest(self) -> None:
         status, raw = self.open("/api/paper")
@@ -368,6 +830,7 @@ class ServerTests(unittest.TestCase):
             phone = packed.read("paper-trader/iphone/PaperTrader.html")
             note = packed.read("paper-trader/iphone/README.txt")
             desk = packed.read("paper-trader/paper_trader/server.py")
+            learn = packed.read("paper-trader/paper_trader/learn.py")
             live = packed.read("paper-trader/web/live.js")
             journal = packed.getinfo("paper-trader/paper_trader/journal.py")
         self.assertIn("paper-trader/runtime/python.exe", names)
@@ -391,14 +854,52 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.37", script)
+        self.assertIn(b"1.9.51", script)
+        self.assertIn(b"nudgeLearn", script)
+        self.assertIn(b"announceNewProcess", script)
+        self.assertIn(b"New process", script)
+        self.assertIn(b"/api/learn/touch", desk)
+        self.assertIn(b"def stamp_process_on_fills", learn)
+        self.assertIn(b"stackAverages", script)
+        self.assertIn(b"paintCandles", script)
+        self.assertIn(b"SMA 5", script)
+        self.assertIn(b"SMA stack", page)
+        self.assertIn(b'id="book-share"', page)
+        self.assertIn(b'id="book-file"', page)
+        self.assertIn(b'id="position-chip"', page)
+        self.assertIn(b'id="desk-status"', page)
+        self.assertIn(b'id="day-strip"', page)
+        self.assertIn(b'id="ticket-preview"', page)
+        self.assertIn(b"quoteAgeText", script)
+        self.assertIn(b"paintTicketPreview", script)
+        self.assertIn(b"scrubReadout", script)
+        self.assertIn(b"/api/paper/book", desk)
+        self.assertIn(b"def import_book", desk)
+        self.assertIn(b"importPaperBook", script)
+        self.assertNotIn(b"Mobius", script)
+        self.assertNotIn(b"Spot_Inflow", script)
+        self.assertNotIn(b"avgs_mtf_10x", script)
         self.assertIn(b"drawPriceLine", script)
         self.assertIn(b'id="edge-call"', page)
         self.assertIn(b"It is not a forecast.", page)
         self.assertIn(b"Dark pool books", page)
         self.assertIn(b"function hiddenTape", phone)
         self.assertIn(b"function edge(bars, options)", phone)
-        self.assertIn(b"SCAN_READERS = 3", script)
+        self.assertIn(b"SCAN_READERS = 1", script)
+        self.assertIn(b"SCAN_GAP = 300", script)
+        self.assertIn(b"publishSqueeze", script)
+        self.assertIn(b'value="stocks"', page)
+        self.assertIn(b'value="main_etfs"', page)
+        self.assertIn(b"13 main ETFs", page)
+        self.assertIn(b'id="journal-working-body"', page)
+        self.assertIn(b'id="chart-back"', page)
+        self.assertIn(b"Add to Home Screen", page)
+        self.assertIn(b"It is not a third-party study", page)
+        self.assertNotIn(b"SqueezePRO", script)
+        self.assertNotIn(b"Simpler Trading", script)
+        self.assertNotIn(b"TTM_Squeeze", script)
+        self.assertNotIn(b"worker(), worker(), worker()", script)
+        self.assertNotIn(b'document.write("<!DOCTYPE html><title>" +', script)
         self.assertIn(b'id="signal-sum"', page)
         self.assertIn(b'class="seal"', page)
         self.assertIn(b"prefers-reduced-motion", phone)
@@ -412,7 +913,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"fetch(url)", live)
         self.assertIn(b"api.gemini.com", phone)
         self.assertNotIn(b"AbortController", phone)
-        self.assertIn(b"Download Linked File", phone)
+        self.assertIn(b"A github.com link to this file shows the code", phone)
         self.assertIn(b'id="open-help"', page)
         self.assertIn(b"BTC-USD\\tBitcoin\\tcrypto", phone)
         self.assertIn(b"VGT\\tVanguard", phone)
@@ -439,7 +940,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"quote-mood", page)
         self.assertIn(b"mood-clock", page)
         self.assertIn(b"true momentum", page)
-        self.assertIn(b"Candles are green when the close is at or above the open", page)
+        self.assertIn(b"Up candles are hollow green and down candles are solid red", page)
         self.assertIn(b"Desk is working.", script)
         self.assertIn(b'id="signal-strip"', page)
         self.assertIn(b'id="chart-read"', page)

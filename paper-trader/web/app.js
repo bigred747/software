@@ -53,16 +53,43 @@ function sameStamp(node, stamp) {
   return false;
 }
 
-async function getJSON(url, options) {
-  const response = await fetch(url, options);
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.error || "Request failed");
-  }
-  return payload;
+let barGate = Promise.resolve();
+let barNext = 0;
+
+function oneBarRead(task) {
+  const run = barGate.then(async () => {
+    const wait = barNext - Date.now();
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    barNext = Date.now() + 300;
+    return task();
+  });
+  barGate = run.then(() => {}, () => {});
+  return run;
 }
 
-const VERSION = "1.9.37";
+async function getJSON(url, options) {
+  const read = async () => {
+    const response = await fetch(url, options);
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Request failed");
+    }
+    return payload;
+  };
+  if (String(url).indexOf("/api/bars") === 0) return oneBarRead(read);
+  return read();
+}
+
+const VERSION = "1.9.51";
+const DOCK_KEY = "paperTraderDock";
+const LEARN_KEY = "paper_trader_learn_v1";
+const FEE_BPS = 5;
+const SLIP_BPS = 5;
+let learnTouchAt = 0;
+let learnTouchTab = "";
+let learnTouchNote = "";
+let newProcessNote = "";
+let newProcessAt = 0;
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -141,11 +168,62 @@ function stampQuote(bars) {
   if (bars && bars.tape) state.market.tape = Object.assign({}, state.market.tape || {}, bars.tape);
 }
 
+const BOOK_KEY = "paper_trader_book_v1";
+
+function readBook() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(BOOK_KEY) || "{}");
+    return raw && typeof raw.sessions === "object" && raw.sessions ? raw.sessions : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function writeBook() {
+  if (!state.offline || !state.book) return;
+  try {
+    const sessions = readBook();
+    Object.keys(state.book).forEach((symbol) => {
+      const session = state.book[symbol];
+      if (session && (session.shares > 0 || (session.fills && session.fills.length) || (session.working && session.working.length))) {
+        sessions[symbol] = PaperEngine.snapshot(session);
+      } else {
+        delete sessions[symbol];
+      }
+    });
+    const text = JSON.stringify({ version: 1, sessions });
+    if (state.bookText !== text) {
+      localStorage.setItem(BOOK_KEY, text);
+      state.bookText = text;
+    }
+  } catch (error) {
+    state.bookNote = "This browser would not save the paper book. Positions stay until the page closes.";
+  }
+}
+
+function openOfflineSession(symbol, bars, params, fresh) {
+  state.book = state.book || {};
+  const kept = state.book[symbol];
+  if (kept && !fresh) {
+    PaperEngine.replaceBars(kept, bars);
+    state.session = kept;
+    return kept;
+  }
+  const session = PaperEngine.sessionFromBars(symbol, bars, params || {});
+  if (!fresh) {
+    const saved = readBook()[symbol];
+    if (saved) PaperEngine.restore(session, saved);
+  }
+  state.book[symbol] = session;
+  state.session = session;
+  return session;
+}
+
 async function loadPhoneBars(symbol, params, fresh) {
   const row = state.catalog.find((item) => item.symbol === symbol);
   const bars = await PaperLive.daily(symbol, row ? row.category : "");
   if (fresh || !state.session || state.session.symbol !== symbol) {
-    state.session = PaperEngine.sessionFromBars(symbol, bars, params || {});
+    openOfflineSession(symbol, bars, params || {}, fresh);
   } else {
     PaperEngine.replaceBars(state.session, bars);
   }
@@ -154,11 +232,31 @@ async function loadPhoneBars(symbol, params, fresh) {
   return PaperEngine.view(state.session);
 }
 
+const CONFIRM_PATHS = ["/api/paper/trade", "/api/paper/ticket", "/api/paper/halt"];
+const CONFIRM_NOTE = "Confirm first. Every paper buy and sell needs the second warning, even from Auto.";
+
 async function paperCall(path, body) {
+  if (CONFIRM_PATHS.includes(path) && !(body && body.confirmed === true)) throw new Error(CONFIRM_NOTE);
   if (!state.offline) return post(path, body);
   const params = body || {};
   if (path === "/api/paper/step" || path === "/api/paper/run") {
-    return loadPhoneBars(state.session.symbol, state.session.params, false);
+    const refreshed = await loadPhoneBars(state.session.symbol, state.session.params, false);
+    if (PaperEngine.work(state.session, PAPER_SLIP_BPS, denverDay(), breakerState().tripped)) return PaperEngine.view(state.session);
+    return refreshed;
+  }
+  if (path === "/api/paper/ticket") {
+    await loadPhoneBars(state.session.symbol, state.session.params, false);
+    if (params.side === "buy" && breakerState().tripped) throw new Error(BREAKER_STOP);
+    return PaperEngine.place(state.session, params, PAPER_SLIP_BPS, denverDay());
+  }
+  if (path === "/api/paper/cancel") {
+    const symbol = params.symbol || (state.session && state.session.symbol) || "";
+    const target = (state.book && state.book[symbol]) || state.session;
+    if (!target) throw new Error("That working order was not found");
+    const view = PaperEngine.cancel(target, params.id);
+    writeBook();
+    if (state.session && state.session.symbol === target.symbol) return view;
+    return state.session ? PaperEngine.view(state.session) : view;
   }
   if (path === "/api/paper/trade") {
     await loadPhoneBars(state.session.symbol, state.session.params, false);
@@ -170,7 +268,7 @@ async function paperCall(path, body) {
       state.session.dayBuys = state.session.dayBuys || [];
       state.session.dayBuys.push(day + "|" + state.session.symbol);
     }
-    return PaperEngine.trade(state.session, PAPER_SLIP_BPS);
+    return PaperEngine.trade(state.session, PAPER_SLIP_BPS, params.source === "auto" ? "auto" : "trade");
   }
   if (path === "/api/paper/mode") {
     if (params.mode === "live") throw new Error(LIVE_NOTE);
@@ -281,9 +379,15 @@ function withHooks(items) {
   const edge = inMicrosoftEdge();
   const webPage = state.offline && location.protocol !== "file:";
   applyHook(next, "Edge", edge || webPage, edge ? "This page is in Microsoft Edge" : webPage ? "This browser loads the quotes" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
+  const learnDetail = learnTouchNote
+    || (state.offline ? "This symbol, while the page is open. Tabs and strategy clicks score closed bars here." : "Starts when you open the desk, then keeps scoring after that window closes. Tabs and strategy clicks score closed bars now.");
   if (!next.some((item) => item.name === "Learning")) {
-    setSignal(next, "Learning", true, state.offline ? "This symbol, while the page is open" : "Starts when you open the desk, then keeps scoring after that window closes");
+    setSignal(next, "Learning", true, learnDetail);
+  } else {
+    applyHook(next, "Learning", true, learnDetail);
   }
+  const processFresh = newProcessNote && (Date.now() - newProcessAt) < 3600000;
+  setSignal(next, "New process", true, processFresh ? newProcessNote : (newProcessNote ? "Current · " + newProcessNote : "Waiting for a closed-bar process change"));
   const tone = currentMood(bars);
   if (tone && tone.score != null) setSignal(next, "Fear and greed", true, tone.label + " " + tone.score);
   else if (!next.some((item) => item.name === "Fear and greed")) setSignal(next, "Fear and greed", false, "Waiting on the quote");
@@ -362,7 +466,8 @@ function renderLocalSignals() {
     { name: "Squeeze", ok: !!(state.market && (state.market.squeeze || []).length), detail: "Ready" },
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
-    { name: "Learning", ok: true, detail: "This symbol, while the page is open" },
+    { name: "Learning", ok: true, detail: learnTouchNote || "This symbol, while the page is open" },
+    { name: "New process", ok: true, detail: newProcessNote || "Waiting for a closed-bar process change" },
     { name: "Fear and greed", ok: !!(state.market && state.market.bars && state.market.bars.length >= 20), detail: phoneMood() },
     { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
     { name: "Timeframes", ok: typeof PaperFrames !== "undefined" && PaperFrames.FRAMES.length === 10, detail: "10 windows" },
@@ -600,7 +705,9 @@ function haltPhone(reason) {
   const session = state.session;
   let paper = session ? PaperEngine.view(session) : state.paper;
   const held = !!(session && session.shares > 0);
-  if (held) paper = PaperEngine.fill(session, "sell", PAPER_SLIP_BPS);
+  if (held) paper = PaperEngine.fill(session, "sell", PAPER_SLIP_BPS, 0, "sell all");
+  if (session) session.working = [];
+  if (session) paper = PaperEngine.view(session);
   const data = readBreaker();
   data.day = denverDay();
   data.reason = reason;
@@ -648,8 +755,8 @@ function renderBreaker() {
 const SCAN_KEY = "paperTraderScan";
 const TYPE_KEY = "paperTraderType";
 const phoneBarCache = new Map();
-const SCAN_READERS = 3;
-const SCAN_GAP = 150;
+const SCAN_READERS = 1;
+const SCAN_GAP = 300;
 let phoneScanToken = 0;
 
 function readScanOn() {
@@ -833,6 +940,8 @@ async function scanPhone() {
         await new Promise((resolve) => setTimeout(resolve, 1000));
         if (!live()) return;
       }
+      await afterSqueeze();
+      if (!live()) return;
       const symbol = symbols[next];
       next += 1;
       const open = (state.paper && state.paper.symbol) || "";
@@ -939,7 +1048,7 @@ async function bootOffline() {
     throw lastError || new Error("The quote feed did not answer. Check the connection.");
   }
   const bars = found.bars;
-  state.session = PaperEngine.sessionFromBars(found.symbol, bars, { fee_bps: 5 });
+  openOfflineSession(found.symbol, bars, { fee_bps: 5 }, false);
   state.paper = PaperEngine.view(state.session);
   await refreshSymbols();
   fillForm(state.paper.params);
@@ -1105,6 +1214,7 @@ async function loadMarket(symbol) {
 function render(paper) {
   paper = guardPhone(paper, false);
   state.paper = paper;
+  writeBook();
   if (breakerState().tripped && state.auto) {
     state.auto = false;
     if (state.autoTimer) clearTimeout(state.autoTimer);
@@ -1125,6 +1235,9 @@ function render(paper) {
   $("chart-title").textContent = (paper.symbol || "Chart") + " · Daily session";
   paintChartRead(paper);
   renderQuote(paper);
+  paintPositionChip(paper);
+  paintTicketPreview();
+  syncDeskStatus();
   $("next").disabled = state.auto || paper.finished;
   $("run").disabled = state.auto || paper.finished;
   $("trade").disabled = false;
@@ -1133,6 +1246,9 @@ function render(paper) {
   $("paper").disabled = false;
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
   renderBreaker();
+  renderWorking(paper);
+  seedTicketPrices(paper);
+  announceTicketFills(paper);
   if (paper.fill && paper.fill.price > 0 && paper.symbol) state.lastFill = { symbol: paper.symbol, text: fillText(paper) };
   const fillNode = $("last-fill");
   if (fillNode && state.lastFill && state.lastFill.symbol === paper.symbol && fillNode.textContent !== "Last fill: " + state.lastFill.text) {
@@ -1142,6 +1258,9 @@ function render(paper) {
   fillTrades($("journal-body"), paper.trades || []);
   renderResult(paper);
   renderEdge();
+  scheduleEdgeFrames();
+  renderBook(paper);
+  renderStrategies();
   renderPins();
   renderToday();
   renderScan();
@@ -1299,6 +1418,28 @@ function renderPins() {
   toggle.setAttribute("aria-pressed", pinned ? "true" : "false");
 }
 
+function syncDeskStatus() {
+  const src = $("status");
+  const rail = $("desk-status");
+  if (src && rail && rail.textContent !== src.textContent) rail.textContent = src.textContent || "";
+}
+
+function setStatus(text) {
+  const node = $("status");
+  if (node) node.textContent = text || "";
+  syncDeskStatus();
+}
+
+function quoteAgeText(asOf) {
+  if (!(asOf > 0)) return "";
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000 - asOf));
+  if (seconds < 8) return "just now";
+  if (seconds < 60) return seconds + "s ago";
+  if (seconds < 3600) return Math.floor(seconds / 60) + "m ago";
+  if (seconds < 86400) return Math.floor(seconds / 3600) + "h ago";
+  return Math.floor(seconds / 86400) + "d ago";
+}
+
 function paintChartRead(paper) {
   const node = $("chart-read");
   if (!node || !paper) return;
@@ -1311,23 +1452,114 @@ function paintChartRead(paper) {
     : "";
   const result = price ? currentEdge(seenBars()) : null;
   const call = result && result.ready ? " · Edge " + result.call + " " + result.score + "/" + (result.checks || 4) : "";
-  node.textContent = price ? paper.symbol + " · " + price + call + " · tap a candle" : "Click a ticker or a candle.";
+  node.textContent = price ? paper.symbol + " · " + price + call + " · scrub or tap a candle" : "Click a ticker or a candle.";
+}
+
+function paintPositionChip(paper) {
+  const chip = $("position-chip");
+  if (!chip) return;
+  if (!paper || !(paper.shares > 0) || !(paper.entry_price > 0)) {
+    chip.hidden = true;
+    chip.textContent = "";
+    return;
+  }
+  const last = state.market && state.market.symbol === paper.symbol && state.market.price != null
+    ? Number(state.market.price)
+    : Number(paper.last_close);
+  const pnl = Number.isFinite(last) ? paper.shares * (last - paper.entry_price) : null;
+  const pct = Number.isFinite(last) && paper.entry_price ? ((last - paper.entry_price) / paper.entry_price) * 100 : null;
+  chip.hidden = false;
+  chip.className = "position-chip" + (pnl > 0 ? " up" : pnl < 0 ? " down" : "");
+  const pnlText = pnl == null ? "—" : moneyText(pnl);
+  const pctText = pct == null ? "" : " · " + (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
+  chip.textContent = Number(paper.shares).toLocaleString(undefined, { maximumFractionDigits: 4 }) + " @ " + formatPrice(paper.entry_price) + " · " + pnlText + pctText;
+}
+
+function paintTicketPreview() {
+  const node = $("ticket-preview");
+  const paper = state.paper;
+  if (!node || !paper) return;
+  const side = state.side || "buy";
+  const kind = ($("kind") && $("kind").value) || "market";
+  const last = state.market && state.market.symbol === paper.symbol && state.market.price != null
+    ? Number(state.market.price)
+    : Number(paper.last_close);
+  const limit = Number($("limit-price") && $("limit-price").value) || 0;
+  const stop = Number($("stop-price") && $("stop-price").value) || 0;
+  let ref = last;
+  if (kind === "limit" || kind === "stop_limit") ref = limit > 0 ? limit : last;
+  else if (kind === "stop") ref = stop > 0 ? stop : last;
+  if (!(ref > 0)) {
+    node.textContent = "Waiting on a market quote for the ticket preview.";
+    return;
+  }
+  const fee = (Number(paper.params && paper.params.fee_bps) || FEE_BPS) / 10000;
+  const slip = SLIP_BPS / 10000;
+  if (side === "buy") {
+    const cash = Number(paper.cash) || 0;
+    const pay = ref * (1 + slip + fee);
+    const shares = pay > 0 ? cash / pay : 0;
+    node.textContent = "Buy preview · ~" + shares.toLocaleString(undefined, { maximumFractionDigits: 4 }) + " shares for " + moneyText(cash) + " at about " + formatPrice(ref) + " (includes 5 bps slip + fee). Nothing goes to a broker.";
+    return;
+  }
+  const shares = Number(paper.shares) || 0;
+  if (!(shares > 0)) {
+    node.textContent = "Sell preview · flat. Open a paper long first.";
+    return;
+  }
+  const proceeds = shares * ref * (1 - slip - fee);
+  const entry = Number(paper.entry_price) || 0;
+  const pnl = entry > 0 ? proceeds - shares * entry : null;
+  node.textContent = "Sell preview · " + shares.toLocaleString(undefined, { maximumFractionDigits: 4 }) + " shares ≈ " + moneyText(proceeds) + " at about " + formatPrice(ref) + (pnl == null ? "" : " · open P/L " + moneyText(pnl)) + ". Nothing goes to a broker.";
+}
+
+function paintDayStrip(book) {
+  const strip = $("day-strip");
+  if (!strip) return;
+  const day = denverDay();
+  const fills = (book && book.fills) || [];
+  let buys = 0;
+  let sells = 0;
+  let pnl = 0;
+  fills.forEach((item) => {
+    const stamp = item.at > 0 ? denverDay(new Date(item.at * 1000)) : "";
+    if (stamp !== day) return;
+    if (item.side === "buy") buys += 1;
+    if (item.side === "sell") {
+      sells += 1;
+      if (Number.isFinite(Number(item.pnl))) pnl += Number(item.pnl);
+    }
+  });
+  const open = ((book && book.positions) || []).length;
+  const working = ((book && book.working) || []).length;
+  strip.replaceChildren();
+  [
+    ["Today's fills", String(buys + sells), buys + sells ? (buys + " buy · " + sells + " sell") : "None yet", ""],
+    ["Closed P/L today", moneyText(pnl), day + " Denver", pnl > 0 ? "up" : pnl < 0 ? "down" : ""],
+    ["Open now", open + " pos · " + working + " wrk", (book && book.markets ? book.markets + " market" + (book.markets === 1 ? "" : "s") : "Quiet"), ""],
+  ].forEach(([label, value, note, tone]) => {
+    const card = document.createElement("div");
+    card.className = "day-card" + (tone ? " " + tone : "");
+    const name = document.createElement("span");
+    name.textContent = label;
+    const strong = document.createElement("strong");
+    strong.textContent = value;
+    const hint = document.createElement("span");
+    hint.textContent = note;
+    card.append(name, strong, hint);
+    strip.appendChild(card);
+  });
 }
 
 function showRead(text) {
   state.chartRead = text;
   if (state.paper) paintChartRead(state.paper);
-  $("status").textContent = text;
+  setStatus(text);
 }
 
 function showChart() {
   const narrow = window.matchMedia("(max-width: 980px)").matches;
-  if (narrow) {
-    document.body.dataset.tab = "chart";
-    document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
-      button.classList.toggle("on", button.dataset.tab === "chart");
-    });
-  }
+  if (narrow) showPhoneTab("chart");
   requestAnimationFrame(() => {
     if (state.market && state.paper) {
       drawCandles();
@@ -1369,7 +1601,7 @@ function chooseSymbol(symbol) {
     if (state.offline) {
       const row = state.catalog.find((item) => item.symbol === symbol);
       const bars = await PaperLive.daily(symbol, row ? row.category : "");
-      state.session = PaperEngine.sessionFromBars(symbol, bars, formParams());
+      openOfflineSession(symbol, bars, formParams(), false);
       state.paper = PaperEngine.view(state.session);
       state.market = PaperEngine.market(state.session);
       stampQuote(bars);
@@ -1387,7 +1619,7 @@ function chooseSymbol(symbol) {
       showRead("Opened " + symbol + " on the chart.");
       return;
     }
-    const paper = await paperCall("/api/paper/reset", { ...formParams(), symbol });
+    const paper = await paperCall("/api/paper/reset", { ...formParams(), symbol, switch: true });
     state.paper = paper;
     await refreshSymbols();
     await loadMarket(paper.symbol);
@@ -1432,10 +1664,15 @@ function renderQuote(paper) {
   }
   $("quote-change").textContent = sign + formatPrice(change) + "  " + sign + percent.toFixed(2) + "%";
   const asOf = sameMarket && state.market.as_of;
+  const age = asOf ? quoteAgeText(asOf) : "";
+  const stamp = asOf
+    ? new Date(asOf * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" })
+    : (last.date || "");
   $("quote-asof").textContent = asOf
-    ? "Market quote · " + new Date(asOf * 1000).toLocaleString()
-    : "Market quote · " + (last.date || "");
-  quote.className = "quote " + (change > 0 ? "up" : change < 0 ? "down" : "flat");
+    ? "Market quote · " + stamp + (age ? " · " + age : "")
+    : "Market quote · " + stamp;
+  const stale = asOf ? (Date.now() / 1000 - asOf) > 120 : false;
+  quote.className = "quote " + (change > 0 ? "up" : change < 0 ? "down" : "flat") + (stale ? " stale" : "");
   const tone = currentMood(bars);
   const badge = $("quote-mood");
   if (badge) {
@@ -1444,6 +1681,8 @@ function renderQuote(paper) {
   }
   drawMoodClock(tone && tone.score, tone && tone.label);
   if (paper.symbol && tone && tone.score != null) state.moods[paper.symbol] = tone;
+  paintPositionChip(paper);
+  paintTicketPreview();
 }
 
 function seenBars() {
@@ -1506,7 +1745,12 @@ function renderFrames() {
   }
   }
   const previewRow = rows.find((row) => row.id === selectedId) || rows[0];
-  PaperFrames.draw($("frame-preview"), previewRow ? previewRow.bars : [], state.previewZoom);
+  const previewBars = previewRow ? ((previewRow.bars && previewRow.bars.length) ? previewRow.bars : (state.ef.bars[previewRow.id] || [])) : [];
+  const previewCanvas = $("frame-preview");
+  const symbolNow = (state.paper && state.paper.symbol) || "";
+  const paintPreview = () => PaperFrames.draw(previewCanvas, previewBars, state.previewZoom, { crypto: chartCrypto(), symbol: symbolNow, label: symbolNow + " · " + (previewRow ? previewRow.label : "") });
+  paintPreview();
+  PaperFrames.attachPick(previewCanvas, () => renderFrames(), {});
   paintZoom(seenBars().length);
 }
 
@@ -1529,16 +1773,23 @@ function writeOfflineFrame(win, frameId) {
   const row = (state.frames || []).find((item) => item.id === frame.id);
   const bars = row ? row.bars : [];
   const heading = (state.paper.symbol || "Sample") + " · " + frame.label;
+  const cryptoNow = chartCrypto();
   const tone = bars.length ? PaperFrames.mood(bars) : null;
   const moodLine = tone && tone.score != null ? " " + tone.label + " " + tone.score + "." : "";
   win.document.open();
   const quoteLine = bars.length ? "Market quote." : "Loading the market quote.";
-  win.document.write("<!DOCTYPE html><title>" + heading + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p id=\"note\" style=\"padding:12px 16px 0\">" + heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + moodLine + "</p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
+  win.document.write("<!DOCTYPE html><title>Timeframe</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:16px Segoe UI,sans-serif\"><p style=\"padding:12px 16px 0\"><button id=\"back\" type=\"button\">Back</button></p><p id=\"note\" style=\"padding:4px 16px 0\"></p><p style=\"padding:8px 16px\"><button id=\"in\" type=\"button\">Zoom in</button> <button id=\"out\" type=\"button\">Zoom out</button> <span id=\"label\"></span></p><canvas id=\"c\" style=\"width:100%;height:72vh\"></canvas></body>");
   win.document.close();
+  win.document.title = heading;
+  const note = win.document.getElementById("note");
+  if (note) note.textContent = heading + " is " + (row ? row.bias : "flat") + ". " + quoteLine + moodLine + (bars.length ? " " + PaperFrames.edgeLine(bars, cryptoNow) + ". Click any candle for its price box." : "");
   let zoomStop = PaperFrames.DEFAULT_ZOOM;
   const paint = () => {
     const canvas = win.document.getElementById("c");
-    if (canvas) PaperFrames.draw(canvas, bars, zoomStop);
+    if (canvas) {
+      PaperFrames.draw(canvas, bars, zoomStop, { crypto: cryptoNow, symbol: state.paper.symbol || "", label: heading });
+      PaperFrames.attachPick(canvas, paint, {});
+    }
     const view = PaperFrames.zoomBars(bars, zoomStop);
     const label = win.document.getElementById("label");
     const inn = win.document.getElementById("in");
@@ -1547,6 +1798,8 @@ function writeOfflineFrame(win, frameId) {
     if (inn) inn.disabled = view.atMin;
     if (out) out.disabled = view.atMax;
   };
+  const back = win.document.getElementById("back");
+  if (back) back.addEventListener("click", () => win.close());
   const inn = win.document.getElementById("in");
   const out = win.document.getElementById("out");
   if (inn) inn.addEventListener("click", () => {
@@ -1596,7 +1849,7 @@ async function openFrame(frameId) {
   return true;
 }
 
-function openAllFrames() {
+async function openAllFrames() {
   let opened = 0;
   const openedWindows = [];
   PaperFrames.FRAMES.forEach((frame) => {
@@ -1607,9 +1860,9 @@ function openAllFrames() {
     }
   });
   if (state.offline) {
-    openedWindows.forEach(({ id, win }) => {
-      paintPhoneFrame(win, id);
-    });
+    for (const openedWindow of openedWindows) {
+      await paintPhoneFrame(openedWindow.win, openedWindow.id);
+    }
   }
   showDock("frames");
   $("status").textContent = opened
@@ -1626,7 +1879,7 @@ async function paintPhoneFrame(win, frameId) {
     if (match) match.bars = bars;
     writeOfflineFrame(win, frameId);
     const note = win.document.getElementById("note");
-    if (note) note.textContent = state.paper.symbol + " · " + PaperFrames.frameById(frameId).label + ". Market quote · " + bars.length + " bars.";
+    if (note) note.textContent = state.paper.symbol + " · " + PaperFrames.frameById(frameId).label + ". Market quote · " + bars.length + " bars. " + PaperFrames.edgeLine(bars, chartCrypto()) + ". Click any candle for its price box.";
   } catch (error) {
     if (win && !win.closed) {
       const note = win.document.getElementById("note");
@@ -1645,10 +1898,20 @@ function openBrief() {
     $("status").textContent = "The brief is in the Timeframes panel.";
     return;
   }
-  const body = [note.lead].concat(note.lines).map((line) => "<p>" + line.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch])) + "</p>").join("");
   win.document.open();
-  win.document.write("<!DOCTYPE html><title>" + note.title + "</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:18px/1.5 Segoe UI,sans-serif\"><article style=\"max-width:640px;padding:28px\"><p style=\"letter-spacing:.08em;text-transform:uppercase;color:#8fd0c4;font-size:12px\">Brief</p><h1 style=\"font-size:28px\">" + note.title + "</h1>" + body + "<p style=\"color:#93a0ad\">Market quotes are not a forecast. Paper orders stay on this device.</p></article></body>");
+  win.document.write("<!DOCTYPE html><title>Brief</title><body style=\"margin:0;background:#101318;color:#e7edf3;font:18px/1.5 Segoe UI,sans-serif\"><article style=\"max-width:640px;padding:28px\"><p style=\"letter-spacing:.08em;text-transform:uppercase;color:#8fd0c4;font-size:12px\">Brief</p><h1 id=\"brief-title\" style=\"font-size:28px\"></h1><div id=\"brief-lines\"></div><p style=\"color:#93a0ad\">Market quotes are not a forecast. Paper orders stay on this device.</p></article></body>");
   win.document.close();
+  win.document.title = note.title;
+  const title = win.document.getElementById("brief-title");
+  if (title) title.textContent = note.title;
+  const lines = win.document.getElementById("brief-lines");
+  if (lines) {
+    [note.lead].concat(note.lines).forEach((line) => {
+      const paragraph = win.document.createElement("p");
+      paragraph.textContent = line;
+      lines.appendChild(paragraph);
+    });
+  }
   $("status").textContent = "The brief opened in its own window.";
 }
 
@@ -1679,7 +1942,7 @@ function renderReadings() {
     ["Averages", averageName],
     ["Resistance", pivotsText(PaperFrames.trendPivots(bars), "high")],
     ["Support", pivotsText(PaperFrames.trendPivots(bars), "low")],
-    ["TMO", tmoText(PaperFrames.closedBars ? PaperFrames.closedBars(bars, chartCrypto()) : bars)],
+    ["True momentum", tmoText(PaperFrames.closedBars ? PaperFrames.closedBars(bars, chartCrypto()) : bars)],
     ["Lesson", lessonText(bars)],
     ["Fear and greed", moodText(bars)],
     ["Edge", (() => {
@@ -1759,7 +2022,7 @@ const EDGE_CHECKS = [
   ["dots", "5+ squeeze dots"],
   ["above", "Squeeze momentum above 0"],
   ["rising", "Squeeze momentum rising"],
-  ["tmo", "TMO main above signal"],
+  ["tmo", "True momentum above signal"],
   ["band", "Under the upper Bollinger band"],
 ];
 
@@ -1877,6 +2140,1508 @@ function edgePlan(result) {
   if (result.call === "SELL") return "Sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
   return "No buy yet. Edge waits for all five checks to turn on together on a closed bar." + today;
+}
+
+
+function denverStamp(seconds) {
+  if (!(seconds > 0)) return "—";
+  return new Date(seconds * 1000).toLocaleString("en-US", { timeZone: "America/Denver", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
+}
+
+function phoneBook() {
+  const saved = readBook();
+  const live = state.book || {};
+  const out = { positions: [], fills: [], working: [], markets: 0, total_pnl: 0 };
+  new Set(Object.keys(saved).concat(Object.keys(live))).forEach((symbol) => {
+    const session = live[symbol];
+    const snap = session ? PaperEngine.snapshot(session) : saved[symbol];
+    const working = (snap && snap.working) || [];
+    if (!snap || !(snap.shares > 0 || (snap.fills && snap.fills.length) || working.length)) return;
+    out.markets += 1;
+    const last = session && session.bars && session.bars.length ? session.bars[session.bars.length - 1].close : snap.last;
+    const start = Number(snap.params && snap.params.cash) || 0;
+    const equity = session ? PaperEngine.view(session).equity : snap.cash + (snap.shares > 0 && last ? snap.shares * last : 0);
+    out.total_pnl += equity - start;
+    if (snap.shares > 0) {
+      out.positions.push({ symbol, shares: snap.shares, entry: snap.entryPrice, last, pnl: last && snap.entryPrice ? snap.shares * (last - snap.entryPrice) : null, current: !!session, opened: snap.entryDate, source: "fill" });
+    }
+    working.forEach((ticket) => out.working.push({ ...ticket, symbol: ticket.symbol || symbol }));
+    (snap.fills || []).forEach((item) => out.fills.push(item));
+  });
+  out.fills.sort((a, b) => (b.at || 0) - (a.at || 0));
+  out.fills = out.fills.slice(0, 300);
+  out.working.sort((a, b) => String(a.symbol).localeCompare(String(b.symbol)) || String(a.id).localeCompare(String(b.id)));
+  return out;
+}
+
+function exportPhonePayload() {
+  writeBook();
+  const sessions = readBook();
+  if (state.book) {
+    Object.keys(state.book).forEach((symbol) => {
+      const session = state.book[symbol];
+      if (session && (session.shares > 0 || (session.fills && session.fills.length) || (session.working && session.working.length))) {
+        sessions[symbol] = PaperEngine.snapshot(session);
+      }
+    });
+  }
+  return {
+    version: 1,
+    sessions,
+    markets: Object.keys(sessions).length,
+    note: "Paper book for this desk. Load it under Journal. Nothing goes to a broker.",
+  };
+}
+
+async function sharePaperBook(download) {
+  const note = $("book-share-note");
+  try {
+    const payload = state.offline ? exportPhonePayload() : await getJSON("/api/paper/book");
+    const text = JSON.stringify(payload, null, 2);
+    if (!payload.sessions || !Object.keys(payload.sessions).length) {
+      if (note) note.textContent = "Nothing to share yet. Open a paper trade or place a limit order first.";
+      return;
+    }
+    if (download) {
+      const blob = new Blob([text], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "paper-book.json";
+      link.click();
+      URL.revokeObjectURL(url);
+      if (note) note.textContent = "Downloaded paper-book.json with " + payload.markets + " market" + (payload.markets === 1 ? "" : "s") + ". On the phone: Journal → Load paper book → pick that file.";
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      if (note) note.textContent = "Copied the paper book for " + payload.markets + " market" + (payload.markets === 1 ? "" : "s") + ". On the phone you can paste it into a file named paper-book.json, then Journal → Load paper book.";
+      return;
+    }
+    if (note) note.textContent = "This browser would not copy. Use Share paper book to download the file.";
+  } catch (error) {
+    if (note) note.textContent = error.message || "The paper book could not be shared.";
+  }
+}
+
+function cleanImportedSession(raw, symbol) {
+  if (!raw || typeof raw !== "object") return null;
+  const shares = Number(raw.shares);
+  const cash = Number(raw.cash);
+  if (!(cash >= 0) || !(shares >= 0)) return null;
+  const working = Array.isArray(raw.working) ? raw.working.filter((item) => item && item.id) : [];
+  const fills = Array.isArray(raw.fills) ? raw.fills : [];
+  if (!(shares > 0 || fills.length || working.length)) return null;
+  return {
+    symbol: String(raw.symbol || symbol),
+    params: raw.params && typeof raw.params === "object" ? { ...raw.params } : {},
+    cash,
+    shares,
+    entryPrice: raw.entryPrice == null ? null : Number(raw.entryPrice),
+    entryDate: raw.entryDate || null,
+    cost: Number(raw.cost) || 0,
+    trades: Array.isArray(raw.trades) ? raw.trades.map((item) => ({ ...item })) : [],
+    working: working.map((item) => ({ ...item })),
+    nextId: Math.max(1, Number(raw.nextId) || 1),
+    fills: fills.map((item) => ({ ...item })),
+    ticketFills: Array.isArray(raw.ticketFills) ? raw.ticketFills.map((item) => ({ ...item })) : [],
+    lastAction: raw.lastAction || "",
+    last: raw.last == null ? null : Number(raw.last),
+  };
+}
+
+async function importPaperBook(payload) {
+  const note = $("book-share-note");
+  const sessions = payload && payload.sessions && typeof payload.sessions === "object" ? payload.sessions : null;
+  if (!sessions) throw new Error("That file is not a Paper Trader book.");
+  if (!state.offline) {
+    const paper = await post("/api/paper/book", payload);
+    state.paper = paper;
+    await loadMarket(paper.symbol);
+    render(paper);
+    const count = paper.book_loaded || Object.keys(sessions).length;
+    if (note) note.textContent = "Loaded " + count + " market" + (count === 1 ? "" : "s") + " into this computer's paper book. Open positions and working orders are in Journal.";
+    setStatus("Paper book loaded on this device.");
+    return;
+  }
+  const kept = {};
+  Object.keys(sessions).forEach((symbol) => {
+    const row = cleanImportedSession(sessions[symbol], symbol);
+    if (row) kept[symbol] = row;
+  });
+  if (!Object.keys(kept).length) throw new Error("That paper book had no open trades or working orders.");
+  const merged = { ...readBook(), ...kept };
+  localStorage.setItem(BOOK_KEY, JSON.stringify({ version: 1, sessions: merged }));
+  state.bookText = "";
+  state.book = state.book || {};
+  Object.keys(kept).forEach((symbol) => {
+    if (state.book[symbol]) PaperEngine.restore(state.book[symbol], kept[symbol]);
+  });
+  const current = state.paper && state.paper.symbol;
+  if (current && kept[current] && state.session && state.session.symbol === current) {
+    PaperEngine.restore(state.session, kept[current]);
+  }
+  if (state.session) {
+    render(PaperEngine.view(state.session));
+  } else {
+    renderBook(state.paper);
+  }
+  if (note) note.textContent = "Loaded " + Object.keys(kept).length + " market" + (Object.keys(kept).length === 1 ? "" : "s") + " into this device's paper book. Open positions and working orders are in Journal.";
+  setStatus("Paper book loaded on this device.");
+}
+
+function moneyText(value) {
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  const number = Number(value);
+  return (number < 0 ? "-$" : "$") + Math.abs(number).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function addCells(row, values) {
+  values.forEach((value) => {
+    const cell = document.createElement("td");
+    if (value && typeof value === "object") {
+      cell.textContent = value.text;
+      if (value.cls) cell.className = value.cls;
+    } else {
+      cell.textContent = value;
+    }
+    row.appendChild(cell);
+  });
+}
+
+function renderBook(paper) {
+  const positions = $("positions-body");
+  const fills = $("fills-body");
+  const workingBody = $("journal-working-body");
+  if (!positions || !fills) return;
+  const book = state.offline ? phoneBook() : (paper && paper.book) || null;
+  if (!book) return;
+  const working = book.working || [];
+  const stamp = JSON.stringify([book.positions, working, book.fills.length, book.fills[0] || null, book.total_pnl, state.offline]);
+  if (sameStamp(positions, stamp)) return;
+  positions.replaceChildren();
+  fills.replaceChildren();
+  if (workingBody) workingBody.replaceChildren();
+  book.positions.forEach((item) => {
+    const row = document.createElement("tr");
+    const tone = item.pnl > 0 ? "up" : item.pnl < 0 ? "down" : "";
+    addCells(row, [
+      item.symbol + (item.current ? "" : " · saved"),
+      Number(item.shares).toFixed(4),
+      item.entry != null ? formatPrice(item.entry) : "—",
+      item.last != null ? formatPrice(item.last) : "—",
+      { text: moneyText(item.pnl), cls: tone },
+      (item.source === "replay" ? "History replay" : "Your fill or Auto") + (item.opened ? " · " + item.opened : ""),
+    ]);
+    positions.appendChild(row);
+  });
+  if (!book.positions.length) {
+    const row = document.createElement("tr");
+    addCells(row, ["No open positions. A buy appears here at once, in every market you traded.", "", "", "", "", ""]);
+    positions.appendChild(row);
+  }
+  if (workingBody) {
+    working.forEach((order) => {
+      const row = document.createElement("tr");
+      const kind = order.kind === "stop_limit" ? "STP LMT" : String(order.kind || "").toUpperCase();
+      addCells(row, [
+        order.symbol || "",
+        order.id,
+        { text: String(order.side || "").toUpperCase(), cls: order.side === "buy" ? "up" : "down" },
+        kind,
+        order.stop > 0 ? formatPrice(order.stop) : "—",
+        order.limit > 0 ? formatPrice(order.limit) : "—",
+        order.tif || "—",
+        "",
+      ]);
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "quiet";
+      cancel.textContent = "Cancel";
+      cancel.addEventListener("click", () => withBusy(async () => {
+        const next = await paperCall("/api/paper/cancel", { id: order.id, symbol: order.symbol });
+        render(next);
+        $("status").textContent = "Canceled working paper order " + order.id + " on " + (order.symbol || "this market") + ".";
+      }));
+      row.lastChild.appendChild(cancel);
+      workingBody.appendChild(row);
+    });
+    if (!working.length) {
+      const row = document.createElement("tr");
+      addCells(row, ["No working limit, stop, or stop-limit orders. They show here for every market.", "", "", "", "", "", "", ""]);
+      workingBody.appendChild(row);
+    }
+  }
+  book.fills.forEach((item) => {
+    const row = document.createElement("tr");
+    const tone = item.side === "sell" ? (item.pnl > 0 ? "up" : item.pnl < 0 ? "down" : "") : "";
+    const why = item.process ? (item.reason || "trade") + " · " + item.process : (item.reason || "trade");
+    addCells(row, [
+      denverStamp(item.at),
+      item.symbol,
+      { text: item.side === "buy" ? "Buy" : "Sell", cls: item.side === "buy" ? "up" : "down" },
+      Number(item.qty).toFixed(4),
+      formatPrice(item.price),
+      why,
+      item.side === "sell" ? { text: moneyText(item.pnl), cls: tone } : "—",
+    ]);
+    fills.appendChild(row);
+  });
+  if (!book.fills.length) {
+    const row = document.createElement("tr");
+    addCells(row, ["No fills yet. Every buy, sell, ticket fill and Sell all is listed here with its time.", "", "", "", "", "", ""]);
+    fills.appendChild(row);
+  }
+  const total = $("book-total");
+  if (total) {
+    total.textContent = book.markets
+      ? "Across " + book.markets + " market" + (book.markets === 1 ? "" : "s") + ": " + moneyText(book.total_pnl) + " paper profit or loss so far. " + working.length + " working order" + (working.length === 1 ? "" : "s") + ". Each market has its own paper account." + (state.offline ? " Saved in this browser only." : " Saved on this computer.")
+      : "Nothing traded yet.";
+  }
+  const device = $("book-device");
+  if (device) {
+    device.textContent = state.offline
+      ? "This device keeps its own paper book. To see trades from the computer desk, tap Share paper book there, AirDrop or save paper-book.json, then Load paper book here."
+      : "This device keeps its own paper book. Tap Share paper book, then on the phone open Journal and Load paper book. Load here to bring a phone book back to this computer.";
+  }
+  paintDayStrip(book);
+}
+
+
+let confirmWait = null;
+
+function closeConfirm(answer) {
+  if (!confirmWait) return;
+  const resolve = confirmWait;
+  confirmWait = null;
+  $("confirm-modal").hidden = true;
+  resolve(answer);
+}
+
+function confirmOrder(plan) {
+  if (confirmWait) return Promise.resolve(false);
+  const box = $("confirm-modal");
+  box.className = "modal " + plan.side;
+  $("cm-title").textContent = plan.title;
+  const rows = $("cm-rows");
+  rows.replaceChildren();
+  plan.rows.forEach(([name, value]) => {
+    const term = document.createElement("dt");
+    term.textContent = name;
+    const def = document.createElement("dd");
+    def.textContent = value;
+    rows.append(term, def);
+  });
+  const list = $("cm-checks");
+  list.replaceChildren();
+  plan.checks.forEach((check) => {
+    const item = document.createElement("li");
+    item.textContent = check.label + " · " + check.detail;
+    if (!check.ok) item.className = check.block ? "stop" : "warn";
+    list.appendChild(item);
+  });
+  const blocked = plan.checks.some((check) => check.block && !check.ok);
+  $("cm-yes").disabled = blocked;
+  $("cm-warn").textContent = blocked
+    ? "This cannot go ahead until the STOP line is fixed. Nothing was traded."
+    : "Do you really want to do this? It is paper money only and nothing goes to a broker.";
+  box.hidden = false;
+  $("cm-no").focus();
+  return new Promise((resolve) => {
+    confirmWait = resolve;
+  });
+}
+
+function lineUp(side, symbol, source, row) {
+  const checks = [];
+  const add = (label, ok, detail, block) => checks.push({ label, ok: !!ok, detail, block: !!block });
+  add("Paper only", state.paper && state.paper.paper === true, "No broker. Nothing real is bought or sold", true);
+  const safe = state.safe;
+  add("Safe check", !safe || safe.safe, safe ? (safe.safe ? "Every safety check passed" : "A safety check failed. Press Safe check to see which") : "Not run yet", !!(safe && !safe.safe));
+  if (side === "buy") {
+    const tripped = breakerState().tripped;
+    add("Circuit breaker", !tripped, tripped ? "Tripped. Buys stop until tomorrow" : "Armed, buys allowed", true);
+    const held = internalsGate(symbol);
+    const read = state.int && state.int.result;
+    add("Internals", !held, held || (read && read.ready ? read.label + " (" + read.score + ")" : "Not read yet"), false);
+  }
+  const agree = edgeFramesSummary();
+  if (agree.total) {
+    const want = side === "buy" ? agree.long : agree.short;
+    add("Timeframes", want * 2 >= agree.total, "Edge: " + agree.text, false);
+  }
+  const board = state.board;
+  const picked = row || (board && board.rows.find((item) => item.id === state.strat.pick)) || null;
+  if (picked && picked.ready) {
+    const agrees = (side === "buy" && picked.call === "BUY") || (side === "sell" && picked.call === "SELL");
+    add("Strategy", agrees, picked.name + " says " + picked.call + (agrees ? "" : ". It does not call for this " + side), false);
+  }
+  return checks;
+}
+
+function quoteLine(symbol) {
+  const bars = seenBars();
+  const last = bars.length ? bars[bars.length - 1].close : 0;
+  return last > 0 ? formatPrice(last) + " (latest real quote for " + symbol + ")" : "No quote yet";
+}
+
+function orderPlan(side, symbol, source, extra) {
+  const paper = state.paper || {};
+  const kind = extra && extra.ticket ? extra.ticket : null;
+  const rows = [["Market", symbol]];
+  if (kind) {
+    const price = kind.kind === "limit" ? " at " + formatPrice(kind.limit) : kind.kind === "stop" ? " when price reaches " + formatPrice(kind.stop) : kind.kind === "stop_limit" ? " (stop " + formatPrice(kind.stop) + ", limit " + formatPrice(kind.limit) + ")" : " now";
+    rows.push(["Order", side.toUpperCase() + " · " + String(kind.kind).replace("_", " ") + price + (kind.tif ? " · " + kind.tif : "")]);
+    if (kind.kind !== "market") rows.push(["Then", "It waits and fills by itself when the real quote reaches it. This OK covers that fill."]);
+  } else if (side === "buy") {
+    rows.push(["Action", "BUY: puts all paper cash into one position"]);
+  } else {
+    rows.push(["Action", extra && extra.all ? "SELL ALL: closes the whole paper position now. Buys stop until tomorrow" : "SELL: closes the whole paper position (" + Number(paper.shares || 0) + " shares)"]);
+  }
+  rows.push(["Last quote", quoteLine(symbol)]);
+  rows.push(["Paper account", "Cash " + (paper.cash != null ? formatPrice(paper.cash) : "—") + " · " + Number(paper.shares || 0) + " shares"]);
+  rows.push(["Fill", "Latest real trade at the moment you press Yes, moved 5 bps against you, plus the fee"]);
+  rows.push(["Started by", source === "auto" ? "AUTO SIGNAL · " + (extra.row ? extra.row.name : "strategy") + " on the closed bar " + (extra.closed || "") + ", seen " + new Date().toLocaleTimeString("en-US", { timeZone: "America/Denver", timeZoneName: "short" }) : source === "strategy" ? "Armed from the opening-bar panel" : "You pressed it"]);
+  return {
+    side,
+    title: (source === "auto" ? "Auto signal: " : "Confirm: ") + (extra && extra.all ? "SELL ALL" : side.toUpperCase()) + " " + symbol,
+    rows,
+    checks: lineUp(side, symbol, source, extra && extra.row),
+  };
+}
+
+async function askFirst(side, symbol, source, extra) {
+  const ok = await confirmOrder(orderPlan(side, symbol, source, extra));
+  if (!ok) $("status").textContent = "Canceled at the second warning. Nothing was traded.";
+  return ok;
+}
+
+function whenIdle() {
+  return new Promise((resolve) => {
+    let waited = 0;
+    const timer = setInterval(() => {
+      waited += 100;
+      if (!state.busy || waited > 8000) {
+        clearInterval(timer);
+        resolve();
+      }
+    }, 100);
+  });
+}
+
+const STRAT_KEY = "paper_trader_strategy_v1";
+
+function loadStrat() {
+  const base = { pick: "edge", on: false, acted: {}, note: "" };
+  try {
+    const raw = JSON.parse(localStorage.getItem(STRAT_KEY) || "{}");
+    return { ...base, pick: ["edge", "squeeze", "donchian", "rsi2"].includes(raw.pick) ? raw.pick : "edge", on: raw.on === true, acted: raw.acted && typeof raw.acted === "object" ? raw.acted : {} };
+  } catch (error) {
+    return base;
+  }
+}
+
+function saveStrat() {
+  try {
+    const keys = Object.keys(state.strat.acted);
+    if (keys.length > 200) keys.slice(0, keys.length - 200).forEach((key) => delete state.strat.acted[key]);
+    localStorage.setItem(STRAT_KEY, JSON.stringify({ pick: state.strat.pick, on: state.strat.on, acted: state.strat.acted }));
+  } catch (error) {
+    /* The pick still works for this visit. */
+  }
+}
+
+state.strat = loadStrat();
+
+function currentBoard(bars) {
+  const last = bars.length ? bars[bars.length - 1] : null;
+  const live = PaperFrames.liveBar(bars, chartCrypto());
+  const key = bars.length + ":" + live + ":" + (last ? last.date + ":" + last.close : "");
+  if (state.boardKey === key && state.board) return state.board;
+  state.board = PaperFrames.strategies(bars, { live });
+  state.boardKey = key;
+  return state.board;
+}
+
+function closedDate(bars) {
+  const live = PaperFrames.liveBar(bars, chartCrypto());
+  const list = live ? bars.slice(0, -1) : bars;
+  return list.length ? list[list.length - 1].date : "";
+}
+
+function cardLine(row) {
+  if (!row.ready) return row.why || "Not enough bars.";
+  const stop = row.stop != null ? " Stop " + formatPrice(row.stop) + "." : "";
+  if (row.id === "squeeze") {
+    const dots = row.squeezeOn ? "Squeeze on, " + row.dots + " dot" + (row.dots === 1 ? "" : "s") + (row.dots >= 5 ? " (five or more: compression has built)" : "") : row.fired ? "Squeeze just fired" : "No squeeze";
+    const mom = row.momentum == null ? "" : " · momentum " + (row.momentum > 0 ? "above" : "below") + " zero and " + (row.momentumUp ? "rising" : "not rising");
+    const trend = " · EMA 8 " + (row.trend ? "above" : "below") + " 21";
+    return dots + mom + trend + "." + (row.bearish ? " Bearish fire. This long-only desk stands aside." : "") + stop;
+  }
+  if (row.call === "HOLD") return "In since " + formatPrice(row.entry) + " · " + signedPercent(row.openPct) + "." + stop;
+  if (row.call === "BUY") return "Buy signal on the last closed bar. A paper buy fills at the next open." + stop;
+  if (row.call === "SELL") return "Exit signal on the last closed bar. A paper sell fills at the next open.";
+  return "Flat. Waiting for the entry rule to turn on.";
+}
+
+function renderStrategies() {
+  const body = $("strat-board");
+  if (!body || typeof PaperFrames === "undefined" || !PaperFrames.strategies) return;
+  const bars = seenBars();
+  if (bars.length < 2) return;
+  const board = currentBoard(bars);
+  const stamp = state.boardKey + "|" + state.strat.pick + "|" + state.strat.on + "|" + board.best;
+  if (sameStamp(body, stamp)) return;
+  body.replaceChildren();
+  board.rows.forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.className = "pickable" + (row.id === board.best ? " best" : "") + (row.id === state.strat.pick ? " picked" : "");
+    tr.tabIndex = 0;
+    tr.setAttribute("role", "button");
+    tr.setAttribute("aria-label", "Test " + row.name + " on this market");
+    tr.dataset.strategy = row.id;
+    const pill = document.createElement("span");
+    pill.className = "call-pill " + row.call.toLowerCase();
+    pill.textContent = row.call;
+    addCells(tr, [
+      row.name + " · " + row.who,
+      "",
+      row.ready ? String(row.trades) : "—",
+      row.ready && row.trades ? Math.round(row.winRate * 100) + "%" : "—",
+      row.ready ? { text: signedPercent(row.total), cls: row.total > 0 ? "up" : row.total < 0 ? "down" : "" } : "—",
+      row.ready ? signedPercent(row.hold) : "—",
+      row.ready && row.trades ? signedPercent(row.worst) : "—",
+    ]);
+    tr.children[1].appendChild(pill);
+    body.appendChild(tr);
+  });
+  const best = board.rows.find((row) => row.id === board.best);
+  $("strat-best").textContent = best
+    ? "Best on this market's history so far: " + best.name + ", " + signedPercent(best.total) + " over " + best.trades + " trades, against " + signedPercent(best.hold) + " for simply holding. Picking the winner after the fact flatters it. Past closed bars, not a forecast."
+    : "No strategy has five closed trades on this market yet, so none is ranked. More history is needed.";
+  const cards = $("strat-cards");
+  cards.replaceChildren();
+  board.rows.forEach((row) => {
+    const card = document.createElement("div");
+    card.className = "strat-card";
+    const title = document.createElement("h4");
+    title.textContent = row.name;
+    const idea = document.createElement("p");
+    idea.className = "muted";
+    idea.textContent = row.idea;
+    const line = document.createElement("p");
+    line.textContent = cardLine(row);
+    card.append(title, idea, line);
+    cards.appendChild(card);
+  });
+  const pick = $("strat-pick");
+  if (pick.value !== state.strat.pick) pick.value = state.strat.pick;
+  $("strat-auto-on").checked = state.strat.on;
+  renderAutoNote();
+  renderStratDetail(board);
+}
+
+function pickStrategy(id) {
+  if (!["edge", "squeeze", "donchian", "rsi2"].includes(id)) return;
+  state.strat.pick = id;
+  state.strat.note = "";
+  saveStrat();
+  state.boardKey = "";
+  state.sweep = { busy: false, id: "", rows: [], at: 0 };
+  renderStrategies();
+  const row = state.board && state.board.rows.find((item) => item.id === id);
+  const symbol = (state.paper && state.paper.symbol) || "";
+  setStatus("Testing " + (row ? row.name : id) + " on " + (symbol || "this market") + ". Auto follows it only if strategy trading is on.");
+  nudgeLearn("strategies", symbol ? [symbol] : []);
+}
+
+function readPhoneLearn() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LEARN_KEY) || "{}");
+    return raw && typeof raw.symbols === "object" && raw.symbols ? raw : { version: 1, symbols: {}, passes: 0 };
+  } catch (error) {
+    return { version: 1, symbols: {}, passes: 0 };
+  }
+}
+
+function writePhoneLearn(book) {
+  try {
+    localStorage.setItem(LEARN_KEY, JSON.stringify(book));
+  } catch (error) {
+    /* Learning still holds for this page. */
+  }
+}
+
+function stampPhoneFills(symbol, rule) {
+  if (!rule || !state.book || !state.book[symbol]) return 0;
+  const session = state.book[symbol];
+  let changed = 0;
+  (session.fills || []).forEach((fill) => {
+    if (!fill || fill.process === rule) return;
+    fill.process = rule;
+    changed += 1;
+  });
+  if (changed) writeBook();
+  return changed;
+}
+
+function announceNewProcess(symbol, rule, previous) {
+  newProcessNote = rule + (symbol ? " on " + symbol : "");
+  newProcessAt = Date.now();
+  learnTouchNote = "New process · " + newProcessNote + ". Paper fills updated. Closed bars only. Not a forecast.";
+  setStatus(learnTouchNote);
+  refreshLearnSignal();
+}
+
+function touchPhoneLearn(tab, symbols) {
+  const book = readPhoneLearn();
+  const current = state.paper && state.paper.symbol;
+  const targets = [];
+  if (current) targets.push(current);
+  (symbols || []).forEach((symbol) => {
+    if (symbol && targets.indexOf(symbol) < 0) targets.push(symbol);
+  });
+  let scored = [];
+  let newest = null;
+  targets.slice(0, 3).forEach((symbol) => {
+    try {
+      let bars = null;
+      if (state.market && state.market.symbol === symbol) bars = state.market.bars;
+      else if (state.session && state.session.symbol === symbol && state.session.bars) bars = state.session.bars;
+      if (!bars || !bars.length || typeof PaperFrames === "undefined") return;
+      const settled = PaperFrames.closedBars(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol)));
+      const lesson = PaperFrames.lesson(settled);
+      if (!lesson) return;
+      const previous = String((book.symbols[symbol] && book.symbols[symbol].rule) || "");
+      book.symbols[symbol] = {
+        rule: lesson.rule,
+        seen: lesson.seen,
+        matched: lesson.matched,
+        mood: lesson.mood,
+        as_of: settled.length ? settled[settled.length - 1].date : "",
+        setup: lesson.setup || "",
+        tab: tab || "",
+      };
+      book.passes = (Number(book.passes) || 0) + 1;
+      book.last_symbol = symbol;
+      scored.push(symbol);
+      if (lesson.rule && lesson.rule !== previous) {
+        newest = { symbol, rule: lesson.rule, previous };
+        stampPhoneFills(symbol, lesson.rule);
+        const history = Array.isArray(book.processes) ? book.processes : [];
+        history.push({ at: Date.now() / 1000, symbol, rule: lesson.rule, previous, tab: tab || "" });
+        book.processes = history.slice(-200);
+        book.last_process = history[history.length - 1];
+      }
+    } catch (error) {
+      return;
+    }
+  });
+  book.updated = Date.now();
+  book.last_touch_tab = tab || "";
+  writePhoneLearn(book);
+  if (newest) {
+    announceNewProcess(newest.symbol, newest.rule, newest.previous);
+  } else if (scored.length) {
+    learnTouchNote = "Scored " + scored.join(", ") + " from " + (tab || "desk") + ". Closed bars only. Not a forecast.";
+    refreshLearnSignal();
+  }
+  return scored;
+}
+
+function refreshLearnSignal() {
+  if (state.offline) {
+    try {
+      renderLocalSignals();
+    } catch (error) {
+      return;
+    }
+    return;
+  }
+  loadSignals().catch(() => {});
+}
+
+async function nudgeLearn(tab, extraSymbols) {
+  const symbols = readPins()
+    .concat([state.paper && state.paper.symbol].filter(Boolean))
+    .concat(Array.isArray(extraSymbols) ? extraSymbols : []);
+  const unique = [];
+  symbols.forEach((symbol) => {
+    if (symbol && unique.indexOf(symbol) < 0) unique.push(symbol);
+  });
+  const now = Date.now();
+  const gap = tab === "auto" ? 30000 : 900;
+  if (tab === learnTouchTab && now - learnTouchAt < gap) return;
+  learnTouchAt = now;
+  learnTouchTab = tab || "";
+  if (state.offline) {
+    touchPhoneLearn(tab, unique);
+    return;
+  }
+  try {
+    const book = await postJSON("/api/learn/touch", { tab: tab || "", symbols: unique });
+    if (!book) return;
+    const news = Array.isArray(book.new_processes) ? book.new_processes : [];
+    if (news.length) {
+      announceNewProcess(news[0].symbol, news[0].rule, news[0].previous);
+      if (state.paper) render(state.paper);
+    } else if (book.touch_note) {
+      learnTouchNote = book.touch_note;
+      refreshLearnSignal();
+    }
+  } catch (error) {
+    return;
+  }
+}
+
+function renderStratDetail(board) {
+  const box = $("strat-detail");
+  if (!box) return;
+  const row = board.rows.find((item) => item.id === state.strat.pick);
+  box.hidden = !row;
+  if (!row) return;
+  const symbol = (state.paper && state.paper.symbol) || "this market";
+  $("strat-detail-title").textContent = row.name + " on " + symbol;
+  $("strat-detail-line").textContent = row.ready
+    ? row.idea + " Now: " + row.call + ". " + row.trades + " past trade" + (row.trades === 1 ? "" : "s") + ", " + signedPercent(row.total) + " compounded, against " + signedPercent(row.hold) + " for holding. " + cardLine(row)
+    : row.idea + " " + (row.why || "Not enough bars.");
+  const log = $("strat-log");
+  log.replaceChildren();
+  const trades = row.ready ? row.log || [] : [];
+  trades.slice().reverse().forEach((trade) => {
+    const tr = document.createElement("tr");
+    addCells(tr, [trade.entryDate, trade.exitDate, formatPrice(trade.entry), formatPrice(trade.exit), { text: signedPercent(trade.pct), cls: trade.pct > 0 ? "up" : trade.pct < 0 ? "down" : "" }, trade.why || ""]);
+    log.appendChild(tr);
+  });
+  if (row.ready && row.openSince) {
+    const tr = document.createElement("tr");
+    addCells(tr, [row.openSince, "still open", formatPrice(row.entry), "—", { text: signedPercent(row.openPct), cls: row.openPct > 0 ? "up" : row.openPct < 0 ? "down" : "" }, "Open at the last close"]);
+    log.insertBefore(tr, log.firstChild);
+  }
+  if (!log.children.length) {
+    const tr = document.createElement("tr");
+    addCells(tr, ["No closed trades on this market yet.", "", "", "", "", ""]);
+    log.appendChild(tr);
+  }
+  renderSweep();
+}
+
+state.sweep = { busy: false, id: "", rows: [], at: 0 };
+
+async function sweepStrategy() {
+  const sweep = state.sweep;
+  if (sweep.busy) return;
+  const id = state.strat.pick;
+  const symbols = (SQ_LISTS[$("strat-sweep-list").value] || SQ_LISTS.starter).slice(0, 45);
+  const known = state.catalog && state.catalog.length ? new Set(state.catalog.map((item) => item.symbol)) : null;
+  const fresh = { busy: true, id, rows: [], at: 0, skipped: 0 };
+  state.sweep = fresh;
+  let next = 0;
+  let done = 0;
+  const worker = async () => {
+    while (next < symbols.length && state.sweep === fresh) {
+      const symbol = symbols[next];
+      next += 1;
+      try {
+        if (known && !known.has(symbol)) throw new Error("not listed");
+        const bars = await sqDaily(symbol);
+        const board = PaperFrames.strategies(bars, { live: PaperFrames.liveBar(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol))) });
+        const row = board.rows.find((item) => item.id === id);
+        if (row && row.ready) fresh.rows.push({ symbol, row });
+        else fresh.skipped += 1;
+      } catch (error) {
+        fresh.skipped += 1;
+      }
+      done += 1;
+      $("strat-sweep-note").textContent = "Reading daily bars: " + done + " of " + symbols.length + "…";
+    }
+  };
+  $("strat-sweep").disabled = true;
+  try {
+    await worker();
+  } finally {
+    fresh.busy = false;
+    fresh.at = Date.now();
+    $("strat-sweep").disabled = false;
+  }
+  if (state.sweep === fresh) {
+    renderSweep();
+    nudgeLearn("strategies", fresh.rows.map((item) => item.symbol));
+  }
+}
+
+function renderSweep() {
+  const body = $("strat-sweep-body");
+  const note = $("strat-sweep-note");
+  if (!body) return;
+  const sweep = state.sweep;
+  body.replaceChildren();
+  if (!sweep.at || sweep.id !== state.strat.pick) {
+    if (!sweep.busy) note.textContent = "Press Run on the list to test this strategy on each market. It reads real daily bars and places nothing.";
+    return;
+  }
+  sweep.rows.sort((a, b) => b.row.total - a.row.total);
+  sweep.rows.forEach((item) => {
+    const row = item.row;
+    const tr = document.createElement("tr");
+    tr.className = "pickable";
+    tr.tabIndex = 0;
+    tr.setAttribute("role", "button");
+    tr.setAttribute("aria-label", "Open " + item.symbol);
+    addCells(tr, [item.symbol, "", String(row.trades), row.trades ? Math.round(row.winRate * 100) + "%" : "—", { text: signedPercent(row.total), cls: row.total > 0 ? "up" : row.total < 0 ? "down" : "" }, signedPercent(row.hold), row.trades ? signedPercent(row.worst) : "—"]);
+    const pill = document.createElement("span");
+    pill.className = "call-pill " + row.call.toLowerCase();
+    pill.textContent = row.call;
+    tr.children[1].appendChild(pill);
+    const open = () => chooseSymbol(item.symbol);
+    tr.addEventListener("click", open);
+    tr.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+    body.appendChild(tr);
+  });
+  const when = new Date(sweep.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
+  note.textContent = "Tested on " + sweep.rows.length + " market" + (sweep.rows.length === 1 ? "" : "s") + " at " + when + " Denver" + (sweep.skipped ? ", " + sweep.skipped + " skipped" : "") + ". Sorted by result. Click a market to open it. Past closed bars, not a forecast.";
+}
+
+function renderAutoNote() {
+  const note = $("strat-auto-note");
+  if (!note) return;
+  const row = (state.board && state.board.rows.find((item) => item.id === state.strat.pick)) || null;
+  const name = row ? row.name : state.strat.pick;
+  note.textContent = state.strat.note || (state.strat.on
+    ? "On. While Auto runs, a fresh " + name + " buy or sell on a closed bar opens the second warning. Nothing trades until you press Yes. It follows the scanner rules and stops at the circuit breaker. " + internalsLine()
+    : "Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.");
+}
+
+async function autoTrade() {
+  if (!state.strat.on || !state.paper || state.paper.paper !== true) return "";
+  if (breakerState().tripped) return "";
+  const bars = seenBars();
+  const board = currentBoard(bars);
+  const row = board.rows.find((item) => item.id === state.strat.pick);
+  if (!row || !row.ready) return "";
+  const held = state.paper.shares > 0;
+  const want = row.call === "BUY" && !held ? "buy" : row.call === "SELL" && held ? "sell" : "";
+  if (!want) return "";
+  const key = state.paper.symbol + "|" + row.id + "|" + want + "|" + closedDate(bars);
+  if (state.strat.acted[key]) return "";
+  if (want === "buy") {
+    const held = internalsGate(state.paper.symbol);
+    if (held) {
+      state.strat.note = row.name + " wanted a buy. Skipped: " + held;
+      renderAutoNote();
+      return state.strat.note;
+    }
+  }
+  if (confirmWait) return "Waiting for your answer on the open warning.";
+  state.strat.acted[key] = Date.now();
+  saveStrat();
+  state.strat.note = row.name + " signal: paper " + want + ". Waiting for your Yes.";
+  renderAutoNote();
+  answerAuto(row, want, state.paper.symbol, closedDate(bars));
+  return state.strat.note;
+}
+
+async function answerAuto(row, want, symbol, closed) {
+  const say = (text) => {
+    state.strat.note = text;
+    renderAutoNote();
+    $("status").textContent = text;
+  };
+  const ok = await confirmOrder(orderPlan(want, symbol, "auto", { row, closed }));
+  if (!ok) {
+    say(row.name + " " + want + " signal declined. Nothing was traded.");
+    return;
+  }
+  await whenIdle();
+  state.boardKey = "";
+  const held = !!(state.paper && state.paper.shares > 0);
+  const now = state.paper && state.paper.symbol === symbol ? currentBoard(seenBars()).rows.find((item) => item.id === row.id) : null;
+  const still = now && now.ready && ((want === "buy" && now.call === "BUY" && !held) || (want === "sell" && now.call === "SELL" && held));
+  if (!still) {
+    say("That " + row.name + " " + want + " signal was no longer on when you said Yes. Nothing was traded.");
+    return;
+  }
+  try {
+    const paper = await paperCall("/api/paper/trade", { source: "auto", confirmed: true });
+    render(paper);
+    say(row.name + ": paper " + want + ". " + (fillText(paper) || ""));
+  } catch (error) {
+    say(row.name + " wanted a " + want + ". Skipped: " + error.message);
+  }
+}
+
+function orbOptions() {
+  const clock = /^(\d{1,2}):(\d{2})$/.exec(($("strat-open").value || "").trim());
+  const openAt = clock && Number(clock[1]) < 24 && Number(clock[2]) < 60 ? Number(clock[1]) * 60 + Number(clock[2]) : undefined;
+  return {
+    crypto: chartCrypto(),
+    utcLabels: state.offline,
+    openAt,
+    buffer: Math.max(0, Number($("strat-buffer").value) || 0) / 100,
+    multiple: Math.max(0.25, Number($("strat-target").value) || 1),
+  };
+}
+
+const ORB_TEXT = {
+  FORMING: "The opening bar is still forming. Nothing is armed yet.",
+  ARMED: "The opening bar has closed and price is inside its range. A buy stop above the high is the entry.",
+  LONG: "The buy stop was reached. Keep the protective stop under the low of the opening bar.",
+  TARGET: "The buy stop was reached and then the target traded.",
+  STOPPED: "The buy stop was reached and then the protective stop traded.",
+  BOTH: "Both levels traded inside one 15-minute bar, so the order of events is not known. Stand aside.",
+  BREAK_DOWN: "Price broke below the opening low first. That is the bearish break. This long-only desk stands aside.",
+};
+
+function renderOrb() {
+  const box = $("strat-orb-state");
+  if (!box) return;
+  if (!state.orb || !state.paper || state.orb.symbol !== state.paper.symbol) {
+    box.textContent = "Press Load to read the real 15-minute bars for " + ((state.paper && state.paper.symbol) || "this market") + ".";
+    state.orbResult = null;
+    $("strat-orb-levels").replaceChildren();
+    $("strat-orb-record").replaceChildren();
+    $("strat-orb-plan").textContent = "";
+    return;
+  }
+  const result = PaperFrames.openingRange(state.orb.bars, orbOptions());
+  state.orbResult = result;
+  const levels = $("strat-orb-levels");
+  const record = $("strat-orb-record");
+  levels.replaceChildren();
+  record.replaceChildren();
+  if (!result.ready) {
+    box.textContent = result.reason;
+    $("strat-orb-plan").textContent = "";
+    return;
+  }
+  const latest = result.latest;
+  box.textContent = latest.state.replace("_", " ") + " · " + (ORB_TEXT[latest.state] || "") + (latest.fallback ? " No bar at that clock time today, so the first bar of the day was used." : "");
+  const fill = (target, items) => items.forEach(([name, value]) => {
+    const cell = document.createElement("div");
+    const label = document.createElement("dt");
+    const detail = document.createElement("dd");
+    label.textContent = name;
+    detail.textContent = value;
+    cell.append(label, detail);
+    target.appendChild(cell);
+  });
+  fill(levels, [
+    ["Opening bar", latest.openLabel],
+    ["Buy stop", formatPrice(latest.trigger)],
+    ["Protective stop", formatPrice(latest.floor)],
+    ["Target", formatPrice(latest.target)],
+    ["Range", formatPrice(latest.range)],
+  ]);
+  const rec = result.record;
+  fill(record, [
+    ["Past days read", String(rec.days)],
+    ["Long trades", String(rec.trades)],
+    ["Targets", String(rec.wins)],
+    ["Stops", String(rec.losses)],
+    ["Average", rec.avgR == null ? "—" : (rec.avgR > 0 ? "+" : "") + rec.avgR.toFixed(2) + " R"],
+    ["Bearish breaks", String(rec.skipped)],
+  ]);
+  $("strat-orb-plan").textContent = "Loaded " + new Date(state.orb.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" }) + " Denver. Opening bars are read from closed bars. R is the buy stop to protective stop distance. These are past days, not a forecast.";
+}
+
+async function loadOrb() {
+  const symbol = state.paper && state.paper.symbol;
+  if (!symbol) return;
+  $("strat-orb-state").textContent = "Reading the 15-minute bars…";
+  try {
+    let bars;
+    if (state.offline) {
+      const row = state.catalog.find((item) => item.symbol === symbol);
+      bars = await PaperLive.frame(symbol, row ? row.category : "", "15m");
+    } else {
+      bars = (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=15m")).bars;
+    }
+    state.orb = { symbol, bars, at: Date.now() };
+    renderOrb();
+  } catch (error) {
+    state.orb = null;
+    $("strat-orb-state").textContent = error.message;
+  }
+}
+
+function armPrice(value) {
+  return Number(Number(value).toFixed(Math.max(2, digitsFor(value) + 1)));
+}
+
+async function armOrb(kind) {
+  const say = (text) => {
+    $("status").textContent = text;
+  };
+  if (!$("strat-confirm").checked) return say("Check Confirm and arm first.");
+  const result = state.orbResult;
+  if (!result || !result.ready || !result.latest.closed) return say("Load the 15-minute bars and wait for the opening bar to close.");
+  if (!state.paper || state.paper.paper !== true) return say("Turn Paper on first.");
+  const level = result.latest;
+  const held = state.paper.shares > 0;
+  let ticket;
+  if (kind === "buy") {
+    if (held) return say("A paper long is already open.");
+    if (level.state !== "ARMED") return say("The buy stop is only armed while price is still inside the opening range.");
+    ticket = { side: "buy", kind: "stop", tif: "DAY", stop: armPrice(level.trigger) };
+  } else if (kind === "stop") {
+    if (!held) return say("Nothing to protect. The account is flat.");
+    ticket = { side: "sell", kind: "stop", tif: "GTC", stop: armPrice(level.floor) };
+  } else {
+    if (!held) return say("Nothing to sell. The account is flat.");
+    ticket = { side: "sell", kind: "limit", tif: "GTC", limit: armPrice(level.target) };
+  }
+  if (!(await askFirst(ticket.side, state.paper.symbol, "strategy", { ticket }))) return;
+  await withBusy(async () => {
+    const paper = await paperCall("/api/paper/ticket", { ...ticket, source: "strategy", confirmed: true });
+    $("strat-confirm").checked = false;
+    render(paper);
+    say(paper.last_action === "working" ? "Working paper order armed. It fills when the real quote reaches it. Nothing was sent to a broker." : (fillText(paper) || "Filled on the paper account.") + " Nothing was sent to a broker.");
+  });
+}
+
+
+async function phoneSafe() {
+  const items = [];
+  const add = (name, ok, detail, kind) => items.push({ name, ok: !!ok, detail, kind: kind || "safety" });
+  add("This device only", true, "No server, no login, no broker. Orders stay in this browser");
+  let locked = false;
+  try {
+    await paperCall("/api/paper/mode", { mode: "live" });
+  } catch (error) {
+    locked = true;
+  }
+  add("Live locked", locked, "No broker or bank link. Every order is paper");
+  add("Paper only", !state.paper || state.paper.paper === true, "Paper mode is on");
+  let rules = true;
+  try {
+    const market = 100.05;
+    const cases = [
+      [{ side: "buy", kind: "market" }, 100, true, market],
+      [{ side: "buy", kind: "limit", limit: 95 }, 100, false, null],
+      [{ side: "buy", kind: "limit", limit: 95 }, 94, true, 94],
+      [{ side: "sell", kind: "limit", limit: 105 }, 104, false, null],
+      [{ side: "sell", kind: "limit", limit: 105 }, 106, true, 106],
+      [{ side: "buy", kind: "stop", stop: 105 }, 100, false, null],
+      [{ side: "buy", kind: "stop", stop: 105 }, 106, true, market],
+      [{ side: "sell", kind: "stop", stop: 95 }, 94, true, market],
+    ];
+    cases.forEach(([raw, last, fills, price]) => {
+      const verdict = PaperEngine.decide(PaperEngine.makeTicket(raw), last, market);
+      if (verdict.fills !== fills || (price != null && Math.abs(verdict.price - price) > 1e-9)) rules = false;
+    });
+  } catch (error) {
+    rules = false;
+  }
+  add("Order rules", rules, rules ? "8 order rules passed" : "An order rule failed");
+  const breaker = breakerState();
+  add("Circuit breaker", true, breaker.tripped ? "Holding until tomorrow" : "Armed at " + breaker.drop_pct + "% a day");
+  let saves = false;
+  try {
+    localStorage.setItem("paper_trader_probe", "1");
+    saves = localStorage.getItem("paper_trader_probe") === "1";
+    localStorage.removeItem("paper_trader_probe");
+  } catch (error) {
+    saves = false;
+  }
+  add("Paper book saves", saves, saves ? "This browser keeps positions and fills" : "This browser blocks saving. Positions last until the page closes");
+  add("Quotes", !!state.market, state.market ? "A real quote is loaded" : "Waiting on the quote", "health");
+  add("Learning", true, "Runs only while this page is open", "health");
+  return { safe: items.filter((item) => item.kind === "safety").every((item) => item.ok), items };
+}
+
+async function loadWindows() {
+  const box = $("win-box");
+  if (!box || state.offline) return;
+  try {
+    const view = await getJSON("/api/windows");
+    box.hidden = !view.windows;
+    $("win-startup").checked = !!view.startup;
+    $("win-desktop").checked = !!view.desktop;
+  } catch (error) {
+    box.hidden = true;
+  }
+}
+
+async function setWindows(key, input) {
+  try {
+    const view = await postJSON("/api/windows", { [key]: input.checked });
+    $("win-startup").checked = !!view.startup;
+    $("win-desktop").checked = !!view.desktop;
+    $("win-note").textContent = key === "startup"
+      ? (view.startup ? "The score will start when you sign in. Untick to remove it." : "Sign-in start removed.")
+      : (view.desktop ? "Paper Trader.bat is on your Desktop. Untick to remove it." : "Desktop file removed.");
+  } catch (error) {
+    input.checked = !input.checked;
+    $("win-note").textContent = error.message;
+  }
+}
+
+async function runSafe(manual) {
+  const button = $("safe");
+  if (!button || state.safeBusy) return;
+  state.safeBusy = true;
+  if (!state.winLoaded && !state.offline) {
+    state.winLoaded = true;
+    loadWindows();
+  }
+  try {
+    const report = state.offline ? await phoneSafe() : await getJSON("/api/safe");
+    report.items.push({ name: "Internals", ok: !!(state.int.result && state.int.result.ready), detail: state.int.result ? internalsLine() : "Not read yet", kind: "health" });
+    const bad = report.items.filter((item) => item.kind === "safety" && !item.ok);
+    const warn = report.items.filter((item) => item.kind !== "safety" && !item.ok);
+    button.className = "safe-btn " + (bad.length ? "bad" : warn.length ? "warn" : "ok");
+    button.textContent = bad.length ? "Not safe" : warn.length ? "Safe · " + warn.length + " to check" : "Safe";
+    const stamp = new Date().toLocaleTimeString("en-US", { timeZone: "America/Denver" });
+    $("safe-note").textContent = bad.length
+      ? "Fix first: " + bad.map((item) => item.name).join(", ") + ". Auto is stopped."
+      : "All " + report.items.filter((item) => item.kind === "safety").length + " safety checks passed at " + stamp + " Denver." + (warn.length ? " Check: " + warn.map((item) => item.name).join(", ") + "." : "");
+    const list = $("safe-list");
+    list.replaceChildren();
+    report.items.forEach((item) => {
+      const row = document.createElement("li");
+      row.textContent = item.name + " · " + item.detail;
+      if (!item.ok) row.className = item.kind === "safety" ? "bad" : "warn";
+      list.appendChild(row);
+    });
+    state.safe = report;
+    if (bad.length && state.auto) stopAuto("Safe check failed: " + bad.map((item) => item.name).join(", ") + ". Auto is off.");
+    else if (manual) $("status").textContent = bad.length ? "Not safe: " + bad.map((item) => item.name).join(", ") + "." : "Safe. Every safety check passed.";
+  } catch (error) {
+    button.className = "safe-btn bad";
+    button.textContent = "Not safe";
+    $("safe-note").textContent = "The safety check could not run: " + error.message;
+    if (state.auto) stopAuto("The safety check could not run. Auto is off.");
+  } finally {
+    state.safeBusy = false;
+  }
+}
+
+
+const MAIN_ETFS = ["SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB"];
+
+const SQ_LISTS = {
+  starter: ["BTC-USD", "ETH-USD", "XRP-USD", "ES", "NQ", "YM", "RTY", "GC", "CL", "ZN", "SPY", "QQQ", "IWM", "DIA", "XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "SMH", "NVDA", "MSFT", "AAPL", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "AMD", "JPM", "HOOD", "DASH", "CRCL", "GE", "CAT", "XOM", "LLY", "WMT", "COST"],
+  sectors: ["SPY", "QQQ", "XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "SMH", "NVDA", "MSFT", "AAPL", "AVGO", "AMD", "AMZN", "TSLA", "DASH", "JPM", "HOOD", "V", "MA", "CRCL", "GE", "CAT", "HON", "BA", "LMT", "XOM", "CVX", "LLY", "WMT", "COST"],
+  main_etfs: MAIN_ETFS.slice(),
+  crypto: ["BTC-USD", "ETH-USD", "XRP-USD", "SOL-USD", "XLM-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "LINK-USD", "AVAX-USD", "DOT-USD", "BCH-USD"],
+  futures: ["ES", "NQ", "YM", "RTY", "CL", "GC", "SI", "NG", "ZN", "ZB", "6E", "ZC", "ZS", "ZW"],
+};
+
+function catalogByKind(kind) {
+  return (state.catalog || []).filter((row) => row.category === kind).map((row) => row.symbol);
+}
+
+function sqCatalogList(kind) {
+  if (kind === "stocks") return catalogByKind("stock");
+  if (kind === "crypto") {
+    const all = catalogByKind("crypto");
+    return all.length ? all : SQ_LISTS.crypto.slice();
+  }
+  if (kind === "futures") {
+    const all = catalogByKind("future");
+    return all.length ? all : SQ_LISTS.futures.slice();
+  }
+  if (kind === "main_etfs") {
+    const known = new Set(catalogByKind("etf"));
+    const listed = MAIN_ETFS.filter((symbol) => !known.size || known.has(symbol));
+    return listed.length ? listed : MAIN_ETFS.slice();
+  }
+  return SQ_LISTS[kind] || SQ_LISTS.starter;
+}
+
+const SQ_SECTOR = {
+  NVDA: "XLK", MSFT: "XLK", AAPL: "XLK", AVGO: "XLK", AMD: "XLK",
+  AMZN: "XLY", TSLA: "XLY", DASH: "XLY",
+  JPM: "XLF", HOOD: "XLF", CRCL: "XLF", V: "XLF", MA: "XLF",
+  GE: "XLI", CAT: "XLI", HON: "XLI", BA: "XLI", LMT: "XLI",
+  XOM: "XLE", CVX: "XLE", LLY: "XLV", WMT: "XLP", COST: "XLP",
+};
+
+function sqIndexOf(symbol) {
+  const sector = SQ_SECTOR[symbol] || symbol;
+  if (sector === "XLK" || sector === "SMH") return "QQQ";
+  return /^XL[A-Z]$/.test(sector) ? "SPY" : "";
+}
+
+state.sq = { busy: false, stop: false, rows: [], skipped: [], at: 0 };
+
+function sqSymbols() {
+  const kind = $("sq-list").value;
+  let list;
+  if (kind === "custom") {
+    list = ($("sq-custom").value || "").toUpperCase().split(/[\s,;]+/).filter((item) => /^[A-Z0-9.^=-]{1,12}$/.test(item));
+  } else {
+    list = sqCatalogList(kind);
+  }
+  const seen = new Set();
+  const out = [];
+  list.forEach((symbol) => {
+    if (!seen.has(symbol)) {
+      seen.add(symbol);
+      out.push(symbol);
+    }
+  });
+  return kind === "custom" ? out.slice(0, 80) : out;
+}
+
+async function sqDaily(symbol) {
+  if (state.offline) {
+    const row = state.catalog.find((item) => item.symbol === symbol);
+    return PaperLive.daily(symbol, row ? row.category : "", true);
+  }
+  return (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
+}
+
+async function scanSqueeze() {
+  const sq = state.sq;
+  if (sq.busy) return;
+  const symbols = sqSymbols();
+  if (!symbols.length) {
+    $("sq-note").textContent = "Type at least one symbol for your own list.";
+    return;
+  }
+  sq.busy = true;
+  sq.stop = false;
+  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(6000);
+  $("sq-note").textContent = "Reading daily bars: 0 of " + symbols.length + ". Names show up as each market comes back.";
+  const reads = {};
+  const skipped = [];
+  let next = 0;
+  let done = 0;
+  const known = state.catalog && state.catalog.length ? new Set(state.catalog.map((item) => item.symbol)) : null;
+  const worker = async () => {
+    while (!sq.stop && next < symbols.length) {
+      const symbol = symbols[next];
+      next += 1;
+      if (known && !known.has(symbol)) {
+        skipped.push(symbol + " (not in this bot's market list)");
+        done += 1;
+        publishSqueeze(reads, skipped, symbols.length, done, false);
+        continue;
+      }
+      try {
+        const bars = await sqDaily(symbol);
+        const read = PaperFrames.squeezeRead(bars, { live: PaperFrames.liveBar(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol))) });
+        if (read.ready) reads[symbol] = read;
+        else skipped.push(symbol + " (" + read.reason + ")");
+      } catch (error) {
+        skipped.push(symbol + " (" + error.message + ")");
+      }
+      done += 1;
+      publishSqueeze(reads, skipped, symbols.length, done, false);
+    }
+  };
+  try {
+    await worker();
+  } finally {
+    sq.busy = false;
+    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+  }
+  publishSqueeze(reads, skipped, symbols.length, done, true);
+}
+
+async function afterSqueeze() {
+  while (state.sq && state.sq.busy) {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+}
+
+function publishSqueeze(reads, skipped, listed, done, finished) {
+  const sq = state.sq;
+  const rows = [];
+  Object.keys(reads).forEach((symbol) => {
+    const read = reads[symbol];
+    if (read.state === "OFF") return;
+    const sector = SQ_SECTOR[symbol];
+    const index = sqIndexOf(symbol);
+    const flags = {
+      sector: !!(sector && reads[sector] && reads[sector].state === "ON"),
+      index: !!(index && reads[index] && reads[index].state === "ON"),
+    };
+    const scored = PaperFrames.squeezeScore(read, flags);
+    rows.push({ symbol, read, ...scored });
+  });
+  rows.sort((a, b) => b.score - a.score || b.read.dots - a.read.dots);
+  sq.rows = rows;
+  sq.skipped = skipped;
+  sq.scanned = Object.keys(reads).length;
+  sq.at = Date.now();
+  sq.listed = listed;
+  sq.progress = finished ? "" : "Reading daily bars: " + done + " of " + listed + ". " + rows.length + " squeeze" + (rows.length === 1 ? "" : "s") + " so far.";
+  renderSqueeze();
+}
+
+function renderSqueeze() {
+  const body = $("sq-body");
+  if (!body) return;
+  const sq = state.sq;
+  body.replaceChildren();
+  if (!sq.at) return;
+  const side = $("sq-side").value;
+  const shown = sq.rows.filter((row) => side === "all" || row.read.direction === side).slice(0, 25);
+  shown.forEach((row, index) => {
+    const read = row.read;
+    const tr = document.createElement("tr");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "quiet";
+    open.textContent = "Open";
+    open.addEventListener("click", () => chooseSymbol(row.symbol));
+    addCells(tr, [
+      String(index + 1),
+      row.symbol,
+      read.state === "ON" ? "On" : "Fired " + (read.firedAgo === 0 ? "now" : read.firedAgo + " bar" + (read.firedAgo === 1 ? "" : "s") + " ago"),
+      PaperFrames.squeezeName(read.level || 0),
+      String(read.dots),
+      read.stack === "positive" ? "Stacked up" : read.stack === "negative" ? "Stacked down" : "Mixed",
+      (read.direction === "bull" ? "Above zero" : "Below zero") + (read.clean ? ", clean" : "") + (read.rising ? ", building" : ""),
+      read.weekly ? "Yes" : "No",
+      row.triple ? "Yes" : "—",
+      { text: String(row.score), cls: row.score >= 70 ? "up" : "" },
+      "",
+    ]);
+    tr.lastChild.appendChild(open);
+    body.appendChild(tr);
+  });
+  if (!shown.length && !sq.progress) {
+    const tr = document.createElement("tr");
+    addCells(tr, ["", "No squeezes on this side right now. A quiet list is a normal answer.", "", "", "", "", "", "", "", "", ""]);
+    body.appendChild(tr);
+  }
+  const when = new Date(sq.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
+  $("sq-note").textContent = sq.progress || ("Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired. Closed daily bars only. " + internalsLine());
+  const top = shown[0];
+  $("sq-why").textContent = top ? "Top score " + top.score + " for " + top.symbol + ": " + top.parts.map((item) => item[0] + " +" + item[1]).join(", ") + "." : "";
+  $("sq-skip").textContent = sq.skipped.length ? "Not read: " + sq.skipped.join("; ") + "." : "";
+}
+
+
+const INT_KEY = "paper_trader_internals_v1";
+const INT_GAUGES = ["^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP"];
+
+function loadIntGate() {
+  try {
+    return JSON.parse(localStorage.getItem(INT_KEY) || "{}").gate !== false;
+  } catch (error) {
+    return true;
+  }
+}
+
+state.int = { gate: loadIntGate(), result: null, at: 0, busy: false, error: "" };
+
+async function internalBars(symbol) {
+  if (state.offline && INT_GAUGES.includes(symbol)) return PaperLive.gauge(symbol);
+  return sqDaily(symbol);
+}
+
+async function loadInternals(force) {
+  const box = state.int;
+  if (box.busy || (!force && box.at && Date.now() - box.at < 600000)) return;
+  box.busy = true;
+  const symbols = PaperFrames.INTERNAL_SYMBOLS;
+  const data = {};
+  let next = 0;
+  const worker = async () => {
+    while (next < symbols.length) {
+      await afterSqueeze();
+      const symbol = symbols[next];
+      next += 1;
+      try {
+        data[symbol] = await internalBars(symbol);
+      } catch (error) {
+        /* A gauge that does not answer is listed as not read. */
+      }
+    }
+  };
+  try {
+    await worker();
+    box.result = PaperFrames.internals(data);
+    box.at = Date.now();
+    box.error = "";
+  } catch (error) {
+    box.error = error.message;
+  } finally {
+    box.busy = false;
+  }
+  renderInternals();
+  runSafe(false);
+}
+
+function internalsLine() {
+  const result = state.int.result;
+  if (!result) return "Internals not read yet.";
+  if (!result.ready) return "Internals unknown: only " + result.coverage + " of 100 points could be read.";
+  return "Internals " + result.label + " " + result.score + " as of the " + result.asOf + " close.";
+}
+
+function renderInternals() {
+  const pill = $("internals-pill");
+  if (!pill) return;
+  const result = state.int.result;
+  pill.className = "internals-pill " + (result && result.ready ? result.label.toLowerCase() : "");
+  pill.textContent = result ? (result.ready ? "Internals · " + result.label + " " + result.score : "Internals · unknown") : state.int.error ? "Internals · could not read" : "Internals · reading…";
+  const body = $("int-body");
+  if (!body) return;
+  body.replaceChildren();
+  $("int-gate").checked = state.int.gate;
+  if (!result) {
+    $("int-head").textContent = state.int.error || "Press Refresh internals.";
+    return;
+  }
+  result.parts.forEach((part) => {
+    const row = document.createElement("tr");
+    addCells(row, [part.name, { text: part.says === "good" ? "Good" : part.says === "bad" ? "Bad" : "Neutral", cls: part.says === "good" ? "up" : part.says === "bad" ? "down" : "" }, part.points + " of " + part.weight, part.text]);
+    body.appendChild(row);
+  });
+  const when = new Date(state.int.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
+  $("int-head").textContent = internalsLine() + " Read at " + when + " Denver." + (result.ready && result.label === "Defensive" ? " Auto skips new stock, ETF, and futures buys while this holds." : "");
+  $("int-miss").textContent = result.missing.length ? "Not read: " + result.missing.join(", ") + ". The score uses only what was read." : "";
+  renderAutoNote();
+}
+
+function internalsGate(symbol) {
+  const result = state.int.result;
+  if (!state.int.gate || !result || !result.ready || result.label !== "Defensive") return "";
+  const row = state.catalog.find((item) => item.symbol === symbol);
+  if (phoneCrypto(symbol, row)) return "";
+  return "Internals are Defensive (" + result.score + "), so new buys are held back.";
+}
+
+
+state.ef = { symbol: "", at: 0, busy: false, rows: {}, bars: {}, token: 0 };
+
+async function fetchFrameBars(symbol, frameId) {
+  const row = (state.frames || []).find((item) => item.id === frameId);
+  if (frameId === "1D" && row && row.bars && row.bars.length) return row.bars;
+  if (state.offline) {
+    const entry = state.catalog.find((item) => item.symbol === symbol);
+    return PaperLive.frame(symbol, entry ? entry.category : "", frameId);
+  }
+  return (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=" + encodeURIComponent(frameId))).bars || [];
+}
+
+async function loadEdgeFrames(force) {
+  const ef = state.ef;
+  const symbol = state.paper && state.paper.symbol;
+  if (!symbol || ef.busy || !state.market || typeof PaperFrames === "undefined") return;
+  if (!force && ef.symbol === symbol && Date.now() - ef.at < 300000) return;
+  const token = ef.token + 1;
+  Object.assign(ef, { busy: true, symbol, rows: {}, bars: {}, token });
+  $("edge-frames-note").textContent = "Reading Edge on every timeframe…";
+  const crypto = chartCrypto();
+  const frames = PaperFrames.FRAMES.slice();
+  let next = 0;
+  const worker = async () => {
+    while (next < frames.length && ef.token === token) {
+      await afterSqueeze();
+      if (ef.token !== token) return;
+      const frame = frames[next];
+      next += 1;
+      try {
+        const bars = await fetchFrameBars(symbol, frame.id);
+        const read = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+        ef.bars[frame.id] = bars;
+        const last = bars.length ? bars[bars.length - 1].close : null;
+        ef.rows[frame.id] = read && read.ready
+          ? { id: frame.id, label: frame.label, short: frame.short, ready: true, call: read.call, score: read.score, stop: read.stop, record: read.record, count: bars.length, last }
+          : { id: frame.id, label: frame.label, short: frame.short, ready: false, why: bars.length ? "Only " + bars.length + " bars. Edge needs 52." : "No bars", count: bars.length };
+      } catch (error) {
+        ef.rows[frame.id] = { id: frame.id, label: frame.label, short: frame.short, ready: false, why: error.message || "No bars" };
+      }
+      if (ef.token === token) renderEdgeFrames();
+    }
+  };
+  try {
+    await worker();
+  } finally {
+    if (ef.token === token) {
+      ef.busy = false;
+      ef.at = Date.now();
+      renderEdgeFrames();
+      renderFrames();
+    }
+  }
+}
+
+function edgeFramesSummary() {
+  const rows = PaperFrames.FRAMES.map((frame) => state.ef.rows[frame.id]).filter((row) => row && row.ready);
+  if (!rows.length) return { text: "", long: 0, short: 0, wait: 0, total: 0 };
+  const long = rows.filter((row) => row.call === "BUY" || row.call === "HOLD").length;
+  const short = rows.filter((row) => row.call === "SELL").length;
+  const wait = rows.length - long - short;
+  return { long, short, wait, total: rows.length, text: long + " of " + rows.length + " timeframes are buying or holding, " + short + " selling, " + wait + " waiting." };
+}
+
+function renderEdgeFrames() {
+  const chips = $("edge-frames");
+  const body = $("edge-frames-body");
+  if (!chips || !body) return;
+  const ef = state.ef;
+  chips.replaceChildren();
+  body.replaceChildren();
+  PaperFrames.FRAMES.forEach((frame) => {
+    const row = ef.rows[frame.id];
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = row && row.ready ? row.call.toLowerCase() : "wait";
+    button.textContent = frame.short + " " + (row ? (row.ready ? row.call : "—") : "…");
+    button.title = row ? (row.ready ? frame.label + ": Edge " + row.call + ", " + row.score + " of 5" : frame.label + ": " + row.why) : frame.label + ": reading";
+    button.addEventListener("click", () => {
+      state.frameId = frame.id;
+      renderFrames();
+      showDock("frames");
+    });
+    chips.appendChild(button);
+    const tr = document.createElement("tr");
+    tr.className = "pickable" + (frame.id === (state.frameId || "1D") ? " picked" : "");
+    tr.tabIndex = 0;
+    tr.setAttribute("role", "button");
+    tr.setAttribute("aria-label", "Show " + frame.label + " in the preview");
+    if (row && row.ready) {
+      addCells(tr, [frame.label, "", row.score + " of 5", row.stop != null ? formatPrice(row.stop) : "—", String(row.record.trades), row.record.trades ? Math.round(row.record.winRate * 100) + "%" : "—", { text: signedPercent(row.record.total), cls: row.record.total > 0 ? "up" : row.record.total < 0 ? "down" : "" }]);
+      const pill = document.createElement("span");
+      pill.className = "call-pill " + row.call.toLowerCase();
+      pill.textContent = row.call;
+      tr.children[1].appendChild(pill);
+    } else {
+      addCells(tr, [frame.label, row ? "—" : "…", "", "", "", "", row ? row.why : "Reading"]);
+    }
+    const choose = () => {
+      state.frameId = frame.id;
+      renderFrames();
+      renderEdgeFrames();
+    };
+    tr.addEventListener("click", choose);
+    tr.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        choose();
+      }
+    });
+    body.appendChild(tr);
+  });
+  const summary = edgeFramesSummary();
+  $("edge-frames-line").textContent = summary.text;
+  if (!ef.busy) {
+    const when = ef.at ? new Date(ef.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" }) : "";
+    $("edge-frames-note").textContent = summary.total
+      ? summary.text + " Read at " + when + " Denver for " + ef.symbol + ". Auto and the strategies still read the daily bars only. Click a row for its preview, then click any candle for its price box."
+      : "Edge reads the closed bars of each timeframe on its own. Press Read all timeframes now.";
+  }
+}
+
+let edgeFramesTimer = 0;
+function scheduleEdgeFrames() {
+  if (edgeFramesTimer || document.hidden) return;
+  edgeFramesTimer = setTimeout(() => {
+    edgeFramesTimer = 0;
+    loadEdgeFrames(false).catch(() => {});
+  }, 1500);
 }
 
 function renderEdge() {
@@ -2015,6 +3780,7 @@ function drawCandles(retry) {
   const highLine = studyLines.high.slice(dropped);
   const midLine = studyLines.close.slice(dropped);
   const lowLine = studyLines.low.slice(dropped);
+  const stack = PaperFrames.stackAverages(history).map((row) => ({ ...row, values: row.values.slice(dropped) }));
   const pivots = PaperFrames.trendPivots(history);
   const layers = state.layers;
   const fast = layers.fastslow ? visible(state.market.fast) : [];
@@ -2030,7 +3796,9 @@ function drawCandles(retry) {
   const priceBottom = Math.min(height - 36, Math.max(72, Math.round(height * 0.72)));
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
-  [layers.averages ? highLine : [], layers.averages ? midLine : [], layers.averages ? lowLine : [], fast, slow].forEach((series) => {
+  [layers.averages ? highLine : [], layers.averages ? midLine : [], layers.averages ? lowLine : [], fast, slow]
+    .concat(layers.stack ? stack.map((row) => row.values) : [])
+    .forEach((series) => {
     series.forEach((value) => {
       if (value == null) return;
       if (value < low) low = value;
@@ -2062,6 +3830,7 @@ function drawCandles(retry) {
   const y = (price) => 16 + ((high - price) / (high - low)) * (priceBottom - 28);
   const slot = (width - pad - rightGap) / bars.length;
   const plotRight = width - rightGap;
+  const xAt = (index) => pad + index * slot + slot / 2;
   state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.strokeStyle = "#2d3640";
   ctx.fillStyle = "#9aa6b2";
@@ -2075,22 +3844,13 @@ function drawCandles(retry) {
     ctx.stroke();
     ctx.fillText(formatPrice(price), 4, line - 2);
   }
-  bars.forEach((bar, index) => {
-    const x = pad + index * slot + slot / 2;
-    const up = bar.close >= bar.open;
-    ctx.strokeStyle = up ? "#3ddc97" : "#ff6b7a";
-    ctx.fillStyle = ctx.strokeStyle;
-    ctx.beginPath();
-    ctx.moveTo(x, y(bar.high));
-    ctx.lineTo(x, y(bar.low));
-    ctx.stroke();
-    const top = y(Math.max(bar.open, bar.close));
-    const bottom = y(Math.min(bar.open, bar.close));
-    ctx.fillRect(x - Math.max(1, slot * 0.28), top, Math.max(2, slot * 0.56), Math.max(1, bottom - top));
-  });
+  PaperFrames.paintCandles(ctx, bars, xAt, y, slot);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
+  if (layers.stack) {
+    stack.forEach((row) => drawLine(ctx, row.values, y, pad, slot, row.color, row.length >= 100 ? 1.75 : 1.25));
+  }
   if (layers.averages) {
     drawLine(ctx, highLine, y, pad, slot, "#3ddc97", 2);
     drawLine(ctx, midLine, y, pad, slot, "#5b9dff", 2);
@@ -2310,7 +4070,8 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 
 const LAYERS = [
   ["edge", "Edge stop", "edgestop", true],
-  ["ema200", "200 EMA", "ema200", true],
+  ["stack", "SMA 5 · 9 · 21 · 50 · 100 · 200", "stack", true],
+  ["ema200", "200 EMA", "ema200", false],
   ["profile", "Volume + POC", "poc", true],
   ["vwap", "VWAP", "vwap", false],
   ["bands", "Bands", "band", false],
@@ -2451,6 +4212,7 @@ function drawTmo() {
   const y = (value) => 10 + ((limit - value) / (limit * 2)) * (height - 18);
   const slot = (width - pad - rightGap) / Math.max(1, main.length);
   const plotRight = width - rightGap;
+  state.tmoMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.fillStyle = "rgba(255, 107, 122, 0.16)";
   ctx.fillRect(pad, y(limit), plotRight - pad, Math.max(1, y(study.ob) - y(limit)));
   ctx.fillStyle = "rgba(61, 220, 151, 0.16)";
@@ -2468,28 +4230,34 @@ function drawTmo() {
   });
   ctx.setLineDash([]);
   for (let index = 1; index < main.length; index += 1) {
-    if (main[index] == null || signal[index] == null) continue;
+    if (main[index] == null || signal[index] == null || main[index - 1] == null || signal[index - 1] == null) continue;
     const left = pad + (index - 1) * slot + slot / 2;
     const right = pad + index * slot + slot / 2;
-    const top = Math.min(y(main[index]), y(signal[index]));
-    const bottom = Math.max(y(main[index]), y(signal[index]));
-    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.55)" : "rgba(122, 28, 40, 0.55)";
-    ctx.fillRect(left, top, Math.max(1, right - left), Math.max(1, bottom - top));
+    ctx.beginPath();
+    ctx.moveTo(left, y(main[index - 1]));
+    ctx.lineTo(right, y(main[index]));
+    ctx.lineTo(right, y(signal[index]));
+    ctx.lineTo(left, y(signal[index - 1]));
+    ctx.closePath();
+    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.42)" : "rgba(122, 28, 40, 0.42)";
+    ctx.fill();
   }
   strokeOscillator(ctx, main, main, signal, y, pad, slot);
   strokeOscillator(ctx, signal, main, signal, y, pad, slot);
   up.forEach((mark, index) => {
-    if (!mark || main[index] == null || main[index] > 0) return;
+    if (!mark || main[index] == null) return;
     ctx.fillStyle = "#67e8f9";
-    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) + 11, true);
+    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) + 12, true);
   });
   down.forEach((mark, index) => {
-    if (!mark || main[index] == null || main[index] < 0) return;
-    ctx.fillStyle = "#ff6b7a";
-    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 11, false);
+    if (!mark || main[index] == null) return;
+    ctx.fillStyle = "#e879f9";
+    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 12, false);
   });
+  const calls = currentEdge(history);
+  if (calls && calls.ready) PaperFrames.drawEdgeCalls(ctx, calls.marks, dropped, view.bars.length, (index) => pad + index * slot + slot / 2, 14, height - 4, pad, plotRight);
   ctx.fillStyle = "#d7e2ea";
-  ctx.fillText("TMO", pad, 12);
+  ctx.fillText("True momentum 14/5/3" + (calls && calls.ready ? " · Edge " + calls.call : ""), pad, 12);
 }
 
 function strokeOscillator(ctx, values, lead, other, y, pad, slot) {
@@ -2555,13 +4323,16 @@ function releaseBusy() {
 async function withBusy(action) {
   if (state.busy) return;
   state.busy = true;
-  $("status").textContent = "";
+  document.body.classList.add("busy");
+  setStatus("Working…");
   try {
     await action();
   } catch (error) {
-    $("status").textContent = error.message;
+    setStatus(error.message);
     if (state.paper) $("symbol").dataset.value = state.paper.symbol;
   } finally {
+    document.body.classList.remove("busy");
+    syncDeskStatus();
     releaseBusy();
   }
 }
@@ -2695,7 +4466,9 @@ async function autoTick() {
       $("status").textContent = "Auto stopped. Paper is off.";
       return;
     }
-    $("status").textContent = "Auto is on. Refreshing the market quote.";
+    const traded = await autoTrade();
+    $("status").textContent = traded || "Auto is on. Refreshing the market quote.";
+    nudgeLearn("auto");
   } catch (error) {
     state.auto = false;
     if (state.paper) render(state.paper);
@@ -2735,22 +4508,257 @@ $("auto").addEventListener("click", () => {
   autoTick();
 });
 
-$("trade").addEventListener("click", () => withBusy(async () => {
-  stopAuto();
-  const paper = await paperCall("/api/paper/trade", {});
+
+function setSide(side) {
+  state.side = side;
+  const buy = $("side-buy");
+  const sell = $("side-sell");
+  if (!buy || !sell) return;
+  buy.classList.toggle("on", side === "buy");
+  sell.classList.toggle("on", side === "sell");
+  buy.setAttribute("aria-pressed", side === "buy" ? "true" : "false");
+  sell.setAttribute("aria-pressed", side === "sell" ? "true" : "false");
+  $("send").classList.toggle("sell-side", side === "sell");
+  $("send").textContent = side === "buy" ? "Send paper buy" : "Send paper sell";
+  paintTicketPreview();
+}
+
+function syncTicketFields() {
+  const kind = $("kind").value;
+  $("stop-field").hidden = !(kind === "stop" || kind === "stop_limit");
+  $("limit-field").hidden = !(kind === "limit" || kind === "stop_limit");
+  paintTicketPreview();
+}
+
+function seedTicketPrices(paper) {
+  const last = Number(paper && paper.last_close);
+  if (!(last > 0)) return;
+  const seeded = state.ticketSeed === paper.symbol;
+  if (seeded) return;
+  state.ticketSeed = paper.symbol;
+  const digits = digitsFor(last);
+  $("limit-price").value = last.toFixed(digits);
+  $("stop-price").value = last.toFixed(digits);
+}
+
+function renderWorking(paper) {
+  const body = $("working-body");
+  if (!body) return;
+  body.replaceChildren();
+  const rows = (paper && paper.working) || [];
+  if (!rows.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 7;
+    cell.textContent = "No working paper orders.";
+    row.appendChild(cell);
+    body.appendChild(row);
+  }
+  rows.forEach((order) => {
+    const row = document.createElement("tr");
+    const kind = order.kind === "stop_limit" ? "STP LMT" : String(order.kind || "").toUpperCase();
+    const values = [
+      order.id,
+      String(order.side || "").toUpperCase(),
+      kind,
+      order.stop > 0 ? formatPrice(order.stop) : "—",
+      order.limit > 0 ? formatPrice(order.limit) : "—",
+      order.tif,
+    ];
+    values.forEach((value, index) => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      if (index === 1) cell.className = order.side === "buy" ? "up" : "down";
+      row.appendChild(cell);
+    });
+    const cell = document.createElement("td");
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "quiet";
+    cancel.textContent = "Cancel";
+    cancel.addEventListener("click", () => withBusy(async () => {
+      const next = await paperCall("/api/paper/cancel", { id: order.id });
+      render(next);
+      $("status").textContent = "Canceled working paper order " + order.id + ".";
+    }));
+    cell.appendChild(cancel);
+    row.appendChild(cell);
+    body.appendChild(row);
+  });
+  const all = $("cancel-all");
+  if (all) all.disabled = !rows.length;
+}
+
+function announceTicketFills(paper) {
+  const list = (paper && paper.ticket_fills) || [];
+  if (!state.seenFills) {
+    state.seenFills = new Set(list.map((item) => item.at + "|" + item.order_id));
+    return;
+  }
+  list.forEach((item) => {
+    const key = item.at + "|" + item.order_id;
+    if (state.seenFills.has(key)) return;
+    state.seenFills.add(key);
+    const verb = item.side === "buy" ? "Bought" : "Sold";
+    $("status").textContent = "Working order " + item.order_id + " filled on paper. " + verb + " at " + formatPrice(item.price) + ". Nothing was sent to a broker.";
+    if (state.voice && window.speechSynthesis) window.speechSynthesis.cancel();
+  });
+}
+
+$("side-buy").addEventListener("click", () => setSide("buy"));
+$("side-sell").addEventListener("click", () => setSide("sell"));
+$("kind").addEventListener("change", syncTicketFields);
+["limit-price", "stop-price"].forEach((id) => {
+  const node = $(id);
+  if (node) node.addEventListener("input", paintTicketPreview);
+});
+syncTicketFields();
+setSide("buy");
+
+$("send").addEventListener("click", () => withBusy(async () => {
+  if (!$("confirm").checked) {
+    $("status").textContent = "Check Confirm and Send, then send the paper order.";
+    return;
+  }
+  const ticket = {
+    side: state.side,
+    kind: $("kind").value,
+    tif: $("tif").value,
+    stop: Number($("stop-price").value) || 0,
+    limit: Number($("limit-price").value) || 0,
+  };
+  if (!(await askFirst(ticket.side, (state.paper && state.paper.symbol) || selectedSymbol(), "you", { ticket }))) return;
+  const paper = await paperCall("/api/paper/ticket", { ...ticket, confirmed: true });
+  $("confirm").checked = false;
   render(paper);
-  const verb = paper.last_action === "sell" ? "Sold" : "Bought";
-  $("status").textContent = fillText(paper) || verb + " one simulated position on the paper account.";
+  if (paper.last_action === "working") {
+    $("status").textContent = "Working paper order placed. It fills when the real quote reaches it. Nothing was sent to a broker.";
+  } else {
+    const verb = paper.last_action === "sell" ? "Sold" : "Bought";
+    $("status").textContent = (fillText(paper) || verb + " on the paper account.") + " Nothing was sent to a broker.";
+  }
   await loadSignals();
 }));
 
+$("cancel-all").addEventListener("click", () => withBusy(async () => {
+  const paper = await paperCall("/api/paper/cancel", { id: "all" });
+  render(paper);
+  $("status").textContent = "Canceled every working paper order.";
+}));
+
+const bookShare = $("book-share");
+if (bookShare) bookShare.addEventListener("click", () => sharePaperBook(true));
+const bookCopy = $("book-copy");
+if (bookCopy) bookCopy.addEventListener("click", () => sharePaperBook(false));
+const bookFile = $("book-file");
+if (bookFile) {
+  bookFile.addEventListener("change", () => {
+    const file = bookFile.files && bookFile.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => withBusy(async () => {
+      try {
+        const payload = JSON.parse(String(reader.result || ""));
+        await importPaperBook(payload);
+      } catch (error) {
+        const note = $("book-share-note");
+        if (note) note.textContent = error.message || "That file could not be read.";
+      } finally {
+        bookFile.value = "";
+      }
+    });
+    reader.onerror = () => {
+      const note = $("book-share-note");
+      if (note) note.textContent = "That file could not be read.";
+      bookFile.value = "";
+    };
+    reader.readAsText(file);
+  });
+}
+
+$("safe").addEventListener("click", () => runSafe(true));
+$("win-startup").addEventListener("change", (event) => setWindows("startup", event.target));
+$("win-desktop").addEventListener("change", (event) => setWindows("desktop", event.target));
+$("int-refresh").addEventListener("click", () => loadInternals(true));
+$("internals-pill").addEventListener("click", () => showDock("internals"));
+$("int-gate").addEventListener("change", () => {
+  state.int.gate = $("int-gate").checked;
+  try {
+    localStorage.setItem(INT_KEY, JSON.stringify({ gate: state.int.gate }));
+  } catch (error) {
+    /* The switch still works for this visit. */
+  }
+  renderInternals();
+});
+$("sq-scan").addEventListener("click", scanSqueeze);
+$("sq-stop").addEventListener("click", () => {
+  state.sq.stop = true;
+  $("sq-note").textContent = "Stopping after the markets already being read.";
+});
+$("sq-side").addEventListener("change", renderSqueeze);
+setInterval(() => runSafe(false), 60000);
+
+$("strat-pick").addEventListener("change", () => pickStrategy($("strat-pick").value));
+$("strat-auto-on").addEventListener("change", () => {
+  state.strat.on = $("strat-auto-on").checked;
+  state.strat.note = "";
+  saveStrat();
+  state.boardKey = "";
+  renderStrategies();
+  $("status").textContent = state.strat.on ? "Strategy trading is on. Turn Auto on and it follows " + state.strat.pick + " on closed bars." : "Strategy trading is off.";
+});
+$("strat-board").addEventListener("click", (event) => {
+  const row = event.target.closest("tr[data-strategy]");
+  if (row) pickStrategy(row.dataset.strategy);
+});
+$("strat-board").addEventListener("keydown", (event) => {
+  const row = event.target.closest("tr[data-strategy]");
+  if (row && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    pickStrategy(row.dataset.strategy);
+  }
+});
+$("strat-sweep").addEventListener("click", sweepStrategy);
+$("edge-frames-refresh").addEventListener("click", () => loadEdgeFrames(true));
+$("cm-yes").addEventListener("click", () => closeConfirm(true));
+$("cm-no").addEventListener("click", () => closeConfirm(false));
+$("confirm-modal").addEventListener("click", (event) => {
+  if (event.target === $("confirm-modal")) closeConfirm(false);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && confirmWait) closeConfirm(false);
+});
+$("strat-load").addEventListener("click", loadOrb);
+["strat-open", "strat-buffer", "strat-target"].forEach((id) => $(id).addEventListener("change", renderOrb));
+$("strat-arm-buy").addEventListener("click", () => armOrb("buy"));
+$("strat-arm-stop").addEventListener("click", () => armOrb("stop"));
+$("strat-arm-target").addEventListener("click", () => armOrb("target"));
+
+$("trade").addEventListener("click", async () => {
+  if (state.busy || !state.paper) return;
+  const side = state.paper.shares > 0 ? "sell" : "buy";
+  if (!(await askFirst(side, state.paper.symbol, "you", {}))) return;
+  tradeNow();
+});
+
+const tradeNow = () => withBusy(async () => {
+  stopAuto();
+  const paper = await paperCall("/api/paper/trade", { confirmed: true });
+  render(paper);
+  const verb = paper.last_action === "sell" ? "Sold" : "Bought";
+  const caution = paper.last_action === "buy" ? internalsGate(paper.symbol) : "";
+  $("status").textContent = (fillText(paper) || verb + " one simulated position on the paper account.") + (caution ? " Heads up: " + caution : "");
+  await loadSignals();
+});
+
 $("halt").addEventListener("click", async () => {
   const button = $("halt");
-  if (button.disabled) return;
+  if (button.disabled || !state.paper) return;
+  if (!(await askFirst("sell", state.paper.symbol, "you", { all: true }))) return;
   button.disabled = true;
   stopAuto("Selling everything on the paper account…");
   try {
-    const paper = await paperCall("/api/paper/halt", {});
+    const paper = await paperCall("/api/paper/halt", { confirmed: true });
     render(paper);
     $("status").textContent = (paper.last_action === "sell" ? "Sold everything to paper cash. " + fillText(paper) : "Already in paper cash.") + " Buys stop until tomorrow.";
   } catch (error) {
@@ -2786,6 +4794,17 @@ function canvasX(event, canvas) {
   return cssX * scale;
 }
 
+function scrubReadout(event, map, canvas) {
+  if (!map || !map.bars || !map.bars.length) return;
+  const index = PaperFrames.barIndexAt(map.pad, map.slot, map.bars.length, canvasX(event, canvas));
+  const bar = map.bars[index < 0 ? 0 : index];
+  if (!bar) return;
+  const node = $("chart-read");
+  if (node) {
+    node.textContent = (map.symbol || "Chart") + " · " + bar.date + " · O " + formatPrice(bar.open) + " · H " + formatPrice(bar.high) + " · L " + formatPrice(bar.low) + " · C " + formatPrice(bar.close);
+  }
+}
+
 $("candles").addEventListener("click", (event) => {
   const map = state.chartMap;
   const canvas = $("candles");
@@ -2798,7 +4817,73 @@ $("candles").addEventListener("click", (event) => {
   state.ruler = { date: bar.date };
   showChart();
   showRead((map.symbol || "Chart") + " · " + bar.date + " · Open " + formatPrice(bar.open) + " · High " + formatPrice(bar.high) + " · Low " + formatPrice(bar.low) + " · Close " + formatPrice(bar.close));
+  showChartTip(event, map, index < 0 ? 0 : index);
   drawCandles();
+});
+
+$("candles").addEventListener("pointermove", (event) => {
+  if (event.pointerType === "touch" && event.buttons === 0) return;
+  scrubReadout(event, state.chartMap, $("candles"));
+});
+$("candles").addEventListener("pointerleave", () => {
+  if (state.paper) paintChartRead(state.paper);
+});
+
+function showChartTip(event, map, index) {
+  const history = seenBars();
+  const view = PaperFrames.zoomBars(history, state.zoom);
+  const info = PaperFrames.describeBar(history, view.start + index, { format: formatPrice, crypto: chartCrypto(), title: (map.symbol || "Chart") + " · 1D" });
+  PaperFrames.showTip(document, event.clientX, event.clientY, info);
+}
+
+$("rsi-chart").addEventListener("click", (event) => {
+  const map = state.tmoMap;
+  const canvas = $("rsi-chart");
+  if (!map || !map.bars.length) return;
+  const index = PaperFrames.barIndexAt(map.pad, map.slot, map.bars.length, canvasX(event, canvas));
+  const bar = map.bars[index < 0 ? 0 : index];
+  state.ruler = { date: bar.date };
+  showChartTip(event, map, index < 0 ? 0 : index);
+  drawCandles();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !confirmWait) {
+    PaperFrames.hideTip(document);
+    return;
+  }
+  const tag = ((event.target && event.target.tagName) || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select" || (event.target && event.target.isContentEditable)) return;
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.key === "/") {
+    event.preventDefault();
+    const search = $("search");
+    if (search) search.focus();
+    return;
+  }
+  if (event.key === "b" || event.key === "B") {
+    setSide("buy");
+    setStatus("Ticket set to Buy.");
+    return;
+  }
+  if (event.key === "s" || event.key === "S") {
+    setSide("sell");
+    setStatus("Ticket set to Sell.");
+    return;
+  }
+  if (event.key === "1") { $("kind").value = "market"; syncTicketFields(); setStatus("Order type: Market."); return; }
+  if (event.key === "2") { $("kind").value = "limit"; syncTicketFields(); setStatus("Order type: Limit."); return; }
+  if (event.key === "3") { $("kind").value = "stop"; syncTicketFields(); setStatus("Order type: Stop."); return; }
+  if (event.key === "4") { $("kind").value = "stop_limit"; syncTicketFields(); setStatus("Order type: Stop Limit."); return; }
+  if (event.key === "j" || event.key === "J") {
+    showDock("journal");
+    setStatus("Journal is open.");
+    return;
+  }
+  if (event.key === "c" || event.key === "C") {
+    showChart();
+    setStatus("Chart is open.");
+  }
 });
 
 const scanToggle = $("scan-toggle");
@@ -2917,17 +5002,45 @@ function restoreStudies() {
 }
 
 function showDock(name) {
+  if (name === "internals") loadInternals(false);
+  if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
+    state.orbBusy = true;
+    loadOrb().finally(() => {
+      state.orbBusy = false;
+    });
+  }
   document.querySelectorAll(".dock-tab").forEach((button) => {
     button.classList.toggle("on", button.dataset.dock === name);
   });
   document.querySelectorAll(".dock-page").forEach((page) => {
     page.classList.toggle("on", page.dataset.dockPage === name);
   });
+  try {
+    localStorage.setItem(DOCK_KEY, name);
+  } catch (error) {
+    /* Dock still switches for this page. */
+  }
+  if (name === "journal") {
+    const box = $("positions-body");
+    if (box) delete box.dataset.stamp;
+    renderBook(state.paper);
+  }
+  nudgeLearn(name);
   if (window.matchMedia("(max-width: 980px)").matches) {
     document.body.dataset.tab = "study";
     document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
       button.classList.toggle("on", button.dataset.tab === "study");
     });
+  }
+}
+
+function restoreDock() {
+  try {
+    const name = localStorage.getItem(DOCK_KEY) || "";
+    if (!name || !document.querySelector('.dock-tab[data-dock="' + name + '"]')) return;
+    showDock(name);
+  } catch (error) {
+    return;
   }
 }
 
@@ -2980,16 +5093,32 @@ $("study-list").addEventListener("change", () => {
 $("frames-all").addEventListener("click", () => openAllFrames());
 $("brief-window").addEventListener("click", () => openBrief());
 
+function showPhoneTab(name) {
+  document.body.dataset.tab = name;
+  document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
+  if (state.market && state.paper && (name === "chart" || name === "study")) {
+    drawCandles();
+    drawTmo();
+  }
+  nudgeLearn(name === "study" ? (document.querySelector(".dock-tab.on") || {}).dataset.dock || "study" : name);
+}
+
 document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
-  button.addEventListener("click", () => {
-    document.body.dataset.tab = button.dataset.tab;
-    document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item === button));
-    if (state.market && state.paper) {
-      drawCandles();
-      drawTmo();
-    }
-  });
+  button.addEventListener("click", () => showPhoneTab(button.dataset.tab));
 });
+
+const chartBack = $("chart-back");
+if (chartBack) {
+  chartBack.addEventListener("click", () => {
+    if (window.matchMedia("(max-width: 980px)").matches) {
+      showPhoneTab("markets");
+      $("status").textContent = "Back to markets.";
+      return;
+    }
+    showDock("journal");
+    $("status").textContent = "Journal is open.";
+  });
+}
 
 const signalSum = $("signal-sum");
 if (signalSum) signalSum.addEventListener("click", () => showDock("signals"));
@@ -3037,8 +5166,17 @@ bindZoom($("rsi-chart"), "chart");
 bindZoom($("frame-preview"), "preview");
 
 boot().then(() => {
+  document.body.classList.add("ready");
+  restoreDock();
+  runSafe(false);
+  loadInternals(false);
+  setInterval(() => loadInternals(true), 600000);
   warnSqueeze();
   setInterval(warnSqueeze, 20000);
+  setInterval(() => {
+    if (state.paper) renderQuote(state.paper);
+    syncDeskStatus();
+  }, 1000);
 }).catch((error) => {
   showProblem(error && error.message ? error.message : "The desk did not start.");
 });

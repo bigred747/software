@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 from pathlib import Path
 
 from paper_trader import __version__
@@ -64,67 +63,24 @@ def desk_folders(home: Path) -> list[Path]:
     ]
 
 
-def running_desk_pids(images: list[tuple[int, str]], roots: list[Path]) -> list[int]:
-    folders = [str(root).replace("/", "\\").rstrip("\\").lower() + "\\" for root in roots]
-    pids: list[int] = []
-    for pid, image in images:
-        if not image:
-            continue
-        low = image.replace("/", "\\").lower()
-        if any(low.startswith(folder) for folder in folders):
-            pids.append(pid)
-    return pids
-
-
-def stop_open_desks(home: Path, images: list[tuple[int, str]] | None = None, killer=None) -> list[int]:
-    if images is None:
-        _close_titled_window()
-        return []
-    pids = running_desk_pids(images, desk_folders(home))
-    end = killer or _taskkill
-    for pid in pids:
-        end(pid)
-    return pids
-
-
-def _taskkill(pid: int) -> None:
-    subprocess.run(["taskkill", "/F", "/PID", str(pid)], check=False, capture_output=True)
-
-
-def _close_titled_window() -> None:
-    if os.name != "nt":
-        return
-    try:
-        subprocess.run(
-            ["taskkill", "/F", "/FI", "WINDOWTITLE eq Paper Trader"],
-            check=False,
-            capture_output=True,
-        )
-    except OSError:
-        return
-
-
 def install_newest(source: Path, home: Path) -> tuple[Path, str]:
     source = source.resolve()
     if not is_install(source):
         raise ValueError("This folder is not a Paper Trader install")
-    from paper_trader.learn import stop_learners
+    from paper_trader.learn import ask_learners_to_close
 
-    stop_learners(home, source)
-    stop_open_desks(home)
+    ask_learners_to_close(home, source)
     dest = canonical_folder(home).resolve()
     dest_version = _installed_version(dest)
     source_version = version_key(__version__)
     try:
         if source != dest and dest_version > source_version and is_install(dest):
-            _remove_older(home, dest, source)
             _resume_learner(dest)
             return dest, "remove-source"
         if source != dest:
             _replace_install(source, dest)
         dest.mkdir(parents=True, exist_ok=True)
         (dest / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
-        _remove_older(home, dest, source)
     except OSError as exc:
         raise ValueError("Could not replace the older copy. Opening the new copy instead.") from exc
     _resume_learner(dest)
@@ -150,9 +106,6 @@ def desktop_folders(home: Path) -> list[Path]:
     one_drive = os.environ.get("OneDrive")
     if one_drive:
         names.append(Path(one_drive) / "Desktop")
-    public = os.environ.get("PUBLIC")
-    if public:
-        names.append(Path(public) / "Desktop")
     found: list[Path] = []
     seen: set[Path] = set()
     for folder in names:
@@ -179,7 +132,7 @@ def write_desktop_opener(install: Path, home: Path) -> list[Path]:
     )
     written: list[Path] = []
     for folder in desktop_folders(home):
-        path = folder / "Paper Trader.bat"
+        path = folder / OPENER_NAME
         try:
             path.write_text(script, encoding="utf-8")
         except OSError:
@@ -188,54 +141,11 @@ def write_desktop_opener(install: Path, home: Path) -> list[Path]:
     return written
 
 
-def keep_only_running(home: Path, running: Path) -> list[Path]:
-    """Remove older Paper Trader folders once the newest copy is the one open."""
+def other_copies(home: Path, running: Path) -> list[Path]:
+    """Other Paper Trader folders on this computer. This only lists them and never deletes anything."""
     running = running.resolve()
-    copies = find_installs(home)
-    if running not in copies and is_install(running):
-        copies.append(running)
-    if not copies:
-        return []
-    canonical = canonical_folder(home).resolve()
-    keeper = max(copies, key=lambda folder: (_installed_version(folder), folder == canonical, folder == running))
-    if keeper != running:
-        return []
-    from paper_trader.learn import stop_learner
-
-    removed: list[Path] = []
-    for folder in copies:
-        if folder == keeper or not _safe_to_remove(folder, home, keeper):
-            continue
-        stop_learner(folder / "learn_state.json")
-        try:
-            shutil.rmtree(folder)
-        except OSError:
-            continue
-        removed.append(folder)
-    _remove_setup_shells(home)
-    return removed
-
-
-def _remove_setup_shells(home: Path) -> None:
-    documents = home / "Documents"
-    if not documents.is_dir():
-        return
-    try:
-        children = list(documents.iterdir())
-    except OSError:
-        return
-    for child in children:
-        if not child.is_dir():
-            continue
-        if child.name != "PaperTrader-setup" and not child.name.startswith("PaperTrader-setup-"):
-            continue
-        try:
-            installs = [path for path in [child, *child.rglob("*")] if path.is_dir() and is_install(path)]
-        except OSError:
-            continue
-        if installs:
-            continue
-        shutil.rmtree(child, ignore_errors=True)
+    found = [folder for folder in find_installs(home) if folder != running]
+    return found
 
 
 def single_copy_status(home: Path) -> dict[str, str | bool]:
@@ -301,31 +211,22 @@ def _replace_install(source: Path, dest: Path) -> None:
         (dest / name).write_bytes(payload)
 
 
-def _remove_older(home: Path, keep: Path, source: Path) -> None:
-    spared = {keep.resolve(), source.resolve()}
-    for folder in find_installs(home):
-        if folder in spared:
-            continue
-        if _safe_to_remove(folder, home, keep):
-            try:
-                shutil.rmtree(folder)
-            except OSError:
-                continue
+OPENER_NAME = "Paper Trader.bat"
 
 
-def _safe_to_remove(folder: Path, home: Path, keep: Path) -> bool:
-    resolved = folder.resolve()
-    if resolved == keep.resolve() or not is_install(resolved):
-        return False
-    for root in search_roots(home):
-        if not root.exists():
-            continue
-        root_resolved = root.resolve()
-        if resolved == root_resolved:
-            return False
+def desktop_opener_present(home: Path) -> bool:
+    return any((folder / OPENER_NAME).is_file() for folder in desktop_folders(home))
+
+
+def remove_desktop_opener(home: Path) -> list[Path]:
+    """Remove only the opener this program wrote. Any other file with that name stays."""
+    removed: list[Path] = []
+    for folder in desktop_folders(home):
+        path = folder / OPENER_NAME
         try:
-            resolved.relative_to(root_resolved)
-        except ValueError:
+            if path.is_file() and "2 Open Paper Trader.bat" in path.read_text(encoding="utf-8", errors="ignore"):
+                path.unlink()
+                removed.append(path)
+        except OSError:
             continue
-        return True
-    return False
+    return removed
