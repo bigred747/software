@@ -5292,10 +5292,14 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.49";
+const VERSION = "1.9.50";
 const DOCK_KEY = "paperTraderDock";
+const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
 const SLIP_BPS = 5;
+let learnTouchAt = 0;
+let learnTouchTab = "";
+let learnTouchNote = "";
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -5585,8 +5589,12 @@ function withHooks(items) {
   const edge = inMicrosoftEdge();
   const webPage = state.offline && location.protocol !== "file:";
   applyHook(next, "Edge", edge || webPage, edge ? "This page is in Microsoft Edge" : webPage ? "This browser loads the quotes" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
+  const learnDetail = learnTouchNote
+    || (state.offline ? "This symbol, while the page is open. Tabs and strategy clicks score closed bars here." : "Starts when you open the desk, then keeps scoring after that window closes. Tabs and strategy clicks score closed bars now.");
   if (!next.some((item) => item.name === "Learning")) {
-    setSignal(next, "Learning", true, state.offline ? "This symbol, while the page is open" : "Starts when you open the desk, then keeps scoring after that window closes");
+    setSignal(next, "Learning", true, learnDetail);
+  } else {
+    applyHook(next, "Learning", true, learnDetail);
   }
   const tone = currentMood(bars);
   if (tone && tone.score != null) setSignal(next, "Fear and greed", true, tone.label + " " + tone.score);
@@ -7848,7 +7856,109 @@ function pickStrategy(id) {
   state.sweep = { busy: false, id: "", rows: [], at: 0 };
   renderStrategies();
   const row = state.board && state.board.rows.find((item) => item.id === id);
-  $("status").textContent = "Testing " + (row ? row.name : id) + " on " + ((state.paper && state.paper.symbol) || "this market") + ". Auto follows it only if strategy trading is on.";
+  const symbol = (state.paper && state.paper.symbol) || "";
+  setStatus("Testing " + (row ? row.name : id) + " on " + (symbol || "this market") + ". Auto follows it only if strategy trading is on.");
+  nudgeLearn("strategies", symbol ? [symbol] : []);
+}
+
+function readPhoneLearn() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LEARN_KEY) || "{}");
+    return raw && typeof raw.symbols === "object" && raw.symbols ? raw : { version: 1, symbols: {}, passes: 0 };
+  } catch (error) {
+    return { version: 1, symbols: {}, passes: 0 };
+  }
+}
+
+function writePhoneLearn(book) {
+  try {
+    localStorage.setItem(LEARN_KEY, JSON.stringify(book));
+  } catch (error) {
+    /* Learning still holds for this page. */
+  }
+}
+
+function touchPhoneLearn(tab, symbols) {
+  const book = readPhoneLearn();
+  const current = state.paper && state.paper.symbol;
+  const targets = [];
+  if (current) targets.push(current);
+  (symbols || []).forEach((symbol) => {
+    if (symbol && targets.indexOf(symbol) < 0) targets.push(symbol);
+  });
+  let scored = [];
+  targets.slice(0, 3).forEach((symbol) => {
+    try {
+      let bars = null;
+      if (state.market && state.market.symbol === symbol) bars = state.market.bars;
+      else if (state.session && state.session.symbol === symbol && state.session.bars) bars = state.session.bars;
+      if (!bars || !bars.length || typeof PaperFrames === "undefined") return;
+      const settled = PaperFrames.closedBars(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol)));
+      const lesson = PaperFrames.lesson(settled);
+      if (!lesson) return;
+      book.symbols[symbol] = {
+        rule: lesson.rule,
+        seen: lesson.seen,
+        matched: lesson.matched,
+        mood: lesson.mood,
+        as_of: settled.length ? settled[settled.length - 1].date : "",
+        setup: lesson.setup || "",
+        tab: tab || "",
+      };
+      book.passes = (Number(book.passes) || 0) + 1;
+      book.last_symbol = symbol;
+      scored.push(symbol);
+    } catch (error) {
+      return;
+    }
+  });
+  book.updated = Date.now();
+  book.last_touch_tab = tab || "";
+  writePhoneLearn(book);
+  if (scored.length) {
+    learnTouchNote = "Scored " + scored.join(", ") + " from " + (tab || "desk") + ". Closed bars only. Not a forecast.";
+    refreshLearnSignal();
+  }
+  return scored;
+}
+
+function refreshLearnSignal() {
+  if (state.offline) {
+    try {
+      renderLocalSignals();
+    } catch (error) {
+      return;
+    }
+    return;
+  }
+  loadSignals().catch(() => {});
+}
+
+async function nudgeLearn(tab, extraSymbols) {
+  const symbols = readPins()
+    .concat([state.paper && state.paper.symbol].filter(Boolean))
+    .concat(Array.isArray(extraSymbols) ? extraSymbols : []);
+  const unique = [];
+  symbols.forEach((symbol) => {
+    if (symbol && unique.indexOf(symbol) < 0) unique.push(symbol);
+  });
+  const now = Date.now();
+  if (tab === learnTouchTab && now - learnTouchAt < 900) return;
+  learnTouchAt = now;
+  learnTouchTab = tab || "";
+  if (state.offline) {
+    touchPhoneLearn(tab, unique);
+    return;
+  }
+  try {
+    const book = await postJSON("/api/learn/touch", { tab: tab || "", symbols: unique });
+    if (book && book.touch_note) {
+      learnTouchNote = book.touch_note;
+      refreshLearnSignal();
+    }
+  } catch (error) {
+    return;
+  }
 }
 
 function renderStratDetail(board) {
@@ -7921,7 +8031,10 @@ async function sweepStrategy() {
     fresh.at = Date.now();
     $("strat-sweep").disabled = false;
   }
-  if (state.sweep === fresh) renderSweep();
+  if (state.sweep === fresh) {
+    renderSweep();
+    nudgeLearn("strategies", fresh.rows.map((item) => item.symbol));
+  }
 }
 
 function renderSweep() {
@@ -10078,6 +10191,7 @@ function showDock(name) {
     if (box) delete box.dataset.stamp;
     renderBook(state.paper);
   }
+  nudgeLearn(name);
   if (window.matchMedia("(max-width: 980px)").matches) {
     document.body.dataset.tab = "study";
     document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
@@ -10152,6 +10266,7 @@ function showPhoneTab(name) {
     drawCandles();
     drawTmo();
   }
+  nudgeLearn(name === "study" ? (document.querySelector(".dock-tab.on") || {}).dataset.dock || "study" : name);
 }
 
 document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {

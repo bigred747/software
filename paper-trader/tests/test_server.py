@@ -184,6 +184,23 @@ class ServerTests(unittest.TestCase):
                 self.assertIn("Scanner is off", paused["scan_note"])
                 self.assertTrue(any(row["symbol"] == "BTC-USD" for row in paused["leaders"]))
 
+    def test_learn_touch_scores_the_open_market_when_a_tab_is_opened(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            bars = self._flat_bars(100.0)
+            with patch("paper_trader.quotes.load_bars", return_value=bars):
+                touched = desk.learn_touch({"tab": "strategies", "symbols": [desk.journal.symbol, "ETH-USD"]})
+                self.assertIn(desk.journal.symbol, touched.get("touched") or [])
+                self.assertIn("strategies", touched.get("touch_note") or "")
+                self.assertEqual(touched.get("touch_tab"), "strategies")
+            status, raw = self.open("/api/learn/touch", "POST", {"tab": "journal", "symbols": ["BTC-USD"]})
+            self.assertEqual(status, 200)
+            payload = json.loads(raw)
+            self.assertIn("touch_note", payload)
+            self.assertTrue(payload.get("touched"))
+
     def test_sell_all_sells_everything_and_stops_buys_for_the_denver_day(self) -> None:
         from datetime import date, timedelta
 
@@ -794,7 +811,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.49", script)
+        self.assertIn(b"1.9.50", script)
+        self.assertIn(b"nudgeLearn", script)
+        self.assertIn(b"/api/learn/touch", desk)
         self.assertIn(b"stackAverages", script)
         self.assertIn(b"paintCandles", script)
         self.assertIn(b"SMA 5", script)

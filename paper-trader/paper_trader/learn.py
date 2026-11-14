@@ -613,6 +613,48 @@ def remember_focus(path: Path, symbol: str) -> None:
         write_watch(path, symbol, extra)
 
 
+def touch_symbol(state_path: Path, symbol: str, bars: list[Bar] | None = None, tab: str = "") -> dict:
+    """Score one market on closed bars now and merge it into the learn book.
+
+    Used when the desk opens a tab or tests a strategy so that click feeds the
+    scorer without waiting for the next background pass. Not a forecast.
+    """
+    if not _SYMBOL.fullmatch(symbol or ""):
+        raise ValueError(f"Unknown market {symbol}. Search the list.")
+    loaded = bars if bars is not None else quotes.load_bars(symbol, refresh=True)
+    lesson = score_row(loaded, symbol)
+    summary = {
+        "rule": lesson["rule"],
+        "seen": lesson["seen"],
+        "matched": lesson["matched"],
+        "average": lesson["average"],
+        "squeeze": lesson["squeeze"],
+        "calc": lesson["calc"],
+        "smooth": lesson["smooth"],
+        "candle": lesson["candle"],
+        "mood": lesson["mood"],
+        "as_of": lesson["as_of"],
+        "setup": lesson["setup"],
+        "tab": str(tab or "")[:40],
+    }
+    with _WATCH_LOCK:
+        saved = _load(state_path)
+        symbols = dict(saved.get("symbols") or {})
+        symbols[symbol] = summary
+        saved["version"] = 1
+        saved["passes"] = int(saved.get("passes") or 0) + 1
+        saved["last_error"] = ""
+        saved["last_symbol"] = symbol
+        saved["updated"] = time.time()
+        saved["symbols"] = symbols
+        saved["last_touch"] = desk_day()
+        saved["last_touch_at"] = time.time()
+        saved["last_touch_tab"] = str(tab or "")[:40]
+        saved["last_touch_symbol"] = symbol
+        _store(state_path, saved)
+    return summary
+
+
 def remember_symbols(path: Path, symbols: list) -> None:
     cleaned: list[str] = []
     for symbol in list(symbols or []):

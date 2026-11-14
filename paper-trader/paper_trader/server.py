@@ -58,6 +58,7 @@ from paper_trader.learn import (
     scan_report,
     score_row,
     symbol_rows,
+    touch_symbol,
 )
 from paper_trader.model import params_from_dict
 from paper_trader.indicators import squeeze, squeeze_alert
@@ -971,6 +972,61 @@ class Desk:
     def watch(self, symbols: list) -> None:
         remember_symbols(self.watch_path, symbols)
 
+    def learn_touch(self, body: dict | None = None) -> dict:
+        """Score the open market (and a few watched names) when a desk tab is opened."""
+        payload = body if isinstance(body, dict) else {}
+        tab = str(payload.get("tab") or "")[:40]
+        raw_symbols = payload.get("symbols") if isinstance(payload.get("symbols"), list) else []
+        cleaned: list[str] = []
+        for item in raw_symbols:
+            symbol = str(item or "").strip().upper()
+            if not symbol or not _ticker_ok(symbol) or symbol in cleaned:
+                continue
+            cleaned.append(symbol)
+            if len(cleaned) >= 24:
+                break
+        with self.lock:
+            focus = str(self.journal.symbol or "")
+        if focus:
+            remember_focus(self.watch_path, focus)
+        watch = []
+        if focus:
+            watch.append(focus)
+        for symbol in cleaned:
+            if symbol not in watch:
+                watch.append(symbol)
+        remember_symbols(self.watch_path, watch[:24])
+        targets: list[str] = []
+        if focus:
+            targets.append(focus)
+        for symbol in cleaned:
+            if symbol not in targets:
+                targets.append(symbol)
+            if len(targets) >= 3:
+                break
+        scored: list[str] = []
+        for symbol in targets:
+            try:
+                touch_symbol(self.learn_path, symbol, tab=tab)
+                scored.append(symbol)
+            except ValueError:
+                continue
+        book = self.learn_view()
+        book["touched"] = scored
+        book["touch_tab"] = tab
+        if scored:
+            where = tab or "desk"
+            book["touch_note"] = (
+                "Scored "
+                + ", ".join(scored)
+                + " from "
+                + where
+                + ". Closed bars only. Not a forecast."
+            )
+        else:
+            book["touch_note"] = "No closed-bar score was saved for this click."
+        return book
+
     def learn_view(self) -> dict:
         with self.lock:
             symbol = self.journal.symbol
@@ -1251,6 +1307,9 @@ class DeskHandler(BaseHTTPRequestHandler):
         if method == "POST" and path == "/api/learn/watch":
             self.desk.watch(body.get("symbols") or [])
             self._json(self.desk.learn_view())
+            return
+        if method == "POST" and path == "/api/learn/touch":
+            self._json(self.desk.learn_touch(body))
             return
         if method == "POST" and path == "/api/paper/mode":
             mode_guard(str(body.get("mode") or ""))

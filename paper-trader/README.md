@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Learn on every tab click (1.9.50)
+
+Opening Study tabs (Strategies, Squeeze, Journal, Backtest, and the rest), phone tabs, or a strategy row scores the open market’s closed bars into the learn book right away and prioritizes it for the all-day scorer. Strategy list runs feed those markets into the watch list too. Still closed bars only. Not a forecast.
+
 ## Professional desk chrome (1.9.49)
 
 Live quote age sits under the last price and softens when the quote is stale. The chart shows an open-position chip, a scrub readout as you move across candles, and a status rail on the phone. The order ticket previews size and cost before Send. Journal has a today strip for fills and closed P/L. The dock tab you last opened is remembered. On the computer, keyboard shortcuts set Buy/Sell (B/S), order type (1–4), Journal (J), Chart (C), and Search (/). Load paper book works both ways: phone to computer and computer to phone.
