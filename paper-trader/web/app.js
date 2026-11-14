@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.50";
+const VERSION = "1.9.51";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -88,6 +88,8 @@ const SLIP_BPS = 5;
 let learnTouchAt = 0;
 let learnTouchTab = "";
 let learnTouchNote = "";
+let newProcessNote = "";
+let newProcessAt = 0;
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -384,6 +386,8 @@ function withHooks(items) {
   } else {
     applyHook(next, "Learning", true, learnDetail);
   }
+  const processFresh = newProcessNote && (Date.now() - newProcessAt) < 3600000;
+  setSignal(next, "New process", true, processFresh ? newProcessNote : (newProcessNote ? "Current · " + newProcessNote : "Waiting for a closed-bar process change"));
   const tone = currentMood(bars);
   if (tone && tone.score != null) setSignal(next, "Fear and greed", true, tone.label + " " + tone.score);
   else if (!next.some((item) => item.name === "Fear and greed")) setSignal(next, "Fear and greed", false, "Waiting on the quote");
@@ -462,7 +466,8 @@ function renderLocalSignals() {
     { name: "Squeeze", ok: !!(state.market && (state.market.squeeze || []).length), detail: "Ready" },
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
-    { name: "Learning", ok: true, detail: "This symbol, while the page is open" },
+    { name: "Learning", ok: true, detail: learnTouchNote || "This symbol, while the page is open" },
+    { name: "New process", ok: true, detail: newProcessNote || "Waiting for a closed-bar process change" },
     { name: "Fear and greed", ok: !!(state.market && state.market.bars && state.market.bars.length >= 20), detail: phoneMood() },
     { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
     { name: "Timeframes", ok: typeof PaperFrames !== "undefined" && PaperFrames.FRAMES.length === 10, detail: "10 windows" },
@@ -2370,13 +2375,14 @@ function renderBook(paper) {
   book.fills.forEach((item) => {
     const row = document.createElement("tr");
     const tone = item.side === "sell" ? (item.pnl > 0 ? "up" : item.pnl < 0 ? "down" : "") : "";
+    const why = item.process ? (item.reason || "trade") + " · " + item.process : (item.reason || "trade");
     addCells(row, [
       denverStamp(item.at),
       item.symbol,
       { text: item.side === "buy" ? "Buy" : "Sell", cls: item.side === "buy" ? "up" : "down" },
       Number(item.qty).toFixed(4),
       formatPrice(item.price),
-      item.reason || "trade",
+      why,
       item.side === "sell" ? { text: moneyText(item.pnl), cls: tone } : "—",
     ]);
     fills.appendChild(row);
@@ -2666,6 +2672,27 @@ function writePhoneLearn(book) {
   }
 }
 
+function stampPhoneFills(symbol, rule) {
+  if (!rule || !state.book || !state.book[symbol]) return 0;
+  const session = state.book[symbol];
+  let changed = 0;
+  (session.fills || []).forEach((fill) => {
+    if (!fill || fill.process === rule) return;
+    fill.process = rule;
+    changed += 1;
+  });
+  if (changed) writeBook();
+  return changed;
+}
+
+function announceNewProcess(symbol, rule, previous) {
+  newProcessNote = rule + (symbol ? " on " + symbol : "");
+  newProcessAt = Date.now();
+  learnTouchNote = "New process · " + newProcessNote + ". Paper fills updated. Closed bars only. Not a forecast.";
+  setStatus(learnTouchNote);
+  refreshLearnSignal();
+}
+
 function touchPhoneLearn(tab, symbols) {
   const book = readPhoneLearn();
   const current = state.paper && state.paper.symbol;
@@ -2675,6 +2702,7 @@ function touchPhoneLearn(tab, symbols) {
     if (symbol && targets.indexOf(symbol) < 0) targets.push(symbol);
   });
   let scored = [];
+  let newest = null;
   targets.slice(0, 3).forEach((symbol) => {
     try {
       let bars = null;
@@ -2684,6 +2712,7 @@ function touchPhoneLearn(tab, symbols) {
       const settled = PaperFrames.closedBars(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol)));
       const lesson = PaperFrames.lesson(settled);
       if (!lesson) return;
+      const previous = String((book.symbols[symbol] && book.symbols[symbol].rule) || "");
       book.symbols[symbol] = {
         rule: lesson.rule,
         seen: lesson.seen,
@@ -2696,6 +2725,14 @@ function touchPhoneLearn(tab, symbols) {
       book.passes = (Number(book.passes) || 0) + 1;
       book.last_symbol = symbol;
       scored.push(symbol);
+      if (lesson.rule && lesson.rule !== previous) {
+        newest = { symbol, rule: lesson.rule, previous };
+        stampPhoneFills(symbol, lesson.rule);
+        const history = Array.isArray(book.processes) ? book.processes : [];
+        history.push({ at: Date.now() / 1000, symbol, rule: lesson.rule, previous, tab: tab || "" });
+        book.processes = history.slice(-200);
+        book.last_process = history[history.length - 1];
+      }
     } catch (error) {
       return;
     }
@@ -2703,7 +2740,9 @@ function touchPhoneLearn(tab, symbols) {
   book.updated = Date.now();
   book.last_touch_tab = tab || "";
   writePhoneLearn(book);
-  if (scored.length) {
+  if (newest) {
+    announceNewProcess(newest.symbol, newest.rule, newest.previous);
+  } else if (scored.length) {
     learnTouchNote = "Scored " + scored.join(", ") + " from " + (tab || "desk") + ". Closed bars only. Not a forecast.";
     refreshLearnSignal();
   }
@@ -2731,7 +2770,8 @@ async function nudgeLearn(tab, extraSymbols) {
     if (symbol && unique.indexOf(symbol) < 0) unique.push(symbol);
   });
   const now = Date.now();
-  if (tab === learnTouchTab && now - learnTouchAt < 900) return;
+  const gap = tab === "auto" ? 30000 : 900;
+  if (tab === learnTouchTab && now - learnTouchAt < gap) return;
   learnTouchAt = now;
   learnTouchTab = tab || "";
   if (state.offline) {
@@ -2740,7 +2780,12 @@ async function nudgeLearn(tab, extraSymbols) {
   }
   try {
     const book = await postJSON("/api/learn/touch", { tab: tab || "", symbols: unique });
-    if (book && book.touch_note) {
+    if (!book) return;
+    const news = Array.isArray(book.new_processes) ? book.new_processes : [];
+    if (news.length) {
+      announceNewProcess(news[0].symbol, news[0].rule, news[0].previous);
+      if (state.paper) render(state.paper);
+    } else if (book.touch_note) {
       learnTouchNote = book.touch_note;
       refreshLearnSignal();
     }
@@ -4423,6 +4468,7 @@ async function autoTick() {
     }
     const traded = await autoTrade();
     $("status").textContent = traded || "Auto is on. Refreshing the market quote.";
+    nudgeLearn("auto");
   } catch (error) {
     state.auto = false;
     if (state.paper) render(state.paper);

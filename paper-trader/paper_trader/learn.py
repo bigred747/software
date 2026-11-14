@@ -613,6 +613,85 @@ def remember_focus(path: Path, symbol: str) -> None:
         write_watch(path, symbol, extra)
 
 
+def _process_event(symbol: str, rule: str, previous: str, tab: str, source: str) -> dict:
+    return {
+        "at": time.time(),
+        "day": desk_day(),
+        "symbol": symbol,
+        "rule": rule,
+        "previous": previous,
+        "tab": str(tab or "")[:40],
+        "source": str(source or "touch")[:24],
+    }
+
+
+def record_process_change(saved: dict, symbol: str, rule: str, previous: str, tab: str = "", source: str = "touch") -> dict | None:
+    """Remember when the best closed-bar process for a market changes."""
+    if not rule or rule == previous:
+        return None
+    event = _process_event(symbol, rule, previous, tab, source)
+    history = list(saved.get("processes") or [])
+    history.append(event)
+    saved["processes"] = history[-200:]
+    saved["last_process"] = event
+    saved["last_process_at"] = event["at"]
+    return event
+
+
+def current_process(state_path: Path, symbol: str) -> str:
+    """The latest learned process name for a market, if the book has one."""
+    if not _SYMBOL.fullmatch(symbol or ""):
+        return ""
+    saved = _load(state_path)
+    row = dict(saved.get("symbols") or {}).get(symbol) or {}
+    return str(row.get("rule") or "")
+
+
+def note_new_process(
+    state_path: Path,
+    symbol: str,
+    rule: str,
+    previous: str = "",
+    tab: str = "",
+    source: str = "desk",
+) -> dict | None:
+    """Record a new closed-bar process and keep the market's rule current."""
+    if not rule or not _SYMBOL.fullmatch(symbol or ""):
+        return None
+    with _WATCH_LOCK:
+        saved = _load(state_path)
+        last = saved.get("last_process") if isinstance(saved.get("last_process"), dict) else None
+        if last and last.get("symbol") == symbol and last.get("rule") == rule:
+            event = last
+        else:
+            event = record_process_change(saved, symbol, rule, previous, tab=tab, source=source)
+        rows = dict(saved.get("symbols") or {})
+        row = dict(rows.get(symbol) or {})
+        row["rule"] = rule
+        rows[symbol] = row
+        saved["symbols"] = rows
+        saved["updated"] = time.time()
+        _store(state_path, saved)
+    return event
+
+
+def stamp_process_on_fills(fills: list[dict], symbol: str, rule: str) -> int:
+    """Update every paper fill for this market with the latest learned process."""
+    if not rule or not symbol:
+        return 0
+    changed = 0
+    for fill in fills:
+        if not isinstance(fill, dict):
+            continue
+        if str(fill.get("symbol") or "") not in {"", symbol}:
+            continue
+        if fill.get("process") == rule:
+            continue
+        fill["process"] = rule
+        changed += 1
+    return changed
+
+
 def touch_symbol(state_path: Path, symbol: str, bars: list[Bar] | None = None, tab: str = "") -> dict:
     """Score one market on closed bars now and merge it into the learn book.
 
@@ -640,6 +719,8 @@ def touch_symbol(state_path: Path, symbol: str, bars: list[Bar] | None = None, t
     with _WATCH_LOCK:
         saved = _load(state_path)
         symbols = dict(saved.get("symbols") or {})
+        previous = str((symbols.get(symbol) or {}).get("rule") or "")
+        event = record_process_change(saved, symbol, str(summary["rule"] or ""), previous, tab=tab, source="touch")
         symbols[symbol] = summary
         saved["version"] = 1
         saved["passes"] = int(saved.get("passes") or 0) + 1
@@ -652,6 +733,10 @@ def touch_symbol(state_path: Path, symbol: str, bars: list[Bar] | None = None, t
         saved["last_touch_tab"] = str(tab or "")[:40]
         saved["last_touch_symbol"] = symbol
         _store(state_path, saved)
+    summary["previous_rule"] = previous
+    summary["new_process"] = bool(event)
+    if event:
+        summary["process_event"] = event
     return summary
 
 
@@ -801,6 +886,7 @@ def learning_report(state_path: Path, *, expect: bool, now: float | None = None)
 def book_view(state_path: Path, *, expect: bool) -> dict:
     saved = _load(state_path)
     report = learning_report(state_path, expect=expect)
+    last_process = saved.get("last_process") if isinstance(saved.get("last_process"), dict) else None
     return {
         "running": bool(report["running"]),
         "passes": int(saved.get("passes") or 0),
@@ -809,6 +895,9 @@ def book_view(state_path: Path, *, expect: bool) -> dict:
         "symbols": json.loads(json.dumps(saved.get("symbols") or {})),
         "ok": bool(report["ok"]),
         "detail": str(report["detail"]),
+        "last_process": json.loads(json.dumps(last_process)) if last_process else None,
+        "last_process_at": float(saved.get("last_process_at") or 0),
+        "processes": json.loads(json.dumps(list(saved.get("processes") or [])[-20:])),
     }
 
 
@@ -1052,6 +1141,8 @@ class Watcher:
         }
         with self._lock:
             symbols = dict(self._saved.get("symbols") or {})
+            previous = str((symbols.get(symbol) or {}).get("rule") or "")
+            record_process_change(self._saved, symbol, str(summary["rule"] or ""), previous, tab="learner", source="learner")
             symbols[symbol] = summary
             self._saved = {
                 "version": 1,
@@ -1063,6 +1154,9 @@ class Watcher:
                 "updated": time.time(),
                 "awake": self._awake,
                 "symbols": symbols,
+                "processes": list(self._saved.get("processes") or []),
+                "last_process": self._saved.get("last_process"),
+                "last_process_at": self._saved.get("last_process_at"),
             }
             _store(self.path, self._saved)
 

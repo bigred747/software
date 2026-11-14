@@ -193,13 +193,55 @@ class ServerTests(unittest.TestCase):
             with patch("paper_trader.quotes.load_bars", return_value=bars):
                 touched = desk.learn_touch({"tab": "strategies", "symbols": [desk.journal.symbol, "ETH-USD"]})
                 self.assertIn(desk.journal.symbol, touched.get("touched") or [])
-                self.assertIn("strategies", touched.get("touch_note") or "")
+                note = touched.get("touch_note") or ""
+                self.assertTrue("strategies" in note or "New process" in note, note)
                 self.assertEqual(touched.get("touch_tab"), "strategies")
+                self.assertIn("new_processes", touched)
             status, raw = self.open("/api/learn/touch", "POST", {"tab": "journal", "symbols": ["BTC-USD"]})
             self.assertEqual(status, 200)
             payload = json.loads(raw)
             self.assertIn("touch_note", payload)
             self.assertTrue(payload.get("touched"))
+
+    def test_new_process_updates_fills_and_lights_a_green_signal(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            bars = self._flat_bars(100.0)
+            desk.journal.fills = [
+                {
+                    "at": 1,
+                    "symbol": desk.journal.symbol,
+                    "side": "buy",
+                    "qty": 1,
+                    "price": 100,
+                    "quote": 100,
+                    "fee_bps": 5,
+                    "pnl": 0,
+                    "reason": "trade",
+                }
+            ]
+            with patch("paper_trader.quotes.load_bars", return_value=bars), patch(
+                "paper_trader.server.touch_symbol",
+                return_value={
+                    "rule": "Squeeze 20",
+                    "previous_rule": "True momentum 5/3 with the candle",
+                    "new_process": True,
+                    "seen": 20,
+                    "matched": 12,
+                },
+            ):
+                touched = desk.learn_touch({"tab": "strategies", "symbols": [desk.journal.symbol]})
+                self.assertEqual(len(touched.get("new_processes") or []), 1)
+                self.assertIn("New process", touched.get("touch_note") or "")
+                self.assertEqual(desk.journal.fills[0].get("process"), "Squeeze 20")
+                self.assertGreaterEqual(touched.get("fills_updated") or 0, 1)
+            checks = desk.checks()
+            names = {item["name"]: item for item in checks["items"]}
+            self.assertIn("New process", names)
+            self.assertTrue(names["New process"]["ok"])
+            self.assertIn("Squeeze 20", names["New process"]["detail"])
 
     def test_sell_all_sells_everything_and_stops_buys_for_the_denver_day(self) -> None:
         from datetime import date, timedelta
@@ -788,6 +830,7 @@ class ServerTests(unittest.TestCase):
             phone = packed.read("paper-trader/iphone/PaperTrader.html")
             note = packed.read("paper-trader/iphone/README.txt")
             desk = packed.read("paper-trader/paper_trader/server.py")
+            learn = packed.read("paper-trader/paper_trader/learn.py")
             live = packed.read("paper-trader/web/live.js")
             journal = packed.getinfo("paper-trader/paper_trader/journal.py")
         self.assertIn("paper-trader/runtime/python.exe", names)
@@ -811,9 +854,12 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.50", script)
+        self.assertIn(b"1.9.51", script)
         self.assertIn(b"nudgeLearn", script)
+        self.assertIn(b"announceNewProcess", script)
+        self.assertIn(b"New process", script)
         self.assertIn(b"/api/learn/touch", desk)
+        self.assertIn(b"def stamp_process_on_fills", learn)
         self.assertIn(b"stackAverages", script)
         self.assertIn(b"paintCandles", script)
         self.assertIn(b"SMA 5", script)

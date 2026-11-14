@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## New process green signal (1.9.51)
+
+When the closed-bar scorer finds a better process for a market, the desk lights a green **New process** signal, stamps that process on the market’s paper fills, and keeps updating those fills as learning continues. Tab clicks and strategy tests still feed the learn book. Closed bars only. Not a forecast.
+
 ## Learn on every tab click (1.9.50)
 
 Opening Study tabs (Strategies, Squeeze, Journal, Backtest, and the rest), phone tabs, or a strategy row scores the open market’s closed bars into the learn book right away and prioritizes it for the all-day scorer. Strategy list runs feed those markets into the watch list too. Still closed bars only. Not a forecast.

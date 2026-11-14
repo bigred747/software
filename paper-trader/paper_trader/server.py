@@ -57,6 +57,9 @@ from paper_trader.learn import (
     remember_symbols,
     scan_report,
     score_row,
+    stamp_process_on_fills,
+    current_process,
+    note_new_process,
     symbol_rows,
     touch_symbol,
 )
@@ -393,19 +396,21 @@ class Desk:
             qty = float(before_shares)
             rows = after.get("trades") or []
             pnl = float(rows[-1]["pnl"]) if rows else 0.0
-        self.journal.fills.append(
-            {
-                "at": int(time.time()),
-                "symbol": self.journal.symbol,
-                "side": side,
-                "qty": qty,
-                "price": price,
-                "quote": quote,
-                "fee_bps": self.journal.params.fee_bps,
-                "pnl": pnl,
-                "reason": reason,
-            }
-        )
+        process = current_process(self.learn_path, self.journal.symbol)
+        fill = {
+            "at": int(time.time()),
+            "symbol": self.journal.symbol,
+            "side": side,
+            "qty": qty,
+            "price": price,
+            "quote": quote,
+            "fee_bps": self.journal.params.fee_bps,
+            "pnl": pnl,
+            "reason": reason,
+        }
+        if process:
+            fill["process"] = process
+        self.journal.fills.append(fill)
         self.journal.fills = self.journal.fills[-500:]
 
     def _read_shelf(self) -> dict:
@@ -763,6 +768,7 @@ class Desk:
             {"name": "Arrows", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
             {"name": "Study", "ok": True, "detail": "On this device"},
             self._learning_check(),
+            self._process_check(),
             self._mood_check(str(view.get("symbol") or ""), quote_ok),
             {"name": "Zoom", "ok": True, "detail": "In and out"},
             {"name": "Timeframes", "ok": len(quotes.frame_ids()) == 10, "detail": f"{len(quotes.frame_ids())} windows"},
@@ -1005,16 +1011,46 @@ class Desk:
             if len(targets) >= 3:
                 break
         scored: list[str] = []
+        new_processes: list[dict] = []
+        fills_updated = 0
         for symbol in targets:
             try:
-                touch_symbol(self.learn_path, symbol, tab=tab)
-                scored.append(symbol)
+                summary = touch_symbol(self.learn_path, symbol, tab=tab)
             except ValueError:
                 continue
+            scored.append(symbol)
+            rule = str(summary.get("rule") or "")
+            if summary.get("new_process") and rule:
+                previous = str(summary.get("previous_rule") or "")
+                new_processes.append(
+                    {
+                        "symbol": symbol,
+                        "rule": rule,
+                        "previous": previous,
+                        "tab": tab,
+                    }
+                )
+                note_new_process(self.learn_path, symbol, rule, previous, tab=tab, source="desk")
+                with self.lock:
+                    if symbol == self.journal.symbol:
+                        fills_updated += stamp_process_on_fills(self.journal.fills, symbol, rule)
+                        if fills_updated:
+                            save_journal(self.state_path, self.journal)
         book = self.learn_view()
         book["touched"] = scored
         book["touch_tab"] = tab
-        if scored:
+        book["new_processes"] = new_processes
+        book["fills_updated"] = fills_updated
+        if new_processes:
+            first = new_processes[0]
+            book["touch_note"] = (
+                "New process · "
+                + first["rule"]
+                + " on "
+                + first["symbol"]
+                + ". Paper fills updated. Closed bars only. Not a forecast."
+            )
+        elif scored:
             where = tab or "desk"
             book["touch_note"] = (
                 "Scored "
@@ -1114,6 +1150,21 @@ class Desk:
     def _learning_check(self) -> dict[str, str | bool]:
         report = book_view(self.learn_path, expect=self.expect_learner)
         return {"name": "Learning", "ok": bool(report["ok"]), "detail": str(report["detail"])}
+
+    def _process_check(self) -> dict[str, str | bool]:
+        report = book_view(self.learn_path, expect=self.expect_learner)
+        event = report.get("last_process") if isinstance(report.get("last_process"), dict) else None
+        at = float(report.get("last_process_at") or 0)
+        fresh = event and at and (time.time() - at) < 3600
+        if fresh:
+            rule = str(event.get("rule") or "process")
+            symbol = str(event.get("symbol") or "")
+            detail = rule + ((" on " + symbol) if symbol else "")
+            return {"name": "New process", "ok": True, "detail": detail}
+        process = current_process(self.learn_path, str(self.journal.symbol or ""))
+        if process:
+            return {"name": "New process", "ok": True, "detail": "Current · " + process}
+        return {"name": "New process", "ok": True, "detail": "Waiting for a closed-bar process change"}
 
     def _mood_check(self, symbol: str, quote_ok: bool) -> dict[str, str | bool]:
         if not quote_ok or not symbol:

@@ -103,7 +103,7 @@ def clean_fill(item: object) -> dict | None:
         side = str(item["side"])
         if side not in SIDES:
             return None
-        return {
+        row = {
             "at": int(item.get("at") or 0),
             "symbol": str(item.get("symbol") or ""),
             "side": side,
@@ -114,6 +114,10 @@ def clean_fill(item: object) -> dict | None:
             "pnl": float(item.get("pnl") or 0),
             "reason": str(item.get("reason") or "trade")[:40],
         }
+        process = str(item.get("process") or "").strip()
+        if process:
+            row["process"] = process[:80]
+        return row
     except (KeyError, TypeError, ValueError):
         return None
 
