@@ -24,6 +24,8 @@ from paper_trader.install import (
 )
 from paper_trader.journal import (
     Journal,
+    clean_fill,
+    default_journal,
     journal_from_dict,
     journal_to_dict,
     load_journal,
@@ -508,6 +510,107 @@ class Desk:
                 "markets": len(sessions),
                 "note": "Paper book for the phone page. Load it under Journal on the phone. Nothing goes to a broker.",
             }
+
+    def import_book(self, payload: dict) -> dict:
+        """Merge a shared paper book into this computer's shelf and current market when it matches."""
+        from dataclasses import replace
+
+        sessions = payload.get("sessions") if isinstance(payload, dict) else None
+        if not isinstance(sessions, dict) or not sessions:
+            raise ValueError("That file is not a Paper Trader book.")
+        with self.lock:
+            rows = self._read_shelf()
+            loaded = 0
+            for symbol, snap in sessions.items():
+                if not isinstance(snap, dict):
+                    continue
+                try:
+                    shares = float(snap.get("shares") or 0)
+                    cash = float(snap.get("cash") or 0)
+                except (TypeError, ValueError):
+                    continue
+                working = [item for item in (snap.get("working") or []) if isinstance(item, dict) and item.get("id")]
+                fills = [row for row in (clean_fill(item) for item in (snap.get("fills") or [])) if row]
+                if not (shares > 0 or working or fills):
+                    continue
+                journal = default_journal()
+                journal.symbol = str(symbol)
+                if isinstance(snap.get("params"), dict):
+                    try:
+                        journal.params = params_from_dict(snap["params"])
+                    except (TypeError, ValueError, KeyError):
+                        pass
+                entry = snap.get("entryPrice")
+                opened = str(snap.get("entryDate") or "")
+                if shares > 0 and entry:
+                    try:
+                        price = float(entry)
+                        day = opened
+                        try:
+                            bars = quotes.load_bars(str(symbol))
+                        except ValueError:
+                            bars = []
+                        if bars:
+                            dates = {bar.date for bar in bars}
+                            if day not in dates:
+                                day = bars[-1].date
+                        fee = float(journal.params.fee_bps) / 10000.0
+                        start = float(cash) + shares * price * (1.0 + fee)
+                        if start > 0:
+                            journal.params = replace(journal.params, cash=start)
+                        if day:
+                            journal.close_orders.append((day, "buy", price))
+                    except (TypeError, ValueError):
+                        pass
+                journal.working = []
+                for item in working:
+                    try:
+                        ticket = make_ticket(item)
+                    except ValueError:
+                        continue
+                    ticket["id"] = str(item.get("id"))
+                    ticket["day"] = str(item.get("day") or "")
+                    ticket["triggered"] = bool(item.get("triggered"))
+                    journal.working.append(ticket)
+                journal.fills = fills[-500:]
+                journal.next_order_id = max(1, int(snap.get("nextId") or 1))
+                try:
+                    view = view_journal(journal)
+                except ValueError:
+                    view = {
+                        "cash": cash,
+                        "shares": shares,
+                        "entry_price": entry,
+                        "entry_date": opened,
+                        "last_close": snap.get("last"),
+                        "equity": cash + (shares * float(snap.get("last") or entry or 0)),
+                        "start_cash": journal.params.cash,
+                    }
+                shelf_shares = float(view.get("shares") or 0) or shares
+                rows[str(symbol)] = {
+                    "at": int(time.time()),
+                    "summary": {
+                        "symbol": str(symbol),
+                        "shares": shelf_shares,
+                        "entry": view.get("entry_price") or entry,
+                        "opened": view.get("entry_date") or opened,
+                        "last": view.get("last_close") or snap.get("last"),
+                        "equity": view.get("equity"),
+                        "cash": view.get("cash") if view.get("cash") is not None else cash,
+                        "start": view.get("start_cash") or journal.params.cash,
+                    },
+                    "journal": journal_to_dict(journal),
+                }
+                if str(symbol) == self.journal.symbol:
+                    self.journal = journal
+                    save_journal(self.state_path, self.journal)
+                loaded += 1
+            self._write_shelf(rows)
+            if loaded <= 0:
+                raise ValueError("That paper book had no open trades or working orders.")
+            payload_view = self._guard(view_journal(self.journal))
+            payload_view["book_loaded"] = loaded
+            return payload_view
 
     def account_book(self, view: dict) -> dict:
         """Every market's paper account: open positions, working orders, and every fill."""
@@ -1112,6 +1215,10 @@ class DeskHandler(BaseHTTPRequestHandler):
             return
         if method == "GET" and path == "/api/paper/book":
             self._json(self.desk.export_book())
+            return
+        if method == "POST" and path == "/api/paper/book":
+            body = self._body()
+            self._json(self.desk.import_book(body))
             return
         if method == "GET" and path == "/api/market":
             symbol = query.get("symbol") or self.desk.journal.symbol

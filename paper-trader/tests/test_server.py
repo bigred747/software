@@ -485,6 +485,76 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(payload["version"], 1)
             self.assertIn("sessions", payload)
 
+    def test_paper_book_import_merges_open_trades_onto_the_computer(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            bars = self._flat_bars(100.0)
+            with patch("paper_trader.quotes.load_bars", return_value=bars):
+                payload = {
+                    "version": 1,
+                    "sessions": {
+                        desk.journal.symbol: {
+                            "symbol": desk.journal.symbol,
+                            "shares": 10,
+                            "cash": 100,
+                            "entryPrice": 100,
+                            "entryDate": bars[-1].date,
+                            "working": [
+                                {
+                                    "id": "W9",
+                                    "side": "sell",
+                                    "kind": "limit",
+                                    "limit": 120,
+                                    "stop": 0,
+                                    "tif": "GTC",
+                                    "day": bars[-1].date,
+                                }
+                            ],
+                            "fills": [],
+                            "nextId": 10,
+                            "params": desk.journal.params.to_dict(),
+                            "last": 100,
+                        }
+                    },
+                }
+                view = desk.import_book(payload)
+                self.assertGreaterEqual(view.get("book_loaded") or 0, 1)
+                self.assertGreater(float(view.get("shares") or 0), 0)
+                self.assertTrue(any(item.get("id") == "W9" for item in view.get("working") or []))
+            status, raw = self.open(
+                "/api/paper/book",
+                "POST",
+                {
+                    "version": 1,
+                    "sessions": {
+                        "BTC-USD": {
+                            "symbol": "BTC-USD",
+                            "shares": 0,
+                            "cash": 1000,
+                            "working": [
+                                {
+                                    "id": "P1",
+                                    "side": "buy",
+                                    "kind": "limit",
+                                    "limit": 1,
+                                    "stop": 0,
+                                    "tif": "GTC",
+                                    "day": "2000-01-01",
+                                }
+                            ],
+                            "fills": [],
+                            "nextId": 2,
+                            "last": 1,
+                        }
+                    },
+                },
+            )
+            self.assertEqual(status, 200)
+            body = json.loads(raw)
+            self.assertGreaterEqual(body.get("book_loaded") or 0, 1)
+
     def test_ticket_market_order_fills_with_slippage_and_http_routes_answer(self) -> None:
         status, raw = self.open("/api/paper")
         self.assertEqual(status, 200)
@@ -724,14 +794,22 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.48", script)
+        self.assertIn(b"1.9.49", script)
         self.assertIn(b"stackAverages", script)
         self.assertIn(b"paintCandles", script)
         self.assertIn(b"SMA 5", script)
         self.assertIn(b"SMA stack", page)
         self.assertIn(b'id="book-share"', page)
         self.assertIn(b'id="book-file"', page)
+        self.assertIn(b'id="position-chip"', page)
+        self.assertIn(b'id="desk-status"', page)
+        self.assertIn(b'id="day-strip"', page)
+        self.assertIn(b'id="ticket-preview"', page)
+        self.assertIn(b"quoteAgeText", script)
+        self.assertIn(b"paintTicketPreview", script)
+        self.assertIn(b"scrubReadout", script)
         self.assertIn(b"/api/paper/book", desk)
+        self.assertIn(b"def import_book", desk)
         self.assertIn(b"importPaperBook", script)
         self.assertNotIn(b"Mobius", script)
         self.assertNotIn(b"Spot_Inflow", script)

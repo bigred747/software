@@ -80,7 +80,10 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.48";
+const VERSION = "1.9.49";
+const DOCK_KEY = "paperTraderDock";
+const FEE_BPS = 5;
+const SLIP_BPS = 5;
 
 function selectedSymbol() {
   const node = $("symbol");
@@ -1219,6 +1222,9 @@ function render(paper) {
   $("chart-title").textContent = (paper.symbol || "Chart") + " · Daily session";
   paintChartRead(paper);
   renderQuote(paper);
+  paintPositionChip(paper);
+  paintTicketPreview();
+  syncDeskStatus();
   $("next").disabled = state.auto || paper.finished;
   $("run").disabled = state.auto || paper.finished;
   $("trade").disabled = false;
@@ -1399,6 +1405,28 @@ function renderPins() {
   toggle.setAttribute("aria-pressed", pinned ? "true" : "false");
 }
 
+function syncDeskStatus() {
+  const src = $("status");
+  const rail = $("desk-status");
+  if (src && rail && rail.textContent !== src.textContent) rail.textContent = src.textContent || "";
+}
+
+function setStatus(text) {
+  const node = $("status");
+  if (node) node.textContent = text || "";
+  syncDeskStatus();
+}
+
+function quoteAgeText(asOf) {
+  if (!(asOf > 0)) return "";
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000 - asOf));
+  if (seconds < 8) return "just now";
+  if (seconds < 60) return seconds + "s ago";
+  if (seconds < 3600) return Math.floor(seconds / 60) + "m ago";
+  if (seconds < 86400) return Math.floor(seconds / 3600) + "h ago";
+  return Math.floor(seconds / 86400) + "d ago";
+}
+
 function paintChartRead(paper) {
   const node = $("chart-read");
   if (!node || !paper) return;
@@ -1411,13 +1439,109 @@ function paintChartRead(paper) {
     : "";
   const result = price ? currentEdge(seenBars()) : null;
   const call = result && result.ready ? " · Edge " + result.call + " " + result.score + "/" + (result.checks || 4) : "";
-  node.textContent = price ? paper.symbol + " · " + price + call + " · tap a candle" : "Click a ticker or a candle.";
+  node.textContent = price ? paper.symbol + " · " + price + call + " · scrub or tap a candle" : "Click a ticker or a candle.";
+}
+
+function paintPositionChip(paper) {
+  const chip = $("position-chip");
+  if (!chip) return;
+  if (!paper || !(paper.shares > 0) || !(paper.entry_price > 0)) {
+    chip.hidden = true;
+    chip.textContent = "";
+    return;
+  }
+  const last = state.market && state.market.symbol === paper.symbol && state.market.price != null
+    ? Number(state.market.price)
+    : Number(paper.last_close);
+  const pnl = Number.isFinite(last) ? paper.shares * (last - paper.entry_price) : null;
+  const pct = Number.isFinite(last) && paper.entry_price ? ((last - paper.entry_price) / paper.entry_price) * 100 : null;
+  chip.hidden = false;
+  chip.className = "position-chip" + (pnl > 0 ? " up" : pnl < 0 ? " down" : "");
+  const pnlText = pnl == null ? "—" : moneyText(pnl);
+  const pctText = pct == null ? "" : " · " + (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
+  chip.textContent = Number(paper.shares).toLocaleString(undefined, { maximumFractionDigits: 4 }) + " @ " + formatPrice(paper.entry_price) + " · " + pnlText + pctText;
+}
+
+function paintTicketPreview() {
+  const node = $("ticket-preview");
+  const paper = state.paper;
+  if (!node || !paper) return;
+  const side = state.side || "buy";
+  const kind = ($("kind") && $("kind").value) || "market";
+  const last = state.market && state.market.symbol === paper.symbol && state.market.price != null
+    ? Number(state.market.price)
+    : Number(paper.last_close);
+  const limit = Number($("limit-price") && $("limit-price").value) || 0;
+  const stop = Number($("stop-price") && $("stop-price").value) || 0;
+  let ref = last;
+  if (kind === "limit" || kind === "stop_limit") ref = limit > 0 ? limit : last;
+  else if (kind === "stop") ref = stop > 0 ? stop : last;
+  if (!(ref > 0)) {
+    node.textContent = "Waiting on a market quote for the ticket preview.";
+    return;
+  }
+  const fee = (Number(paper.params && paper.params.fee_bps) || FEE_BPS) / 10000;
+  const slip = SLIP_BPS / 10000;
+  if (side === "buy") {
+    const cash = Number(paper.cash) || 0;
+    const pay = ref * (1 + slip + fee);
+    const shares = pay > 0 ? cash / pay : 0;
+    node.textContent = "Buy preview · ~" + shares.toLocaleString(undefined, { maximumFractionDigits: 4 }) + " shares for " + moneyText(cash) + " at about " + formatPrice(ref) + " (includes 5 bps slip + fee). Nothing goes to a broker.";
+    return;
+  }
+  const shares = Number(paper.shares) || 0;
+  if (!(shares > 0)) {
+    node.textContent = "Sell preview · flat. Open a paper long first.";
+    return;
+  }
+  const proceeds = shares * ref * (1 - slip - fee);
+  const entry = Number(paper.entry_price) || 0;
+  const pnl = entry > 0 ? proceeds - shares * entry : null;
+  node.textContent = "Sell preview · " + shares.toLocaleString(undefined, { maximumFractionDigits: 4 }) + " shares ≈ " + moneyText(proceeds) + " at about " + formatPrice(ref) + (pnl == null ? "" : " · open P/L " + moneyText(pnl)) + ". Nothing goes to a broker.";
+}
+
+function paintDayStrip(book) {
+  const strip = $("day-strip");
+  if (!strip) return;
+  const day = denverDay();
+  const fills = (book && book.fills) || [];
+  let buys = 0;
+  let sells = 0;
+  let pnl = 0;
+  fills.forEach((item) => {
+    const stamp = item.at > 0 ? denverDay(new Date(item.at * 1000)) : "";
+    if (stamp !== day) return;
+    if (item.side === "buy") buys += 1;
+    if (item.side === "sell") {
+      sells += 1;
+      if (Number.isFinite(Number(item.pnl))) pnl += Number(item.pnl);
+    }
+  });
+  const open = ((book && book.positions) || []).length;
+  const working = ((book && book.working) || []).length;
+  strip.replaceChildren();
+  [
+    ["Today's fills", String(buys + sells), buys + sells ? (buys + " buy · " + sells + " sell") : "None yet", ""],
+    ["Closed P/L today", moneyText(pnl), day + " Denver", pnl > 0 ? "up" : pnl < 0 ? "down" : ""],
+    ["Open now", open + " pos · " + working + " wrk", (book && book.markets ? book.markets + " market" + (book.markets === 1 ? "" : "s") : "Quiet"), ""],
+  ].forEach(([label, value, note, tone]) => {
+    const card = document.createElement("div");
+    card.className = "day-card" + (tone ? " " + tone : "");
+    const name = document.createElement("span");
+    name.textContent = label;
+    const strong = document.createElement("strong");
+    strong.textContent = value;
+    const hint = document.createElement("span");
+    hint.textContent = note;
+    card.append(name, strong, hint);
+    strip.appendChild(card);
+  });
 }
 
 function showRead(text) {
   state.chartRead = text;
   if (state.paper) paintChartRead(state.paper);
-  $("status").textContent = text;
+  setStatus(text);
 }
 
 function showChart() {
@@ -1527,10 +1651,15 @@ function renderQuote(paper) {
   }
   $("quote-change").textContent = sign + formatPrice(change) + "  " + sign + percent.toFixed(2) + "%";
   const asOf = sameMarket && state.market.as_of;
+  const age = asOf ? quoteAgeText(asOf) : "";
+  const stamp = asOf
+    ? new Date(asOf * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" })
+    : (last.date || "");
   $("quote-asof").textContent = asOf
-    ? "Market quote · " + new Date(asOf * 1000).toLocaleString()
-    : "Market quote · " + (last.date || "");
-  quote.className = "quote " + (change > 0 ? "up" : change < 0 ? "down" : "flat");
+    ? "Market quote · " + stamp + (age ? " · " + age : "")
+    : "Market quote · " + stamp;
+  const stale = asOf ? (Date.now() / 1000 - asOf) > 120 : false;
+  quote.className = "quote " + (change > 0 ? "up" : change < 0 ? "down" : "flat") + (stale ? " stale" : "");
   const tone = currentMood(bars);
   const badge = $("quote-mood");
   if (badge) {
@@ -1539,6 +1668,8 @@ function renderQuote(paper) {
   }
   drawMoodClock(tone && tone.score, tone && tone.label);
   if (paper.symbol && tone && tone.score != null) state.moods[paper.symbol] = tone;
+  paintPositionChip(paper);
+  paintTicketPreview();
 }
 
 function seenBars() {
@@ -2110,6 +2241,16 @@ async function importPaperBook(payload) {
   const note = $("book-share-note");
   const sessions = payload && payload.sessions && typeof payload.sessions === "object" ? payload.sessions : null;
   if (!sessions) throw new Error("That file is not a Paper Trader book.");
+  if (!state.offline) {
+    const paper = await post("/api/paper/book", payload);
+    state.paper = paper;
+    await loadMarket(paper.symbol);
+    render(paper);
+    const count = paper.book_loaded || Object.keys(sessions).length;
+    if (note) note.textContent = "Loaded " + count + " market" + (count === 1 ? "" : "s") + " into this computer's paper book. Open positions and working orders are in Journal.";
+    setStatus("Paper book loaded on this device.");
+    return;
+  }
   const kept = {};
   Object.keys(sessions).forEach((symbol) => {
     const row = cleanImportedSession(sessions[symbol], symbol);
@@ -2132,8 +2273,8 @@ async function importPaperBook(payload) {
   } else {
     renderBook(state.paper);
   }
-  if (note) note.textContent = "Loaded " + Object.keys(kept).length + " market" + (Object.keys(kept).length === 1 ? "" : "s") + " into this phone's paper book. Open positions and working orders are in Journal.";
-  $("status").textContent = "Paper book loaded on this device.";
+  if (note) note.textContent = "Loaded " + Object.keys(kept).length + " market" + (Object.keys(kept).length === 1 ? "" : "s") + " into this device's paper book. Open positions and working orders are in Journal.";
+  setStatus("Paper book loaded on this device.");
 }
 
 function moneyText(value) {
@@ -2246,9 +2387,10 @@ function renderBook(paper) {
   const device = $("book-device");
   if (device) {
     device.textContent = state.offline
-      ? "This phone keeps its own paper book. To see trades from the computer desk, tap Share paper book there, AirDrop or save paper-book.json, then Load paper book here."
-      : "This computer keeps its own paper book. Tap Share paper book, then on the phone open Journal and Load paper book.";
+      ? "This device keeps its own paper book. To see trades from the computer desk, tap Share paper book there, AirDrop or save paper-book.json, then Load paper book here."
+      : "This device keeps its own paper book. Tap Share paper book, then on the phone open Journal and Load paper book. Load here to bring a phone book back to this computer.";
   }
+  paintDayStrip(book);
 }
 
 
@@ -4023,13 +4165,16 @@ function releaseBusy() {
 async function withBusy(action) {
   if (state.busy) return;
   state.busy = true;
-  $("status").textContent = "";
+  document.body.classList.add("busy");
+  setStatus("Working…");
   try {
     await action();
   } catch (error) {
-    $("status").textContent = error.message;
+    setStatus(error.message);
     if (state.paper) $("symbol").dataset.value = state.paper.symbol;
   } finally {
+    document.body.classList.remove("busy");
+    syncDeskStatus();
     releaseBusy();
   }
 }
@@ -4216,12 +4361,14 @@ function setSide(side) {
   sell.setAttribute("aria-pressed", side === "sell" ? "true" : "false");
   $("send").classList.toggle("sell-side", side === "sell");
   $("send").textContent = side === "buy" ? "Send paper buy" : "Send paper sell";
+  paintTicketPreview();
 }
 
 function syncTicketFields() {
   const kind = $("kind").value;
   $("stop-field").hidden = !(kind === "stop" || kind === "stop_limit");
   $("limit-field").hidden = !(kind === "limit" || kind === "stop_limit");
+  paintTicketPreview();
 }
 
 function seedTicketPrices(paper) {
@@ -4302,6 +4449,10 @@ function announceTicketFills(paper) {
 $("side-buy").addEventListener("click", () => setSide("buy"));
 $("side-sell").addEventListener("click", () => setSide("sell"));
 $("kind").addEventListener("change", syncTicketFields);
+["limit-price", "stop-price"].forEach((id) => {
+  const node = $(id);
+  if (node) node.addEventListener("input", paintTicketPreview);
+});
 syncTicketFields();
 setSide("buy");
 
@@ -4484,6 +4635,17 @@ function canvasX(event, canvas) {
   return cssX * scale;
 }
 
+function scrubReadout(event, map, canvas) {
+  if (!map || !map.bars || !map.bars.length) return;
+  const index = PaperFrames.barIndexAt(map.pad, map.slot, map.bars.length, canvasX(event, canvas));
+  const bar = map.bars[index < 0 ? 0 : index];
+  if (!bar) return;
+  const node = $("chart-read");
+  if (node) {
+    node.textContent = (map.symbol || "Chart") + " · " + bar.date + " · O " + formatPrice(bar.open) + " · H " + formatPrice(bar.high) + " · L " + formatPrice(bar.low) + " · C " + formatPrice(bar.close);
+  }
+}
+
 $("candles").addEventListener("click", (event) => {
   const map = state.chartMap;
   const canvas = $("candles");
@@ -4498,6 +4660,14 @@ $("candles").addEventListener("click", (event) => {
   showRead((map.symbol || "Chart") + " · " + bar.date + " · Open " + formatPrice(bar.open) + " · High " + formatPrice(bar.high) + " · Low " + formatPrice(bar.low) + " · Close " + formatPrice(bar.close));
   showChartTip(event, map, index < 0 ? 0 : index);
   drawCandles();
+});
+
+$("candles").addEventListener("pointermove", (event) => {
+  if (event.pointerType === "touch" && event.buttons === 0) return;
+  scrubReadout(event, state.chartMap, $("candles"));
+});
+$("candles").addEventListener("pointerleave", () => {
+  if (state.paper) paintChartRead(state.paper);
 });
 
 function showChartTip(event, map, index) {
@@ -4519,7 +4689,42 @@ $("rsi-chart").addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !confirmWait) PaperFrames.hideTip(document);
+  if (event.key === "Escape" && !confirmWait) {
+    PaperFrames.hideTip(document);
+    return;
+  }
+  const tag = ((event.target && event.target.tagName) || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select" || (event.target && event.target.isContentEditable)) return;
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.key === "/") {
+    event.preventDefault();
+    const search = $("search");
+    if (search) search.focus();
+    return;
+  }
+  if (event.key === "b" || event.key === "B") {
+    setSide("buy");
+    setStatus("Ticket set to Buy.");
+    return;
+  }
+  if (event.key === "s" || event.key === "S") {
+    setSide("sell");
+    setStatus("Ticket set to Sell.");
+    return;
+  }
+  if (event.key === "1") { $("kind").value = "market"; syncTicketFields(); setStatus("Order type: Market."); return; }
+  if (event.key === "2") { $("kind").value = "limit"; syncTicketFields(); setStatus("Order type: Limit."); return; }
+  if (event.key === "3") { $("kind").value = "stop"; syncTicketFields(); setStatus("Order type: Stop."); return; }
+  if (event.key === "4") { $("kind").value = "stop_limit"; syncTicketFields(); setStatus("Order type: Stop Limit."); return; }
+  if (event.key === "j" || event.key === "J") {
+    showDock("journal");
+    setStatus("Journal is open.");
+    return;
+  }
+  if (event.key === "c" || event.key === "C") {
+    showChart();
+    setStatus("Chart is open.");
+  }
 });
 
 const scanToggle = $("scan-toggle");
@@ -4651,6 +4856,11 @@ function showDock(name) {
   document.querySelectorAll(".dock-page").forEach((page) => {
     page.classList.toggle("on", page.dataset.dockPage === name);
   });
+  try {
+    localStorage.setItem(DOCK_KEY, name);
+  } catch (error) {
+    /* Dock still switches for this page. */
+  }
   if (name === "journal") {
     const box = $("positions-body");
     if (box) delete box.dataset.stamp;
@@ -4661,6 +4871,16 @@ function showDock(name) {
     document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
       button.classList.toggle("on", button.dataset.tab === "study");
     });
+  }
+}
+
+function restoreDock() {
+  try {
+    const name = localStorage.getItem(DOCK_KEY) || "";
+    if (!name || !document.querySelector('.dock-tab[data-dock="' + name + '"]')) return;
+    showDock(name);
+  } catch (error) {
+    return;
   }
 }
 
@@ -4785,11 +5005,17 @@ bindZoom($("rsi-chart"), "chart");
 bindZoom($("frame-preview"), "preview");
 
 boot().then(() => {
+  document.body.classList.add("ready");
+  restoreDock();
   runSafe(false);
   loadInternals(false);
   setInterval(() => loadInternals(true), 600000);
   warnSqueeze();
   setInterval(warnSqueeze, 20000);
+  setInterval(() => {
+    if (state.paper) renderQuote(state.paper);
+    syncDeskStatus();
+  }, 1000);
 }).catch((error) => {
   showProblem(error && error.message ? error.message : "The desk did not start.");
 });

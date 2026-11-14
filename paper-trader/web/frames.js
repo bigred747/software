@@ -2027,17 +2027,17 @@
     const view = doc.defaultView || root;
     const box = doc.createElement("div");
     box.id = "paper-tip";
+    box.className = info.up ? "up" : "down";
     box.setAttribute("role", "status");
-    box.style.cssText = "position:fixed;z-index:60;min-width:210px;max-width:300px;background:#101822;color:#e8eef7;border:2px solid " + (info.up ? "#3ddc97" : "#ff6b7a") + ";border-radius:10px;padding:8px 10px;font:13px Segoe UI,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.55)";
     const head = doc.createElement("div");
-    head.style.cssText = "display:flex;justify-content:space-between;gap:10px;font-weight:700;margin-bottom:4px";
+    head.className = "tip-head";
     const title = doc.createElement("span");
     title.textContent = info.title;
     const close = doc.createElement("button");
     close.type = "button";
+    close.className = "tip-close";
     close.textContent = "×";
     close.setAttribute("aria-label", "Close price box");
-    close.style.cssText = "background:none;border:0;color:#9fb0c6;font-size:16px;line-height:1;cursor:pointer;padding:0 2px";
     close.addEventListener("click", (event) => {
       event.stopPropagation();
       hideTip(doc);
@@ -2046,9 +2046,8 @@
     box.appendChild(head);
     info.rows.forEach(([name, value]) => {
       const line = doc.createElement("div");
-      line.style.cssText = "display:flex;justify-content:space-between;gap:12px";
+      line.className = "tip-row";
       const left = doc.createElement("span");
-      left.style.color = "#9fb0c6";
       left.textContent = name;
       const right = doc.createElement("span");
       right.textContent = value;
@@ -2057,7 +2056,7 @@
     });
     if (info.edgeNote) {
       const note = doc.createElement("div");
-      note.style.cssText = "margin-top:6px;color:#e2b15a;font-size:12px";
+      note.className = "tip-edge";
       note.textContent = info.edgeNote;
       box.appendChild(note);
     }

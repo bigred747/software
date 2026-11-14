@@ -72,8 +72,10 @@
       <div class="chart-head">
         <button id="chart-back" type="button" class="quiet chart-back">Back</button>
         <h2 id="chart-title">Chart</h2>
+        <span id="position-chip" class="position-chip" hidden></span>
         <p id="legend" class="legend"></p>
       </div>
+      <p id="desk-status" class="desk-status" role="status"></p>
       <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
       <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
       <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
@@ -168,6 +170,7 @@
           <label id="limit-field">Limit price <input id="limit-price" type="number" min="0" step="any" inputmode="decimal"></label>
         </div>
         <p id="ticket-note" class="muted tiny">A buy uses all paper cash. A sell closes the whole paper position. Fills use the latest real trade, the 5 bps slippage, and the fee. Nothing goes to a broker.</p>
+        <p id="ticket-preview" class="ticket-preview muted tiny">Pick a side and order type. The preview shows size and cost before you send.</p>
         <label class="confirm"><input id="confirm" type="checkbox"> Confirm and Send</label>
         <button id="send" type="button" class="send">Send paper order</button>
         <h3>Working orders</h3>
@@ -406,7 +409,8 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="journal">
         <h2>Open positions</h2>
-        <p id="book-device" class="muted">The computer desk and the phone each keep their own paper book. Share the book below to move open trades and limit orders to the phone.</p>
+        <div id="day-strip" class="day-strip" aria-label="Today on this desk"></div>
+        <p id="book-device" class="muted">This device keeps its own paper book. Share or load below to move open trades and limit orders between the computer and the phone.</p>
         <div class="strat-orb-inputs">
           <button id="book-share" type="button">Share paper book</button>
           <button id="book-copy" type="button" class="quiet">Copy paper book</button>

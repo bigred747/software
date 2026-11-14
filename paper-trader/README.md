@@ -95,9 +95,13 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Professional desk chrome (1.9.49)
+
+Live quote age sits under the last price and softens when the quote is stale. The chart shows an open-position chip, a scrub readout as you move across candles, and a status rail on the phone. The order ticket previews size and cost before Send. Journal has a today strip for fills and closed P/L. The dock tab you last opened is remembered. On the computer, keyboard shortcuts set Buy/Sell (B/S), order type (1–4), Journal (J), Chart (C), and Search (/). Load paper book works both ways: phone to computer and computer to phone.
+
 ## Share the paper book with the phone (1.9.48)
 
-The computer desk and the phone each keep their own paper book. Under Journal, **Share paper book** downloads `paper-book.json` with every open position and working limit or stop order. On the phone, open Journal and **Load paper book**, then pick that file. Copy paper book puts the same JSON on the clipboard when the browser allows it.
+The computer desk and the phone each keep their own paper book. Under Journal, **Share paper book** downloads `paper-book.json` with every open position and working limit or stop order. On the phone, open Journal and **Load paper book**, then pick that file. Copy paper book puts the same JSON on the clipboard when the browser allows it. Load on the computer merges that file back into this computer's shelf.
 
 ## Chart candles, SMA stack, and true momentum (1.9.47)
 
