@@ -16,8 +16,11 @@ function paint() {
   const tone = PaperFrames.mood(cached.bars);
   const fitted = PaperFrames.lesson(cached.bars);
   const moodLine = tone.score == null ? "" : " " + tone.label + " " + tone.score + ".";
-  if (note) note.textContent = cached.note + moodLine + " Lesson: " + fitted.rule + ".";
-  PaperFrames.draw(document.getElementById("frame-chart"), cached.bars, zoomStop);
+  const crypto = /-USD$/.test(symbol);
+  if (note) note.textContent = cached.note + moodLine + " Lesson: " + fitted.rule + ". " + PaperFrames.edgeLine(cached.bars, crypto) + ". Click any candle for its price box.";
+  const canvas = document.getElementById("frame-chart");
+  PaperFrames.draw(canvas, cached.bars, zoomStop, { crypto, symbol, label: symbol + " · " + PaperFrames.frameById(frameId).label });
+  PaperFrames.attachPick(canvas, paint, {});
   const view = PaperFrames.zoomBars(cached.bars, zoomStop);
   const label = document.getElementById("zoom-label");
   const inn = document.getElementById("zoom-in");
@@ -66,5 +69,16 @@ document.getElementById("frame-chart").addEventListener("wheel", (event) => {
   zoomStop = PaperFrames.zoomStep(zoomStop, event.deltaY > 0 ? 1 : -1, cached ? cached.bars.length : 0);
   paint();
 }, { passive: false });
+
+const frameBack = document.getElementById("frame-back");
+if (frameBack) {
+  frameBack.addEventListener("click", () => {
+    if (window.opener && !window.opener.closed) {
+      window.close();
+      return;
+    }
+    location.href = "/";
+  });
+}
 
 window.addEventListener("resize", paint);

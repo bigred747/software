@@ -172,7 +172,7 @@ class SampleTests(unittest.TestCase):
         self.assertEqual(bitcoin["symbols"][0]["symbol"], "BTC-USD")
         futures = search_symbols("es", "future")
         self.assertEqual(futures["symbols"][0]["symbol"], "ES")
-        self.assertEqual(search_symbols("", "stock")["total"], 7504)
+        self.assertEqual(search_symbols("", "stock")["total"], 7510)
         self.assertEqual(search_symbols("vgt")["symbols"][0]["symbol"], "VGT")
         self.assertEqual(search_symbols("uga")["symbols"][0]["symbol"], "UGA")
 
@@ -296,6 +296,78 @@ console.log(JSON.stringify(out));
             self.assertEqual(len(closes), len(expected))
             for left, right in zip(closes, expected):
                 self.assertAlmostEqual(left, right, places=6)
+
+    def test_catalog_keeps_every_original_market_and_the_new_etfs(self) -> None:
+        rows = search_symbols("", "")
+        self.assertEqual(rows["total"], 7510)
+        for kind, floor in (("crypto", 60), ("stock", 4000), ("etf", 2500), ("future", 25)):
+            self.assertGreaterEqual(search_symbols("", kind, 80)["matched"], floor)
+        for ticker in ("XRP-USD", "XLM-USD", "BTC-USD", "ES", "NQ", "CL", "GC", "SPY", "AAPL"):
+            self.assertEqual(search_symbols(ticker, "", 5)["symbols"][0]["symbol"], ticker)
+        for ticker in ("VOO", "VTI", "VXUS", "QQQM", "SCHD", "SMH", "XLK", "VGT", "QQQ", "IVW", "SCHG", "IWF", "VUG", "QUAL", "IJH"):
+            found = search_symbols(ticker, "etf", 5)["symbols"]
+            self.assertEqual(found[0]["symbol"], ticker)
+
+    def test_phone_ticket_follows_the_same_order_rules(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        script = r"""
+import fs from "node:fs";
+import vm from "node:vm";
+const context = {};
+context.globalThis = context;
+vm.createContext(context);
+vm.runInContext(fs.readFileSync("web/engine.js", "utf8"), context);
+const E = context.PaperEngine;
+const make = (last) => Array.from({ length: 60 }, (_, i) => ({
+  date: "2024-01-" + String((i % 28) + 1).padStart(2, "0") + "-" + i, open: 100, high: Math.max(101, last), low: Math.min(99, last), close: i === 59 ? last : 100, volume: 1,
+}));
+const out = {};
+const s = E.sessionFromBars("TEST", make(100), { fast: 10, slow: 30, rsi: 14, cash: 10000, fee_bps: 0, stop_pct: 0 });
+const placed = E.place(s, { side: "buy", kind: "limit", limit: 95, tif: "GTC" }, 5, "2024-01-01");
+out.working = placed.working.length;
+out.flat = placed.shares;
+E.replaceBars(s, make(94));
+out.filled = E.work(s, 5, "2024-01-01", false);
+const after = E.view(s);
+out.shares = after.shares > 0;
+out.left = after.working.length;
+out.price = after.entry_price;
+let err = "";
+try { E.place(s, { side: "sell", kind: "stop", stop: 95 }, 5, "d"); } catch (e) { err = e.message; }
+out.stopErr = err;
+E.place(s, { side: "sell", kind: "stop", stop: 90, tif: "GTC" }, 5, "d");
+E.replaceBars(s, make(89));
+E.work(s, 5, "d", false);
+out.sold = E.view(s).shares === 0;
+E.place(s, { side: "buy", kind: "limit", limit: 50, tif: "DAY" }, 5, "d");
+out.dayKept = E.view(s).working.length;
+E.work(s, 5, "next-day", false);
+out.dayGone = E.view(s).working.length;
+E.place(s, { side: "buy", kind: "limit", limit: 50, tif: "GTC" }, 5, "d");
+E.work(s, 5, "next-day", true);
+out.breaker = E.view(s).working.length;
+console.log(JSON.stringify(out));
+"""
+        completed = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        got = json.loads(completed.stdout)
+        self.assertEqual(got["working"], 1)
+        self.assertEqual(got["flat"], 0)
+        self.assertTrue(got["filled"])
+        self.assertTrue(got["shares"])
+        self.assertEqual(got["left"], 0)
+        self.assertAlmostEqual(got["price"], 94)
+        self.assertIn("below the last price", got["stopErr"])
+        self.assertTrue(got["sold"])
+        self.assertEqual(got["dayKept"], 1)
+        self.assertEqual(got["dayGone"], 0)
+        self.assertEqual(got["breaker"], 0)
 
 
 if __name__ == "__main__":

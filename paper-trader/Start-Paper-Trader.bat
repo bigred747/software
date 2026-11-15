@@ -40,7 +40,7 @@ if errorlevel 1 (
 )
 echo Setup is done. Leave the window named Paper Trader open.
 echo Microsoft Edge opens when the desk answers. The header says Desk is working.
-echo The score keeps running after that window closes. It starts again when you sign in to Windows.
+echo The score keeps running after that window closes. Starting it at sign-in is optional. See Windows extras in the Safe check.
 echo The desk folder is:
 echo %RUN%
 call :DeskLink "%RUN%"

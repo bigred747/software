@@ -100,9 +100,16 @@
     throw last;
   }
 
+  let quoteWait = 12000;
+
+  function pace(ms) {
+    quoteWait = ms;
+  }
+
   function timed(promise) {
+    const limit = quoteWait;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("The quote feed did not answer. Check the connection.")), 12000);
+      const timer = setTimeout(() => reject(new Error("The quote feed did not answer. Check the connection.")), limit);
       promise.then(
         (value) => {
           clearTimeout(timer);
@@ -116,15 +123,31 @@
     });
   }
 
+  let quoteGate = Promise.resolve();
+  let quoteNext = 0;
+
+  function oneQuote(task) {
+    const run = quoteGate.then(async () => {
+      const wait = quoteNext - Date.now();
+      if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+      quoteNext = Date.now() + 300;
+      return task();
+    });
+    quoteGate = run.then(() => {}, () => {});
+    return run;
+  }
+
   async function pull(url) {
-    let response;
-    try {
-      response = await timed(fetch(url));
-    } catch (error) {
-      throw new Error("The quote feed did not answer. Check the connection.");
-    }
-    if (!response.ok) throw new Error("No live quote");
-    return response.json();
+    return oneQuote(async () => {
+      let response;
+      try {
+        response = await timed(fetch(url));
+      } catch (error) {
+        throw new Error("The quote feed did not answer. Check the connection.");
+      }
+      if (!response.ok) throw new Error("No live quote");
+      return response.json();
+    });
   }
 
   async function gemini(symbol, frameId, withTime) {
@@ -217,9 +240,13 @@
 
   const feeds = [gemini, kraken, coinbase, bitstamp];
   let preferredFeed = null;
+  const feedQuietUntil = new WeakMap();
 
   async function candles(symbol, frameId, withTime) {
-    const attempts = preferredFeed ? [preferredFeed].concat(feeds.filter((feed) => feed !== preferredFeed)) : feeds;
+    const now = Date.now();
+    const alive = feeds.filter((feed) => (feedQuietUntil.get(feed) || 0) <= now);
+    const pool = alive.length ? alive : feeds;
+    const attempts = preferredFeed && pool.includes(preferredFeed) ? [preferredFeed].concat(pool.filter((feed) => feed !== preferredFeed)) : pool;
     let last = new Error("The quote feed did not answer. Check the connection.");
     for (let index = 0; index < attempts.length; index += 1) {
       try {
@@ -231,6 +258,7 @@
       } catch (error) {
         if (attempts[index] === preferredFeed) preferredFeed = null;
         last = error instanceof Error ? error : last;
+        if (last.message.indexOf("did not answer") >= 0) feedQuietUntil.set(attempts[index], Date.now() + 120000);
       }
     }
     throw last;
@@ -493,9 +521,14 @@
     }
   }
 
-  async function daily(symbol, category) {
-    if (!crypto(symbol, category)) return cnbcDaily(symbol, category);
-    return withLastTrade(symbol, await candles(symbol, "1D", false));
+  async function daily(symbol, category, barsOnly) {
+    if (!crypto(symbol, category)) {
+      if (barsOnly) return cnbcBars(symbol, category, "1D", 800, false);
+      return cnbcDaily(symbol, category);
+    }
+    const bars = await candles(symbol, "1D", false);
+    if (barsOnly) return bars;
+    return withLastTrade(symbol, bars);
   }
 
   async function frame(symbol, category, frameId) {
@@ -519,5 +552,13 @@
     return withLastTrade(symbol, await candles(symbol, frameId, frameId !== "1D"));
   }
 
-  root.PaperLive = { daily, frame, lastTrade };
+  const GAUGES = { "^VIX": ".VIX", "^VXN": ".VXN", "^VIX9D": ".VIX9D", "^TNX": "US10Y", "DX-Y.NYB": ".DXY", RSP: "RSP" };
+
+  async function gauge(symbol) {
+    const feed = GAUGES[symbol];
+    if (!feed) throw new Error("No gauge for " + symbol);
+    return cnbcBars(feed, "", "1D", 400, false);
+  }
+
+  root.PaperLive = { daily, frame, lastTrade, gauge, pace };
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -208,6 +208,9 @@
       cost: 0,
       trades: [],
       lastAction: "",
+      working: [],
+      nextId: 1,
+      fills: [],
     };
   }
 
@@ -228,6 +231,7 @@
       cash: session.cash,
       shares: session.shares,
       entry_price: session.entryPrice,
+      last_close: price,
       equity,
       signal: session.shares > 0 ? "HOLD LONG" : "HOLD",
       last_date: bar ? bar.date : null,
@@ -239,15 +243,186 @@
       paper: true,
       last_action: session.lastAction,
       fill: session.lastFill || null,
+      working: (session.working || []).map((ticket) => ({ ...ticket })),
+      ticket_fills: (session.ticketFills || []).map((item) => ({ ...item })),
+      fills: (session.fills || []).map((item) => ({ ...item })),
+      live: false,
     };
   }
 
-  function fill(session, side, slipBps) {
+  const KINDS = ["market", "limit", "stop", "stop_limit"];
+
+  function makeTicket(raw) {
+    const side = String(raw.side || "").trim().toLowerCase();
+    const kind = String(raw.kind || "market").trim().toLowerCase().replace(/[\s-]+/g, "_");
+    const tif = String(raw.tif || "DAY").trim().toUpperCase();
+    if (side !== "buy" && side !== "sell") throw new Error("Side must be buy or sell");
+    if (!KINDS.includes(kind)) throw new Error("Order type must be market, limit, stop, or stop limit");
+    if (tif !== "DAY" && tif !== "GTC") throw new Error("Time in force must be DAY or GTC");
+    const limit = Number(raw.limit || 0);
+    const stop = Number(raw.stop || 0);
+    if (!Number.isFinite(limit) || !Number.isFinite(stop) || limit < 0 || stop < 0) throw new Error("Prices must be positive numbers");
+    if ((kind === "limit" || kind === "stop_limit") && !(limit > 0)) throw new Error("A limit price is required");
+    if ((kind === "stop" || kind === "stop_limit") && !(stop > 0)) throw new Error("A stop price is required");
+    return {
+      side,
+      kind,
+      tif,
+      limit: kind === "limit" || kind === "stop_limit" ? limit : 0,
+      stop: kind === "stop" || kind === "stop_limit" ? stop : 0,
+      triggered: false,
+    };
+  }
+
+  function decide(ticket, last, marketPrice) {
+    const buy = ticket.side === "buy";
+    if (ticket.kind === "market") return { fills: true, price: marketPrice, triggered: false };
+    const limitPrice = buy ? Math.min(last, ticket.limit) : Math.max(last, ticket.limit);
+    if (ticket.kind === "limit") {
+      return { fills: buy ? last <= ticket.limit : last >= ticket.limit, price: limitPrice, triggered: false };
+    }
+    const stopHit = buy ? last >= ticket.stop : last <= ticket.stop;
+    if (ticket.kind === "stop") return { fills: stopHit, price: marketPrice, triggered: stopHit };
+    const triggered = Boolean(ticket.triggered) || stopHit;
+    if (!triggered) return { fills: false, price: 0, triggered: false };
+    return { fills: buy ? last <= ticket.limit : last >= ticket.limit, price: limitPrice, triggered: true };
+  }
+
+  function lastTrade(session) {
+    const bar = session.bars[Math.max(0, session.cursor - 1)];
+    return bar ? bar.close : 0;
+  }
+
+  function slipPrice(last, side, slipBps) {
+    const slip = (Number(slipBps) || 0) / 10000;
+    return side === "buy" ? last * (1 + slip) : last * (1 - slip);
+  }
+
+  function place(session, raw, slipBps, day) {
+    const ticket = makeTicket(raw);
+    const last = lastTrade(session);
+    if (!(last > 0)) throw new Error("No quote yet. Load a market first.");
+    if (ticket.side === "buy" && session.shares > 0) throw new Error("A paper long is already open. Sell it before buying again.");
+    if (ticket.side === "sell" && !(session.shares > 0)) throw new Error("Nothing to sell. The paper account is flat.");
+    if (ticket.kind === "stop" || ticket.kind === "stop_limit") {
+      if (ticket.side === "buy" && ticket.stop <= last) throw new Error("A buy stop must sit above the last price.");
+      if (ticket.side === "sell" && ticket.stop >= last) throw new Error("A sell stop must sit below the last price.");
+    }
+    ticket.id = String(session.nextId || 1);
+    ticket.day = day || "";
+    const verdict = decide(ticket, last, slipPrice(last, ticket.side, slipBps));
+    ticket.triggered = verdict.triggered;
+    session.nextId = (session.nextId || 1) + 1;
+    if (verdict.fills) {
+      return fill(session, ticket.side, slipBps, verdict.price, raw.source === "auto" ? "auto" : "ticket");
+    }
+    session.working = (session.working || []).concat([ticket]);
+    session.lastAction = "working";
+    return view(session);
+  }
+
+  function work(session, slipBps, day, buysStopped) {
+    if (!session.working || !session.working.length) return false;
+    const last = lastTrade(session);
+    let changed = false;
+    const keep = [];
+    session.working.forEach((ticket) => {
+      if (ticket.tif === "DAY" && ticket.day && day && ticket.day !== day) {
+        changed = true;
+        return;
+      }
+      if (ticket.side === "buy" && buysStopped) {
+        changed = true;
+        return;
+      }
+      if ((ticket.side === "buy" && session.shares > 0) || (ticket.side === "sell" && !(session.shares > 0))) {
+        keep.push(ticket);
+        return;
+      }
+      const verdict = decide(ticket, last, slipPrice(last, ticket.side, slipBps));
+      if (verdict.triggered && !ticket.triggered) {
+        ticket.triggered = true;
+        changed = true;
+      }
+      if (verdict.fills) {
+        fill(session, ticket.side, slipBps, verdict.price, "working order");
+        session.ticketFills = (session.ticketFills || []).concat([{ ...session.lastFill, order_id: ticket.id, kind: ticket.kind }]).slice(-12);
+        changed = true;
+        return;
+      }
+      keep.push(ticket);
+    });
+    session.working = keep;
+    return changed;
+  }
+
+  function cancel(session, id) {
+    const before = (session.working || []).length;
+    session.working = id === "all" ? [] : (session.working || []).filter((ticket) => ticket.id !== String(id));
+    if (id !== "all" && session.working.length === before) throw new Error("That working order was not found");
+    return view(session);
+  }
+
+  function logFill(session, side, qty, price, bar, pnl, reason) {
+    session.fills = (session.fills || []).concat([{
+      at: Math.floor(Date.now() / 1000),
+      symbol: session.symbol,
+      side,
+      qty,
+      price,
+      quote: bar.close,
+      fee_bps: session.params.fee_bps,
+      pnl,
+      reason: reason || "trade",
+    }]).slice(-500);
+  }
+
+  function snapshot(session) {
+    return {
+      symbol: session.symbol,
+      params: { ...session.params },
+      cash: session.cash,
+      shares: session.shares,
+      entryPrice: session.entryPrice,
+      entryDate: session.entryDate,
+      cost: session.cost,
+      trades: session.trades.map((trade) => ({ ...trade })),
+      working: (session.working || []).map((ticket) => ({ ...ticket })),
+      nextId: session.nextId || 1,
+      fills: (session.fills || []).map((item) => ({ ...item })),
+      ticketFills: (session.ticketFills || []).map((item) => ({ ...item })),
+      lastAction: session.lastAction || "",
+      last: session.bars && session.bars.length ? session.bars[session.bars.length - 1].close : null,
+    };
+  }
+
+  function restore(session, saved) {
+    if (!saved || saved.symbol !== session.symbol) return false;
+    const number = (value, fallback) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
+    const cash = number(saved.cash, NaN);
+    const shares = number(saved.shares, NaN);
+    if (!(cash >= 0) || !(shares >= 0)) return false;
+    session.params = { ...session.params, ...(saved.params || {}) };
+    session.cash = cash;
+    session.shares = shares;
+    session.entryPrice = saved.entryPrice == null ? null : number(saved.entryPrice, null);
+    session.entryDate = saved.entryDate || null;
+    session.cost = number(saved.cost, 0);
+    session.trades = Array.isArray(saved.trades) ? saved.trades.map((trade) => ({ ...trade })) : [];
+    session.working = Array.isArray(saved.working) ? saved.working.map((ticket) => ({ ...ticket })) : [];
+    session.nextId = Math.max(1, number(saved.nextId, 1));
+    session.fills = Array.isArray(saved.fills) ? saved.fills.map((item) => ({ ...item })) : [];
+    session.ticketFills = Array.isArray(saved.ticketFills) ? saved.ticketFills.map((item) => ({ ...item })) : [];
+    session.lastAction = saved.lastAction || "";
+    return true;
+  }
+
+  function fill(session, side, slipBps, exactPrice, reason) {
     const bar = session.bars[Math.max(0, session.cursor - 1)];
     if (!bar) return view(session);
     const fee = session.params.fee_bps / 10000;
     const slip = (Number(slipBps) || 0) / 10000;
-    const price = side === "buy" ? bar.close * (1 + slip) : bar.close * (1 - slip);
+    const price = exactPrice > 0 ? exactPrice : side === "buy" ? bar.close * (1 + slip) : bar.close * (1 - slip);
     if (side === "buy" && session.shares <= 0) {
       const shares = session.cash / (price * (1 + fee));
       const notional = shares * price;
@@ -259,6 +434,7 @@
       session.entryDate = bar.date;
       session.lastAction = "buy";
       session.lastFill = { side, quote: bar.close, price, slip_bps: Number(slipBps) || 0, fee_bps: session.params.fee_bps, at: Math.floor(Date.now() / 1000) };
+      logFill(session, "buy", shares, price, bar, 0, reason);
     } else if (side === "sell" && session.shares > 0) {
       const notional = session.shares * price;
       const proceeds = notional * (1 - fee);
@@ -278,6 +454,8 @@
       session.cost = 0;
       session.lastAction = "sell";
       session.lastFill = { side, quote: bar.close, price, slip_bps: Number(slipBps) || 0, fee_bps: session.params.fee_bps, at: Math.floor(Date.now() / 1000) };
+      const closed = session.trades[session.trades.length - 1];
+      logFill(session, "sell", closed.shares, price, bar, closed.pnl, reason);
     }
     return view(session);
   }
@@ -301,8 +479,15 @@
       return view(session);
     },
     fill,
-    trade(session, slipBps) {
-      return fill(session, session.shares > 0 ? "sell" : "buy", slipBps);
+    snapshot,
+    restore,
+    place,
+    work,
+    cancel,
+    makeTicket,
+    decide,
+    trade(session, slipBps, reason) {
+      return fill(session, session.shares > 0 ? "sell" : "buy", slipBps, 0, reason || "trade");
     },
     sessionFromBars(symbol, bars, params) {
       const settings = {
@@ -327,6 +512,9 @@
         cost: 0,
         trades: [],
         lastAction: "",
+        working: [],
+        nextId: 1,
+        fills: [],
       };
     },
     replaceBars(session, bars) {

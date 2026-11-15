@@ -35,7 +35,12 @@ def frame_ids() -> tuple[str, ...]:
     return tuple(_FRAMES)
 
 
+INTERNAL_SYMBOLS = frozenset({"^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP"})
+
+
 def yahoo_symbol(symbol: str) -> str:
+    if symbol in INTERNAL_SYMBOLS:
+        return symbol
     row = market_row(symbol)
     if str(row["category"]) == "future":
         return symbol + "=F"

@@ -47,24 +47,28 @@ def build() -> Path:
     for name in ("live.js", "engine.js", "study.js", "frames.js", "app.js", "app.css"):
         if f'src="/{name}"' in html or f'src="{name}"' in html or f'href="/{name}"' in html or f'href="{name}"' in html:
             raise RuntimeError(f"{name} was not inlined")
-    out = ROOT / "iphone" / "PaperTrader.html"
-    out.parent.mkdir(exist_ok=True)
+    folder = ROOT / "iphone"
+    folder.mkdir(exist_ok=True)
+    out = folder / "PaperTrader.html"
     out.write_text(html, encoding="utf-8")
-    note = ROOT / "iphone" / "README.txt"
+    (folder / "index.html").write_text(html, encoding="utf-8")
+    (folder / "icon.png").write_bytes((web / "icon.png").read_bytes())
+    (folder / "manifest.webmanifest").write_text((web / "manifest.webmanifest").read_text(encoding="utf-8"), encoding="utf-8")
+    note = folder / "README.txt"
     note.write_text(
         "\n".join(
             [
                 "Paper Trader on a phone or tablet",
                 "",
-                "1. Install Microsoft Edge if it is not already on the device. Use the App Store on iPhone or iPad, or the Play Store on Android.",
-                "2. Copy PaperTrader.html onto the device. If it arrives as a text file, rename it to PaperTrader.html.",
-                "3. On iPhone or iPad, open the Files app, tap the Share button on PaperTrader.html, then tap Edge.",
+                "1. On iPhone, open the Paper Trader web address in Safari. Tap Share, then Add to Home Screen so the desk opens like an app and you stay signed in. A github.com link shows the file as code and does not run it.",
+                "2. To keep a copy on the phone, save PaperTrader.html. If it arrives as a text file, rename it to PaperTrader.html.",
+                "3. Open the Files app, tap the Share button on PaperTrader.html, then tap Edge.",
                 "4. On Android or another phone or tablet, open Files or Downloads, tap PaperTrader.html, choose Open with, then tap Edge.",
-                "5. The desk runs in Edge. The chart, the fear and greed clock, and the Daily scan use live quotes. Crypto uses the exchanges. Stocks, ETFs, and futures use the public quote feed. The Type choice stays on Stocks, ETFs, Futures, or Crypto. If a quote does not answer, that error is written on the chart and the page does not invent a price.",
+                "5. The desk runs in Edge or Safari. The chart, the fear and greed clock, and the Daily scan use live quotes. Crypto uses the exchanges. Stocks, ETFs, and futures use the public quote feed. The Type choice stays on Stocks, ETFs, Futures, or Crypto. If a quote does not answer, that error is written on the chart and the page does not invent a price.",
                 "6. Nothing is sent to a broker. This desk is not an app-store app. The page cannot switch to Edge by itself.",
                 "",
                 "The computer copy is started with Start-Paper-Trader.bat and opens in Microsoft Edge on 127.0.0.1.",
-                "That computer keeps scoring after the Paper Trader window closes. It starts again when you sign in to Windows, while the computer is on and you are signed in.",
+                "That computer keeps scoring after the Paper Trader window closes. It runs while the computer is on and you are signed in. Starting it at sign-in is optional, under Windows extras in the computer's Safe check.",
                 "",
             ]
         ),
