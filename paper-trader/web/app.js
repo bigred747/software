@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.53";
+const VERSION = "1.9.54";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -2534,7 +2534,7 @@ function whenIdle() {
 }
 
 const STRAT_KEY = "paper_trader_strategy_v1";
-const STRAT_IDS = ["edge", "squeeze", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"];
+const STRAT_IDS = ["edge", "squeeze", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow", "quad"];
 const TRIG_KEY = "paper_trader_triggers_v1";
 
 function strategyIds() {
@@ -2614,6 +2614,15 @@ function cardLine(row) {
     const mom = row.momentum == null ? "" : " · momentum " + (row.momentum > 0 ? "above" : "below") + " zero and " + (row.momentumUp ? "rising" : "not rising");
     const trend = " · EMA 8 " + (row.trend ? "above" : "below") + " 21";
     return dots + mom + trend + "." + (row.bearish ? " Bearish fire. This long-only desk stands aside." : "") + stop;
+  }
+  if (row.id === "quad") {
+    const legs = [
+      row.squeezeOk ? "Squeeze fire on" : "Squeeze fire off",
+      row.tmoOk ? "TMO on" : "TMO off",
+      row.b4Ok ? "B4 on" : "B4 off",
+      row.stackOk ? "SMA stack on" : "SMA stack off",
+    ].join(" · ");
+    return legs + "." + stop;
   }
   if (row.call === "HOLD") return "In since " + formatPrice(row.entry) + " · " + signedPercent(row.openPct) + "." + stop;
   if (row.call === "BUY") return "Buy signal on the last closed bar. A paper buy fills at the next open." + stop;

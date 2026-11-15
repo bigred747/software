@@ -1645,6 +1645,11 @@
     bollrev: { name: "Bollinger reversion", who: "Mean reversion", idea: "In an uptrend above the 200-bar average, buy a close under the lower Bollinger band. Exit when price closes back at or above the middle band." },
     atrtrail: { name: "EMA trend · ATR trail", who: "Volatility trail", idea: "Buy when the 20-bar EMA crosses above the 50-bar EMA. Exit when the close falls 2.5 ATR under the best high since entry." },
     weeklow: { name: "7-day low pullback", who: "Weekly pullback", idea: "Above the 200-bar average, buy a close that is the lowest of the last 7 bars. Exit on a close that is the highest of the last 7 bars." },
+    quad: {
+      name: "Squeeze · TMO · B4 · stack",
+      who: "Four desk studies",
+      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, B4 trend agrees (close above the 50 and 200 EMAs, MACD above signal, RSI under 70), and the SMA stack is lined up 5 over 9 over 21 over 50. Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. This desk's own closed-bar math only — not a third-party study.",
+    },
   };
   const STRATEGY_IDS = Object.keys(STRATEGY_INFO);
 
@@ -1853,6 +1858,69 @@
       });
       finish("weeklow", run);
     } else notReady("weeklow", "Needs at least 220 bars.");
+
+    if (end >= 230) {
+      const study = compression(list, 20);
+      const mom = study.momentum;
+      const on = study.level.map((value) => value >= 2);
+      const tmo = trueMomentum(list, 14, 5, 3);
+      const ema50 = ema(closes, 50);
+      const ema200 = ema(closes, 200);
+      const trend = macd(list);
+      const rsi = proRsi(closes, 14);
+      const stack = stackAverages(list);
+      const s5 = stack[0].values;
+      const s9 = stack[1].values;
+      const s21 = stack[2].values;
+      const s50 = stack[3].values;
+      const rising = (index) => mom[index] != null && mom[index - 1] != null && mom[index] > 0 && mom[index] > mom[index - 1];
+      const tmoUp = (index) => tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index];
+      const b4Ok = (index) =>
+        ema50[index] != null &&
+        ema200[index] != null &&
+        closes[index] > ema50[index] &&
+        closes[index] > ema200[index] &&
+        trend.line[index] != null &&
+        trend.signal[index] != null &&
+        trend.line[index] > trend.signal[index] &&
+        rsi[index] != null &&
+        rsi[index] < 70;
+      const stackOk = (index) =>
+        s5[index] != null &&
+        s9[index] != null &&
+        s21[index] != null &&
+        s50[index] != null &&
+        s5[index] > s9[index] &&
+        s9[index] > s21[index] &&
+        s21[index] > s50[index];
+      const run = runRule(list, end, 205, {
+        enter: (index) => {
+          const fired = !on[index] && on[index - 1];
+          return fired && rising(index) && tmoUp(index) && b4Ok(index) && stackOk(index) ? { stop: list[index].low } : null;
+        },
+        exit: (index) => {
+          const tmoDown =
+            tmo.main[index] != null &&
+            tmo.signal[index] != null &&
+            tmo.main[index - 1] != null &&
+            tmo.signal[index - 1] != null &&
+            tmo.main[index] < tmo.signal[index] &&
+            tmo.main[index - 1] >= tmo.signal[index - 1];
+          const under50 = ema50[index] != null && closes[index] < ema50[index];
+          return tmoDown || under50;
+        },
+      });
+      const last = end - 1;
+      const fired = !on[last] && on[last - 1];
+      finish("quad", run, {
+        fired,
+        squeezeOk: fired && rising(last),
+        tmoOk: tmoUp(last),
+        b4Ok: b4Ok(last),
+        stackOk: stackOk(last),
+        momentum: mom[last],
+      });
+    } else notReady("quad", "Needs at least 230 bars.");
 
     const ranked = rows
       .filter((row) => row.ready && row.trades >= 5)
