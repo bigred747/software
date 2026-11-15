@@ -99,48 +99,52 @@ export const STRATEGY_DEFS = [
     name: "Edge · five checks",
     blurb: "This bot",
     describe:
-      "Five closed-bar checks: squeeze release, momentum oscillator, four-factor trend vote, directional strength, higher-span agreement.",
+      "Installer-safe five checks: 20-day breakout, RSI>50, close>avg20, avg20>avg50, close>avg200. Uses only averages, RSI, highest, lowest, if/then.",
     run(bars) {
-      const sqz = squeezeState(bars);
-      const tm = tmo(bars);
-      const tx = tenX(bars);
-      const b4 = bigFour(bars);
       const closes = bars.map((b) => b.c);
-      const ema20 = ema(closes, 20);
-      const ema50 = ema(closes, 50);
-
-      // Higher-span agreement proxy on daily bars: 5-bar and 20-bar EMA slopes
-      const ema5 = ema(closes, 5);
+      const highs = bars.map((b) => b.h);
+      const lows = bars.map((b) => b.l);
+      const a20 = sma(closes, 20);
+      const a50 = sma(closes, 50);
+      const a200 = sma(closes, 200);
+      const r = rsi(closes, 14);
+      const hi20 = highest(highs, 20);
+      const lo20 = lowest(lows, 20);
 
       const state = bars.map(() => "WAIT");
       const signalAt = (i) => {
-        if (!sqz[i] || !tm[i] || !tx[i] || !b4[i] || ema20[i] == null || ema50[i] == null || ema5[i] == null)
+        if (
+          a20[i] == null ||
+          a50[i] == null ||
+          a200[i] == null ||
+          r[i] == null ||
+          hi20[i] == null ||
+          lo20[i] == null
+        ) {
           return null;
-        const momUp = i > 0 && sqz[i].mom != null && sqz[i - 1].mom != null && sqz[i].mom > sqz[i - 1].mom;
-        const voteSqz = (sqz[i].fired || (sqz[i].level === 0 && momUp)) && sqz[i].mom >= 0 ? 1 : 0;
-        const voteTmo = tm[i].bull ? 1 : 0;
-        const voteB4 = b4[i].bull ? 1 : 0;
-        const voteTen = tx[i].bull ? 1 : 0;
-        const htf =
-          ema5[i] > ema5[Math.max(0, i - 5)] && ema20[i] > ema50[i] ? 1 : 0;
-        const score = voteSqz + voteTmo + voteB4 + voteTen + htf;
-        const longSetup = score >= 4 && (sqz[i].fired || sqz[i].level === 0);
-        const bearFlip = tm[i].bull === false && tx[i].bear && b4[i].bear;
-        if (longSetup) return 1;
-        if (bearFlip) return 0;
-        // hold while still mostly bullish
-        if (score >= 3 && tm[i].bull) return 1;
+        }
+        const breakout = closes[i] >= hi20[i] ? 1 : 0;
+        const breakdown = closes[i] <= lo20[i] ? 1 : 0;
+        const momUp = r[i] > 50 ? 1 : 0;
+        const momDn = r[i] < 50 ? 1 : 0;
+        const t20 = closes[i] > a20[i] ? 1 : 0;
+        const t50 = a20[i] > a50[i] ? 1 : 0;
+        const t200 = closes[i] > a200[i] ? 1 : 0;
+        const longScore = breakout + momUp + t20 + t50 + t200;
+        const shortScore = breakdown + momDn + (1 - t20) + (1 - t50) + (1 - t200);
+        if (longScore >= 4) return 1;
+        if (shortScore >= 4) return 0;
+        if (t20 && momUp && t50) return 1;
         return 0;
       };
 
       for (let i = 0; i < bars.length; i++) {
         const s = signalAt(i);
-        if (s === 1) state[i] = "HOLD";
-        else state[i] = "WAIT";
+        state[i] = s === 1 ? "HOLD" : "WAIT";
       }
-      // mark fresh entries
       for (let i = 1; i < bars.length; i++) {
         if (signalAt(i) === 1 && signalAt(i - 1) !== 1) state[i] = "BUY";
+        if (signalAt(i) === 0 && signalAt(i - 1) === 1) state[i] = "SELL";
       }
 
       const stats = backtestLongOnly(bars, signalAt);

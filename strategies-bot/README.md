@@ -28,14 +28,19 @@ python3 -m http.server 8765 --bind 127.0.0.1
 
 Open `http://127.0.0.1:8765`
 
-## Install Edge into Thinkorswim Strategies tab
+## Install Edge into your bot (Install study)
 
-1. Open `thinkscript/Edge_Five_Checks_Strategy.ts`
-2. Thinkorswim → **Studies → Edit Studies → Strategies**
-3. **Create...** → paste entire script → name `Edge_Five_Checks`
-4. Apply to chart
+Your bot’s Install study box only allows **Average, RSI, Highest, Lowest, if/then**.
 
-Or click **Copy Edge ThinkScript for Strategies tab** in the bot UI.
+1. **Name:** `Edge five checks`
+2. **Formula:** paste from `thinkscript/INSTALL_STUDY_Edge_Five_Checks.txt` (formula section only)
+3. Click **Install study**
+
+Success looks like: `Installed … on this device. 1 plots. No broker order was sent.`
+
+Plot values: `1` buy bias · `-1` sell bias · `0` wait
+
+Same formula also lives in `thinkscript/Edge_Five_Checks_Strategy.ts`.
 
 ## Paper Buy / Sell
 
