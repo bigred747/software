@@ -1098,7 +1098,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="strategies">
         <h2>Strategies</h2>
-        <p id="strat-lead" class="muted">Classic public closed-bar rules, plus this desk's four-study combo (squeeze · TMO · B4 · SMA stack). Each is scored on this market's own history. The ranking looks backward. Past bars only. Not a forecast, and none of these is a third-party or trademarked system.</p>
+        <p id="strat-lead" class="muted">Classic public closed-bar rules, this desk's four-study combo (squeeze · TMO · B4 · SMA stack), and CCI zoom / snap-back. Each is scored on this market's own history. The ranking looks backward. Past bars only. Not a forecast, and none of these is a third-party or trademarked system.</p>
         <div class="table-wrap">
           <table>
             <thead>
@@ -1147,6 +1147,8 @@ plot Sell = close crosses below baseline;</textarea>
             <option value="edge">Edge · five checks</option>
             <option value="squeeze">Squeeze release</option>
             <option value="quad">Squeeze · TMO · B4 · stack</option>
+            <option value="ccizoom">CCI zoom zone</option>
+            <option value="ccisnap">CCI snap-back</option>
             <option value="donchian">20-day breakout</option>
             <option value="rsi2">RSI 2 pullback</option>
             <option value="golden">50/200 average cross</option>
@@ -4649,6 +4651,40 @@ plot Sell = close crosses below baseline;</textarea>
     return out;
   }
 
+  function cci(bars, length) {
+    const window = Math.max(2, Math.round(Number(length) || 20));
+    const list = bars || [];
+    const out = new Array(list.length).fill(null);
+    const typical = list.map((bar) => (bar.high + bar.low + bar.close) / 3);
+    for (let index = window - 1; index < list.length; index += 1) {
+      let sum = 0;
+      for (let back = 0; back < window; back += 1) sum += typical[index - back];
+      const mean = sum / window;
+      let deviation = 0;
+      for (let back = 0; back < window; back += 1) deviation += Math.abs(typical[index - back] - mean);
+      deviation /= window;
+      out[index] = deviation === 0 ? 0 : (typical[index] - mean) / (0.015 * deviation);
+    }
+    return out;
+  }
+
+  function cciSnapState(fast, slow, index) {
+    if (fast[index] == null || slow[index] == null) return { readyUp: false, readyDown: false, fireUp: false, fireDown: false, gap: null };
+    const gap = slow[index] - fast[index];
+    const readyUp = gap > 150;
+    const readyDown = gap < -150;
+    const priorGap = index > 0 && fast[index - 1] != null && slow[index - 1] != null ? slow[index - 1] - fast[index - 1] : null;
+    const priorReadyUp = priorGap != null && priorGap > 150;
+    const priorReadyDown = priorGap != null && priorGap < -150;
+    return {
+      readyUp,
+      readyDown,
+      fireUp: priorReadyUp && !readyUp,
+      fireDown: priorReadyDown && !readyDown,
+      gap,
+    };
+  }
+
   function runRule(list, end, warm, rule) {
     const trades = [];
     let open = null;
@@ -4708,6 +4744,16 @@ plot Sell = close crosses below baseline;</textarea>
       name: "Squeeze · TMO · B4 · stack",
       who: "Four desk studies",
       idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, B4 trend agrees (close above the 50 and 200 EMAs, MACD above signal, RSI under 70), and the SMA stack is lined up 5 over 9 over 21 over 50. Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. This desk's own closed-bar math only — not a third-party study.",
+    },
+    ccizoom: {
+      name: "CCI zoom zone",
+      who: "CCI trend zone",
+      idea: "Buys when the 50-bar CCI crosses above +100 (zoom up). Exits when it crosses back below +100. Zoom down (CCI under −100) is shown for context; this long-only desk does not short. Classic public CCI rules. Not a forecast.",
+    },
+    ccisnap: {
+      name: "CCI snap-back",
+      who: "CCI continuation",
+      idea: "In a zoom-up (50-bar CCI above +100), a snap-back up is ready when CCI(5) sits more than 150 points under CCI(50), and it fires when that gap closes back under 150. Buys on that fire. Exits on a snap-back down fire or when CCI(50) leaves the zoom-up. Classic public CCI rules. Not a forecast.",
     },
     donchian: { name: "20-day breakout", who: "Range breakout", idea: "Buy a close above the highest high of the last 20 bars. Exit on a close below the lowest low of the last 10 bars." },
     rsi2: { name: "RSI 2 pullback", who: "Short pullback", idea: "In an uptrend (close above the 200-bar average) buy when 2-period RSI drops under 10. Exit when price closes above its 5-bar average." },
@@ -4876,6 +4922,50 @@ plot Sell = close crosses below baseline;</textarea>
         momentum: mom[last],
       });
     } else notReady("quad", "Needs at least 230 bars.");
+
+    if (end >= 60) {
+      const slow = cci(list, 50);
+      const run = runRule(list, end, 55, {
+        enter: (index) => (slow[index] != null && slow[index - 1] != null && slow[index] > 100 && slow[index - 1] <= 100 ? { stop: 0 } : null),
+        exit: (index) => slow[index] != null && slow[index - 1] != null && slow[index] < 100 && slow[index - 1] >= 100,
+      });
+      const last = end - 1;
+      finish("ccizoom", run, {
+        zoomUp: slow[last] != null && slow[last] > 100,
+        zoomDown: slow[last] != null && slow[last] < -100,
+        cci50: slow[last],
+      });
+    } else notReady("ccizoom", "Needs at least 60 bars.");
+
+    if (end >= 60) {
+      const fast = cci(list, 5);
+      const slow = cci(list, 50);
+      const run = runRule(list, end, 55, {
+        enter: (index) => {
+          if (slow[index] == null || slow[index] <= 100) return null;
+          const snap = cciSnapState(fast, slow, index);
+          return snap.fireUp ? { stop: list[index].low } : null;
+        },
+        exit: (index) => {
+          const leaveZoom = slow[index] != null && slow[index - 1] != null && slow[index] < 100 && slow[index - 1] >= 100;
+          const snap = cciSnapState(fast, slow, index);
+          return leaveZoom || snap.fireDown;
+        },
+      });
+      const last = end - 1;
+      const snap = cciSnapState(fast, slow, last);
+      finish("ccisnap", run, {
+        zoomUp: slow[last] != null && slow[last] > 100,
+        zoomDown: slow[last] != null && slow[last] < -100,
+        readyUp: snap.readyUp,
+        readyDown: snap.readyDown,
+        fireUp: snap.fireUp,
+        fireDown: snap.fireDown,
+        cci5: fast[last],
+        cci50: slow[last],
+        gap: snap.gap,
+      });
+    } else notReady("ccisnap", "Needs at least 60 bars.");
 
     if (end >= 40) {
       const run = runRule(list, end, 25, {
@@ -5358,6 +5448,8 @@ plot Sell = close crosses below baseline;</textarea>
     strategies,
     STRATEGY_INFO,
     STRATEGY_IDS,
+    cci,
+    cciSnapState,
     openingRange,
     pro,
     liveBar,
@@ -5481,7 +5573,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.55";
+const VERSION = "1.9.56";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -7935,7 +8027,7 @@ function whenIdle() {
 }
 
 const STRAT_KEY = "paper_trader_strategy_v1";
-const STRAT_IDS = ["edge", "squeeze", "quad", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"];
+const STRAT_IDS = ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"];
 const TRIG_KEY = "paper_trader_triggers_v1";
 
 function strategyIds() {
@@ -8024,6 +8116,17 @@ function cardLine(row) {
       row.stackOk ? "SMA stack on" : "SMA stack off",
     ].join(" · ");
     return legs + "." + stop;
+  }
+  if (row.id === "ccizoom") {
+    const zone = row.zoomUp ? "Zoom up" : row.zoomDown ? "Zoom down (stand aside)" : "Outside zoom";
+    const value = row.cci50 == null ? "" : " · CCI(50) " + Number(row.cci50).toFixed(1);
+    return zone + value + "." + stop;
+  }
+  if (row.id === "ccisnap") {
+    const zone = row.zoomUp ? "Zoom up" : row.zoomDown ? "Zoom down" : "Outside zoom";
+    const ready = row.readyUp ? " · snap-back up ready" : row.readyDown ? " · snap-back down ready" : "";
+    const fire = row.fireUp ? " · snap-back up fired" : row.fireDown ? " · snap-back down fired" : "";
+    return zone + ready + fire + "." + stop;
   }
   if (row.call === "HOLD") return "In since " + formatPrice(row.entry) + " · " + signedPercent(row.openPct) + "." + stop;
   if (row.call === "BUY") return "Buy signal on the last closed bar. A paper buy fills at the next open." + stop;

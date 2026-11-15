@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.55";
+const VERSION = "1.9.56";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -2534,7 +2534,7 @@ function whenIdle() {
 }
 
 const STRAT_KEY = "paper_trader_strategy_v1";
-const STRAT_IDS = ["edge", "squeeze", "quad", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"];
+const STRAT_IDS = ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"];
 const TRIG_KEY = "paper_trader_triggers_v1";
 
 function strategyIds() {
@@ -2623,6 +2623,17 @@ function cardLine(row) {
       row.stackOk ? "SMA stack on" : "SMA stack off",
     ].join(" · ");
     return legs + "." + stop;
+  }
+  if (row.id === "ccizoom") {
+    const zone = row.zoomUp ? "Zoom up" : row.zoomDown ? "Zoom down (stand aside)" : "Outside zoom";
+    const value = row.cci50 == null ? "" : " · CCI(50) " + Number(row.cci50).toFixed(1);
+    return zone + value + "." + stop;
+  }
+  if (row.id === "ccisnap") {
+    const zone = row.zoomUp ? "Zoom up" : row.zoomDown ? "Zoom down" : "Outside zoom";
+    const ready = row.readyUp ? " · snap-back up ready" : row.readyDown ? " · snap-back down ready" : "";
+    const fire = row.fireUp ? " · snap-back up fired" : row.fireDown ? " · snap-back down fired" : "";
+    return zone + ready + fire + "." + stop;
   }
   if (row.call === "HOLD") return "In since " + formatPrice(row.entry) + " · " + signedPercent(row.openPct) + "." + stop;
   if (row.call === "BUY") return "Buy signal on the last closed bar. A paper buy fills at the next open." + stop;

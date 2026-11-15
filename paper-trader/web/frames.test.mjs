@@ -334,10 +334,15 @@ function walk(count, seed, drift) {
 test("strategies report classic public rows plus the four-study combo from closed bars only", () => {
   const bars = walk(600, 7, 0.0008);
   const board = JSON.parse(JSON.stringify(strategies(bars, { live: false })));
-  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"]);
+  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"]);
   const quad = board.rows.find((row) => row.id === "quad");
   assert.ok(quad);
   assert.equal(quad.name, "Squeeze · TMO · B4 · stack");
+  const zoom = board.rows.find((row) => row.id === "ccizoom");
+  const snap = board.rows.find((row) => row.id === "ccisnap");
+  assert.ok(zoom && snap);
+  assert.equal(zoom.name, "CCI zoom zone");
+  assert.equal(snap.name, "CCI snap-back");
   board.rows.forEach((row) => {
     assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(row.call));
     assert.ok(Number.isFinite(row.total));
