@@ -302,6 +302,7 @@ plot Sell = close crosses below baseline;</textarea>
         </div>
         <div class="best-setup-box">
           <button id="best-setup" type="button" class="best-setup-btn" aria-pressed="false">Best setup Auto</button>
+          <ul id="best-setup-gates" class="best-setup-gates" aria-label="Best setup gates"></ul>
           <p id="best-setup-note" class="muted">Off. Turns on only the strictest paper buys: Edge all five green, most timeframes lined up, internals mostly supportive, today’s green scan list, and at most three new buys a Denver day. Still asks Yes. Not a forecast.</p>
         </div>
         <p id="strat-auto-note" class="muted">Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.</p>
@@ -311,6 +312,7 @@ plot Sell = close crosses below baseline;</textarea>
           <label class="strat-switch"><input id="trig-squeeze" type="checkbox" checked> Squeeze five dots / steam</label>
           <label class="strat-switch"><input id="trig-edge" type="checkbox" checked> Edge BUY on pinned markets</label>
           <label class="strat-switch"><input id="trig-strategy" type="checkbox" checked> Followed strategy BUY / SELL</label>
+          <label class="strat-switch"><input id="trig-best" type="checkbox" checked> Best setup ready</label>
           <label class="strat-switch"><input id="trig-process" type="checkbox" checked> New process learned</label>
         </div>
         <div id="strat-cards" class="strat-cards"></div>

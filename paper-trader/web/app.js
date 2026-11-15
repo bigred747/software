@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.60";
+const VERSION = "1.9.61";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -2569,13 +2569,14 @@ function loadStrat() {
 }
 
 function loadTriggers() {
-  const base = { squeeze: true, edge: true, strategy: true, process: true };
+  const base = { squeeze: true, edge: true, strategy: true, best: true, process: true };
   try {
     const raw = JSON.parse(localStorage.getItem(TRIG_KEY) || "{}");
     return {
       squeeze: raw.squeeze !== false,
       edge: raw.edge !== false,
       strategy: raw.strategy !== false,
+      best: raw.best !== false,
       process: raw.process !== false,
     };
   } catch (error) {
@@ -2636,17 +2637,28 @@ function dayBuySymbols() {
 
 function bestSetupStatus() {
   const waiting = [];
+  const gates = [];
+  const addGate = (label, ok, detail) => {
+    gates.push({ label, ok: !!ok, detail: detail || "" });
+    if (!ok) waiting.push(detail || label);
+  };
   const bars = seenBars();
   const edge = bars.length ? currentEdge(bars) : null;
   const edgeOk = !!(edge && edge.ready && edge.score === 5 && edge.call === "BUY");
-  if (!edgeOk) waiting.push(edge && edge.ready ? "Edge needs a fresh all-five BUY (now " + (edge.call || "WAIT") + ", " + (edge.score == null ? "—" : edge.score + "/5") + ")" : "Edge not ready");
+  addGate(
+    "Edge 5/5 BUY",
+    edgeOk,
+    edge && edge.ready ? "Edge " + (edge.call || "WAIT") + " · " + (edge.score == null ? "—" : edge.score + "/5") : "Edge not ready"
+  );
 
   const frames = edgeFramesSummary();
   const need = frames.total ? Math.ceil((frames.total * 2) / 3) : 0;
   const mtfOk = frames.total > 0 && frames.long >= need && frames.long > frames.short;
-  if (!mtfOk) {
-    waiting.push(frames.total ? "Timeframes " + frames.long + "/" + frames.total + " long (need " + need + "+)" : "Read all timeframes first");
-  }
+  addGate(
+    "Multi-TF majority",
+    mtfOk,
+    frames.total ? "Timeframes " + frames.long + "/" + frames.total + " long (need " + need + "+)" : "Read all timeframes first"
+  );
 
   const internals = state.int && state.int.result;
   const goodParts = internals && internals.parts ? internals.parts.filter((part) => part.says === "good").length : 0;
@@ -2656,31 +2668,45 @@ function bestSetupStatus() {
     internals.ready &&
     (internals.label === "Supportive" || (internals.label === "Mixed" && internals.score >= 55 && goodParts > badParts))
   );
-  if (!intOk) {
-    waiting.push(internals && internals.ready ? "Internals " + internals.label + " " + internals.score + " (need Supportive, or Mixed 55+ with more good than bad)" : "Internals not ready");
-  }
+  addGate(
+    "Internals supportive",
+    intOk,
+    internals && internals.ready ? "Internals " + internals.label + " " + internals.score : "Internals not ready"
+  );
 
   const board = bars.length >= 2 ? currentBoard(bars) : null;
   const quad = board && board.rows ? board.rows.find((row) => row.id === "quad") : null;
   const stackOk = !!(quad && quad.ready && quad.stackOk);
   const htfOk = !!(quad && quad.ready && quad.weekOk && quad.monthOk);
-  if (!stackOk) waiting.push("SMA stack not lined up");
-  if (!htfOk) waiting.push("Weekly/monthly multi-TF not both on");
+  addGate("SMA stack", stackOk, stackOk ? "SMA stack lined up" : "SMA stack not lined up");
+  addGate("Weekly + monthly MTF", htfOk, htfOk ? "Weekly and monthly agree" : "Weekly/monthly multi-TF not both on");
 
   const day = dayBuySymbols();
   const roomOk = day.count < BEST_MAX_BUYS;
-  if (!roomOk) waiting.push("Already " + day.count + " paper buys today (max " + BEST_MAX_BUYS + ")");
+  addGate("Buy room", roomOk, day.count + "/" + BEST_MAX_BUYS + " new buys today");
 
-  let scanOk = false;
   const symbol = state.paper && state.paper.symbol;
-  if (!state.scanDone) waiting.push("Daily scan still walking");
-  else if (!(state.picks || []).some((row) => row.symbol === symbol)) waiting.push("Open market is not in today's green best list");
-  else scanOk = true;
+  let scanOk = false;
+  if (!state.scanDone) addGate("Green scan list", false, "Daily scan still walking");
+  else if (!(state.picks || []).some((row) => row.symbol === symbol)) addGate("Green scan list", false, "Open market is not in today's green best list");
+  else {
+    scanOk = true;
+    addGate("Green scan list", true, "In today's green best list");
+  }
+
+  const asOf = state.market && state.market.as_of;
+  const quoteAge = asOf ? Date.now() / 1000 - asOf : 9999;
+  const quoteOk = asOf > 0 && quoteAge <= 120;
+  addGate("Fresh quote", quoteOk, quoteOk ? "Quote " + quoteAgeText(asOf) : asOf ? "Quote stale (" + quoteAgeText(asOf) + ")" : "No quote yet");
+
+  const tone = bars.length ? currentMood(bars) : null;
+  const moodOk = !(tone && tone.score != null && tone.score >= 85);
+  addGate("Not extreme greed", moodOk, tone && tone.score != null ? tone.label + " " + tone.score : "Mood waiting");
 
   const held = !!(state.paper && state.paper.shares > 0);
-  if (held) waiting.push("Already in a paper long");
+  if (held) waiting.unshift("Already in a paper long — Best setup buys wait; Edge SELL can still exit");
 
-  const ready = !!(state.best && state.best.on) && edgeOk && mtfOk && intOk && stackOk && htfOk && roomOk && scanOk && !held;
+  const ready = !!(state.best && state.best.on) && edgeOk && mtfOk && intOk && stackOk && htfOk && roomOk && scanOk && quoteOk && moodOk && !held;
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
@@ -2695,7 +2721,11 @@ function bestSetupStatus() {
     htfOk,
     roomOk,
     scanOk,
+    quoteOk,
+    moodOk,
+    held,
     waiting,
+    gates,
     detail,
     frames,
     internals,
@@ -2716,20 +2746,51 @@ function bestBuyReason(symbol) {
 function renderBestSetup() {
   const button = $("best-setup");
   const note = $("best-setup-note");
+  const list = $("best-setup-gates");
   if (!button || !note) return;
   const on = !!(state.best && state.best.on);
   const status = bestSetupStatus();
+  const wasReady = !!(state.best && state.best.wasReady);
   button.setAttribute("aria-pressed", on ? "true" : "false");
   button.className = "best-setup-btn" + (on ? (status.ready ? " ready" : " on") : "");
   button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
   note.textContent = on
-    ? status.detail + ". Turn Auto on. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Turns on only the strictest paper buys: Edge all five green, most timeframes lined up, internals mostly supportive, SMA stack + weekly/monthly MTF, today’s green scan list, and at most three new buys a Denver day. Still asks Yes. Not a forecast.";
+    ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
+    : "Off. Strictest paper buys only: Edge all five, multi-TF majority, supportive internals, SMA stack + weekly/monthly MTF, green scan list, fresh quote, not extreme greed, max three buys a Denver day. Still asks Yes. Not a forecast.";
+  if (list) {
+    list.replaceChildren();
+    list.hidden = !on;
+    if (on) {
+      status.gates.forEach((gate) => {
+        const row = document.createElement("li");
+        row.className = gate.ok ? "on" : "off";
+        row.textContent = gate.label + " · " + gate.detail;
+        list.appendChild(row);
+      });
+    }
+  }
+  if (on && status.ready && !wasReady) {
+    state.best.wasReady = true;
+    if (state.triggers && state.triggers.best !== false) {
+      speakWarning({
+        symbol: (state.paper && state.paper.symbol) || "",
+        date: closedDate(seenBars()) || denverDay(),
+        kind: "best",
+        side: "buy",
+        detail: "Buy warning. Best setup is ready on " + pinLabel((state.paper && state.paper.symbol) || "") + ".",
+      });
+    }
+  }
+  if (!status.ready && state.best) state.best.wasReady = false;
+  if (state.offline) {
+    /* Signals refresh from renderLocalSignals callers. */
+  }
 }
 
 function setBestSetup(on) {
-  state.best = state.best || { on: false };
+  state.best = state.best || { on: false, wasReady: false };
   state.best.on = !!on;
+  state.best.wasReady = false;
   saveBest();
   if (state.best.on) {
     state.strat.pick = "edge";
@@ -2741,8 +2802,17 @@ function setBestSetup(on) {
     if (pick) pick.value = "edge";
     const box = $("strat-auto-on");
     if (box) box.checked = true;
+    state.int.gate = true;
+    const intGate = $("int-gate");
+    if (intGate) intGate.checked = true;
+    try {
+      localStorage.setItem(INT_KEY, JSON.stringify({ gate: true }));
+    } catch (error) {
+      /* Gate still holds for this visit. */
+    }
     scheduleEdgeFrames();
     loadEdgeFrames(true).catch(() => {});
+    loadInternals(true).catch(() => {});
   }
   renderBestSetup();
   renderStrategies();
@@ -2750,7 +2820,7 @@ function setBestSetup(on) {
   if (state.offline) renderLocalSignals();
   else runSafe(false);
   $("status").textContent = state.best.on
-    ? "Best setup Auto is on. It only offers Edge buys when every gate is green. Turn Auto on; Yes still required."
+    ? "Best setup Auto is on. Loading timeframes and internals. Turn Auto on; Yes still required."
     : "Best setup Auto is off.";
 }
 
@@ -4653,7 +4723,7 @@ function stopAuto(message) {
 
 function speakWarning(item) {
   if (!state.voice || !item || !item.detail) return;
-  const kinds = { steam: 1, dots: 1, squeeze: 1, edge: 1, strategy: 1, process: 1 };
+  const kinds = { steam: 1, dots: 1, squeeze: 1, edge: 1, strategy: 1, best: 1, process: 1 };
   if (item.side !== "buy" && item.side !== "sell" && !kinds[item.kind]) return;
   const key = [item.symbol, item.date, item.kind, item.side].join("|");
   let heard = [];
@@ -4682,6 +4752,7 @@ function syncTriggerChecks() {
     "trig-squeeze": "squeeze",
     "trig-edge": "edge",
     "trig-strategy": "strategy",
+    "trig-best": "best",
     "trig-process": "process",
   };
   Object.keys(map).forEach((id) => {
@@ -4741,6 +4812,18 @@ async function warnDesk() {
             });
           }
         }
+        if (triggers.best !== false && state.best && state.best.on && symbol === current) {
+          const status = bestSetupStatus();
+          if (status.ready) {
+            speakWarning({
+              symbol,
+              date: closed,
+              kind: "best",
+              side: "buy",
+              detail: "Buy warning. Best setup is ready on " + name + ".",
+            });
+          }
+        }
       }
       return;
     }
@@ -4748,7 +4831,7 @@ async function warnDesk() {
       const report = await getJSON("/api/voice?symbols=" + encodeURIComponent(symbols.join(",")));
       (report.items || []).forEach(speakWarning);
     }
-    if ((triggers.edge || triggers.strategy) && current && state.market && state.market.bars) {
+    if ((triggers.edge || triggers.strategy || triggers.best !== false) && current && state.market && state.market.bars) {
       const bars = PaperFrames.closedBars(state.market.bars, chartCrypto());
       const name = pinLabel(current);
       const closed = closedDate(bars) || "";
@@ -4776,6 +4859,15 @@ async function warnDesk() {
             detail: (pick.call === "BUY" ? "Buy warning. " : "Sell warning. ") + name + ". " + pick.name + " on the daily.",
           });
         }
+      }
+      if (triggers.best !== false && state.best && state.best.on && bestSetupStatus().ready) {
+        speakWarning({
+          symbol: current,
+          date: closed,
+          kind: "best",
+          side: "buy",
+          detail: "Buy warning. Best setup is ready on " + name + ".",
+        });
       }
     }
   } catch (error) {
@@ -4853,7 +4945,9 @@ async function autoTick() {
       return;
     }
     const traded = await autoTrade();
-    $("status").textContent = traded || "Auto is on. Refreshing the market quote.";
+    renderBestSetup();
+    if (state.offline) renderLocalSignals();
+    $("status").textContent = traded || (state.best && state.best.on && bestSetupStatus().ready ? "Best setup ready. Waiting for your Yes if a buy warning is open." : "Auto is on. Refreshing the market quote.");
     nudgeLearn("auto");
   } catch (error) {
     state.auto = false;
@@ -5107,6 +5201,7 @@ if (bestSetupBtn) {
   ["trig-squeeze", "squeeze"],
   ["trig-edge", "edge"],
   ["trig-strategy", "strategy"],
+  ["trig-best", "best"],
   ["trig-process", "process"],
 ].forEach(([id, key]) => {
   const box = $(id);
