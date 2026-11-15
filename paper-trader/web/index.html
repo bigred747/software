@@ -300,6 +300,10 @@ plot Sell = close crosses below baseline;</textarea>
           </select>
           <label class="strat-switch"><input id="strat-auto-on" type="checkbox"> Let Auto place paper trades from it</label>
         </div>
+        <div class="best-setup-box">
+          <button id="best-setup" type="button" class="best-setup-btn" aria-pressed="false">Best setup Auto</button>
+          <p id="best-setup-note" class="muted">Off. Turns on only the strictest paper buys: Edge all five green, most timeframes lined up, internals mostly supportive, today’s green scan list, and at most three new buys a Denver day. Still asks Yes. Not a forecast.</p>
+        </div>
         <p id="strat-auto-note" class="muted">Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.</p>
         <h3>Desk triggers</h3>
         <p class="muted">Voice and status alerts for closed-bar events on the open market and pinned names. Paper only. Not a forecast.</p>

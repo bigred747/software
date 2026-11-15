@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Best setup Auto (1.9.60)
+
+**Best setup Auto** on Strategies arms the strictest paper-buy gate. With Auto and strategy follow on, it only offers an Edge buy when all of these are green on closed bars: Edge 5/5 BUY, most timeframes buying or holding (at least two-thirds), internals Supportive (or Mixed 55+ with more good than bad), SMA stack lined up, weekly and monthly multi-TF on, the open market in today’s green scan list, and fewer than three new paper buys that Denver day. The second warning still asks Yes. Green **Best setup** signal lights when every gate is ready. Not a forecast.
+
 ## Squeeze · TMO · B4 · stack · MTF (1.9.59)
 
 The four-study combo now also needs **multi-timeframe agreement**: completed weekly and monthly bars must show true momentum above its signal and close above that frame's 20-bar EMA. Daily legs stay the desk's squeeze release, TMO, B4 trend, and SMA stack (5>9>21>50). This desk's own closed-bar math only — not a third-party or trademarked study. Past bars only. Not a forecast.

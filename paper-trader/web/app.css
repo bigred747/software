@@ -676,6 +676,11 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 .safe-btn.ok{background:#12803f;border-color:#3ddc97;color:#fff}
 .safe-btn.warn{background:#8a6a12;border-color:#ffd166;color:#fff}
 .safe-btn.bad{background:#a12a38;border-color:#ff6b7a;color:#fff}
+.best-setup-box{margin:10px 0 4px;display:grid;gap:8px}
+.best-setup-btn{font-weight:700;border:1px solid #3a4656;background:#1c242c;color:var(--text,#e6edf3);padding:10px 14px;border-radius:10px;text-align:left}
+.best-setup-btn.on{background:#0f3d2a;border-color:#2f6b4f;color:#d8ffe9}
+.best-setup-btn.ready{background:#12803f;border-color:#3ddc97;color:#fff;box-shadow:inset 0 0 0 1px rgba(61,220,151,.35)}
+.best-setup-btn.ready::before{content:"";display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:#9dffc7;vertical-align:middle}
 .safe-list{list-style:none;margin:6px 0 0;padding:0;font-size:12px;display:grid;gap:3px}
 .safe-list li::before{content:"OK  ";font-weight:700;color:#3ddc97}
 .safe-list li.warn::before{content:"CHECK  ";color:#ffd166}
