@@ -674,11 +674,16 @@ footer { display: none; }
 .strat-levels div{display:flex;flex-direction:column}
 .strat-levels dt{font-size:11px;opacity:.7}
 .strat-levels dd{margin:0;font-weight:600}
-.call-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;background:#2a3442}
+.call-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;background:#2a3442;color:#d7dde8;line-height:1.4;white-space:nowrap}
 .call-pill.buy{background:#12663f;color:#d8ffe9}
 .call-pill.sell{background:#7a1f2b;color:#ffe0e4}
 .call-pill.hold{background:#1d4f8a;color:#dcebff}
+.call-pill.wait{background:#3a4250;color:#d7dde8}
 tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
+#strat-board td,#strat-sweep-body td{vertical-align:middle}
+#strat-board td:first-child,#strat-sweep-body td:first-child{min-width:11.5rem}
+#strat-board td:nth-child(2),#strat-sweep-body td:nth-child(2){text-align:center;white-space:nowrap}
+#strat-board td:nth-child(n+3),#strat-sweep-body td:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 
 .safe-box{margin:8px 0}
 .safe-btn{width:100%;font-weight:700;border:1px solid #3a4656;background:#1c242c;color:var(--text,#e6edf3);padding:10px 12px;border-radius:10px}
@@ -1098,9 +1103,9 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="strategies">
         <h2>Strategies</h2>
-        <p id="strat-lead" class="muted">Classic public closed-bar rules, this desk's four-study combo (squeeze · TMO · B4 · SMA stack), and CCI zoom / snap-back. Each is scored on this market's own history. The ranking looks backward. Past bars only. Not a forecast, and none of these is a third-party or trademarked system.</p>
-        <div class="table-wrap">
-          <table>
+        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · B4 · stack and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. Scored on this market's own closed bars. The ranking looks backward. Not a forecast.</p>
+        <div class="table-wrap strat-board-wrap">
+          <table class="strat-board-table">
             <thead>
               <tr><th>Strategy</th><th>Now</th><th>Trades</th><th>Wins</th><th>Result</th><th>Hold</th><th>Worst trade</th></tr>
             </thead>
@@ -5573,7 +5578,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.56";
+const VERSION = "1.9.57";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -8151,12 +8156,13 @@ function renderStrategies() {
     tr.setAttribute("aria-label", "Test " + row.name + " on this market");
     tr.dataset.strategy = row.id;
     const pill = document.createElement("span");
-    pill.className = "call-pill " + row.call.toLowerCase();
-    pill.textContent = row.call;
+    const call = row.ready && row.call ? row.call : "WAIT";
+    pill.className = "call-pill " + String(call).toLowerCase();
+    pill.textContent = call;
     addCells(tr, [
       row.name + " · " + row.who,
       "",
-      row.ready ? String(row.trades) : "—",
+      row.ready ? String(row.trades || 0) : "—",
       row.ready && row.trades ? Math.round(row.winRate * 100) + "%" : "—",
       row.ready ? { text: signedPercent(row.total), cls: row.total > 0 ? "up" : row.total < 0 ? "down" : "" } : "—",
       row.ready ? signedPercent(row.hold) : "—",

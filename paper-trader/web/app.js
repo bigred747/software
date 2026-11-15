@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.56";
+const VERSION = "1.9.57";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -2658,12 +2658,13 @@ function renderStrategies() {
     tr.setAttribute("aria-label", "Test " + row.name + " on this market");
     tr.dataset.strategy = row.id;
     const pill = document.createElement("span");
-    pill.className = "call-pill " + row.call.toLowerCase();
-    pill.textContent = row.call;
+    const call = row.ready && row.call ? row.call : "WAIT";
+    pill.className = "call-pill " + String(call).toLowerCase();
+    pill.textContent = call;
     addCells(tr, [
       row.name + " · " + row.who,
       "",
-      row.ready ? String(row.trades) : "—",
+      row.ready ? String(row.trades || 0) : "—",
       row.ready && row.trades ? Math.round(row.winRate * 100) + "%" : "—",
       row.ready ? { text: signedPercent(row.total), cls: row.total > 0 ? "up" : row.total < 0 ? "down" : "" } : "—",
       row.ready ? signedPercent(row.hold) : "—",

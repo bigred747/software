@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Strategies board layout (1.9.57)
+
+Every Strategies row — Edge through the four-study combo, CCI zoom, CCI snap-back, and the rest — uses the same columns: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. WAIT pills and numeric columns stay aligned with the classic closed-bar ranking table.
+
 ## CCI zoom and snap-back (1.9.56)
 
 Strategies adds **CCI zoom zone** and **CCI snap-back** right under the four-study combo. Zoom up buys when CCI(50) crosses above +100 and exits when it falls back under +100. Snap-back up buys when, while still in zoom up, CCI(5) was more than 150 points under CCI(50) and that gap then closes. Exit on a snap-back down fire or leaving zoom up. Zoom down is shown for context; this long-only desk does not short. Classic public CCI rules. Not a forecast.
