@@ -962,7 +962,7 @@
   const EDGE_FEE = 0.001;
   const EDGE_WARM = 50;
   const EDGE_DOTS = 5;
-  const EDGE_TRAIL = 2;
+  const EDGE_TRAIL = 2.5;
   const EDGE_SCORE = 5;
   const PRO_RISK = 0.01;
 
@@ -1308,7 +1308,8 @@
       const now = squeeze[index];
       const prior = squeeze[index - 1];
       const checks = {
-        dots: dots[index] >= EDGE_DOTS,
+        // First closed bar that reaches exactly five squeeze dots — not every later day still in the squeeze.
+        dots: dots[index] === EDGE_DOTS,
         above: now != null && now > 0,
         rising: now != null && prior != null && now >= prior,
         tmo: tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index],
@@ -1669,7 +1670,7 @@
   }
 
   const STRATEGY_INFO = {
-    edge: { name: "Edge · five checks", who: "This bot", idea: "Enters when all five checks turn on together on a closed bar. Exits on a momentum turn or the trailing stop." },
+    edge: { name: "Edge · five checks", who: "This bot", idea: "Enters when all five checks turn on together on a closed bar: the first bar that reaches exactly five squeeze dots, squeeze momentum above zero and rising, true momentum above its signal, and close under the upper Bollinger band. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
       name: "Squeeze · TMO · B4 · stack",
@@ -2223,7 +2224,7 @@
     return { ready: total >= 60, label, score, coverage: total, parts, missing, asOf: dated ? dated[dated.length - 1].date : "" };
   }
 
-  const EDGE_NAMES = { dots: "5+ squeeze dots", above: "squeeze momentum above 0", rising: "squeeze momentum rising", tmo: "true momentum above signal", band: "under the upper Bollinger band" };
+  const EDGE_NAMES = { dots: "exactly 5 squeeze dots", above: "squeeze momentum above 0", rising: "squeeze momentum rising", tmo: "true momentum above signal", band: "under the upper Bollinger band" };
 
   function plainPrice(value) {
     if (value == null || !Number.isFinite(Number(value))) return "—";

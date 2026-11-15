@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.57";
+const VERSION = "1.9.58";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -2019,7 +2019,7 @@ function fillTrades(body, trades) {
 }
 
 const EDGE_CHECKS = [
-  ["dots", "5+ squeeze dots"],
+  ["dots", "Exactly 5 squeeze dots"],
   ["above", "Squeeze momentum above 0"],
   ["rising", "Squeeze momentum rising"],
   ["tmo", "True momentum above signal"],

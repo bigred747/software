@@ -42,7 +42,7 @@ The desk is a wide layout on a computer: markets on the left, the daily chart in
 
 ## Edge
 
-Edge is the desk's buy and sell indicator. It joins the 5-dot squeeze, true momentum (14, 5, 3), and a Bollinger filter. Edge buys at the next bar's open when five checks turn on together on a closed bar: five or more squeeze dots, squeeze momentum above zero, squeeze momentum rising, the true momentum main line above its signal line, and the close under the upper Bollinger band (20 days, two deviations). The starting stop is two average ranges under that open. While it holds, the stop trails two average ranges under the best close and never moves down. A close under that stop, or squeeze momentum dropping below zero, sells at the next open.
+Edge is the desk's buy and sell indicator. It joins the 5-dot squeeze, true momentum (14, 5, 3), and a Bollinger filter. Edge buys at the next bar's open when five checks turn on together on a closed bar: the first bar that reaches exactly five squeeze dots (not every later day still in the squeeze), squeeze momentum above zero, squeeze momentum rising, the true momentum main line above its signal line, and the close under the upper Bollinger band (20 days, two deviations). The starting stop is 2.5 average ranges under that open. While it holds, the stop trails 2.5 average ranges under the best close and never moves down. A close under that stop, or squeeze momentum dropping below zero, sells at the next open.
 
 These settings were tested on two years of real daily bars with 10 basis points each way for the fee and slippage. On BTC, ETH, XRP, XLM, SOL, SPY, QQQ, AAPL, NVDA, MSFT, TSLA, and ES, Edge averaged +14.3% while buy-and-hold averaged −2.2%, and it was positive on 10 of those 12. On 20 other markets that were not used to pick the settings, Edge averaged +28.1% while buy-and-hold averaged +19.3%, and it was positive on 17 of those 20. About one trade in three made money, so most of the gain came from a few large wins. The worst drop averaged about 22% to 25%. Adding the Bollinger check lifted those two sets from +10.2% and +27.1%. A 200-day EMA filter hurt. MACD, VWAP, and POC filters were mixed. ATR profit targets and extra volatility filters added noise. Changing the dots to 4 or 6, or the true momentum length to 10 or 21, made no reliable difference, so 5 dots and true momentum 14 stay. That is the past. It is not a forecast.
 
@@ -94,6 +94,10 @@ Version 1.9.38 adds a broker-style paper order ticket under the Trade buttons: *
 The ticket buys on your own call. The Trade button still follows the scanner's green list.
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
+
+## Edge five-check tune (1.9.58)
+
+Edge still needs all five checks on a closed bar, then buys the next open. The squeeze-dot check now fires only on the first bar that reaches exactly five dots (not every later day still in the squeeze), and the trail uses 2.5 ATR under the best close. Same public closed-bar pieces, 10 bps each way, no look-ahead. Past bars only — not a forecast.
 
 ## Strategies board layout (1.9.57)
 
