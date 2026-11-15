@@ -95,9 +95,9 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
-## Four-study combo strategy (1.9.54)
+## Four-study combo on Strategies (1.9.55)
 
-Strategies adds **Squeeze · TMO · B4 · stack**: this desk's squeeze release, true momentum above signal, B4 trend (close above 50/200 EMAs, MACD above signal, RSI under 70), and the SMA stack lined up 5 over 9 over 21 over 50 — all on the same closed bar. Stop under that bar's low. Exit on a TMO cross down or a close under the 50 EMA. Own closed-bar math only. Not a forecast.
+Strategies lists **Squeeze · TMO · B4 · stack** third on the board (under Squeeze release). It: this desk's squeeze release, true momentum above signal, B4 trend (close above 50/200 EMAs, MACD above signal, RSI under 70), and the SMA stack lined up 5 over 9 over 21 over 50 — all on the same closed bar. Stop under that bar's low. Exit on a TMO cross down or a close under the 50 EMA. Own closed-bar math only. Not a forecast.
 
 ## Strategies Buy and Sell (1.9.53)
 

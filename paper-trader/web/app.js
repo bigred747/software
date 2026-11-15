@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.54";
+const VERSION = "1.9.55";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -2534,7 +2534,7 @@ function whenIdle() {
 }
 
 const STRAT_KEY = "paper_trader_strategy_v1";
-const STRAT_IDS = ["edge", "squeeze", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow", "quad"];
+const STRAT_IDS = ["edge", "squeeze", "quad", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"];
 const TRIG_KEY = "paper_trader_triggers_v1";
 
 function strategyIds() {
