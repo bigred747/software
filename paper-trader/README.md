@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Squeeze · TMO · B4 · stack · MTF (1.9.59)
+
+The four-study combo now also needs **multi-timeframe agreement**: completed weekly and monthly bars must show true momentum above its signal and close above that frame's 20-bar EMA. Daily legs stay the desk's squeeze release, TMO, B4 trend, and SMA stack (5>9>21>50). This desk's own closed-bar math only — not a third-party or trademarked study. Past bars only. Not a forecast.
+
 ## Edge five-check tune (1.9.58)
 
 Edge still needs all five checks on a closed bar, then buys the next open. The squeeze-dot check now fires only on the first bar that reaches exactly five dots (not every later day still in the squeeze), and the trail uses 2.5 ATR under the best close. Same public closed-bar pieces, 10 bps each way, no look-ahead. Past bars only — not a forecast.
@@ -109,7 +113,7 @@ Strategies adds **CCI zoom zone** and **CCI snap-back** right under the four-stu
 
 ## Four-study combo on Strategies (1.9.55)
 
-Strategies lists **Squeeze · TMO · B4 · stack** third on the board (under Squeeze release): this desk's squeeze release, true momentum above signal, B4 trend (close above 50/200 EMAs, MACD above signal, RSI under 70), and the SMA stack lined up 5 over 9 over 21 over 50 — all on the same closed bar. Stop under that bar's low. Exit on a TMO cross down or a close under the 50 EMA. Own closed-bar math only. Not a forecast.
+Strategies lists **Squeeze · TMO · B4 · stack · MTF** third on the board (under Squeeze release): this desk's squeeze release, true momentum above signal, B4 trend (close above 50/200 EMAs, MACD above signal, RSI under 70), the SMA stack lined up 5 over 9 over 21 over 50, and completed weekly plus monthly agreement — all closed-bar. Stop under that bar's low. Exit on a TMO cross down or a close under the 50 EMA. Own closed-bar math only. Not a forecast.
 
 ## Strategies Buy and Sell (1.9.53)
 

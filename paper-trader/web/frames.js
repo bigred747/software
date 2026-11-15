@@ -1617,6 +1617,98 @@
     };
   }
 
+  function aggregateIndexed(daily, keyFn) {
+    const groups = [];
+    (daily || []).forEach((bar, index) => {
+      const key = keyFn(bar.date);
+      const last = groups[groups.length - 1];
+      if (!last || last.key !== key) {
+        groups.push({
+          key,
+          date: bar.date,
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close,
+          volume: bar.volume,
+          end: index,
+        });
+        return;
+      }
+      last.high = Math.max(last.high, bar.high);
+      last.low = Math.min(last.low, bar.low);
+      last.close = bar.close;
+      last.volume += bar.volume;
+      last.date = bar.date;
+      last.end = index;
+    });
+    return groups;
+  }
+
+  function higherTrendOk(bars, at) {
+    if (!bars || at < 25 || at >= bars.length) return false;
+    const slice = bars.slice(0, at + 1);
+    const closes = slice.map((bar) => bar.close);
+    const tmo = trueMomentum(slice, 14, 5, 3);
+    const average = ema(closes, 20);
+    const last = at;
+    return (
+      tmo.main[last] != null &&
+      tmo.signal[last] != null &&
+      tmo.main[last] > tmo.signal[last] &&
+      average[last] != null &&
+      closes[last] > average[last]
+    );
+  }
+
+  // Completed higher-timeframe bias only (drops the forming week/month). No look-ahead.
+  function multiFrameLongFlags(daily, end) {
+    const flags = new Array(end).fill(false);
+    const through = (daily || []).slice(0, end);
+    if (through.length < 80) return flags;
+    const weekGroups = aggregateIndexed(through, weekKey);
+    const monthGroups = aggregateIndexed(through, (date) => date.slice(0, 7));
+    const weekBars = weekGroups.map((row) => ({ date: row.date, open: row.open, high: row.high, low: row.low, close: row.close, volume: row.volume }));
+    const monthBars = monthGroups.map((row) => ({ date: row.date, open: row.open, high: row.high, low: row.low, close: row.close, volume: row.volume }));
+    const weekOk = new Array(weekBars.length).fill(false);
+    const monthOk = new Array(monthBars.length).fill(false);
+    for (let index = 25; index < weekBars.length; index += 1) weekOk[index] = higherTrendOk(weekBars, index);
+    for (let index = 25; index < monthBars.length; index += 1) monthOk[index] = higherTrendOk(monthBars, index);
+    let weekSignal = false;
+    let monthSignal = false;
+    let weekCursor = 0;
+    let monthCursor = 0;
+    for (let day = 0; day < end; day += 1) {
+      while (weekCursor < weekGroups.length - 1 && weekGroups[weekCursor].end <= day) {
+        if (weekCursor >= 25) weekSignal = weekOk[weekCursor];
+        weekCursor += 1;
+      }
+      while (monthCursor < monthGroups.length - 1 && monthGroups[monthCursor].end <= day) {
+        if (monthCursor >= 25) monthSignal = monthOk[monthCursor];
+        monthCursor += 1;
+      }
+      flags[day] = weekSignal && monthSignal;
+    }
+    return flags;
+  }
+
+  function multiFrameSnapshot(daily, end) {
+    const through = (daily || []).slice(0, end);
+    const weekGroups = aggregateIndexed(through, weekKey);
+    const monthGroups = aggregateIndexed(through, (date) => date.slice(0, 7));
+    const weekBars = weekGroups.slice(0, Math.max(0, weekGroups.length - 1)).map((row) => ({ date: row.date, open: row.open, high: row.high, low: row.low, close: row.close, volume: row.volume }));
+    const monthBars = monthGroups.slice(0, Math.max(0, monthGroups.length - 1)).map((row) => ({ date: row.date, open: row.open, high: row.high, low: row.low, close: row.close, volume: row.volume }));
+    const weekOk = weekBars.length > 25 ? higherTrendOk(weekBars, weekBars.length - 1) : false;
+    const monthOk = monthBars.length > 25 ? higherTrendOk(monthBars, monthBars.length - 1) : false;
+    return {
+      weekOk,
+      monthOk,
+      mtfOk: weekOk && monthOk,
+      weekBars: weekBars.length,
+      monthBars: monthBars.length,
+    };
+  }
+
   function runRule(list, end, warm, rule) {
     const trades = [];
     let open = null;
@@ -1673,9 +1765,9 @@
     edge: { name: "Edge · five checks", who: "This bot", idea: "Enters when all five checks turn on together on a closed bar: the first bar that reaches exactly five squeeze dots, squeeze momentum above zero and rising, true momentum above its signal, and close under the upper Bollinger band. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
-      name: "Squeeze · TMO · B4 · stack",
-      who: "Four desk studies",
-      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, B4 trend agrees (close above the 50 and 200 EMAs, MACD above signal, RSI under 70), and the SMA stack is lined up 5 over 9 over 21 over 50. Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. This desk's own closed-bar math only — not a third-party study.",
+      name: "Squeeze · TMO · B4 · stack · MTF",
+      who: "Four desk studies · multi-TF",
+      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, B4 trend agrees (close above the 50 and 200 EMAs, MACD above signal, RSI under 70), the SMA stack is lined up 5 over 9 over 21 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
     },
     ccizoom: {
       name: "CCI zoom zone",
@@ -1792,7 +1884,7 @@
       });
     } else notReady("squeeze", "Needs at least 60 bars.");
 
-    if (end >= 230) {
+    if (end >= 260) {
       const study = compression(list, 20);
       const mom = study.momentum;
       const on = study.level.map((value) => value >= 2);
@@ -1806,6 +1898,7 @@
       const s9 = stack[1].values;
       const s21 = stack[2].values;
       const s50 = stack[3].values;
+      const mtfFlags = multiFrameLongFlags(list, end);
       const rising = (index) => mom[index] != null && mom[index - 1] != null && mom[index] > 0 && mom[index] > mom[index - 1];
       const tmoUp = (index) => tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index];
       const b4Ok = (index) =>
@@ -1826,10 +1919,13 @@
         s5[index] > s9[index] &&
         s9[index] > s21[index] &&
         s21[index] > s50[index];
-      const run = runRule(list, end, 205, {
+      const mtfOk = (index) => !!mtfFlags[index];
+      const run = runRule(list, end, 240, {
         enter: (index) => {
           const fired = !on[index] && on[index - 1];
-          return fired && rising(index) && tmoUp(index) && b4Ok(index) && stackOk(index) ? { stop: list[index].low } : null;
+          return fired && rising(index) && tmoUp(index) && b4Ok(index) && stackOk(index) && mtfOk(index)
+            ? { stop: list[index].low }
+            : null;
         },
         exit: (index) => {
           const tmoDown =
@@ -1845,15 +1941,19 @@
       });
       const last = end - 1;
       const fired = !on[last] && on[last - 1];
+      const snap = multiFrameSnapshot(list, end);
       finish("quad", run, {
         fired,
         squeezeOk: fired && rising(last),
         tmoOk: tmoUp(last),
         b4Ok: b4Ok(last),
         stackOk: stackOk(last),
+        weekOk: snap.weekOk,
+        monthOk: snap.monthOk,
+        mtfOk: snap.mtfOk,
         momentum: mom[last],
       });
-    } else notReady("quad", "Needs at least 230 bars.");
+    } else notReady("quad", "Needs at least 260 bars for weekly and monthly multi-TF.");
 
     if (end >= 60) {
       const slow = cci(list, 50);

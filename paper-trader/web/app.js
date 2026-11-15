@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.58";
+const VERSION = "1.9.59";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -2621,6 +2621,8 @@ function cardLine(row) {
       row.tmoOk ? "TMO on" : "TMO off",
       row.b4Ok ? "B4 on" : "B4 off",
       row.stackOk ? "SMA stack on" : "SMA stack off",
+      row.weekOk ? "Weekly on" : "Weekly off",
+      row.monthOk ? "Monthly on" : "Monthly off",
     ].join(" · ");
     return legs + "." + stop;
   }
