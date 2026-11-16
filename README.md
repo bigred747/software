@@ -55,7 +55,7 @@ The header shows the symbol, last price, change, and quote time. Bitcoin, Ether,
 
 **Download the whole bot:**
 
-[Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-pro-1106/Paper-Trader.zip)
+[Paper-Trader.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/paper-trader-chart-panes-1106/Paper-Trader.zip)
 
 SHA-256 `92afbfd9291c86b979e37637dc9b792f1bcf9d402a23c67ee3c0045c6c4c9de6`
 
