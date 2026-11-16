@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.62";
+const VERSION = "1.9.63";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -4300,9 +4300,6 @@ function drawCandles(retry) {
     });
   }
   paintChartFlags(history, bars, squeeze[last] || 0, lastMomentum, priorMomentum);
-  drawTmo();
-  drawSqueeze();
-  drawCci();
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
   (state.paper.markers || []).forEach((marker) => {
     const index = byDate.get(marker.date);
@@ -4327,6 +4324,22 @@ function drawCandles(retry) {
   const lastTone = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
   drawPriceTag(ctx, formatPrice(lastBar.close), plotRight, width, y(lastBar.close), priceBottom, lastTone, pad + last * slot + slot / 2);
   drawPriceLine(ctx, bars, pad, slot, y, plotRight, priceBottom, height, width);
+  const paneOpen = (id) => {
+    const pane = document.querySelector('.study-pane[data-pane="' + id + '"]');
+    return !pane || pane.dataset.expanded !== "false";
+  };
+  if (paneOpen("tmo")) drawTmo();
+  if (paneOpen("sqz")) drawSqueeze();
+  if (paneOpen("cci")) drawCci();
+  if (state.studiesWin && !state.studiesWin.closed) {
+    try {
+      drawTmo(state.studiesWin.document.getElementById("tmo"));
+      drawSqueeze(state.studiesWin.document.getElementById("sqz"));
+      drawCci(state.studiesWin.document.getElementById("cci"));
+    } catch (error) {
+      state.studiesWin = null;
+    }
+  }
 }
 
 function drawPriceTag(ctx, text, plotRight, width, at, priceBottom, tone, fromX) {
@@ -4627,8 +4640,8 @@ function paintChartFlags(history, bars, squeezeLevel, momentum, priorMomentum) {
   });
 }
 
-function drawTmo() {
-  const canvas = $("rsi-chart");
+function drawTmo(target) {
+  const canvas = target || $("rsi-chart");
   if (!state.market || !canvas) return;
   const history = sliceToCursor(state.market.bars);
   if (!history.length) return;
@@ -4639,7 +4652,7 @@ function drawTmo() {
   const signal = study.signal.slice(dropped);
   const up = study.up.slice(dropped);
   const down = study.down.slice(dropped);
-  const ctx = prepare(canvas, 300, 118);
+  const ctx = prepare(canvas, 300, Math.max(118, canvas.clientHeight || 118));
   const width = canvas.paperWidth;
   const height = canvas.paperHeight;
   const layout = studyLayout(width, main.length);
@@ -4648,7 +4661,7 @@ function drawTmo() {
   const slot = layout.slot;
   const limit = study.length;
   const y = (value) => 22 + ((limit - value) / (limit * 2)) * (height - 30);
-  state.tmoMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  if (!target) state.tmoMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.fillStyle = "rgba(255, 77, 77, 0.12)";
   ctx.fillRect(pad, y(limit), plotRight - pad, Math.max(1, y(study.ob) - y(limit)));
   ctx.fillStyle = "rgba(61, 220, 151, 0.12)";
@@ -4706,8 +4719,8 @@ function drawTmo() {
   }
 }
 
-function drawSqueeze() {
-  const canvas = $("sqz-chart");
+function drawSqueeze(target) {
+  const canvas = target || $("sqz-chart");
   if (!state.market || !canvas) return;
   const history = sliceToCursor(state.market.bars);
   if (!history.length) return;
@@ -4717,14 +4730,14 @@ function drawSqueeze() {
   const allMomentum = compressed.momentum;
   const momentum = allMomentum.slice(dropped);
   const squeeze = compressed.level.slice(dropped);
-  const ctx = prepare(canvas, 300, 88);
+  const ctx = prepare(canvas, 300, Math.max(88, canvas.clientHeight || 88));
   const width = canvas.paperWidth;
   const height = canvas.paperHeight;
   const layout = studyLayout(width, momentum.length);
   const pad = layout.pad;
   const plotRight = layout.plotRight;
   const slot = layout.slot;
-  state.sqzMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  if (!target) state.sqzMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
   const histoTop = 20;
   const histoBottom = height - 8;
   const zero = (histoTop + histoBottom) / 2;
@@ -4760,8 +4773,8 @@ function drawSqueeze() {
   }
 }
 
-function drawCci() {
-  const canvas = $("cci-chart");
+function drawCci(target) {
+  const canvas = target || $("cci-chart");
   if (!state.market || !canvas || !PaperFrames.cciPane) return;
   const history = sliceToCursor(state.market.bars);
   if (!history.length) return;
@@ -4773,14 +4786,14 @@ function drawCci() {
   const fast = pane.fast.slice(dropped);
   const up = pane.up.slice(dropped);
   const down = pane.down.slice(dropped);
-  const ctx = prepare(canvas, 300, 118);
+  const ctx = prepare(canvas, 300, Math.max(118, canvas.clientHeight || 118));
   const width = canvas.paperWidth;
   const height = canvas.paperHeight;
   const layout = studyLayout(width, slow.length);
   const pad = layout.pad;
   const plotRight = layout.plotRight;
   const slot = layout.slot;
-  state.cciMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  if (!target) state.cciMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
   const high = pane.high;
   const low = pane.low;
   const y = (value) => 22 + ((high - value) / (high - low || 1)) * (height - 30);
@@ -5873,6 +5886,154 @@ bindZoom($("rsi-chart"), "chart");
 bindZoom($("sqz-chart"), "chart");
 bindZoom($("cci-chart"), "chart");
 bindZoom($("frame-preview"), "preview");
+
+const STUDY_PANE_KEY = "paperTraderStudyPanes";
+
+function readStudyPanes() {
+  const chosen = { price: true, tmo: true, sqz: true, cci: true, big: false };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STUDY_PANE_KEY) || "{}");
+    if (saved && typeof saved === "object") {
+      ["price", "tmo", "sqz", "cci"].forEach((id) => {
+        if (typeof saved[id] === "boolean") chosen[id] = saved[id];
+      });
+      if (typeof saved.big === "boolean") chosen.big = saved.big;
+    }
+  } catch (error) {
+    /* Keep the open panes. */
+  }
+  return chosen;
+}
+
+function saveStudyPanes(next) {
+  try {
+    localStorage.setItem(STUDY_PANE_KEY, JSON.stringify(next));
+  } catch (error) {
+    /* Choice still holds for this page. */
+  }
+}
+
+function setStudyPane(id, open) {
+  const pane = document.querySelector('.study-pane[data-pane="' + id + '"]');
+  if (!pane) return;
+  pane.dataset.expanded = open ? "true" : "false";
+  const roll = pane.querySelector(".study-roll");
+  if (roll) {
+    roll.setAttribute("aria-expanded", open ? "true" : "false");
+    roll.textContent = open ? "▾" : "▸";
+  }
+}
+
+function paintStudyPanes() {
+  const saved = readStudyPanes();
+  ["price", "tmo", "sqz", "cci"].forEach((id) => setStudyPane(id, saved[id] !== false));
+  document.querySelectorAll(".study-pane").forEach((pane) => {
+    pane.classList.toggle("big", !!saved.big);
+  });
+  const expand = $("studies-expand-all");
+  if (expand) expand.textContent = saved.big ? "Compact studies ▴" : "Expand studies ▾";
+}
+
+function openStudiesWindow(focus) {
+  if (!state.market || !state.paper) {
+    setStatus("Open a market first, then open TMO · Squeeze · CCI.");
+    return;
+  }
+  const symbol = state.paper.symbol || "Chart";
+  const win = window.open("", "paper-studies", "popup=yes,width=980,height=860,left=48,top=48");
+  if (!win) {
+    setStatus("The studies window was blocked. Allow popups for this desk, or expand the panes below the price chart.");
+    return;
+  }
+  win.document.open();
+  win.document.write(
+    "<!DOCTYPE html><title>" + symbol + " · Studies</title>" +
+    "<body style=\"margin:0;background:#05070a;color:#e7edf3;font:14px Segoe UI,sans-serif\">" +
+    "<div style=\"display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #1a222c;background:#0d1218\">" +
+    "<button id=\"back\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Back</button>" +
+    "<strong style=\"letter-spacing:.04em\">" + symbol + " · TMO · Squeeze · CCI</strong>" +
+    "<span id=\"note\" style=\"color:#9aa6b2;margin-left:auto\"></span>" +
+    "<button id=\"in\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Zoom in</button>" +
+    "<button id=\"out\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Zoom out</button>" +
+    "</div>" +
+    "<p style=\"margin:8px 14px 0;color:#9aa6b2;font-size:12px\">Same closed-bar studies as the chart. Public math only. Not a forecast.</p>" +
+    "<div style=\"display:flex;flex-direction:column;gap:10px;padding:10px 14px 18px;height:calc(100vh - 78px);box-sizing:border-box\">" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#67e8f9\">TMO 14/5/3</div><canvas id=\"tmo\" style=\"width:100%;height:28vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#facc15\">Squeeze momentum</div><canvas id=\"sqz\" style=\"width:100%;height:22vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#f4f7fb\">CCI 50 · 14 · 5</div><canvas id=\"cci\" style=\"width:100%;height:28vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "</div></body>"
+  );
+  win.document.close();
+  const paint = () => {
+    const view = PaperFrames.zoomBars(sliceToCursor(state.market.bars), state.zoom);
+    const note = win.document.getElementById("note");
+    if (note) note.textContent = view.size + " bars · Edge on the main desk";
+    drawTmo(win.document.getElementById("tmo"));
+    drawSqueeze(win.document.getElementById("sqz"));
+    drawCci(win.document.getElementById("cci"));
+  };
+  const back = win.document.getElementById("back");
+  if (back) back.addEventListener("click", () => win.close());
+  const inn = win.document.getElementById("in");
+  const out = win.document.getElementById("out");
+  if (inn) inn.addEventListener("click", () => {
+    state.zoom = PaperFrames.zoomStep(state.zoom, -1, seenBars().length);
+    paintZoom(seenBars().length);
+    redrawStudies();
+    paint();
+  });
+  if (out) out.addEventListener("click", () => {
+    state.zoom = PaperFrames.zoomStep(state.zoom, 1, seenBars().length);
+    paintZoom(seenBars().length);
+    redrawStudies();
+    paint();
+  });
+  win.addEventListener("resize", paint);
+  requestAnimationFrame(paint);
+  if (focus === "tmo") win.document.getElementById("tmo").scrollIntoView();
+  if (focus === "sqz") win.document.getElementById("sqz").scrollIntoView();
+  if (focus === "cci") win.document.getElementById("cci").scrollIntoView();
+  setStatus("Opened TMO · Squeeze · CCI in a separate window.");
+  state.studiesWin = win;
+}
+
+document.querySelectorAll(".study-roll").forEach((button) => {
+  button.addEventListener("click", () => {
+    const pane = button.closest(".study-pane");
+    if (!pane) return;
+    const id = pane.dataset.pane;
+    const open = pane.dataset.expanded !== "true";
+    setStudyPane(id, open);
+    const saved = readStudyPanes();
+    saved[id] = open;
+    saveStudyPanes(saved);
+    requestAnimationFrame(() => redrawStudies());
+  });
+});
+
+document.querySelectorAll(".study-pop").forEach((button) => {
+  button.addEventListener("click", () => openStudiesWindow(button.dataset.study));
+});
+
+const studiesWindowBtn = $("studies-window");
+if (studiesWindowBtn) studiesWindowBtn.addEventListener("click", () => openStudiesWindow());
+
+const studiesExpandBtn = $("studies-expand-all");
+if (studiesExpandBtn) {
+  studiesExpandBtn.addEventListener("click", () => {
+    const saved = readStudyPanes();
+    saved.big = !saved.big;
+    saved.tmo = true;
+    saved.sqz = true;
+    saved.cci = true;
+    saveStudyPanes(saved);
+    paintStudyPanes();
+    requestAnimationFrame(() => redrawStudies());
+    setStatus(saved.big ? "Study panes expanded. Use Open TMO · Squeeze · CCI for a full window." : "Study panes back to normal size.");
+  });
+}
+
+paintStudyPanes();
 
 boot().then(() => {
   document.body.classList.add("ready");

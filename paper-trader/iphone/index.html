@@ -167,7 +167,7 @@ h2 { font-size: 15px; }
 }
 
 .watch { grid-column: 1; grid-row: 1; overflow: auto; }
-.chart-panel { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; }
+.chart-panel { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; overflow: auto; min-height: 0; }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
 .dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -452,26 +452,83 @@ button.quiet { background: transparent; }
 .chart-flag.alert { background: #101418; color: #facc15; border-color: #facc15; }
 .chart-flag.score { background: #3ddc97; color: #0b1a12; border-color: #6ef0b4; }
 .chart-flag.vwap { background: #6b3fa0; color: #f4e9ff; border-color: #9b6fd0; }
+.study-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+.study-toolbar button {
+  width: auto;
+  min-height: 34px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
 .study-stack {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  gap: 4px;
+  gap: 6px;
   margin-top: 6px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
+.study-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid #1a222c;
+  border-radius: 6px;
+  background: #05070a;
+  overflow: hidden;
+}
+.study-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 2px 6px 2px 2px;
+  background: #0d1218;
+  border-bottom: 1px solid #1a222c;
+  color: #d7e2ea;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.study-pane-head .study-pop { margin-left: auto; min-height: 28px; padding: 2px 8px; font-size: 11px; }
+.study-roll {
+  width: 30px;
+  min-width: 30px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9aa6b2;
+  font-size: 14px;
+  line-height: 1;
+}
+.study-roll[aria-expanded="false"] { transform: rotate(-90deg); }
+.study-pane[data-expanded="false"] canvas { display: none; }
+.study-pane[data-expanded="false"] .study-pane-head { border-bottom: 0; }
 .study-stack canvas {
   display: block;
   width: 100%;
   background: #000;
-  border-radius: 4px;
+  border-radius: 0;
   margin-top: 0;
-  border: 1px solid #1a222c;
+  border: 0;
 }
-#candles { flex: 1 1 auto; min-height: 220px; height: auto; }
-#rsi-chart { height: 118px; flex: 0 0 118px; }
-#sqz-chart { height: 88px; flex: 0 0 88px; }
-#cci-chart { height: 118px; flex: 0 0 118px; }
+.study-pane[data-pane="price"] { flex: 1 1 auto; min-height: 200px; }
+.study-pane[data-pane="price"] #candles { flex: 1 1 auto; min-height: 180px; height: auto; }
+.study-pane[data-pane="tmo"] #rsi-chart { height: 150px; flex: 0 0 150px; }
+.study-pane[data-pane="sqz"] #sqz-chart { height: 120px; flex: 0 0 120px; }
+.study-pane[data-pane="cci"] #cci-chart { height: 150px; flex: 0 0 150px; }
+.study-pane.big[data-pane="tmo"] #rsi-chart,
+.study-pane.big[data-pane="cci"] #cci-chart { height: 240px; flex: 0 0 240px; }
+.study-pane.big[data-pane="sqz"] #sqz-chart { height: 200px; flex: 0 0 200px; }
+.study-pane.big[data-pane="price"] { min-height: 280px; }
 .zoom-bar { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 .zoom-bar button { width: auto; min-height: 36px; padding: 6px 12px; }
 .mood { font-weight: 650; }
@@ -580,16 +637,17 @@ footer { display: none; }
   body[data-tab="chart"] .workspace {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: auto;
     min-height: 0;
     padding-top: 6px;
     padding-bottom: calc(58px + var(--safe-bottom));
+    -webkit-overflow-scrolling: touch;
   }
   body[data-tab="chart"] .chart-panel {
     display: flex;
     flex: 1 1 auto;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
     padding: 8px 10px 6px;
   }
   body[data-tab="chart"] .chart-back { display: inline-flex; }
@@ -634,16 +692,29 @@ footer { display: none; }
   body[data-tab="chart"] .chart-fold { margin-top: 2px; }
   body[data-tab="chart"] .chart-flags { margin-top: 4px; gap: 4px; }
   body[data-tab="chart"] .chart-flag { font-size: 10px; padding: 2px 7px; }
-  body[data-tab="chart"] .study-stack { margin-top: 4px; gap: 3px; }
-  body[data-tab="chart"] #candles {
-    flex: 1 1 auto;
-    height: auto;
-    min-height: 0;
+  body[data-tab="chart"] .study-toolbar { margin-top: 4px; gap: 4px; }
+  body[data-tab="chart"] .study-toolbar button { min-height: 32px; padding: 4px 8px; font-size: 11px; }
+  body[data-tab="chart"] .study-stack {
+    margin-top: 4px;
+    gap: 6px;
+    flex: 0 0 auto;
+    overflow: visible;
+    padding-bottom: 12px;
+  }
+  body[data-tab="chart"] .study-pane[data-pane="price"] { flex: 0 0 auto; min-height: 200px; }
+  body[data-tab="chart"] .study-pane[data-pane="price"] #candles {
+    flex: 0 0 auto;
+    height: 220px;
+    min-height: 200px;
     margin-top: 0;
   }
-  body[data-tab="chart"] #rsi-chart { height: 72px; flex: 0 0 72px; }
-  body[data-tab="chart"] #sqz-chart { height: 56px; flex: 0 0 56px; }
-  body[data-tab="chart"] #cci-chart { height: 72px; flex: 0 0 72px; }
+  body[data-tab="chart"] .study-pane[data-pane="tmo"] #rsi-chart { height: 140px; flex: 0 0 140px; }
+  body[data-tab="chart"] .study-pane[data-pane="sqz"] #sqz-chart { height: 110px; flex: 0 0 110px; }
+  body[data-tab="chart"] .study-pane[data-pane="cci"] #cci-chart { height: 140px; flex: 0 0 140px; }
+  body[data-tab="chart"] .study-pane.big[data-pane="price"] #candles { height: 280px; min-height: 260px; }
+  body[data-tab="chart"] .study-pane.big[data-pane="tmo"] #rsi-chart,
+  body[data-tab="chart"] .study-pane.big[data-pane="cci"] #cci-chart { height: 220px; flex: 0 0 220px; }
+  body[data-tab="chart"] .study-pane.big[data-pane="sqz"] #sqz-chart { height: 180px; flex: 0 0 180px; }
   #mood-clock { width: 56px; height: 56px; }
   .tabbar {
     display: grid;
@@ -1008,11 +1079,42 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       </div>
       <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
       <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
+      <div class="study-toolbar" role="toolbar" aria-label="Study panes">
+        <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
+        <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>
+      </div>
       <div class="study-stack" aria-label="Price and study panes">
-        <canvas id="candles" width="800" height="360" aria-label="Price chart"></canvas>
-        <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
-        <canvas id="sqz-chart" width="800" height="96" aria-label="Squeeze momentum"></canvas>
-        <canvas id="cci-chart" width="800" height="120" aria-label="CCI"></canvas>
+        <section class="study-pane" data-pane="price" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="candles" title="Roll up price">▾</button>
+            <span>Price</span>
+          </div>
+          <canvas id="candles" width="800" height="360" aria-label="Price chart"></canvas>
+        </section>
+        <section class="study-pane" data-pane="tmo" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="rsi-chart" title="Roll up TMO">▾</button>
+            <span>TMO 14/5/3</span>
+            <button type="button" class="study-pop quiet" data-study="tmo">Open ▢</button>
+          </div>
+          <canvas id="rsi-chart" width="800" height="160" aria-label="True momentum"></canvas>
+        </section>
+        <section class="study-pane" data-pane="sqz" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="sqz-chart" title="Roll up squeeze">▾</button>
+            <span>Squeeze momentum</span>
+            <button type="button" class="study-pop quiet" data-study="sqz">Open ▢</button>
+          </div>
+          <canvas id="sqz-chart" width="800" height="130" aria-label="Squeeze momentum"></canvas>
+        </section>
+        <section class="study-pane" data-pane="cci" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="cci-chart" title="Roll up CCI">▾</button>
+            <span>CCI 50 · 14 · 5</span>
+            <button type="button" class="study-pop quiet" data-study="cci">Open ▢</button>
+          </div>
+          <canvas id="cci-chart" width="800" height="160" aria-label="CCI"></canvas>
+        </section>
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
@@ -5784,7 +5886,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.62";
+const VERSION = "1.9.63";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -10004,9 +10106,6 @@ function drawCandles(retry) {
     });
   }
   paintChartFlags(history, bars, squeeze[last] || 0, lastMomentum, priorMomentum);
-  drawTmo();
-  drawSqueeze();
-  drawCci();
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
   (state.paper.markers || []).forEach((marker) => {
     const index = byDate.get(marker.date);
@@ -10031,6 +10130,22 @@ function drawCandles(retry) {
   const lastTone = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
   drawPriceTag(ctx, formatPrice(lastBar.close), plotRight, width, y(lastBar.close), priceBottom, lastTone, pad + last * slot + slot / 2);
   drawPriceLine(ctx, bars, pad, slot, y, plotRight, priceBottom, height, width);
+  const paneOpen = (id) => {
+    const pane = document.querySelector('.study-pane[data-pane="' + id + '"]');
+    return !pane || pane.dataset.expanded !== "false";
+  };
+  if (paneOpen("tmo")) drawTmo();
+  if (paneOpen("sqz")) drawSqueeze();
+  if (paneOpen("cci")) drawCci();
+  if (state.studiesWin && !state.studiesWin.closed) {
+    try {
+      drawTmo(state.studiesWin.document.getElementById("tmo"));
+      drawSqueeze(state.studiesWin.document.getElementById("sqz"));
+      drawCci(state.studiesWin.document.getElementById("cci"));
+    } catch (error) {
+      state.studiesWin = null;
+    }
+  }
 }
 
 function drawPriceTag(ctx, text, plotRight, width, at, priceBottom, tone, fromX) {
@@ -10331,8 +10446,8 @@ function paintChartFlags(history, bars, squeezeLevel, momentum, priorMomentum) {
   });
 }
 
-function drawTmo() {
-  const canvas = $("rsi-chart");
+function drawTmo(target) {
+  const canvas = target || $("rsi-chart");
   if (!state.market || !canvas) return;
   const history = sliceToCursor(state.market.bars);
   if (!history.length) return;
@@ -10343,7 +10458,7 @@ function drawTmo() {
   const signal = study.signal.slice(dropped);
   const up = study.up.slice(dropped);
   const down = study.down.slice(dropped);
-  const ctx = prepare(canvas, 300, 118);
+  const ctx = prepare(canvas, 300, Math.max(118, canvas.clientHeight || 118));
   const width = canvas.paperWidth;
   const height = canvas.paperHeight;
   const layout = studyLayout(width, main.length);
@@ -10352,7 +10467,7 @@ function drawTmo() {
   const slot = layout.slot;
   const limit = study.length;
   const y = (value) => 22 + ((limit - value) / (limit * 2)) * (height - 30);
-  state.tmoMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  if (!target) state.tmoMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
   ctx.fillStyle = "rgba(255, 77, 77, 0.12)";
   ctx.fillRect(pad, y(limit), plotRight - pad, Math.max(1, y(study.ob) - y(limit)));
   ctx.fillStyle = "rgba(61, 220, 151, 0.12)";
@@ -10410,8 +10525,8 @@ function drawTmo() {
   }
 }
 
-function drawSqueeze() {
-  const canvas = $("sqz-chart");
+function drawSqueeze(target) {
+  const canvas = target || $("sqz-chart");
   if (!state.market || !canvas) return;
   const history = sliceToCursor(state.market.bars);
   if (!history.length) return;
@@ -10421,14 +10536,14 @@ function drawSqueeze() {
   const allMomentum = compressed.momentum;
   const momentum = allMomentum.slice(dropped);
   const squeeze = compressed.level.slice(dropped);
-  const ctx = prepare(canvas, 300, 88);
+  const ctx = prepare(canvas, 300, Math.max(88, canvas.clientHeight || 88));
   const width = canvas.paperWidth;
   const height = canvas.paperHeight;
   const layout = studyLayout(width, momentum.length);
   const pad = layout.pad;
   const plotRight = layout.plotRight;
   const slot = layout.slot;
-  state.sqzMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  if (!target) state.sqzMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
   const histoTop = 20;
   const histoBottom = height - 8;
   const zero = (histoTop + histoBottom) / 2;
@@ -10464,8 +10579,8 @@ function drawSqueeze() {
   }
 }
 
-function drawCci() {
-  const canvas = $("cci-chart");
+function drawCci(target) {
+  const canvas = target || $("cci-chart");
   if (!state.market || !canvas || !PaperFrames.cciPane) return;
   const history = sliceToCursor(state.market.bars);
   if (!history.length) return;
@@ -10477,14 +10592,14 @@ function drawCci() {
   const fast = pane.fast.slice(dropped);
   const up = pane.up.slice(dropped);
   const down = pane.down.slice(dropped);
-  const ctx = prepare(canvas, 300, 118);
+  const ctx = prepare(canvas, 300, Math.max(118, canvas.clientHeight || 118));
   const width = canvas.paperWidth;
   const height = canvas.paperHeight;
   const layout = studyLayout(width, slow.length);
   const pad = layout.pad;
   const plotRight = layout.plotRight;
   const slot = layout.slot;
-  state.cciMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  if (!target) state.cciMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
   const high = pane.high;
   const low = pane.low;
   const y = (value) => 22 + ((high - value) / (high - low || 1)) * (height - 30);
@@ -11577,6 +11692,154 @@ bindZoom($("rsi-chart"), "chart");
 bindZoom($("sqz-chart"), "chart");
 bindZoom($("cci-chart"), "chart");
 bindZoom($("frame-preview"), "preview");
+
+const STUDY_PANE_KEY = "paperTraderStudyPanes";
+
+function readStudyPanes() {
+  const chosen = { price: true, tmo: true, sqz: true, cci: true, big: false };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STUDY_PANE_KEY) || "{}");
+    if (saved && typeof saved === "object") {
+      ["price", "tmo", "sqz", "cci"].forEach((id) => {
+        if (typeof saved[id] === "boolean") chosen[id] = saved[id];
+      });
+      if (typeof saved.big === "boolean") chosen.big = saved.big;
+    }
+  } catch (error) {
+    /* Keep the open panes. */
+  }
+  return chosen;
+}
+
+function saveStudyPanes(next) {
+  try {
+    localStorage.setItem(STUDY_PANE_KEY, JSON.stringify(next));
+  } catch (error) {
+    /* Choice still holds for this page. */
+  }
+}
+
+function setStudyPane(id, open) {
+  const pane = document.querySelector('.study-pane[data-pane="' + id + '"]');
+  if (!pane) return;
+  pane.dataset.expanded = open ? "true" : "false";
+  const roll = pane.querySelector(".study-roll");
+  if (roll) {
+    roll.setAttribute("aria-expanded", open ? "true" : "false");
+    roll.textContent = open ? "▾" : "▸";
+  }
+}
+
+function paintStudyPanes() {
+  const saved = readStudyPanes();
+  ["price", "tmo", "sqz", "cci"].forEach((id) => setStudyPane(id, saved[id] !== false));
+  document.querySelectorAll(".study-pane").forEach((pane) => {
+    pane.classList.toggle("big", !!saved.big);
+  });
+  const expand = $("studies-expand-all");
+  if (expand) expand.textContent = saved.big ? "Compact studies ▴" : "Expand studies ▾";
+}
+
+function openStudiesWindow(focus) {
+  if (!state.market || !state.paper) {
+    setStatus("Open a market first, then open TMO · Squeeze · CCI.");
+    return;
+  }
+  const symbol = state.paper.symbol || "Chart";
+  const win = window.open("", "paper-studies", "popup=yes,width=980,height=860,left=48,top=48");
+  if (!win) {
+    setStatus("The studies window was blocked. Allow popups for this desk, or expand the panes below the price chart.");
+    return;
+  }
+  win.document.open();
+  win.document.write(
+    "<!DOCTYPE html><title>" + symbol + " · Studies</title>" +
+    "<body style=\"margin:0;background:#05070a;color:#e7edf3;font:14px Segoe UI,sans-serif\">" +
+    "<div style=\"display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #1a222c;background:#0d1218\">" +
+    "<button id=\"back\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Back</button>" +
+    "<strong style=\"letter-spacing:.04em\">" + symbol + " · TMO · Squeeze · CCI</strong>" +
+    "<span id=\"note\" style=\"color:#9aa6b2;margin-left:auto\"></span>" +
+    "<button id=\"in\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Zoom in</button>" +
+    "<button id=\"out\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Zoom out</button>" +
+    "</div>" +
+    "<p style=\"margin:8px 14px 0;color:#9aa6b2;font-size:12px\">Same closed-bar studies as the chart. Public math only. Not a forecast.</p>" +
+    "<div style=\"display:flex;flex-direction:column;gap:10px;padding:10px 14px 18px;height:calc(100vh - 78px);box-sizing:border-box\">" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#67e8f9\">TMO 14/5/3</div><canvas id=\"tmo\" style=\"width:100%;height:28vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#facc15\">Squeeze momentum</div><canvas id=\"sqz\" style=\"width:100%;height:22vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#f4f7fb\">CCI 50 · 14 · 5</div><canvas id=\"cci\" style=\"width:100%;height:28vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "</div></body>"
+  );
+  win.document.close();
+  const paint = () => {
+    const view = PaperFrames.zoomBars(sliceToCursor(state.market.bars), state.zoom);
+    const note = win.document.getElementById("note");
+    if (note) note.textContent = view.size + " bars · Edge on the main desk";
+    drawTmo(win.document.getElementById("tmo"));
+    drawSqueeze(win.document.getElementById("sqz"));
+    drawCci(win.document.getElementById("cci"));
+  };
+  const back = win.document.getElementById("back");
+  if (back) back.addEventListener("click", () => win.close());
+  const inn = win.document.getElementById("in");
+  const out = win.document.getElementById("out");
+  if (inn) inn.addEventListener("click", () => {
+    state.zoom = PaperFrames.zoomStep(state.zoom, -1, seenBars().length);
+    paintZoom(seenBars().length);
+    redrawStudies();
+    paint();
+  });
+  if (out) out.addEventListener("click", () => {
+    state.zoom = PaperFrames.zoomStep(state.zoom, 1, seenBars().length);
+    paintZoom(seenBars().length);
+    redrawStudies();
+    paint();
+  });
+  win.addEventListener("resize", paint);
+  requestAnimationFrame(paint);
+  if (focus === "tmo") win.document.getElementById("tmo").scrollIntoView();
+  if (focus === "sqz") win.document.getElementById("sqz").scrollIntoView();
+  if (focus === "cci") win.document.getElementById("cci").scrollIntoView();
+  setStatus("Opened TMO · Squeeze · CCI in a separate window.");
+  state.studiesWin = win;
+}
+
+document.querySelectorAll(".study-roll").forEach((button) => {
+  button.addEventListener("click", () => {
+    const pane = button.closest(".study-pane");
+    if (!pane) return;
+    const id = pane.dataset.pane;
+    const open = pane.dataset.expanded !== "true";
+    setStudyPane(id, open);
+    const saved = readStudyPanes();
+    saved[id] = open;
+    saveStudyPanes(saved);
+    requestAnimationFrame(() => redrawStudies());
+  });
+});
+
+document.querySelectorAll(".study-pop").forEach((button) => {
+  button.addEventListener("click", () => openStudiesWindow(button.dataset.study));
+});
+
+const studiesWindowBtn = $("studies-window");
+if (studiesWindowBtn) studiesWindowBtn.addEventListener("click", () => openStudiesWindow());
+
+const studiesExpandBtn = $("studies-expand-all");
+if (studiesExpandBtn) {
+  studiesExpandBtn.addEventListener("click", () => {
+    const saved = readStudyPanes();
+    saved.big = !saved.big;
+    saved.tmo = true;
+    saved.sqz = true;
+    saved.cci = true;
+    saveStudyPanes(saved);
+    paintStudyPanes();
+    requestAnimationFrame(() => redrawStudies());
+    setStatus(saved.big ? "Study panes expanded. Use Open TMO · Squeeze · CCI for a full window." : "Study panes back to normal size.");
+  });
+}
+
+paintStudyPanes();
 
 boot().then(() => {
   document.body.classList.add("ready");

@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Study rollup and window (1.9.63)
+
+On computer and phone, each study pane has a **▾ / ▸** rollup arrow. **Expand studies** makes TMO, squeeze, and CCI taller. **Open TMO · Squeeze · CCI** (and each pane’s Open ▢) opens the three studies in a separate window so you can see the full oscillators while the main desk stays open. Chart area scrolls so the four panes are not crushed into tiny squares.
+
 ## TOS-style study panes (1.9.62)
 
 The chart stacks four panes like a desk layout: price with the SMA stack, then **true momentum (TMO 14/5/3)** with a cyan readout banner and cyan/pink cross arrows, then **squeeze momentum** as its own cyan/blue/yellow/red histogram with compression dots, then **CCI 50 / 14 / 5** in white/yellow/cyan with ±100 lines and green/red arrows on closed-bar crosses. Status chips above the chart show trend, breakdown/breakout, squeeze alert, Edge, momentum, and VWAP from closed bars. Public closed-bar math only — not a third-party or trademarked study. Not a forecast.

@@ -88,11 +88,42 @@
       </div>
       <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
       <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
+      <div class="study-toolbar" role="toolbar" aria-label="Study panes">
+        <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
+        <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>
+      </div>
       <div class="study-stack" aria-label="Price and study panes">
-        <canvas id="candles" width="800" height="360" aria-label="Price chart"></canvas>
-        <canvas id="rsi-chart" width="800" height="120" aria-label="True momentum"></canvas>
-        <canvas id="sqz-chart" width="800" height="96" aria-label="Squeeze momentum"></canvas>
-        <canvas id="cci-chart" width="800" height="120" aria-label="CCI"></canvas>
+        <section class="study-pane" data-pane="price" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="candles" title="Roll up price">▾</button>
+            <span>Price</span>
+          </div>
+          <canvas id="candles" width="800" height="360" aria-label="Price chart"></canvas>
+        </section>
+        <section class="study-pane" data-pane="tmo" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="rsi-chart" title="Roll up TMO">▾</button>
+            <span>TMO 14/5/3</span>
+            <button type="button" class="study-pop quiet" data-study="tmo">Open ▢</button>
+          </div>
+          <canvas id="rsi-chart" width="800" height="160" aria-label="True momentum"></canvas>
+        </section>
+        <section class="study-pane" data-pane="sqz" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="sqz-chart" title="Roll up squeeze">▾</button>
+            <span>Squeeze momentum</span>
+            <button type="button" class="study-pop quiet" data-study="sqz">Open ▢</button>
+          </div>
+          <canvas id="sqz-chart" width="800" height="130" aria-label="Squeeze momentum"></canvas>
+        </section>
+        <section class="study-pane" data-pane="cci" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="cci-chart" title="Roll up CCI">▾</button>
+            <span>CCI 50 · 14 · 5</span>
+            <button type="button" class="study-pop quiet" data-study="cci">Open ▢</button>
+          </div>
+          <canvas id="cci-chart" width="800" height="160" aria-label="CCI"></canvas>
+        </section>
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
