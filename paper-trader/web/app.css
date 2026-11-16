@@ -410,15 +410,54 @@ button.quiet { background: transparent; }
 .layers button[aria-pressed="true"] { color: var(--text); border-color: #4a5a6a; background: #16202a; }
 .layers button .swatch { margin-right: 6px; }
 
-canvas {
+.chart-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  min-height: 0;
+}
+.chart-flags:empty { display: none; }
+.chart-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 720;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid #2a3340;
+  background: #12171d;
+  color: #e7edf3;
+}
+.chart-flag.bear { background: #3a3f46; color: #111418; border-color: #5a616a; }
+.chart-flag.bull { background: #1d4d3a; color: #b8f5d4; border-color: #2f7a58; }
+.chart-flag.break { background: #ff4d4d; color: #111418; border-color: #ff7a7a; }
+.chart-flag.alert { background: #101418; color: #facc15; border-color: #facc15; }
+.chart-flag.score { background: #3ddc97; color: #0b1a12; border-color: #6ef0b4; }
+.chart-flag.vwap { background: #6b3fa0; color: #f4e9ff; border-color: #9b6fd0; }
+.study-stack {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 4px;
+  margin-top: 6px;
+}
+.study-stack canvas {
   display: block;
   width: 100%;
-  background: #07090b;
-  border-radius: 8px;
-  margin-top: 8px;
+  background: #000;
+  border-radius: 4px;
+  margin-top: 0;
+  border: 1px solid #1a222c;
 }
-#candles { flex: 1 1 auto; min-height: 240px; height: auto; }
-#rsi-chart { height: 112px; flex: 0 0 auto; }
+#candles { flex: 1 1 auto; min-height: 220px; height: auto; }
+#rsi-chart { height: 118px; flex: 0 0 118px; }
+#sqz-chart { height: 88px; flex: 0 0 88px; }
+#cci-chart { height: 118px; flex: 0 0 118px; }
 .zoom-bar { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 .zoom-bar button { width: auto; min-height: 36px; padding: 6px 12px; }
 .mood { font-weight: 650; }
@@ -579,13 +618,18 @@ footer { display: none; }
   body[data-tab="chart"] .zoom-bar button { min-height: 32px; padding: 4px 8px; }
   body[data-tab="chart"] .zoom-bar { margin-top: 4px; }
   body[data-tab="chart"] .chart-fold { margin-top: 2px; }
+  body[data-tab="chart"] .chart-flags { margin-top: 4px; gap: 4px; }
+  body[data-tab="chart"] .chart-flag { font-size: 10px; padding: 2px 7px; }
+  body[data-tab="chart"] .study-stack { margin-top: 4px; gap: 3px; }
   body[data-tab="chart"] #candles {
     flex: 1 1 auto;
     height: auto;
     min-height: 0;
-    margin-top: 4px;
+    margin-top: 0;
   }
-  body[data-tab="chart"] #rsi-chart { height: 64px; flex: 0 0 64px; margin-top: 4px; }
+  body[data-tab="chart"] #rsi-chart { height: 72px; flex: 0 0 72px; }
+  body[data-tab="chart"] #sqz-chart { height: 56px; flex: 0 0 56px; }
+  body[data-tab="chart"] #cci-chart { height: 72px; flex: 0 0 72px; }
   #mood-clock { width: 56px; height: 56px; }
   .tabbar {
     display: grid;

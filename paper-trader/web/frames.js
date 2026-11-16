@@ -255,12 +255,12 @@
   }
 
   const STACK_AVGS = [
-    { length: 5, color: "#e879f9", name: "5" },
+    { length: 5, color: "#ff4db8", name: "5" },
     { length: 9, color: "#22d3ee", name: "9" },
-    { length: 21, color: "#f9a8d4", name: "21" },
-    { length: 50, color: "#94a3b8", name: "50" },
-    { length: 100, color: "#fb923c", name: "100" },
-    { length: 200, color: "#f87171", name: "200" },
+    { length: 21, color: "#ff4d4d", name: "21" },
+    { length: 50, color: "#f4f7fb", name: "50" },
+    { length: 100, color: "#facc15", name: "100" },
+    { length: 200, color: "#d4a574", name: "200" },
   ];
 
   function stackAverages(bars) {
@@ -1600,6 +1600,44 @@
     return out;
   }
 
+  function cciPane(bars) {
+    const list = bars || [];
+    const count = list.length;
+    const slow = cci(list, 50);
+    const mid = cci(list, 14);
+    const fast = cci(list, 5);
+    const up = new Array(count).fill(false);
+    const down = new Array(count).fill(false);
+    for (let index = 1; index < count; index += 1) {
+      if (slow[index] == null || slow[index - 1] == null) continue;
+      if (slow[index - 1] <= 100 && slow[index] > 100) up[index] = true;
+      if (slow[index - 1] >= -100 && slow[index] < -100) down[index] = true;
+      const snap = cciSnapState(fast, slow, index);
+      if (snap.fireUp) up[index] = true;
+      if (snap.fireDown) down[index] = true;
+    }
+    let hi = 100;
+    let lo = -100;
+    [slow, mid, fast].forEach((series) => {
+      series.forEach((value) => {
+        if (value == null) return;
+        if (value > hi) hi = value;
+        if (value < lo) lo = value;
+      });
+    });
+    const pad = Math.max(40, (hi - lo) * 0.08);
+    return {
+      fast,
+      mid,
+      slow,
+      up,
+      down,
+      high: hi + pad,
+      low: lo - pad,
+      levels: [-100, 0, 100],
+    };
+  }
+
   function cciSnapState(fast, slow, index) {
     if (fast[index] == null || slow[index] == null) return { readyUp: false, readyDown: false, fireUp: false, fireDown: false, gap: null };
     const gap = slow[index] - fast[index];
@@ -2481,6 +2519,7 @@
     STRATEGY_INFO,
     STRATEGY_IDS,
     cci,
+    cciPane,
     cciSnapState,
     openingRange,
     pro,

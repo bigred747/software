@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.61";
+const VERSION = "1.9.62";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -471,6 +471,8 @@ function renderLocalSignals() {
     { name: "Markets", ok: liveNames > 0, detail: liveNames + " live crypto" },
     { name: "Quotes", ok: !!(state.market && state.market.price), detail: state.market && state.market.price ? "Live crypto" : "Waiting on the quote" },
     { name: "Squeeze", ok: !!(state.market && (state.market.squeeze || []).length), detail: "Ready" },
+    { name: "TMO pane", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.trueMomentum, detail: "True momentum 14/5/3" },
+    { name: "CCI pane", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.cciPane, detail: "CCI 50 / 14 / 5" },
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
     { name: "Learning", ok: true, detail: learnTouchNote || "This symbol, while the page is open" },
@@ -1187,8 +1189,7 @@ function stepZoom(which, direction) {
   }
   const count = seenBars().length;
   state.zoom = PaperFrames.zoomStep(state.zoom, direction, count);
-  drawCandles();
-  drawTmo();
+  redrawStudies();
   paintZoom(count);
 }
 
@@ -1274,8 +1275,7 @@ function render(paper) {
   renderScan();
   renderReadings();
   renderFrames();
-  drawCandles();
-  drawTmo();
+  redrawStudies();
 }
 
 function savedSymbol() {
@@ -1569,10 +1569,7 @@ function showChart() {
   const narrow = window.matchMedia("(max-width: 980px)").matches;
   if (narrow) showPhoneTab("chart");
   requestAnimationFrame(() => {
-    if (state.market && state.paper) {
-      drawCandles();
-      drawTmo();
-    }
+    if (state.market && state.paper) redrawStudies();
   });
 }
 
@@ -4167,7 +4164,7 @@ function drawCandles(retry) {
   if (!bars.length) return;
   const width = canvas.paperWidth;
   const height = canvas.paperHeight;
-  const priceBottom = Math.min(height - 36, Math.max(72, Math.round(height * 0.72)));
+  const priceBottom = Math.max(72, height - 10);
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
   [layers.averages ? highLine : [], layers.averages ? midLine : [], layers.averages ? lowLine : [], fast, slow]
@@ -4201,11 +4198,15 @@ function drawCandles(retry) {
     pad = Math.max(36, Math.floor((pad * budget) / used));
     rightGap = Math.max(36, Math.floor((rightGap * budget) / used));
   }
+  const layout = studyLayout(width, bars.length, pad, rightGap);
+  pad = layout.pad;
+  rightGap = layout.rightGap;
   const y = (price) => 16 + ((high - price) / (high - low)) * (priceBottom - 28);
-  const slot = (width - pad - rightGap) / bars.length;
-  const plotRight = width - rightGap;
+  const slot = layout.slot;
+  const plotRight = layout.plotRight;
   const xAt = (index) => pad + index * slot + slot / 2;
-  state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol, rightGap };
+  state.studyPad = { pad, rightGap, slot, count: bars.length };
   ctx.strokeStyle = "#2d3640";
   ctx.fillStyle = "#9aa6b2";
   ctx.font = "12px Segoe UI, sans-serif";
@@ -4276,29 +4277,6 @@ function drawCandles(retry) {
     ctx.restore();
   }
   drawStudy(ctx, bars, y, pad, slot);
-  const histoTop = priceBottom + 8;
-  const histoBottom = height - 8;
-  const zero = (histoTop + histoBottom) / 2;
-  const scale = Math.max(...momentum.map((value) => Math.abs(value || 0)), 1e-9);
-  ctx.strokeStyle = "#2d3640";
-  ctx.beginPath();
-  ctx.moveTo(pad, zero);
-  ctx.lineTo(plotRight, zero);
-  ctx.stroke();
-  momentum.forEach((value, index) => {
-    if (value == null) return;
-    const x = pad + index * slot + slot / 2;
-    const previous = index === 0 ? allMomentum[dropped - 1] : momentum[index - 1];
-    const tone = PaperFrames.momentumTone(value, previous == null ? null : previous);
-    const room = Math.max(4, (histoBottom - histoTop) / 2 - 6);
-    const barHeight = (Math.abs(value) / scale) * room;
-    ctx.fillStyle = tone;
-    ctx.fillRect(x - Math.max(1, slot * 0.28), value >= 0 ? zero - barHeight : zero, Math.max(2, slot * 0.56), Math.max(1, barHeight));
-    ctx.fillStyle = PaperFrames.squeezeTone(squeeze[index] || 0);
-    ctx.beginPath();
-    ctx.arc(x, zero, Math.max(2, Math.min(3.5, slot * 0.18)), 0, Math.PI * 2);
-    ctx.fill();
-  });
   const last = bars.length - 1;
   const lastBar = bars[last];
   const lastMomentum = momentum[last];
@@ -4321,6 +4299,10 @@ function drawCandles(retry) {
       ctx.fillText(row[0], keyLeft + 8, 18 + index * 15);
     });
   }
+  paintChartFlags(history, bars, squeeze[last] || 0, lastMomentum, priorMomentum);
+  drawTmo();
+  drawSqueeze();
+  drawCci();
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
   (state.paper.markers || []).forEach((marker) => {
     const index = byDate.get(marker.date);
@@ -4564,6 +4546,87 @@ function drawArrow(ctx, x, y, up) {
   ctx.stroke();
 }
 
+function studyLayout(width, count, preferPad, preferRight) {
+  const pad = preferPad != null ? preferPad : (state.studyPad && state.studyPad.pad) || 48;
+  const rightGap = preferRight != null ? preferRight : (state.studyPad && state.studyPad.rightGap) || Math.max(96, Math.round(width * 0.14));
+  const slot = (width - pad - rightGap) / Math.max(1, count || (state.studyPad && state.studyPad.count) || 1);
+  return { pad, rightGap, slot, plotRight: width - rightGap };
+}
+
+function redrawStudies() {
+  drawCandles();
+}
+
+function paintChartFlags(history, bars, squeezeLevel, momentum, priorMomentum) {
+  const node = $("chart-flags");
+  if (!node) return;
+  if (!bars || !bars.length) {
+    node.replaceChildren();
+    return;
+  }
+  const last = bars[bars.length - 1];
+  const stack = PaperFrames.stackAverages(history);
+  const sma50 = stack.find((row) => row.length === 50);
+  const sma200 = stack.find((row) => row.length === 200);
+  const s50 = sma50 && sma50.values[sma50.values.length - 1];
+  const s200 = sma200 && sma200.values[sma200.values.length - 1];
+  const bull = s50 != null && s200 != null && last.close >= s50 && s50 >= s200;
+  const bear = s50 != null && s200 != null && last.close <= s50 && s50 <= s200;
+  const look = Math.min(20, bars.length - 1);
+  let hi = -Infinity;
+  let lo = Infinity;
+  for (let index = bars.length - 1 - look; index < bars.length - 1; index += 1) {
+    if (index < 0) continue;
+    hi = Math.max(hi, bars[index].high);
+    lo = Math.min(lo, bars[index].low);
+  }
+  const breakUp = Number.isFinite(hi) && last.close > hi;
+  const breakDown = Number.isFinite(lo) && last.close < lo;
+  const dots = (() => {
+    const study = PaperFrames.compression(history, 20);
+    let count = 0;
+    for (let index = study.level.length - 1; index >= 0 && study.level[index] > 0; index -= 1) count += 1;
+    return count;
+  })();
+  const edge = currentEdge(history);
+  const desk = currentPro(history);
+  const vwap = desk && desk.vwap ? desk.vwap[desk.vwap.length - 1] : null;
+  const chips = [];
+  chips.push({
+    text: bull ? "Trend bullish" : bear ? "Trend bearish" : "Trend mixed",
+    kind: bull ? "bull" : bear ? "bear" : "",
+  });
+  if (breakDown) chips.push({ text: "Breakdown", kind: "break" });
+  else if (breakUp) chips.push({ text: "Breakout", kind: "bull" });
+  if (dots >= 5 || squeezeLevel > 0) {
+    chips.push({
+      text: dots >= 5 ? "Squeeze alert · " + dots + " dots" : "Squeeze " + PaperFrames.squeezeName(squeezeLevel),
+      kind: "alert",
+    });
+  }
+  if (edge && edge.ready) {
+    chips.push({
+      text: "Edge " + edge.call + " " + edge.score + "/5",
+      kind: edge.call === "BUY" || edge.call === "HOLD" ? "score" : edge.call === "SELL" ? "break" : "",
+    });
+  }
+  const rising = momentum != null && (priorMomentum == null ? momentum >= 0 : momentum > priorMomentum);
+  if (momentum != null) {
+    chips.push({
+      text: (rising ? "Mom up " : "Mom down ") + Number(momentum).toFixed(1),
+      kind: rising && momentum >= 0 ? "score" : momentum < 0 && !rising ? "break" : "",
+    });
+  }
+  if (vwap != null) chips.push({ text: "VWAP " + formatPrice(vwap), kind: "vwap" });
+  node.replaceChildren();
+  chips.forEach((chip) => {
+    const span = document.createElement("span");
+    span.className = "chart-flag" + (chip.kind ? " " + chip.kind : "");
+    span.textContent = chip.text;
+    node.appendChild(span);
+  });
+}
+
 function drawTmo() {
   const canvas = $("rsi-chart");
   if (!state.market || !canvas) return;
@@ -4571,35 +4634,34 @@ function drawTmo() {
   if (!history.length) return;
   const study = PaperFrames.trueMomentum(history, 14, 5, 3);
   const view = PaperFrames.zoomBars(history, state.zoom);
-  const count = view.size;
   const dropped = view.start;
   const main = study.main.slice(dropped);
   const signal = study.signal.slice(dropped);
   const up = study.up.slice(dropped);
   const down = study.down.slice(dropped);
-  const ctx = prepare(canvas);
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  const pad = 28;
-  const rightGap = Math.max(120, Math.round(width * 0.16));
+  const ctx = prepare(canvas, 300, 118);
+  const width = canvas.paperWidth;
+  const height = canvas.paperHeight;
+  const layout = studyLayout(width, main.length);
+  const pad = layout.pad;
+  const plotRight = layout.plotRight;
+  const slot = layout.slot;
   const limit = study.length;
-  const y = (value) => 10 + ((limit - value) / (limit * 2)) * (height - 18);
-  const slot = (width - pad - rightGap) / Math.max(1, main.length);
-  const plotRight = width - rightGap;
+  const y = (value) => 22 + ((limit - value) / (limit * 2)) * (height - 30);
   state.tmoMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
-  ctx.fillStyle = "rgba(255, 107, 122, 0.16)";
+  ctx.fillStyle = "rgba(255, 77, 77, 0.12)";
   ctx.fillRect(pad, y(limit), plotRight - pad, Math.max(1, y(study.ob) - y(limit)));
-  ctx.fillStyle = "rgba(61, 220, 151, 0.16)";
+  ctx.fillStyle = "rgba(61, 220, 151, 0.12)";
   ctx.fillRect(pad, y(study.os), plotRight - pad, Math.max(1, y(-limit) - y(study.os)));
   ctx.font = "11px Segoe UI, sans-serif";
   ctx.setLineDash([3, 3]);
-  ctx.strokeStyle = "#8b98a5";
+  ctx.strokeStyle = "#5a6570";
   [study.ob, 0, study.os].forEach((level) => {
     ctx.beginPath();
     ctx.moveTo(pad, y(level));
     ctx.lineTo(plotRight, y(level));
     ctx.stroke();
-    ctx.fillStyle = "#9aa6b2";
+    ctx.fillStyle = "#8b98a5";
     ctx.fillText(String(level), 4, y(level) + 4);
   });
   ctx.setLineDash([]);
@@ -4613,7 +4675,7 @@ function drawTmo() {
     ctx.lineTo(right, y(signal[index]));
     ctx.lineTo(left, y(signal[index - 1]));
     ctx.closePath();
-    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.42)" : "rgba(122, 28, 40, 0.42)";
+    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.45)" : "rgba(122, 28, 40, 0.45)";
     ctx.fill();
   }
   strokeOscillator(ctx, main, main, signal, y, pad, slot);
@@ -4621,17 +4683,145 @@ function drawTmo() {
   up.forEach((mark, index) => {
     if (!mark || main[index] == null) return;
     ctx.fillStyle = "#67e8f9";
-    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) + 12, true);
+    drawArrow(ctx, pad + index * slot + slot / 2, Math.min(height - 8, y(main[index]) + 12), true);
   });
   down.forEach((mark, index) => {
     if (!mark || main[index] == null) return;
-    ctx.fillStyle = "#e879f9";
-    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 12, false);
+    ctx.fillStyle = "#ff4db8";
+    drawArrow(ctx, pad + index * slot + slot / 2, Math.max(28, y(main[index]) - 12), false);
   });
+  const last = main.length - 1;
+  const mainNow = main[last];
+  const signalNow = signal[last];
+  const banner = "TMO 14/5/3  |  Main " + (mainNow == null ? "—" : Number(mainNow).toFixed(2)) + "  |  Signal " + (signalNow == null ? "—" : Number(signalNow).toFixed(2)) + (mainNow != null && signalNow != null ? (mainNow >= signalNow ? "  |  Above" : "  |  Below") : "");
+  ctx.fillStyle = "#12b6c9";
+  ctx.fillRect(pad, 2, Math.min(plotRight - pad, ctx.measureText(banner).width + 16), 16);
+  ctx.fillStyle = "#041016";
+  ctx.fillText(banner, pad + 6, 14);
   const calls = currentEdge(history);
-  if (calls && calls.ready) PaperFrames.drawEdgeCalls(ctx, calls.marks, dropped, view.bars.length, (index) => pad + index * slot + slot / 2, 14, height - 4, pad, plotRight);
+  if (calls && calls.ready) PaperFrames.drawEdgeCalls(ctx, calls.marks, dropped, view.bars.length, (index) => pad + index * slot + slot / 2, 20, height - 4, pad, plotRight);
+  if (mainNow != null) {
+    ctx.fillStyle = mainNow >= (signalNow == null ? 0 : signalNow) ? "#3ddc97" : "#ff4d4d";
+    ctx.fillText(Number(mainNow).toFixed(2), plotRight + 6, Math.max(28, Math.min(height - 6, y(mainNow))));
+  }
+}
+
+function drawSqueeze() {
+  const canvas = $("sqz-chart");
+  if (!state.market || !canvas) return;
+  const history = sliceToCursor(state.market.bars);
+  if (!history.length) return;
+  const view = PaperFrames.zoomBars(history, state.zoom);
+  const dropped = view.start;
+  const compressed = PaperFrames.compression(history, 20);
+  const allMomentum = compressed.momentum;
+  const momentum = allMomentum.slice(dropped);
+  const squeeze = compressed.level.slice(dropped);
+  const ctx = prepare(canvas, 300, 88);
+  const width = canvas.paperWidth;
+  const height = canvas.paperHeight;
+  const layout = studyLayout(width, momentum.length);
+  const pad = layout.pad;
+  const plotRight = layout.plotRight;
+  const slot = layout.slot;
+  state.sqzMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  const histoTop = 20;
+  const histoBottom = height - 8;
+  const zero = (histoTop + histoBottom) / 2;
+  const scale = Math.max(...momentum.map((value) => Math.abs(value || 0)), 1e-9);
+  ctx.strokeStyle = "#2d3640";
+  ctx.beginPath();
+  ctx.moveTo(pad, zero);
+  ctx.lineTo(plotRight, zero);
+  ctx.stroke();
+  momentum.forEach((value, index) => {
+    if (value == null) return;
+    const x = pad + index * slot + slot / 2;
+    const previous = index === 0 ? allMomentum[dropped - 1] : momentum[index - 1];
+    const tone = PaperFrames.momentumTone(value, previous == null ? null : previous);
+    const room = Math.max(4, (histoBottom - histoTop) / 2 - 4);
+    const barHeight = (Math.abs(value) / scale) * room;
+    ctx.fillStyle = tone;
+    ctx.fillRect(x - Math.max(1, slot * 0.28), value >= 0 ? zero - barHeight : zero, Math.max(2, slot * 0.56), Math.max(1, barHeight));
+    ctx.fillStyle = PaperFrames.squeezeTone(squeeze[index] || 0);
+    ctx.beginPath();
+    ctx.arc(x, zero, Math.max(2, Math.min(3.5, slot * 0.18)), 0, Math.PI * 2);
+    ctx.fill();
+  });
+  const last = momentum.length - 1;
+  const lastMomentum = momentum[last];
+  const label = "Squeeze momentum  |  " + (lastMomentum == null ? "—" : Number(lastMomentum).toFixed(3)) + "  |  " + PaperFrames.squeezeName(squeeze[last] || 0);
+  ctx.font = "11px Segoe UI, sans-serif";
   ctx.fillStyle = "#d7e2ea";
-  ctx.fillText("True momentum 14/5/3" + (calls && calls.ready ? " · Edge " + calls.call : ""), pad, 12);
+  ctx.fillText(label, pad, 12);
+  if (lastMomentum != null) {
+    ctx.fillStyle = PaperFrames.momentumTone(lastMomentum, last === 0 ? allMomentum[dropped - 1] : momentum[last - 1]) || "#d7e2ea";
+    ctx.fillText(Number(lastMomentum).toFixed(2), plotRight + 6, zero + 4);
+  }
+}
+
+function drawCci() {
+  const canvas = $("cci-chart");
+  if (!state.market || !canvas || !PaperFrames.cciPane) return;
+  const history = sliceToCursor(state.market.bars);
+  if (!history.length) return;
+  const pane = PaperFrames.cciPane(history);
+  const view = PaperFrames.zoomBars(history, state.zoom);
+  const dropped = view.start;
+  const slow = pane.slow.slice(dropped);
+  const mid = pane.mid.slice(dropped);
+  const fast = pane.fast.slice(dropped);
+  const up = pane.up.slice(dropped);
+  const down = pane.down.slice(dropped);
+  const ctx = prepare(canvas, 300, 118);
+  const width = canvas.paperWidth;
+  const height = canvas.paperHeight;
+  const layout = studyLayout(width, slow.length);
+  const pad = layout.pad;
+  const plotRight = layout.plotRight;
+  const slot = layout.slot;
+  state.cciMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  const high = pane.high;
+  const low = pane.low;
+  const y = (value) => 22 + ((high - value) / (high - low || 1)) * (height - 30);
+  ctx.font = "11px Segoe UI, sans-serif";
+  ctx.setLineDash([3, 3]);
+  pane.levels.forEach((level) => {
+    ctx.strokeStyle = level === 0 ? "#5a6570" : "#3a4655";
+    ctx.beginPath();
+    ctx.moveTo(pad, y(level));
+    ctx.lineTo(plotRight, y(level));
+    ctx.stroke();
+    ctx.fillStyle = "#8b98a5";
+    ctx.fillText(String(level), 4, y(level) + 4);
+  });
+  ctx.setLineDash([]);
+  drawLine(ctx, slow, y, pad, slot, "#f4f7fb", 1.6);
+  drawLine(ctx, mid, y, pad, slot, "#facc15", 1.25);
+  drawLine(ctx, fast, y, pad, slot, "#22d3ee", 1.15);
+  up.forEach((mark, index) => {
+    if (!mark || slow[index] == null) return;
+    ctx.fillStyle = "#3ddc97";
+    drawArrow(ctx, pad + index * slot + slot / 2, Math.min(height - 8, y(slow[index]) + 12), true);
+  });
+  down.forEach((mark, index) => {
+    if (!mark || slow[index] == null) return;
+    ctx.fillStyle = "#ff4d4d";
+    drawArrow(ctx, pad + index * slot + slot / 2, Math.max(28, y(slow[index]) - 12), false);
+  });
+  const last = slow.length - 1;
+  const banner = "CCI 50 / 14 / 5  |  " +
+    (slow[last] == null ? "—" : Number(slow[last]).toFixed(1)) + "  " +
+    (mid[last] == null ? "—" : Number(mid[last]).toFixed(1)) + "  " +
+    (fast[last] == null ? "—" : Number(fast[last]).toFixed(1));
+  ctx.fillStyle = "#1b2430";
+  ctx.fillRect(pad, 2, Math.min(plotRight - pad, ctx.measureText(banner).width + 16), 16);
+  ctx.fillStyle = "#d7e2ea";
+  ctx.fillText(banner, pad + 6, 14);
+  if (slow[last] != null) {
+    ctx.fillStyle = "#f4f7fb";
+    ctx.fillText(Number(slow[last]).toFixed(1), plotRight + 6, Math.max(28, Math.min(height - 6, y(slow[last]))));
+  }
 }
 
 function strokeOscillator(ctx, values, lead, other, y, pad, slot) {
@@ -5344,16 +5534,29 @@ function showChartTip(event, map, index) {
   PaperFrames.showTip(document, event.clientX, event.clientY, info);
 }
 
-$("rsi-chart").addEventListener("click", (event) => {
-  const map = state.tmoMap;
-  const canvas = $("rsi-chart");
-  if (!map || !map.bars.length) return;
-  const index = PaperFrames.barIndexAt(map.pad, map.slot, map.bars.length, canvasX(event, canvas));
-  const bar = map.bars[index < 0 ? 0 : index];
-  state.ruler = { date: bar.date };
-  showChartTip(event, map, index < 0 ? 0 : index);
-  drawCandles();
-});
+function bindStudyScrub(id, mapKey) {
+  const canvas = $(id);
+  if (!canvas) return;
+  canvas.addEventListener("click", (event) => {
+    const map = state[mapKey];
+    if (!map || !map.bars || !map.bars.length) return;
+    const index = PaperFrames.barIndexAt(map.pad, map.slot, map.bars.length, canvasX(event, canvas));
+    const bar = map.bars[index < 0 ? 0 : index];
+    state.ruler = { date: bar.date };
+    showChartTip(event, map, index < 0 ? 0 : index);
+    redrawStudies();
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (event.pointerType === "touch" && event.buttons === 0) return;
+    scrubReadout(event, state[mapKey], canvas);
+  });
+  canvas.addEventListener("pointerleave", () => {
+    if (state.paper) paintChartRead(state.paper);
+  });
+}
+bindStudyScrub("rsi-chart", "tmoMap");
+bindStudyScrub("sqz-chart", "sqzMap");
+bindStudyScrub("cci-chart", "cciMap");
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !confirmWait) {
@@ -5604,10 +5807,8 @@ $("brief-window").addEventListener("click", () => openBrief());
 function showPhoneTab(name) {
   document.body.dataset.tab = name;
   document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
-  if (state.market && state.paper && (name === "chart" || name === "study")) {
-    drawCandles();
-    drawTmo();
-  }
+  if (state.market && state.paper && (name === "chart" || name === "study")) redrawStudies();
+}
   nudgeLearn(name === "study" ? (document.querySelector(".dock-tab.on") || {}).dataset.dock || "study" : name);
 }
 
@@ -5637,8 +5838,7 @@ document.querySelectorAll(".dock-tab").forEach((button) => {
 
 window.addEventListener("resize", () => {
   if (state.market && state.paper) {
-    drawCandles();
-    drawTmo();
+    redrawStudies();
     const bars = seenBars();
     const tone = currentMood(bars);
     drawMoodClock(tone && tone.score, tone && tone.label);
@@ -5671,6 +5871,8 @@ state.layers = readLayers();
 paintLayers();
 bindZoom($("candles"), "chart");
 bindZoom($("rsi-chart"), "chart");
+bindZoom($("sqz-chart"), "chart");
+bindZoom($("cci-chart"), "chart");
 bindZoom($("frame-preview"), "preview");
 
 boot().then(() => {

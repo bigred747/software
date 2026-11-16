@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -93,6 +93,26 @@ test("pivot resistance follows the rising high and support stays under it", () =
   assert.ok(pivots.confirmLow >= pivots.support);
   assert.ok(pivots.riskOffLow >= pivots.confirmLow);
   assert.equal(pivots.fromHigh, 29);
+});
+
+test("cci pane builds three lengths and ±100 cross arrows", () => {
+  const bars = [];
+  for (let index = 0; index < 80; index += 1) {
+    const close = index < 40 ? 100 + index * 2 : 180 - (index - 40) * 3;
+    bars.push(day("2024-05-" + String((index % 27) + 1).padStart(2, "0"), close - 1, close + 2, close - 2, close));
+  }
+  const pane = cciPane(bars);
+  assert.equal(pane.slow.length, 80);
+  assert.equal(pane.mid.length, 80);
+  assert.equal(pane.fast.length, 80);
+  assert.equal(cci(bars, 50)[79], pane.slow[79]);
+  assert.ok(pane.high > 100);
+  assert.ok(pane.low < -100);
+  assert.equal(pane.levels[0], -100);
+  assert.equal(pane.levels[1], 0);
+  assert.equal(pane.levels[2], 100);
+  assert.equal(pane.up.length, 80);
+  assert.equal(pane.down.length, 80);
 });
 
 test("true momentum stays inside the length and confirms arrows on a closed bar", () => {
@@ -337,7 +357,7 @@ test("strategies report classic public rows plus the four-study combo from close
   assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"]);
   const quad = board.rows.find((row) => row.id === "quad");
   assert.ok(quad);
-  assert.equal(quad.name, "Squeeze · TMO · B4 · stack");
+  assert.equal(quad.name, "Squeeze · TMO · B4 · stack · MTF");
   const zoom = board.rows.find((row) => row.id === "ccizoom");
   const snap = board.rows.find((row) => row.id === "ccisnap");
   assert.ok(zoom && snap);
