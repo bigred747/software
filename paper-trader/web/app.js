@@ -25,6 +25,7 @@ const state = {
   leaders: [],
   scanNote: "",
   scanDone: false,
+  scanLearn: { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 },
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -80,11 +81,13 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.67";
+const VERSION = "1.9.68";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
 const SLIP_BPS = 5;
+const SCAN_LEARN_GAP_MS = 12000;
+const SCAN_LEARN_BATCH = 2;
 let learnTouchAt = 0;
 let learnTouchTab = "";
 let learnTouchNote = "";
@@ -380,7 +383,7 @@ function withHooks(items) {
   const webPage = state.offline && location.protocol !== "file:";
   applyHook(next, "Edge", edge || webPage, edge ? "This page is in Microsoft Edge" : webPage ? "This browser loads the quotes" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
   const learnDetail = learnTouchNote
-    || (state.offline ? "This symbol, while the page is open. Tabs and strategy clicks score closed bars here." : "Starts when you open the desk, then keeps scoring after that window closes. Tabs and strategy clicks score closed bars now.");
+    || "Cycles top Daily scan names while this page is open. Closed bars only. Not a forecast.";
   if (!next.some((item) => item.name === "Learning")) {
     setSignal(next, "Learning", true, learnDetail);
   } else {
@@ -475,7 +478,7 @@ function renderLocalSignals() {
     { name: "CCI pane", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.cciPane, detail: "CCI 50 / 14 / 5" },
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
-    { name: "Learning", ok: true, detail: learnTouchNote || "This symbol, while the page is open" },
+    { name: "Learning", ok: true, detail: learnTouchNote || "Top Daily scan names, while the page is open" },
     { name: "New process", ok: true, detail: newProcessNote || "Waiting for a closed-bar process change" },
     { name: "Fear and greed", ok: !!(state.market && state.market.bars && state.market.bars.length >= 20), detail: phoneMood() },
     { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
@@ -943,6 +946,9 @@ async function scanPhone() {
     state.scanDone = done;
     renderScan();
     renderToday();
+    if (done && (leaders.length || picks.length)) {
+      cycleScanLearn("scan").catch(() => {});
+    }
   };
   const reader = async () => {
     while (live() && next < total) {
@@ -1122,7 +1128,11 @@ async function loadSignals() {
   paintSignals(withHooks(report.items));
   requestAnimationFrame(() => paintSignals(withHooks(report.items)));
   try {
-    await postJSON("/api/learn/watch", { symbols: readPins().concat([state.paper && state.paper.symbol].filter(Boolean)) });
+    await postJSON("/api/learn/watch", {
+      symbols: readPins()
+        .concat([state.paper && state.paper.symbol].filter(Boolean))
+        .concat(topScanLearnNames()),
+    });
     const book = await getJSON("/api/learn");
     const openSymbol = state.paper && state.paper.symbol;
     Object.entries(book.symbols || {}).forEach(([symbol, row]) => {
@@ -3054,25 +3064,66 @@ function announceNewProcess(symbol, rule, previous) {
   }
 }
 
-function touchPhoneLearn(tab, symbols) {
+function topScanLearnNames() {
+  const rows = (state.picks && state.picks.length ? state.picks : state.leaders) || [];
+  const names = [];
+  rows.forEach((row) => {
+    const symbol = row && row.symbol;
+    if (symbol && names.indexOf(symbol) < 0) names.push(symbol);
+  });
+  return names;
+}
+
+function nextScanLearnBatch(size) {
+  const list = topScanLearnNames();
+  const count = Math.max(1, Math.min(Number(size) || SCAN_LEARN_BATCH, 5));
+  if (!list.length) return [];
+  const out = [];
+  let cursor = Number((state.scanLearn && state.scanLearn.cursor) || 0);
+  for (let step = 0; step < count; step += 1) {
+    out.push(list[cursor % list.length]);
+    cursor += 1;
+  }
+  if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
+  state.scanLearn.cursor = cursor % list.length;
+  state.scanLearn.lastSymbol = out[out.length - 1] || "";
+  return out;
+}
+
+async function barsForLearn(symbol) {
+  if (!symbol) return null;
+  if (state.market && state.market.symbol === symbol && state.market.bars) return state.market.bars;
+  if (state.session && state.session.symbol === symbol && state.session.bars) return state.session.bars;
+  try {
+    if (state.offline) {
+      const row = state.catalog.find((item) => item.symbol === symbol);
+      return await PaperLive.daily(symbol, row ? row.category : "");
+    }
+    const payload = await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D");
+    return (payload && payload.bars) || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function touchPhoneLearn(tab, symbols) {
   const book = readPhoneLearn();
-  const current = state.paper && state.paper.symbol;
+  const scanCycle = tab === "scan" || tab === "auto";
   const targets = [];
-  if (current) targets.push(current);
+  if (!scanCycle && state.paper && state.paper.symbol) targets.push(state.paper.symbol);
   (symbols || []).forEach((symbol) => {
     if (symbol && targets.indexOf(symbol) < 0) targets.push(symbol);
   });
   let scored = [];
   let newest = null;
-  targets.slice(0, 3).forEach((symbol) => {
+  const limit = scanCycle ? SCAN_LEARN_BATCH : 3;
+  for (const symbol of targets.slice(0, limit)) {
     try {
-      let bars = null;
-      if (state.market && state.market.symbol === symbol) bars = state.market.bars;
-      else if (state.session && state.session.symbol === symbol && state.session.bars) bars = state.session.bars;
-      if (!bars || !bars.length || typeof PaperFrames === "undefined") return;
+      const bars = await barsForLearn(symbol);
+      if (!bars || !bars.length || typeof PaperFrames === "undefined") continue;
       const settled = PaperFrames.closedBars(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol)));
       const lesson = PaperFrames.lesson(settled);
-      if (!lesson) return;
+      if (!lesson) continue;
       const previous = String((book.symbols[symbol] && book.symbols[symbol].rule) || "");
       book.symbols[symbol] = {
         rule: lesson.rule,
@@ -3083,6 +3134,7 @@ function touchPhoneLearn(tab, symbols) {
         setup: lesson.setup || "",
         tab: tab || "",
       };
+      if (lesson.mood) state.moods[symbol] = lesson.mood;
       book.passes = (Number(book.passes) || 0) + 1;
       book.last_symbol = symbol;
       scored.push(symbol);
@@ -3095,16 +3147,17 @@ function touchPhoneLearn(tab, symbols) {
         book.last_process = history[history.length - 1];
       }
     } catch (error) {
-      return;
+      continue;
     }
-  });
+  }
   book.updated = Date.now();
   book.last_touch_tab = tab || "";
   writePhoneLearn(book);
   if (newest) {
     announceNewProcess(newest.symbol, newest.rule, newest.previous);
   } else if (scored.length) {
-    learnTouchNote = "Scored " + scored.join(", ") + " from " + (tab || "desk") + ". Closed bars only. Not a forecast.";
+    const prefix = scanCycle ? "Scan learn scored " : "Scored ";
+    learnTouchNote = prefix + scored.join(", ") + " from " + (tab || "desk") + ". Closed bars only. Not a forecast.";
     refreshLearnSignal();
   }
   return scored;
@@ -3123,21 +3176,23 @@ function refreshLearnSignal() {
 }
 
 async function nudgeLearn(tab, extraSymbols) {
-  const symbols = readPins()
-    .concat([state.paper && state.paper.symbol].filter(Boolean))
-    .concat(Array.isArray(extraSymbols) ? extraSymbols : []);
+  const scanCycle = tab === "scan" || tab === "auto";
+  const symbols = scanCycle
+    ? [].concat(Array.isArray(extraSymbols) ? extraSymbols : [])
+    : readPins()
+        .concat([state.paper && state.paper.symbol].filter(Boolean))
+        .concat(Array.isArray(extraSymbols) ? extraSymbols : []);
   const unique = [];
   symbols.forEach((symbol) => {
     if (symbol && unique.indexOf(symbol) < 0) unique.push(symbol);
   });
   const now = Date.now();
-  const gap = tab === "auto" ? 30000 : 900;
+  const gap = tab === "auto" || tab === "scan" ? SCAN_LEARN_GAP_MS : 900;
   if (tab === learnTouchTab && now - learnTouchAt < gap) return;
   learnTouchAt = now;
   learnTouchTab = tab || "";
   if (state.offline) {
-    touchPhoneLearn(tab, unique);
-    return;
+    return touchPhoneLearn(tab, unique);
   }
   try {
     const book = await postJSON("/api/learn/touch", { tab: tab || "", symbols: unique });
@@ -3150,9 +3205,55 @@ async function nudgeLearn(tab, extraSymbols) {
       learnTouchNote = book.touch_note;
       refreshLearnSignal();
     }
+    return book.touched || [];
   } catch (error) {
-    return;
+    return [];
   }
+}
+
+async function cycleScanLearn(reason) {
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return [];
+  const list = topScanLearnNames();
+  if (!list.length) {
+    learnTouchNote = "Learning waits for Daily scan names. Closed bars only. Not a forecast.";
+    refreshLearnSignal();
+    return [];
+  }
+  const now = Date.now();
+  if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
+  if (now - (state.scanLearn.lastAt || 0) < SCAN_LEARN_GAP_MS) return [];
+  const batch = nextScanLearnBatch(SCAN_LEARN_BATCH);
+  state.scanLearn.lastAt = now;
+  const scored = await nudgeLearn(reason || "scan", batch);
+  const done = Array.isArray(scored) ? scored : batch;
+  if (done && done.length) {
+    state.scanLearn.scored = (state.scanLearn.scored || []).concat(done).slice(-40);
+    if (!learnTouchNote || reason === "scan" || reason === "auto") {
+      learnTouchNote =
+        "Scan learn " +
+        done.join(", ") +
+        " · " +
+        list.length +
+        " top names cycling. Closed bars only. Not a forecast.";
+      refreshLearnSignal();
+    }
+  }
+  return done || [];
+}
+
+function startScanLearnLoop() {
+  if (state.scanLearn && state.scanLearn.timer) return;
+  if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
+  const tick = async () => {
+    try {
+      await cycleScanLearn(state.auto ? "auto" : "scan");
+    } catch (error) {
+      /* Keep the page-open cycle alive. */
+    }
+    const wait = state.auto ? SCAN_LEARN_GAP_MS : SCAN_LEARN_GAP_MS + 4000;
+    state.scanLearn.timer = setTimeout(tick, wait);
+  };
+  state.scanLearn.timer = setTimeout(tick, 2500);
 }
 
 function renderStratDetail(board) {
@@ -3536,7 +3637,7 @@ async function phoneSafe() {
   }
   add("Paper book saves", saves, saves ? "This browser keeps positions and fills" : "This browser blocks saving. Positions last until the page closes");
   add("Quotes", !!state.market, state.market ? "A real quote is loaded" : "Waiting on the quote", "health");
-  add("Learning", true, "Runs only while this page is open", "health");
+  add("Learning", true, "Cycles top Daily scan names while this page is open", "health");
   return { safe: items.filter((item) => item.kind === "safety").every((item) => item.ok), items };
 }
 
@@ -5263,7 +5364,7 @@ async function autoTick() {
     renderBestSetup();
     if (state.offline) renderLocalSignals();
     $("status").textContent = traded || (state.best && state.best.on && bestSetupStatus().ready ? "Best setup ready. Waiting for your Yes if a buy warning is open." : "Auto is on. Refreshing the market quote.");
-    nudgeLearn("auto");
+    await cycleScanLearn("auto");
   } catch (error) {
     state.auto = false;
     if (state.paper) render(state.paper);
@@ -6160,6 +6261,7 @@ boot().then(() => {
     if (state.paper) renderQuote(state.paper);
     syncDeskStatus();
   }, 1000);
+  startScanLearnLoop();
 }).catch((error) => {
   showProblem(error && error.message ? error.message : "The desk did not start.");
 });

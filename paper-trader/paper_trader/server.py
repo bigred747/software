@@ -979,9 +979,10 @@ class Desk:
         remember_symbols(self.watch_path, symbols)
 
     def learn_touch(self, body: dict | None = None) -> dict:
-        """Score the open market (and a few watched names) when a desk tab is opened."""
+        """Score closed bars on watched names, or cycle top Daily scan names on auto/scan."""
         payload = body if isinstance(body, dict) else {}
         tab = str(payload.get("tab") or "")[:40]
+        scan_cycle = tab in ("auto", "scan")
         raw_symbols = payload.get("symbols") if isinstance(payload.get("symbols"), list) else []
         cleaned: list[str] = []
         for item in raw_symbols:
@@ -1002,14 +1003,23 @@ class Desk:
             if symbol not in watch:
                 watch.append(symbol)
         remember_symbols(self.watch_path, watch[:24])
+        limit = 5 if scan_cycle else 3
         targets: list[str] = []
-        if focus:
-            targets.append(focus)
-        for symbol in cleaned:
-            if symbol not in targets:
-                targets.append(symbol)
-            if len(targets) >= 3:
-                break
+        if scan_cycle:
+            # Client rotates through the green/best Daily scan list.
+            for symbol in cleaned:
+                if symbol not in targets:
+                    targets.append(symbol)
+                if len(targets) >= limit:
+                    break
+        else:
+            if focus:
+                targets.append(focus)
+            for symbol in cleaned:
+                if symbol not in targets:
+                    targets.append(symbol)
+                if len(targets) >= limit:
+                    break
         scored: list[str] = []
         new_processes: list[dict] = []
         fills_updated = 0
@@ -1041,6 +1051,7 @@ class Desk:
         book["touch_tab"] = tab
         book["new_processes"] = new_processes
         book["fills_updated"] = fills_updated
+        book["scan_cycle"] = scan_cycle
         if new_processes:
             first = new_processes[0]
             book["touch_note"] = (
@@ -1052,8 +1063,9 @@ class Desk:
             )
         elif scored:
             where = tab or "desk"
+            prefix = "Scan learn scored " if scan_cycle else "Scored "
             book["touch_note"] = (
-                "Scored "
+                prefix
                 + ", ".join(scored)
                 + " from "
                 + where

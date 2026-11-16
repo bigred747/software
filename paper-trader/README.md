@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Continuous scan Learning (1.9.68)
+
+While the page is open, Learning cycles through the top Daily scan names (green best list, else leaders). Each pass scores closed bars only, two names at a time, and keeps going with Auto refresh. Paper only. Not a forecast.
+
 ## big4indicator + Ready · Aim · Fire (1.9.67)
 
 - **big4indicator** colors candles all green in a bullish stretch and all red in a bearish stretch (mixed gray). Toggle in Layers.

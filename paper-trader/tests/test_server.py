@@ -203,6 +203,25 @@ class ServerTests(unittest.TestCase):
             self.assertIn("touch_note", payload)
             self.assertTrue(payload.get("touched"))
 
+    def test_learn_touch_scan_cycle_scores_top_scan_names_not_only_focus(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            bars = self._flat_bars(100.0)
+            with patch("paper_trader.quotes.load_bars", return_value=bars):
+                touched = desk.learn_touch({"tab": "scan", "symbols": ["ETH-USD", "XRP-USD", "SOL-USD"]})
+                scored = touched.get("touched") or []
+                self.assertTrue(touched.get("scan_cycle"))
+                self.assertIn("ETH-USD", scored)
+                self.assertIn("XRP-USD", scored)
+                self.assertNotIn(desk.journal.symbol, scored)
+                note = touched.get("touch_note") or ""
+                self.assertTrue("Scan learn scored" in note or "New process" in note, note)
+                again = desk.learn_touch({"tab": "auto", "symbols": ["BTC-USD", "SPY"]})
+                self.assertTrue(again.get("scan_cycle"))
+                self.assertEqual(again.get("touched"), ["BTC-USD", "SPY"])
+
     def test_new_process_updates_fills_and_lights_a_green_signal(self) -> None:
         from paper_trader.server import Desk
 
@@ -854,10 +873,13 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.67", script)
+        self.assertIn(b"1.9.68", script)
         self.assertIn(b"function paintClearEdgeArrows", script)
         self.assertIn(b"function paintReadyAimStages", script)
         self.assertIn(b"big4indicator", script)
+        self.assertIn(b"function cycleScanLearn", script)
+        self.assertIn(b"function topScanLearnNames", script)
+        self.assertIn(b"function startScanLearnLoop", script)
         self.assertIn(b'id="desk-clear"', page)
         self.assertIn(b"best-setup", page)
         self.assertIn(b"Best setup Auto", page)
