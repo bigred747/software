@@ -51,6 +51,7 @@ from paper_trader.learn import (
     pick_note,
     rank_leaders,
     rank_today,
+    record_fill_lesson,
     remember_day_buy,
     remember_focus,
     remember_scan_switch,
@@ -412,6 +413,27 @@ class Desk:
             fill["process"] = process
         self.journal.fills.append(fill)
         self.journal.fills = self.journal.fills[-500:]
+        try:
+            taught = record_fill_lesson(
+                self.learn_path,
+                self.journal.symbol,
+                side,
+                price,
+                reason=reason,
+                pnl=pnl,
+            )
+            timing = taught.get("timing") if isinstance(taught, dict) else None
+            if isinstance(timing, dict):
+                fill["timing_note"] = str(timing.get("note") or "")
+                fill["prefer_fire"] = bool(timing.get("prefer_fire"))
+            lesson = taught.get("fill") if isinstance(taught, dict) else None
+            if isinstance(lesson, dict) and lesson.get("as_of"):
+                fill["as_of"] = lesson.get("as_of")
+                fill["setup"] = lesson.get("setup") or ""
+                if lesson.get("rule"):
+                    fill["process"] = lesson.get("rule")
+        except (OSError, ValueError):
+            pass
 
     def _read_shelf(self) -> dict:
         try:

@@ -222,6 +222,27 @@ class ServerTests(unittest.TestCase):
                 self.assertTrue(again.get("scan_cycle"))
                 self.assertEqual(again.get("touched"), ["BTC-USD", "SPY"])
 
+    def test_paper_fills_teach_timing_on_closed_bars(self) -> None:
+        from paper_trader.learn import record_fill_lesson
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "learn_state.json"
+            bars = self._flat_bars(100.0)
+            taught = record_fill_lesson(path, "BTC-USD", "buy", 101.0, reason="auto", pnl=0.0, bars=bars)
+            self.assertEqual(taught["fill"]["side"], "buy")
+            self.assertIn("timing", taught)
+            self.assertIn("note", taught["timing"])
+            desk = Desk(Path(folder) / "paper_state.json")
+            desk.learn_path = path
+            with patch("paper_trader.quotes.load_bars", return_value=bars):
+                desk._log_fill("buy", 100.0, 101.0, 0.0, "auto")
+            self.assertTrue(desk.journal.fills)
+            self.assertIn("as_of", desk.journal.fills[-1])
+            book = desk.learn_view()
+            self.assertTrue(book.get("last_fill"))
+            self.assertIn("timing", book)
+
     def test_new_process_updates_fills_and_lights_a_green_signal(self) -> None:
         from paper_trader.server import Desk
 
@@ -873,13 +894,16 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.68", script)
+        self.assertIn(b"1.9.69", script)
         self.assertIn(b"function paintClearEdgeArrows", script)
         self.assertIn(b"function paintReadyAimStages", script)
         self.assertIn(b"big4indicator", script)
         self.assertIn(b"function cycleScanLearn", script)
         self.assertIn(b"function topScanLearnNames", script)
         self.assertIn(b"function startScanLearnLoop", script)
+        self.assertIn(b"function cycleStrategyLearn", script)
+        self.assertIn(b"function learnFromPaperFill", script)
+        self.assertIn(b"function preferFireFromFills", script)
         self.assertIn(b'id="desk-clear"', page)
         self.assertIn(b"best-setup", page)
         self.assertIn(b"Best setup Auto", page)

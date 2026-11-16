@@ -26,6 +26,7 @@ const state = {
   scanNote: "",
   scanDone: false,
   scanLearn: { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 },
+  stratLearn: { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 },
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -81,13 +82,16 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.68";
+const VERSION = "1.9.69";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
+const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
+const FILL_LEARN_KEY = "paper_trader_fill_learn_v1";
 const FEE_BPS = 5;
 const SLIP_BPS = 5;
 const SCAN_LEARN_GAP_MS = 12000;
 const SCAN_LEARN_BATCH = 2;
+const STRAT_LEARN_GAP_MS = 14000;
 let learnTouchAt = 0;
 let learnTouchTab = "";
 let learnTouchNote = "";
@@ -383,7 +387,8 @@ function withHooks(items) {
   const webPage = state.offline && location.protocol !== "file:";
   applyHook(next, "Edge", edge || webPage, edge ? "This page is in Microsoft Edge" : webPage ? "This browser loads the quotes" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
   const learnDetail = learnTouchNote
-    || "Cycles top Daily scan names while this page is open. Closed bars only. Not a forecast.";
+    || fillTimingNote()
+    || "Page open: scan names + every strategy + paper fill timing. Background Windows score keeps closed-bar lessons after the desk closes. Not a forecast.";
   if (!next.some((item) => item.name === "Learning")) {
     setSignal(next, "Learning", true, learnDetail);
   } else {
@@ -478,7 +483,7 @@ function renderLocalSignals() {
     { name: "CCI pane", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.cciPane, detail: "CCI 50 / 14 / 5" },
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
-    { name: "Learning", ok: true, detail: learnTouchNote || "Top Daily scan names, while the page is open" },
+    { name: "Learning", ok: true, detail: learnTouchNote || fillTimingNote() || "Scan names + strategies + fill timing, while the page is open" },
     { name: "New process", ok: true, detail: newProcessNote || "Waiting for a closed-bar process change" },
     { name: "Fear and greed", ok: !!(state.market && state.market.bars && state.market.bars.length >= 20), detail: phoneMood() },
     { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
@@ -1146,6 +1151,10 @@ async function loadSignals() {
     const scanned = Number(book.scanned) || 0;
     const total = Number(book.scan_total) || 0;
     state.scanDone = total > 0 && scanned >= total;
+    if (book.timing) {
+      state.fillLearn = Object.assign(readFillLearn(), { timing: book.timing, fills: book.fills || [] });
+      writeFillLearn(state.fillLearn);
+    }
     renderPins();
     renderToday();
     renderScan();
@@ -1268,7 +1277,10 @@ function render(paper) {
   renderWorking(paper);
   seedTicketPrices(paper);
   announceTicketFills(paper);
-  if (paper.fill && paper.fill.price > 0 && paper.symbol) state.lastFill = { symbol: paper.symbol, text: fillText(paper) };
+  if (paper.fill && paper.fill.price > 0 && paper.symbol) {
+    state.lastFill = { symbol: paper.symbol, text: fillText(paper) };
+    learnFromPaperFill(paper);
+  }
   const fillNode = $("last-fill");
   if (fillNode && state.lastFill && state.lastFill.symbol === paper.symbol && fillNode.textContent !== "Last fill: " + state.lastFill.text) {
     fillNode.textContent = "Last fill: " + state.lastFill.text;
@@ -3228,25 +3240,223 @@ async function cycleScanLearn(reason) {
   const done = Array.isArray(scored) ? scored : batch;
   if (done && done.length) {
     state.scanLearn.scored = (state.scanLearn.scored || []).concat(done).slice(-40);
+    if (!state.offline) {
+      try {
+        await postJSON("/api/learn/watch", { symbols: list.concat(readPins()) });
+      } catch (error) {
+        /* Background watch update is best-effort. */
+      }
+    }
     if (!learnTouchNote || reason === "scan" || reason === "auto") {
       learnTouchNote =
         "Scan learn " +
         done.join(", ") +
         " · " +
         list.length +
-        " top names cycling. Closed bars only. Not a forecast.";
+        " top names cycling (page open). Background score keeps those names after the desk closes. Closed bars only. Not a forecast.";
       refreshLearnSignal();
     }
   }
   return done || [];
 }
 
+function readStratLearn() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STRAT_LEARN_KEY) || "{}");
+    return raw && typeof raw.symbols === "object" && raw.symbols ? raw : { version: 1, symbols: {}, passes: 0 };
+  } catch (error) {
+    return { version: 1, symbols: {}, passes: 0 };
+  }
+}
+
+function writeStratLearn(book) {
+  try {
+    localStorage.setItem(STRAT_LEARN_KEY, JSON.stringify(book));
+  } catch (error) {
+    /* Strategy learn still holds for this page. */
+  }
+}
+
+async function cycleStrategyLearn() {
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return "";
+  if (typeof PaperFrames === "undefined" || !PaperFrames.strategies) return "";
+  const now = Date.now();
+  if (!state.stratLearn) state.stratLearn = { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 };
+  if (now - (state.stratLearn.lastAt || 0) < STRAT_LEARN_GAP_MS) return "";
+  const list = topScanLearnNames();
+  const open = (state.paper && state.paper.symbol) || "";
+  const queue = list.length ? list.slice() : open ? [open] : [];
+  if (!queue.length) {
+    learnTouchNote = "Strategy learn waits for a market or Daily scan names. Page open only. Closed bars only. Not a forecast.";
+    refreshLearnSignal();
+    return "";
+  }
+  const symbol = queue[state.stratLearn.cursor % queue.length];
+  state.stratLearn.cursor += 1;
+  state.stratLearn.lastAt = now;
+  state.stratLearn.lastSymbol = symbol;
+  const bars = await barsForLearn(symbol);
+  if (!bars || !bars.length) return "";
+  const row = state.catalog.find((item) => item.symbol === symbol);
+  const settled = PaperFrames.closedBars(bars, phoneCrypto(symbol, row));
+  if (settled.length < 2) return "";
+  const board = PaperFrames.strategies(settled, { live: false });
+  const snapshot = {
+    at: now,
+    best: board.best || "",
+    rows: (board.rows || []).map((item) => ({
+      id: item.id,
+      name: item.name,
+      call: item.call,
+      ready: !!item.ready,
+      trades: item.trades || 0,
+      winRate: item.winRate || 0,
+      total: item.total || 0,
+      hold: item.hold || 0,
+      worst: item.worst || 0,
+    })),
+  };
+  const book = readStratLearn();
+  book.symbols[symbol] = snapshot;
+  book.passes = (Number(book.passes) || 0) + 1;
+  book.updated = now;
+  book.last_symbol = symbol;
+  writeStratLearn(book);
+  state.stratLearn.passes = book.passes;
+  state.stratLearn.lastId = snapshot.best || "";
+  if (open && symbol === open) {
+    state.boardKey = "";
+    state.board = board;
+    try {
+      renderStrategies();
+    } catch (error) {
+      /* Chart can refresh on the next paint. */
+    }
+  }
+  const best = (board.rows || []).find((item) => item.id === board.best);
+  learnTouchNote =
+    "Strategy learn " +
+    symbol +
+    " · " +
+    snapshot.rows.length +
+    " strategies on closed bars" +
+    (best ? " · best " + best.name : "") +
+    ". Page open for strategy table. Background score covers scan names after the desk closes. Not a forecast.";
+  refreshLearnSignal();
+  nudgeLearn("strategies", [symbol]);
+  return symbol;
+}
+
+function readFillLearn() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FILL_LEARN_KEY) || "{}");
+    return raw && typeof raw === "object" ? raw : { version: 1, fills: [], timing: {} };
+  } catch (error) {
+    return { version: 1, fills: [], timing: {} };
+  }
+}
+
+function writeFillLearn(book) {
+  try {
+    localStorage.setItem(FILL_LEARN_KEY, JSON.stringify(book));
+  } catch (error) {
+    /* Fill learn still holds for this page. */
+  }
+}
+
+function fillTimingNote() {
+  const timing = (state.fillLearn && state.fillLearn.timing) || readFillLearn().timing || {};
+  if (timing.note) return String(timing.note);
+  if (timing.prefer_fire) return "Paper fills prefer Ready · Aim · Fire buys. Closed bars only. Not a forecast.";
+  return "";
+}
+
+function preferFireFromFills() {
+  const timing = (state.fillLearn && state.fillLearn.timing) || readFillLearn().timing || {};
+  if (typeof timing.prefer_fire === "boolean") return timing.prefer_fire;
+  const buy = timing.buy || {};
+  const sell = timing.sell || {};
+  if ((Number(sell.wins) || 0) > 0 && (Number(buy.setup_buys) || 0) > 0) return true;
+  const count = Number(buy.count) || 0;
+  return count >= 3 && (Number(buy.setup_buys) || 0) >= Math.max(1, Math.floor(count / 2));
+}
+
+function learnFromPaperFill(paper) {
+  const fill = paper && paper.fill;
+  if (!fill || !(fill.price > 0) || !paper.symbol) return null;
+  const stamp = paper.symbol + "|" + fill.side + "|" + String(fill.at || "") + "|" + String(fill.price);
+  if (state.lastFillLearnKey === stamp) return null;
+  state.lastFillLearnKey = stamp;
+  const bars = seenBars();
+  const edge = bars.length ? currentEdge(bars) : null;
+  const board = bars.length >= 2 ? currentBoard(bars) : null;
+  const picked = board && board.rows ? board.rows.find((item) => item.id === ((state.best && state.best.on && "edge") || state.strat.pick)) : null;
+  const event = {
+    at: fill.at || Date.now() / 1000,
+    symbol: paper.symbol,
+    side: fill.side,
+    price: fill.price,
+    pnl: Number(fill.pnl) || 0,
+    reason: fill.reason || "",
+    as_of: closedDate(bars) || fill.as_of || "",
+    stage: edge && edge.stage ? edge.stage : "",
+    score: edge && edge.score != null ? edge.score : null,
+    big4: edge && edge.big4 ? edge.big4.bias : "",
+    strategy: picked ? picked.id : state.strat.pick || "",
+    call: picked ? picked.call : "",
+    process: fill.process || "",
+    setup: fill.setup || "",
+  };
+  const book = readFillLearn();
+  book.fills = (Array.isArray(book.fills) ? book.fills : []).concat([event]).slice(-200);
+  const timing = Object.assign({}, book.timing || {});
+  const key = event.side === "buy" ? "buy" : "sell";
+  const row = Object.assign({ count: 0, wins: 0, setup_buys: 0, fire: 0 }, timing[key] || {});
+  row.count = (Number(row.count) || 0) + 1;
+  if (event.side === "sell" && event.pnl > 0) row.wins = (Number(row.wins) || 0) + 1;
+  if (event.side === "buy" && (event.setup === "buy" || event.stage === "fire")) {
+    row.setup_buys = (Number(row.setup_buys) || 0) + 1;
+    if (event.stage === "fire") row.fire = (Number(row.fire) || 0) + 1;
+  }
+  timing[key] = row;
+  const buyStats = timing.buy || {};
+  const sellStats = timing.sell || {};
+  timing.prefer_fire =
+    (Number(sellStats.wins) || 0) > 0 && (Number(buyStats.setup_buys) || 0) > 0
+      ? true
+      : (Number(buyStats.count) || 0) >= 3 && (Number(buyStats.setup_buys) || 0) >= Math.max(1, Math.floor((Number(buyStats.count) || 0) / 2))
+        ? true
+        : (Number(buyStats.fire) || 0) > 0;
+  timing.note =
+    "Learned paper " +
+    event.side +
+    " on " +
+    event.symbol +
+    (event.stage ? " · " + event.stage : "") +
+    ". " +
+    (timing.prefer_fire ? "Prefer Ready · Aim · Fire for the next precise buy. " : "Gathering fill timing. ") +
+    "Closed bars only. Not a forecast.";
+  book.timing = timing;
+  book.updated = Date.now();
+  writeFillLearn(book);
+  state.fillLearn = book;
+  learnTouchNote = timing.note;
+  refreshLearnSignal();
+  nudgeLearn("fills", [paper.symbol]);
+  return event;
+}
+
 function startScanLearnLoop() {
   if (state.scanLearn && state.scanLearn.timer) return;
   if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
+  let turn = 0;
   const tick = async () => {
     try {
-      await cycleScanLearn(state.auto ? "auto" : "scan");
+      if (typeof document === "undefined" || document.visibilityState !== "hidden") {
+        if (turn % 2 === 0) await cycleScanLearn(state.auto ? "auto" : "scan");
+        else await cycleStrategyLearn();
+        turn += 1;
+      }
     } catch (error) {
       /* Keep the page-open cycle alive. */
     }
@@ -3391,7 +3601,7 @@ async function autoTrade() {
   const held = state.paper.shares > 0;
   const want = row.call === "BUY" && !held ? "buy" : row.call === "SELL" && held ? "sell" : "";
   if (!want) return "";
-  // Edge Auto buys only on Fire. Prefer big4indicator agreement for the most precise Fire.
+  // Edge Auto buys only on Fire. Prefer big4indicator + fill-learned precise timing.
   if (pickId === "edge" && want === "buy") {
     const edgeNow = currentEdge(bars);
     if (!edgeNow || !edgeNow.ready || edgeNow.call !== "BUY" || edgeNow.stage !== "fire") {
@@ -3401,6 +3611,11 @@ async function autoTrade() {
     }
     if (edgeNow.big4 && edgeNow.big4.bias !== "bull") {
       state.strat.note = "Edge Fire is on, waiting for big4indicator bullish agreement before Auto buy.";
+      renderAutoNote();
+      return state.strat.note;
+    }
+    if (preferFireFromFills() && edgeNow.parts && !Object.values(edgeNow.parts).every(Boolean)) {
+      state.strat.note = "Fill learn wants every Edge check on for the most precise Fire buy.";
       renderAutoNote();
       return state.strat.note;
     }
@@ -3637,7 +3852,12 @@ async function phoneSafe() {
   }
   add("Paper book saves", saves, saves ? "This browser keeps positions and fills" : "This browser blocks saving. Positions last until the page closes");
   add("Quotes", !!state.market, state.market ? "A real quote is loaded" : "Waiting on the quote", "health");
-  add("Learning", true, "Cycles top Daily scan names while this page is open", "health");
+  add(
+    "Learning",
+    true,
+    "Page open: scan names + strategies + paper fill timing. Background score (Windows Start-the-score) keeps closed-bar lessons after the desk closes — not a broker, not a forecast",
+    "health"
+  );
   return { safe: items.filter((item) => item.kind === "safety").every((item) => item.ok), items };
 }
 

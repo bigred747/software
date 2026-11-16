@@ -692,6 +692,82 @@ def stamp_process_on_fills(fills: list[dict], symbol: str, rule: str) -> int:
     return changed
 
 
+def record_fill_lesson(
+    state_path: Path,
+    symbol: str,
+    side: str,
+    price: float,
+    *,
+    reason: str = "",
+    pnl: float = 0.0,
+    bars: list[Bar] | None = None,
+) -> dict:
+    """Remember one paper buy/sell on closed bars so timing can get more precise.
+
+    Uses only bars that have already printed. Paper only. Not a forecast.
+    """
+    if not _SYMBOL.fullmatch(symbol or ""):
+        raise ValueError(f"Unknown market {symbol}. Search the list.")
+    action = "buy" if str(side or "").lower() == "buy" else "sell"
+    loaded = bars if bars is not None else quotes.load_bars(symbol, refresh=True)
+    lesson = score_row(loaded, symbol)
+    event = {
+        "at": time.time(),
+        "symbol": symbol,
+        "side": action,
+        "price": float(price or 0),
+        "pnl": float(pnl or 0),
+        "reason": str(reason or "")[:40],
+        "as_of": lesson.get("as_of") or "",
+        "rule": lesson.get("rule") or "",
+        "setup": lesson.get("setup") or "",
+        "mood": lesson.get("mood") or {},
+        "seen": int(lesson.get("seen") or 0),
+        "matched": int(lesson.get("matched") or 0),
+    }
+    with _WATCH_LOCK:
+        saved = _load(state_path)
+        history = list(saved.get("fills") or [])
+        history.append(event)
+        saved["fills"] = history[-200:]
+        saved["last_fill"] = event
+        saved["last_fill_at"] = event["at"]
+        timing = dict(saved.get("timing") or {})
+        key = action
+        row = dict(timing.get(key) or {"count": 0, "wins": 0, "setup_buys": 0, "rules": {}})
+        row["count"] = int(row.get("count") or 0) + 1
+        if action == "sell" and float(pnl or 0) > 0:
+            row["wins"] = int(row.get("wins") or 0) + 1
+        if action == "buy" and str(lesson.get("setup") or "") == "buy":
+            row["setup_buys"] = int(row.get("setup_buys") or 0) + 1
+        rules = dict(row.get("rules") or {})
+        rule = str(lesson.get("rule") or "")
+        if rule:
+            rules[rule] = int(rules.get(rule) or 0) + 1
+        row["rules"] = rules
+        row["last_as_of"] = event["as_of"]
+        row["last_rule"] = rule
+        timing[key] = row
+        # Prefer Fire-style buys when past paper sells showed a win after a squeeze-dot setup buy.
+        prefer_fire = False
+        buy_row = dict(timing.get("buy") or {})
+        sell_row = dict(timing.get("sell") or {})
+        if int(buy_row.get("setup_buys") or 0) > 0 and int(sell_row.get("wins") or 0) > 0:
+            prefer_fire = True
+        elif int(buy_row.get("count") or 0) >= 3 and int(buy_row.get("setup_buys") or 0) >= max(1, int(buy_row.get("count") or 0) // 2):
+            prefer_fire = True
+        timing["prefer_fire"] = prefer_fire
+        timing["note"] = (
+            "Paper fills teach timing on closed bars. "
+            + ("Prefer Ready · Aim · Fire buys with a squeeze-dot setup. " if prefer_fire else "Still gathering fill timing. ")
+            + "Not a forecast."
+        )
+        saved["timing"] = timing
+        saved["updated"] = time.time()
+        _store(state_path, saved)
+    return {"fill": event, "timing": timing}
+
+
 def touch_symbol(state_path: Path, symbol: str, bars: list[Bar] | None = None, tab: str = "") -> dict:
     """Score one market on closed bars now and merge it into the learn book.
 
@@ -863,13 +939,21 @@ def learning_report(state_path: Path, *, expect: bool, now: float | None = None)
     if running and error:
         return {"ok": False, "running": True, "detail": error}
     if running and passes < 1:
-        return {"ok": True, "running": True, "detail": "All day, all week" + awake}
+        return {"ok": True, "running": True, "detail": "Background score on · closed bars all day" + awake}
     if running:
         tone = row.get("mood") or {}
         label = str(tone.get("label") or "")
         score = tone.get("score")
         mood_bit = f" · {label} {score}" if label and score is not None and label != "Waiting" else ""
-        return {"ok": True, "running": True, "detail": f"All day, all week · Watching {symbol}{mood_bit}{awake}"}
+        return {
+            "ok": True,
+            "running": True,
+            "detail": (
+                f"Background score on · Watching {symbol}{mood_bit}{awake}. "
+                "Closed-bar lesson + Daily scan keep going after the desk closes. "
+                "Full strategy table refresh needs the page open."
+            ),
+        }
     if holder and not fresh:
         return {"ok": False, "running": False, "detail": "The all-day score stopped answering"}
     if expect and error:
@@ -879,7 +963,10 @@ def learning_report(state_path: Path, *, expect: bool, now: float | None = None)
     return {
         "ok": True,
         "running": False,
-        "detail": "Starts when you open the desk, then keeps scoring after that window closes",
+        "detail": (
+            "Desk opens the background score. It keeps closed-bar scoring after the window closes while you are signed in. "
+            "Tick Start the score under Windows extras for sign-in. Strategy table cycling needs the page open."
+        ),
     }
 
 
@@ -898,6 +985,9 @@ def book_view(state_path: Path, *, expect: bool) -> dict:
         "last_process": json.loads(json.dumps(last_process)) if last_process else None,
         "last_process_at": float(saved.get("last_process_at") or 0),
         "processes": json.loads(json.dumps(list(saved.get("processes") or [])[-20:])),
+        "last_fill": json.loads(json.dumps(saved.get("last_fill"))) if isinstance(saved.get("last_fill"), dict) else None,
+        "timing": json.loads(json.dumps(saved.get("timing") or {})),
+        "fills": json.loads(json.dumps(list(saved.get("fills") or [])[-20:])),
     }
 
 
@@ -1237,6 +1327,12 @@ class Watcher:
         self._scan = raw
         if raw["done"] or raw["cursor"] <= 5 or raw["cursor"] % 25 == 0:
             _store(self.scan_path, raw)
+        if raw["done"]:
+            # Keep the all-day scorer on today's top scan names after the desk closes.
+            board = symbol_rows(rows)
+            top = [str(item.get("symbol") or "") for item in rank_leaders(board)[:SCAN_LIMIT] if item.get("symbol")]
+            if top:
+                remember_symbols(self.watch_path, top)
         self._beat()
         return SCAN_PAUSE
 

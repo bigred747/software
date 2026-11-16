@@ -179,7 +179,7 @@
           <h4>Windows extras</h4>
           <label><input id="win-startup" type="checkbox"> Start the score when I sign in to Windows</label>
           <label><input id="win-desktop" type="checkbox"> Put Paper Trader.bat on my Desktop</label>
-          <p id="win-note" class="breaker-note">Both are off until you tick them. Untick to remove the file.</p>
+          <p id="win-note" class="breaker-note">Background score: closed-bar lessons + Daily scan keep going after the desk closes while you are signed in (tick Start the score for sign-in). Strategy table cycling and live fill-timing UI need the page open. Not a broker. Not a forecast.</p>
         </div>
       </div>
       <section id="ticket" class="ticket-box" aria-label="Order ticket">
@@ -275,7 +275,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="strategies">
         <h2>Strategies</h2>
-        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. Scored on this market's own closed bars. The ranking looks backward. Not a forecast.</p>
+        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. While this page is open, Learning re-scores each strategy on top Daily scan names and learns from paper buy/sell fills to refine Fire timing. Scored on closed bars only. The ranking looks backward. Not a forecast.</p>
         <div class="table-wrap strat-board-wrap">
           <table class="strat-board-table">
             <thead>
