@@ -11512,7 +11512,6 @@ function showPhoneTab(name) {
   document.body.dataset.tab = name;
   document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
   if (state.market && state.paper && (name === "chart" || name === "study")) redrawStudies();
-}
   nudgeLearn(name === "study" ? (document.querySelector(".dock-tab.on") || {}).dataset.dock || "study" : name);
 }
 

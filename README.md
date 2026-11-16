@@ -10,7 +10,7 @@ WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
 [luxe-affiliate-product-scout.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/product-scout-95-100-e8f3/luxe-affiliate-product-scout.zip)
 
-SHA-256 `1aa6e57e49476ac528dd672c1baecbe08deb394a43f619ab645da49f2bf9c991`
+SHA-256 `4d80ec7750a9a9c167de8a7a9a34f03f66a90550fe143ae470f82b8b6f771b4f`
 
 If the last upload caused a critical error: in WordPress delete Product Scout (and any leftover `luxe-affiliate-product-scout*` folders in `wp-content/plugins/`), then upload this zip. Do not unzip it on the PC.
 
