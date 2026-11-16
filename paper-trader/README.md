@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Study spacing (1.9.64)
+
+Price, TMO, Squeeze, and CCI are separate boxes one under another (not overlapping). Scroll the chart to see each full pane. **Open TMO · Squeeze · CCI** still opens a full window. Compact studies tightens heights if you want more on screen at once.
+
 ## Study rollup and window (1.9.63)
 
 On computer and phone, each study pane has a **▾ / ▸** rollup arrow. **Expand studies** makes TMO, squeeze, and CCI taller. **Open TMO · Squeeze · CCI** (and each pane’s Open ▢) opens the three studies in a separate window so you can see the full oscillators while the main desk stays open. Chart area scrolls so the four panes are not crushed into tiny squares.

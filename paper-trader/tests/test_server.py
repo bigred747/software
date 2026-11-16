@@ -854,7 +854,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.63", script)
+        self.assertIn(b"1.9.64", script)
         self.assertIn(b"best-setup", page)
         self.assertIn(b"Best setup Auto", page)
         self.assertIn(b"best-setup-gates", page)

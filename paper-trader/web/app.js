@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.63";
+const VERSION = "1.9.64";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -5890,7 +5890,7 @@ bindZoom($("frame-preview"), "preview");
 const STUDY_PANE_KEY = "paperTraderStudyPanes";
 
 function readStudyPanes() {
-  const chosen = { price: true, tmo: true, sqz: true, cci: true, big: false };
+  const chosen = { price: true, tmo: true, sqz: true, cci: true, big: true };
   try {
     const saved = JSON.parse(localStorage.getItem(STUDY_PANE_KEY) || "{}");
     if (saved && typeof saved === "object") {
