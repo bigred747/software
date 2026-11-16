@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo
 
 from paper_trader.indicators import squeeze, squeeze_alert
 from paper_trader.model import Bar
+from paper_trader.strategy_board import strategy_snapshot
 from paper_trader import quotes
 
 SECTORS = ("SMH", "VGT", "ARKW", "QQQ", "SPMO", "COPX", "ARKQ", "MGK", "CIBR", "UGA", "AIRR", "GRID")
@@ -48,6 +49,99 @@ _SYMBOL = re.compile(r"^[A-Za-z0-9.^=-]{1,16}$")
 _WATCH_LOCK = threading.Lock()
 _ES_CONTINUOUS = 0x80000000
 _ES_SYSTEM_REQUIRED = 0x00000001
+
+# Bot-on learning covers every desk section/page, including ones scrolled away.
+# register_desk_page() adds new shipped sections automatically into the learner.
+_DESK_PAGES: list[tuple[str, str]] = [
+    ("markets", "Markets · Daily scan and pins"),
+    ("chart", "Chart · closed-bar price read"),
+    ("trade", "Trade · paper ticket and Auto"),
+    ("study", "Study · process / lesson score"),
+    ("strategies", "Strategies · classic board"),
+    ("squeeze", "Squeeze scan · catalog walk"),
+    ("internals", "Internals · market gauges"),
+    ("frames", "Timeframes · multi-TF Edge"),
+    ("readings", "big4indicator · tape proxies"),
+    ("journal", "Journal · paper fills and timing"),
+    ("backtest", "Backtest · closed-bar replay"),
+    ("signals", "Signals · desk checks"),
+]
+
+
+def register_desk_page(page_id: str, label: str = "") -> None:
+    """Add a new desk section to bot-on learning after a ship. Idempotent."""
+    key = str(page_id or "").strip().lower()
+    if not key:
+        return
+    for existing, _label in _DESK_PAGES:
+        if existing == key:
+            return
+    _DESK_PAGES.append((key, str(label or key)))
+
+
+def desk_pages() -> list[tuple[str, str]]:
+    """All desk sections the bot-on learner covers (auto-grows via register_desk_page)."""
+    return list(_DESK_PAGES)
+
+
+def page_snapshot(
+    page_id: str,
+    *,
+    symbol: str,
+    lesson: dict,
+    board: dict,
+    scan: dict | None = None,
+    timing: dict | None = None,
+) -> dict:
+    """One closed-bar pass for a desk page while the bot is on."""
+    page = str(page_id or "")
+    label = next((name for key, name in _DESK_PAGES if key == page), page)
+    base = {
+        "page": page,
+        "label": label,
+        "symbol": symbol,
+        "at": time.time(),
+        "as_of": lesson.get("as_of") or "",
+        "source": "bot-on",
+    }
+    if page in {"study", "chart", "trade", "signals"}:
+        base.update(
+            {
+                "rule": lesson.get("rule") or "",
+                "setup": lesson.get("setup") or "",
+                "mood": lesson.get("mood") or {},
+                "seen": lesson.get("seen"),
+                "matched": lesson.get("matched"),
+            }
+        )
+    elif page == "strategies":
+        base.update({"best": board.get("best") or "", "rows": len(board.get("rows") or []), "board_as_of": board.get("as_of") or ""})
+    elif page in {"markets", "squeeze"}:
+        raw = scan or {}
+        base.update(
+            {
+                "scanned": int(raw.get("cursor") or raw.get("scanned") or 0),
+                "total": int(raw.get("total") or 0),
+                "done": bool(raw.get("done")),
+            }
+        )
+    elif page == "readings":
+        base.update({"rule": lesson.get("rule") or "", "setup": lesson.get("setup") or "", "name": "big4indicator"})
+    elif page == "journal":
+        tone = timing or {}
+        base.update({"prefer_fire": bool(tone.get("prefer_fire")), "timing_note": str(tone.get("note") or "")})
+    elif page == "backtest":
+        rows = board.get("rows") or []
+        ready = [row for row in rows if row.get("ready")]
+        base.update({"strategies_ready": len(ready), "best": board.get("best") or ""})
+    elif page == "frames":
+        base.update({"note": "Multi-TF Edge uses each timeframe's own closed bars when the page is open; bot-on keeps the daily lesson warm."})
+    elif page == "internals":
+        base.update({"note": "Internals refresh while the desk is open; bot-on keeps watched markets scored."})
+    else:
+        # New registered pages still get a warm pass from the closed-bar lesson.
+        base.update({"rule": lesson.get("rule") or "", "setup": lesson.get("setup") or "", "auto": True})
+    return base
 
 
 def _kernel():
@@ -939,7 +1033,7 @@ def learning_report(state_path: Path, *, expect: bool, now: float | None = None)
     if running and error:
         return {"ok": False, "running": True, "detail": error}
     if running and passes < 1:
-        return {"ok": True, "running": True, "detail": "Background score on · closed bars all day" + awake}
+        return {"ok": True, "running": True, "detail": "Bot on · learning all desk pages on closed bars" + awake}
     if running:
         tone = row.get("mood") or {}
         label = str(tone.get("label") or "")
@@ -949,23 +1043,26 @@ def learning_report(state_path: Path, *, expect: bool, now: float | None = None)
             "ok": True,
             "running": True,
             "detail": (
-                f"Background score on · Watching {symbol}{mood_bit}{awake}. "
-                "Closed-bar lesson + Daily scan keep going after the desk closes. "
-                "Full strategy table refresh needs the page open."
+                f"Bot on · every desk section · Watching {symbol}{mood_bit}{awake}. "
+                "Closed-bar lessons, Daily scan, classic strategies, fill timing, and all scrolled-away pages keep going while this score process runs. New shipped pages/strategies auto-join."
             ),
         }
     if holder and not fresh:
-        return {"ok": False, "running": False, "detail": "The all-day score stopped answering"}
+        return {"ok": False, "running": False, "detail": "Bot score stopped answering"}
     if expect and error:
         return {"ok": False, "running": False, "detail": error}
     if expect:
-        return {"ok": False, "running": False, "detail": "The all-day score is not running"}
+        return {
+            "ok": False,
+            "running": False,
+            "detail": "Bot score is off. Open Paper Trader (or tick Start the score under Windows extras) to turn background learning on.",
+        }
     return {
         "ok": True,
         "running": False,
         "detail": (
-            "Desk opens the background score. It keeps closed-bar scoring after the window closes while you are signed in. "
-            "Tick Start the score under Windows extras for sign-in. Strategy table cycling needs the page open."
+            "Bot off for background learning. Open the desk to start the score, or tick Start the score under Windows extras for sign-in. "
+            "While the bot score is on, closed pages still get lessons, scan, strategies, and timing. Phone/browser alone cannot keep that process alive."
         ),
     }
 
@@ -988,6 +1085,11 @@ def book_view(state_path: Path, *, expect: bool) -> dict:
         "last_fill": json.loads(json.dumps(saved.get("last_fill"))) if isinstance(saved.get("last_fill"), dict) else None,
         "timing": json.loads(json.dumps(saved.get("timing") or {})),
         "fills": json.loads(json.dumps(list(saved.get("fills") or [])[-20:])),
+        "strategies": json.loads(json.dumps(saved.get("strategies") or {})),
+        "pages": json.loads(json.dumps(saved.get("pages") or {})),
+        "desk_pages": json.loads(json.dumps(saved.get("desk_pages") or [{"id": key, "label": label} for key, label in desk_pages()])),
+        "last_page": str(saved.get("last_page") or ""),
+        "bot_on": bool(report["running"]),
     }
 
 
@@ -1209,10 +1311,22 @@ class Watcher:
         for symbol in (focus,) + extra:
             if symbol and symbol not in queue:
                 queue.append(symbol)
+        # Keep learning top Daily scan names even when those desk pages are closed.
+        try:
+            scan_rows = symbol_rows(dict((self._scan or {}).get("rows") or {}))
+            for item in rank_leaders(scan_rows)[:SCAN_LIMIT]:
+                name = str(item.get("symbol") or "")
+                if name and name not in queue:
+                    queue.append(name)
+        except (TypeError, ValueError, AttributeError):
+            pass
+        if not queue:
+            return
         symbol = queue[cursor % len(queue)]
         try:
             bars = quotes.load_bars(symbol, refresh=True)
             lesson = score_row(bars, symbol)
+            board = strategy_snapshot(closed_bars(bars, symbol))
         except ValueError as exc:
             self._fail(str(exc), symbol, cursor + 1)
             return
@@ -1228,25 +1342,52 @@ class Watcher:
             "mood": lesson["mood"],
             "as_of": lesson["as_of"],
             "setup": lesson["setup"],
+            "strategies": board,
         }
         with self._lock:
             symbols = dict(self._saved.get("symbols") or {})
             previous = str((symbols.get(symbol) or {}).get("rule") or "")
             record_process_change(self._saved, symbol, str(summary["rule"] or ""), previous, tab="learner", source="learner")
             symbols[symbol] = summary
+            boards = dict(self._saved.get("strategies") or {})
+            boards[symbol] = board
+            pages = dict(self._saved.get("pages") or {})
+            page_list = desk_pages()
+            page_cursor = int(self._saved.get("page_cursor") or 0)
+            # One pass warms every registered desk page for this market (scrolled-away tabs included).
+            for page_id, _label in page_list:
+                pages[page_id] = page_snapshot(
+                    page_id,
+                    symbol=symbol,
+                    lesson=lesson,
+                    board=board,
+                    scan=self._scan,
+                    timing=dict(self._saved.get("timing") or {}),
+                )
+            if page_list:
+                page_cursor = (page_cursor + 1) % len(page_list)
             self._saved = {
                 "version": 1,
                 "passes": int(self._saved.get("passes") or 0) + 1,
                 "cursor": cursor + 1,
+                "page_cursor": page_cursor,
                 "last_error": "",
                 "last_symbol": symbol,
+                "last_page": page_list[page_cursor - 1][0] if page_list else "",
                 "pid": os.getpid(),
                 "updated": time.time(),
                 "awake": self._awake,
                 "symbols": symbols,
+                "strategies": boards,
+                "pages": pages,
+                "desk_pages": [{"id": key, "label": label} for key, label in page_list],
                 "processes": list(self._saved.get("processes") or []),
                 "last_process": self._saved.get("last_process"),
                 "last_process_at": self._saved.get("last_process_at"),
+                "fills": list(self._saved.get("fills") or []),
+                "last_fill": self._saved.get("last_fill"),
+                "last_fill_at": self._saved.get("last_fill_at"),
+                "timing": dict(self._saved.get("timing") or {}),
             }
             _store(self.path, self._saved)
 

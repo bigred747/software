@@ -243,6 +243,46 @@ class ServerTests(unittest.TestCase):
             self.assertTrue(book.get("last_fill"))
             self.assertIn("timing", book)
 
+    def test_bot_on_desk_pages_and_strategies_auto_register(self) -> None:
+        from paper_trader.learn import desk_pages, page_snapshot, register_desk_page
+        from paper_trader.strategy_board import register_strategy, strategy_ids, strategy_snapshot
+
+        pages = desk_pages()
+        ids = [row[0] for row in pages]
+        for needed in (
+            "markets",
+            "chart",
+            "trade",
+            "study",
+            "strategies",
+            "squeeze",
+            "internals",
+            "frames",
+            "readings",
+            "journal",
+            "backtest",
+            "signals",
+        ):
+            self.assertIn(needed, ids)
+        register_desk_page("custom-ship", "Custom shipped page")
+        self.assertIn("custom-ship", [row[0] for row in desk_pages()])
+        snap = page_snapshot(
+            "custom-ship",
+            symbol="BTC-USD",
+            lesson={"as_of": "2024-01-01", "rule": "Squeeze 20", "setup": "buy"},
+            board={"best": "squeeze", "rows": []},
+        )
+        self.assertEqual(snap["page"], "custom-ship")
+        self.assertTrue(snap.get("auto"))
+
+        before = set(strategy_ids())
+        register_strategy("demo", "Demo strategy", lambda bars, closes, count: (None, "Needs bars."))
+        self.assertIn("demo", strategy_ids())
+        self.assertTrue(before.issubset(set(strategy_ids())))
+        board = strategy_snapshot([])
+        self.assertIn("demo", board.get("ids") or [])
+        self.assertTrue(any(row.get("id") == "demo" for row in board.get("rows") or []))
+
     def test_new_process_updates_fills_and_lights_a_green_signal(self) -> None:
         from paper_trader.server import Desk
 
@@ -871,8 +911,13 @@ class ServerTests(unittest.TestCase):
             note = packed.read("paper-trader/iphone/README.txt")
             desk = packed.read("paper-trader/paper_trader/server.py")
             learn = packed.read("paper-trader/paper_trader/learn.py")
+            board = packed.read("paper-trader/paper_trader/strategy_board.py")
             live = packed.read("paper-trader/web/live.js")
             journal = packed.getinfo("paper-trader/paper_trader/journal.py")
+        self.assertIn("paper-trader/paper_trader/strategy_board.py", names)
+        self.assertIn(b"register_strategy", board)
+        self.assertIn(b"strategy_snapshot", board)
+        self.assertIn(b"register_desk_page", learn)
         self.assertIn("paper-trader/runtime/python.exe", names)
         self.assertIn("paper-trader/Start-Paper-Trader.bat", names)
         self.assertIn("paper-trader/1 Allow Paper Trader.bat", names)
@@ -894,7 +939,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.69", script)
+        self.assertIn(b"1.9.70", script)
         self.assertIn(b"function paintClearEdgeArrows", script)
         self.assertIn(b"function paintReadyAimStages", script)
         self.assertIn(b"big4indicator", script)
@@ -904,6 +949,8 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"function cycleStrategyLearn", script)
         self.assertIn(b"function learnFromPaperFill", script)
         self.assertIn(b"function preferFireFromFills", script)
+        self.assertIn(b"function deskLearnPages", script)
+        self.assertIn(b"function cycleDeskPageLearn", script)
         self.assertIn(b'id="desk-clear"', page)
         self.assertIn(b"best-setup", page)
         self.assertIn(b"Best setup Auto", page)

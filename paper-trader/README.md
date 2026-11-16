@@ -95,6 +95,14 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Bot-on Learning (1.9.70 · QPT-11)
+
+- **Bot on** = the Paper Trader Learn score process (starts when you open the desk; tick **Start the score** under Windows extras for sign-in).
+- While bot on: **every** desk section keeps learning on closed bars even when scrolled away — Markets, Chart, Trade, Study, Strategies, Squeeze scan, Internals, Timeframes, big4indicator, Journal, Backtest, Signals.
+- **Auto-include:** new dock pages register via `register_desk_page`; new classic strategies via `register_strategy` — the learner picks them up after the next ship without a separate hook.
+- **Page open** still refreshes live UI faster.
+- Phone/browser alone cannot keep the bot process alive. Paper only. Not a forecast. Not a broker.
+
 ## Continuous Learning (1.9.69)
 
 - **Page open:** cycles top Daily scan names, re-scores every strategy on those names, and learns from paper buy/sell fills to refine Ready · Aim · Fire timing.

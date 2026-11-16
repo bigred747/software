@@ -82,7 +82,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.69";
+const VERSION = "1.9.70";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -386,9 +386,12 @@ function withHooks(items) {
   const edge = inMicrosoftEdge();
   const webPage = state.offline && location.protocol !== "file:";
   applyHook(next, "Edge", edge || webPage, edge ? "This page is in Microsoft Edge" : webPage ? "This browser loads the quotes" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
+  const botOn = !!(state.learnBook && state.learnBook.bot_on);
   const learnDetail = learnTouchNote
     || fillTimingNote()
-    || "Page open: scan names + every strategy + paper fill timing. Background Windows score keeps closed-bar lessons after the desk closes. Not a forecast.";
+    || (botOn
+      ? "Bot on · learning all desk pages (scan, strategies, timing) even when tabs are closed. Not a forecast."
+      : "Bot score off for background learning. Open Paper Trader or tick Start the score under Windows extras. Page-open cycles still run here.");
   if (!next.some((item) => item.name === "Learning")) {
     setSignal(next, "Learning", true, learnDetail);
   } else {
@@ -483,7 +486,16 @@ function renderLocalSignals() {
     { name: "CCI pane", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.cciPane, detail: "CCI 50 / 14 / 5" },
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
-    { name: "Learning", ok: true, detail: learnTouchNote || fillTimingNote() || "Scan names + strategies + fill timing, while the page is open" },
+    {
+      name: "Learning",
+      ok: true,
+      detail:
+        learnTouchNote ||
+        fillTimingNote() ||
+        (state.learnBook && state.learnBook.bot_on
+          ? "Bot on · all pages while score runs"
+          : "Page open cycles · turn bot score on for closed pages"),
+    },
     { name: "New process", ok: true, detail: newProcessNote || "Waiting for a closed-bar process change" },
     { name: "Fear and greed", ok: !!(state.market && state.market.bars && state.market.bars.length >= 20), detail: phoneMood() },
     { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
@@ -1151,6 +1163,7 @@ async function loadSignals() {
     const scanned = Number(book.scanned) || 0;
     const total = Number(book.scan_total) || 0;
     state.scanDone = total > 0 && scanned >= total;
+    state.learnBook = book;
     if (book.timing) {
       state.fillLearn = Object.assign(readFillLearn(), { timing: book.timing, fills: book.fills || [] });
       writeFillLearn(state.fillLearn);
@@ -3446,6 +3459,42 @@ function learnFromPaperFill(paper) {
   return event;
 }
 
+function deskLearnPages() {
+  // Auto-includes every dock tab and phone tab present in the shipped UI.
+  const pages = [];
+  const push = (id) => {
+    if (id && pages.indexOf(id) < 0) pages.push(id);
+  };
+  ["markets", "chart", "trade", "study"].forEach(push);
+  document.querySelectorAll(".dock-tab[data-dock]").forEach((button) => push(button.dataset.dock));
+  document.querySelectorAll(".tabbar [data-tab]").forEach((button) => push(button.dataset.tab));
+  ((state.learnBook && state.learnBook.desk_pages) || []).forEach((row) => push(row && row.id));
+  return pages;
+}
+
+async function cycleDeskPageLearn() {
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return "";
+  const pages = deskLearnPages();
+  if (!pages.length) return "";
+  if (!state.pageLearn) state.pageLearn = { cursor: 0, lastAt: 0, lastPage: "" };
+  const now = Date.now();
+  if (now - (state.pageLearn.lastAt || 0) < SCAN_LEARN_GAP_MS) return state.pageLearn.lastPage || "";
+  const page = pages[state.pageLearn.cursor % pages.length];
+  state.pageLearn.cursor += 1;
+  state.pageLearn.lastAt = now;
+  state.pageLearn.lastPage = page;
+  const batch = topScanLearnNames().slice(0, 2);
+  await nudgeLearn(page, batch);
+  learnTouchNote =
+    "Desk page learn · " +
+    page +
+    " (" +
+    pages.length +
+    " sections). Bot-on covers scrolled-away pages too. Closed bars only. Not a forecast.";
+  refreshLearnSignal();
+  return page;
+}
+
 function startScanLearnLoop() {
   if (state.scanLearn && state.scanLearn.timer) return;
   if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
@@ -3453,8 +3502,10 @@ function startScanLearnLoop() {
   const tick = async () => {
     try {
       if (typeof document === "undefined" || document.visibilityState !== "hidden") {
-        if (turn % 2 === 0) await cycleScanLearn(state.auto ? "auto" : "scan");
-        else await cycleStrategyLearn();
+        const step = turn % 3;
+        if (step === 0) await cycleScanLearn(state.auto ? "auto" : "scan");
+        else if (step === 1) await cycleStrategyLearn();
+        else await cycleDeskPageLearn();
         turn += 1;
       }
     } catch (error) {
@@ -3852,10 +3903,13 @@ async function phoneSafe() {
   }
   add("Paper book saves", saves, saves ? "This browser keeps positions and fills" : "This browser blocks saving. Positions last until the page closes");
   add("Quotes", !!state.market, state.market ? "A real quote is loaded" : "Waiting on the quote", "health");
+  const botOn = !!(state.learnBook && state.learnBook.bot_on);
   add(
     "Learning",
     true,
-    "Page open: scan names + strategies + paper fill timing. Background score (Windows Start-the-score) keeps closed-bar lessons after the desk closes — not a broker, not a forecast",
+    botOn
+      ? "Bot on · every desk section (Study, Strategies, Squeeze, Internals, Timeframes, big4indicator, Journal, Backtest, Signals, Markets, Chart, Trade) keeps learning on closed bars even when scrolled away. New shipped pages/strategies auto-join. Not a broker."
+      : "Bot score off. Open Paper Trader to start it, or tick Start the score under Windows extras. Page-open learning still runs in this tab.",
     "health"
   );
   return { safe: items.filter((item) => item.kind === "safety").every((item) => item.ok), items };
