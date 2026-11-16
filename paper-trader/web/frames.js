@@ -390,26 +390,31 @@
   function paintPivots(ctx, pivots, xAt, y, lastIndex) {
     if (!pivots) return;
     const bands = [
-      [pivots.fromHigh, pivots.confirmHigh, pivots.resistance, "rgba(255, 107, 122, 0.16)"],
-      [pivots.fromLow, pivots.support, pivots.confirmLow, "rgba(61, 220, 151, 0.16)"],
+      [pivots.fromHigh, pivots.confirmHigh, pivots.resistance, "rgba(255, 70, 80, 0.28)", "rgba(255, 90, 100, 0.85)"],
+      [pivots.fromLow, pivots.support, pivots.confirmLow, "rgba(20, 140, 80, 0.30)", "rgba(50, 210, 130, 0.90)"],
     ];
-    bands.forEach(([from, first, second, color]) => {
+    ctx.save();
+    bands.forEach(([from, first, second, fill, edge]) => {
       const x1 = xAt(Math.max(0, from));
-      const x2 = xAt(lastIndex);
-      const y1 = y(first);
-      const y2 = y(second);
-      ctx.fillStyle = color;
-      ctx.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.max(1, Math.abs(y2 - y1)));
+      const x2 = xAt(lastIndex) + Math.max(2, (xAt(1) - xAt(0)) * 0.35);
+      const top = Math.min(y(first), y(second));
+      const height = Math.max(4, Math.abs(y(second) - y(first)));
+      const left = Math.min(x1, x2);
+      const width = Math.max(8, Math.abs(x2 - x1));
+      ctx.fillStyle = fill;
+      ctx.fillRect(left, top, width, height);
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(left + 0.5, top + 0.5, width - 1, height - 1);
     });
     const lines = [
       [pivots.fromHigh, pivots.resistance, "#ff6b7a", false, "Resistance"],
-      [pivots.fromHigh, pivots.confirmHigh, "#ff8f9a", false, "Confirm"],
+      [pivots.fromHigh, pivots.confirmHigh, "#ffb0b8", true, "Confirm"],
       [pivots.fromHigh, pivots.riskOffHigh, "#d7e2ea", true, "Risk off"],
       [pivots.fromLow, pivots.support, "#3ddc97", false, "Support"],
-      [pivots.fromLow, pivots.confirmLow, "#8ee8bf", false, "Confirm"],
+      [pivots.fromLow, pivots.confirmLow, "#9af0c8", true, "Confirm"],
       [pivots.fromLow, pivots.riskOffLow, "#d7e2ea", true, "Risk off"],
     ];
-    ctx.save();
     ctx.font = "11px Segoe UI, sans-serif";
     const narrow = (ctx.canvas.paperWidth || 0) < 640;
     const placed = [];
@@ -419,19 +424,93 @@
       const x2 = xAt(lastIndex);
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
-      ctx.lineWidth = dashed ? 1 : 1.75;
-      ctx.setLineDash(dashed ? [4, 4] : []);
+      ctx.lineWidth = dashed ? 1 : 2;
+      ctx.setLineDash(dashed ? [5, 4] : []);
       ctx.beginPath();
       ctx.moveTo(x1, y(price));
       ctx.lineTo(x2, y(price));
       ctx.stroke();
-      if (dashed || narrow) return;
-      const textY = y(price) - 3;
-      if (placed.some((prior) => Math.abs(prior - textY) < 14)) return;
+      ctx.setLineDash([]);
+      if (narrow && dashed) return;
+      const text = label + " " + (Number.isFinite(price) ? String(Math.round(price * 100) / 100) : "");
+      const textY = y(price) - 4;
+      if (placed.some((prior) => Math.abs(prior - textY) < 13)) return;
       placed.push(textY);
-      ctx.fillText(label, Math.max(x1 + 4, x2 - ctx.measureText(label).width - 4), textY);
+      const tagW = ctx.measureText(text).width + 8;
+      const tagX = Math.max(x1 + 4, x2 - tagW);
+      ctx.fillStyle = "rgba(5, 8, 12, 0.82)";
+      ctx.fillRect(tagX - 2, textY - 11, tagW, 14);
+      ctx.fillStyle = color;
+      ctx.fillText(text, tagX, textY);
     });
     ctx.restore();
+  }
+
+  function periodVwap(bars, keyFn) {
+    const list = bars || [];
+    if (!list.length || typeof keyFn !== "function") return null;
+    const last = list[list.length - 1];
+    const key = keyFn(last.date);
+    let money = 0;
+    let volume = 0;
+    for (let index = list.length - 1; index >= 0; index -= 1) {
+      const bar = list[index];
+      if (keyFn(bar.date) !== key) break;
+      const vol = Math.max(0, Number(bar.volume) || 0);
+      const typical = (bar.high + bar.low + bar.close) / 3;
+      if (!(vol > 0)) continue;
+      money += typical * vol;
+      volume += vol;
+    }
+    if (!(volume > 0)) return null;
+    return money / volume;
+  }
+
+  function deskClearRead(bars) {
+    const list = bars || [];
+    if (list.length < 30) return null;
+    const desk = pro(list);
+    const last = list.length - 1;
+    const close = list[last].close;
+    const upper = desk.bands.upper[last];
+    const lower = desk.bands.lower[last];
+    const pctB = upper != null && lower != null && upper !== lower ? ((close - lower) / (upper - lower)) * 100 : null;
+    const ema50 = desk.last.ema50;
+    const ema200 = desk.last.ema200;
+    const bias =
+      ema50 != null && ema200 != null
+        ? close >= ema50 && ema50 >= ema200
+          ? "Bullish"
+          : close <= ema50 && ema50 <= ema200
+            ? "Bearish"
+            : "Mixed"
+        : "Waiting";
+    const hist = desk.macd.hist || [];
+    const now = hist[last];
+    const prior = hist[last - 1];
+    let stage = "Steady";
+    if (now != null && prior != null) {
+      if (Math.abs(now) > Math.abs(prior) + 1e-9) stage = "Acceleration";
+      else if (Math.abs(now) < Math.abs(prior) - 1e-9) stage = "Deceleration";
+    }
+    const weekKey = (date) => {
+      const day = new Date(String(date).slice(0, 10) + "T12:00:00Z");
+      const utc = day.getUTCDay();
+      const monday = new Date(day);
+      monday.setUTCDate(day.getUTCDate() - ((utc + 6) % 7));
+      return monday.toISOString().slice(0, 10);
+    };
+    const monthKey = (date) => String(date).slice(0, 7);
+    return {
+      bias,
+      pctB,
+      stage,
+      ema50,
+      vwapD: desk.last.vwap,
+      vwapW: periodVwap(list, weekKey),
+      vwapM: periodVwap(list, monthKey),
+      close,
+    };
   }
 
   function candlePlace(bar, highLine, lowLine) {
@@ -2550,6 +2629,8 @@
     compression,
     trendPivots,
     paintPivots,
+    periodVwap,
+    deskClearRead,
     trueMomentum,
     zoomBars,
     zoomStep,

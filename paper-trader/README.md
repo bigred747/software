@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Clear chart overlays (1.9.65)
+
+Price chart shows **large BUY / SELL arrows** from Edge only: closed-bar signal, fill at the next open, past arrows never move. Support and resistance boxes, green trend EMA 50, VWAP line, and a clear chip row for VWAP D/W/M, Desk B4 bias, Bollinger %B(20), and stage. Lesson arrows stay off unless you turn that layer on. Public closed-bar math only. Not a forecast.
+
 ## Study spacing (1.9.64)
 
 Price, TMO, Squeeze, and CCI are separate boxes one under another (not overlapping). Scroll the chart to see each full pane. **Open TMO · Squeeze · CCI** still opens a full window. Compact studies tightens heights if you want more on screen at once.

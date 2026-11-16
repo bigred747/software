@@ -464,6 +464,35 @@ button.quiet { background: transparent; }
 .chart-flag.alert { background: #101418; color: #facc15; border-color: #facc15; }
 .chart-flag.score { background: #3ddc97; color: #0b1a12; border-color: #6ef0b4; }
 .chart-flag.vwap { background: #6b3fa0; color: #f4e9ff; border-color: #9b6fd0; }
+.desk-clear {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+  margin: 8px 0 2px;
+}
+.desk-clear:empty { display: none; }
+.desk-clear-chip {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 88px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #2a3a4a;
+  background: #121820;
+  color: #e7edf3;
+}
+.desk-clear-chip .k { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #9aa6b2; }
+.desk-clear-chip .v { font-size: 13px; font-weight: 720; }
+.desk-clear-chip.vwap { background: #3a2460; border-color: #7b53b8; }
+.desk-clear-chip.bear { background: #7a1f28; border-color: #ff6b7a; }
+.desk-clear-chip.bull { background: #145236; border-color: #3ddc97; }
+.desk-clear-chip.mixed { background: #3a3f46; border-color: #8b98a5; }
+.desk-clear-chip.stage { background: #1a2430; }
+.swatch.trend { background: #3ddc97; }
+.swatch.pivots { background: linear-gradient(90deg, #ff6b7a, #3ddc97); }
 .study-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -713,6 +742,10 @@ footer { display: none; }
   body[data-tab="chart"] .chart-fold { margin-top: 2px; }
   body[data-tab="chart"] .chart-flags { margin-top: 4px; gap: 4px; }
   body[data-tab="chart"] .chart-flag { font-size: 10px; padding: 2px 7px; }
+  body[data-tab="chart"] .desk-clear { gap: 6px; margin: 6px 0 4px; }
+  body[data-tab="chart"] .desk-clear-chip { min-width: 72px; padding: 5px 8px; }
+  body[data-tab="chart"] .desk-clear-chip .k { font-size: 9px; }
+  body[data-tab="chart"] .desk-clear-chip .v { font-size: 12px; }
   body[data-tab="chart"] .desk-status,
   body[data-tab="chart"] .signal-sum,
   body[data-tab="chart"] .chart-fold { display: none; }
@@ -1103,6 +1136,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       </div>
       <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
       <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
+      <div id="desk-clear" class="desk-clear" aria-label="Desk clear read"></div>
       <div class="study-toolbar" role="toolbar" aria-label="Study panes">
         <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
         <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>
@@ -3656,26 +3690,31 @@ plot Sell = close crosses below baseline;</textarea>
   function paintPivots(ctx, pivots, xAt, y, lastIndex) {
     if (!pivots) return;
     const bands = [
-      [pivots.fromHigh, pivots.confirmHigh, pivots.resistance, "rgba(255, 107, 122, 0.16)"],
-      [pivots.fromLow, pivots.support, pivots.confirmLow, "rgba(61, 220, 151, 0.16)"],
+      [pivots.fromHigh, pivots.confirmHigh, pivots.resistance, "rgba(255, 70, 80, 0.28)", "rgba(255, 90, 100, 0.85)"],
+      [pivots.fromLow, pivots.support, pivots.confirmLow, "rgba(20, 140, 80, 0.30)", "rgba(50, 210, 130, 0.90)"],
     ];
-    bands.forEach(([from, first, second, color]) => {
+    ctx.save();
+    bands.forEach(([from, first, second, fill, edge]) => {
       const x1 = xAt(Math.max(0, from));
-      const x2 = xAt(lastIndex);
-      const y1 = y(first);
-      const y2 = y(second);
-      ctx.fillStyle = color;
-      ctx.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.max(1, Math.abs(y2 - y1)));
+      const x2 = xAt(lastIndex) + Math.max(2, (xAt(1) - xAt(0)) * 0.35);
+      const top = Math.min(y(first), y(second));
+      const height = Math.max(4, Math.abs(y(second) - y(first)));
+      const left = Math.min(x1, x2);
+      const width = Math.max(8, Math.abs(x2 - x1));
+      ctx.fillStyle = fill;
+      ctx.fillRect(left, top, width, height);
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(left + 0.5, top + 0.5, width - 1, height - 1);
     });
     const lines = [
       [pivots.fromHigh, pivots.resistance, "#ff6b7a", false, "Resistance"],
-      [pivots.fromHigh, pivots.confirmHigh, "#ff8f9a", false, "Confirm"],
+      [pivots.fromHigh, pivots.confirmHigh, "#ffb0b8", true, "Confirm"],
       [pivots.fromHigh, pivots.riskOffHigh, "#d7e2ea", true, "Risk off"],
       [pivots.fromLow, pivots.support, "#3ddc97", false, "Support"],
-      [pivots.fromLow, pivots.confirmLow, "#8ee8bf", false, "Confirm"],
+      [pivots.fromLow, pivots.confirmLow, "#9af0c8", true, "Confirm"],
       [pivots.fromLow, pivots.riskOffLow, "#d7e2ea", true, "Risk off"],
     ];
-    ctx.save();
     ctx.font = "11px Segoe UI, sans-serif";
     const narrow = (ctx.canvas.paperWidth || 0) < 640;
     const placed = [];
@@ -3685,19 +3724,93 @@ plot Sell = close crosses below baseline;</textarea>
       const x2 = xAt(lastIndex);
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
-      ctx.lineWidth = dashed ? 1 : 1.75;
-      ctx.setLineDash(dashed ? [4, 4] : []);
+      ctx.lineWidth = dashed ? 1 : 2;
+      ctx.setLineDash(dashed ? [5, 4] : []);
       ctx.beginPath();
       ctx.moveTo(x1, y(price));
       ctx.lineTo(x2, y(price));
       ctx.stroke();
-      if (dashed || narrow) return;
-      const textY = y(price) - 3;
-      if (placed.some((prior) => Math.abs(prior - textY) < 14)) return;
+      ctx.setLineDash([]);
+      if (narrow && dashed) return;
+      const text = label + " " + (Number.isFinite(price) ? String(Math.round(price * 100) / 100) : "");
+      const textY = y(price) - 4;
+      if (placed.some((prior) => Math.abs(prior - textY) < 13)) return;
       placed.push(textY);
-      ctx.fillText(label, Math.max(x1 + 4, x2 - ctx.measureText(label).width - 4), textY);
+      const tagW = ctx.measureText(text).width + 8;
+      const tagX = Math.max(x1 + 4, x2 - tagW);
+      ctx.fillStyle = "rgba(5, 8, 12, 0.82)";
+      ctx.fillRect(tagX - 2, textY - 11, tagW, 14);
+      ctx.fillStyle = color;
+      ctx.fillText(text, tagX, textY);
     });
     ctx.restore();
+  }
+
+  function periodVwap(bars, keyFn) {
+    const list = bars || [];
+    if (!list.length || typeof keyFn !== "function") return null;
+    const last = list[list.length - 1];
+    const key = keyFn(last.date);
+    let money = 0;
+    let volume = 0;
+    for (let index = list.length - 1; index >= 0; index -= 1) {
+      const bar = list[index];
+      if (keyFn(bar.date) !== key) break;
+      const vol = Math.max(0, Number(bar.volume) || 0);
+      const typical = (bar.high + bar.low + bar.close) / 3;
+      if (!(vol > 0)) continue;
+      money += typical * vol;
+      volume += vol;
+    }
+    if (!(volume > 0)) return null;
+    return money / volume;
+  }
+
+  function deskClearRead(bars) {
+    const list = bars || [];
+    if (list.length < 30) return null;
+    const desk = pro(list);
+    const last = list.length - 1;
+    const close = list[last].close;
+    const upper = desk.bands.upper[last];
+    const lower = desk.bands.lower[last];
+    const pctB = upper != null && lower != null && upper !== lower ? ((close - lower) / (upper - lower)) * 100 : null;
+    const ema50 = desk.last.ema50;
+    const ema200 = desk.last.ema200;
+    const bias =
+      ema50 != null && ema200 != null
+        ? close >= ema50 && ema50 >= ema200
+          ? "Bullish"
+          : close <= ema50 && ema50 <= ema200
+            ? "Bearish"
+            : "Mixed"
+        : "Waiting";
+    const hist = desk.macd.hist || [];
+    const now = hist[last];
+    const prior = hist[last - 1];
+    let stage = "Steady";
+    if (now != null && prior != null) {
+      if (Math.abs(now) > Math.abs(prior) + 1e-9) stage = "Acceleration";
+      else if (Math.abs(now) < Math.abs(prior) - 1e-9) stage = "Deceleration";
+    }
+    const weekKey = (date) => {
+      const day = new Date(String(date).slice(0, 10) + "T12:00:00Z");
+      const utc = day.getUTCDay();
+      const monday = new Date(day);
+      monday.setUTCDate(day.getUTCDate() - ((utc + 6) % 7));
+      return monday.toISOString().slice(0, 10);
+    };
+    const monthKey = (date) => String(date).slice(0, 7);
+    return {
+      bias,
+      pctB,
+      stage,
+      ema50,
+      vwapD: desk.last.vwap,
+      vwapW: periodVwap(list, weekKey),
+      vwapM: periodVwap(list, monthKey),
+      close,
+    };
   }
 
   function candlePlace(bar, highLine, lowLine) {
@@ -5816,6 +5929,8 @@ plot Sell = close crosses below baseline;</textarea>
     compression,
     trendPivots,
     paintPivots,
+    periodVwap,
+    deskClearRead,
     trueMomentum,
     zoomBars,
     zoomStep,
@@ -5910,7 +6025,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.64";
+const VERSION = "1.9.65";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -10092,18 +10207,7 @@ function drawCandles(retry) {
       ctx.lineTo(x + slot / 2, y(value));
     });
     if (drawing) ctx.stroke();
-    edgeResult.marks.forEach((mark) => {
-      const index = mark.index - dropped;
-      if (index < 0 || index >= bars.length) return;
-      const x = pad + index * slot + slot / 2;
-      ctx.fillStyle = mark.side === "buy" ? "#3ddc97" : "#ff6b7a";
-      ctx.strokeStyle = "#07090b";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(x, y(mark.price), Math.max(3, Math.min(4.5, slot * 0.6)), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    });
+    paintClearEdgeArrows(ctx, edgeResult.marks, dropped, bars, y, pad, slot, priceBottom);
     ctx.restore();
   }
   drawStudy(ctx, bars, y, pad, slot);
@@ -10130,7 +10234,9 @@ function drawCandles(retry) {
     });
   }
   paintChartFlags(history, bars, squeeze[last] || 0, lastMomentum, priorMomentum);
+  paintDeskClear(history);
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
+  // Paper fills only — small arrows. Edge clear BUY/SELL arrows are the main signals and do not repaint.
   (state.paper.markers || []).forEach((marker) => {
     const index = byDate.get(marker.date);
     if (index == null) return;
@@ -10139,18 +10245,20 @@ function drawCandles(retry) {
     const up = marker.side === "buy";
     ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
     const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 16 : y(bar.high) - 16));
-    drawArrow(ctx, x, point, up);
+    drawArrow(ctx, x, point, up, 9);
   });
-  (layers.lesson ? lessonMarks(fitted, history) : []).forEach((mark) => {
-    const index = mark.index - dropped;
-    if (index < 0 || index >= bars.length) return;
-    const bar = bars[index];
-    const x = pad + index * slot + slot / 2;
-    const up = mark.side === "buy";
-    ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
-    const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 36 : y(bar.high) - 36));
-    drawArrow(ctx, x, point, up);
-  });
+  if (layers.lesson) {
+    lessonMarks(fitted, history).forEach((mark) => {
+      const index = mark.index - dropped;
+      if (index < 0 || index >= bars.length) return;
+      const bar = bars[index];
+      const x = pad + index * slot + slot / 2;
+      const up = mark.side === "buy";
+      ctx.fillStyle = up ? "rgba(61,220,151,0.55)" : "rgba(255,107,122,0.55)";
+      const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 36 : y(bar.high) - 36));
+      drawArrow(ctx, x, point, up, 8);
+    });
+  }
   const lastTone = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
   drawPriceTag(ctx, formatPrice(lastBar.close), plotRight, width, y(lastBar.close), priceBottom, lastTone, pad + last * slot + slot / 2);
   drawPriceLine(ctx, bars, pad, slot, y, plotRight, priceBottom, height, width);
@@ -10246,9 +10354,10 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
   }
   if (layers.vwap) {
     ctx.setLineDash([6, 4]);
-    drawLine(ctx, desk.vwap.slice(dropped, dropped + count), y, pad, slot, "#3fd0e0", 1.5);
+    drawLine(ctx, desk.vwap.slice(dropped, dropped + count), y, pad, slot, "#3fd0e0", 1.75);
   }
   ctx.setLineDash([]);
+  if (layers.trend) drawLine(ctx, desk.ema50.slice(dropped, dropped + count), y, pad, slot, "#3ddc97", 1.85);
   if (layers.ema200) drawLine(ctx, desk.ema200.slice(dropped, dropped + count), y, pad, slot, "#b48cff", 1.75);
   if (layers.profile && profile.poc != null) {
     const level = y(profile.poc);
@@ -10268,19 +10377,20 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 }
 
 const LAYERS = [
-  ["edge", "Edge stop", "edgestop", true],
+  ["edge", "Edge stop + clear arrows", "edgestop", true],
+  ["pivots", "Support · Resistance boxes", "pivots", true],
+  ["vwap", "VWAP", "vwap", true],
+  ["trend", "Green trend EMA 50", "trend", true],
   ["stack", "SMA 5 · 9 · 21 · 50 · 100 · 200", "stack", true],
   ["ema200", "200 EMA", "ema200", false],
-  ["profile", "Volume + POC", "poc", true],
-  ["vwap", "VWAP", "vwap", false],
+  ["profile", "Volume + POC", "poc", false],
   ["bands", "Bands", "band", false],
   ["averages", "High · Close · Low", "close", false],
   ["fastslow", "Fast · Slow", "fast", false],
-  ["pivots", "Pivots", "high", false],
-  ["lesson", "Lesson arrows", "low", false],
+  ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-const LAYERS_KEY = "paperTraderLayers";
+const LAYERS_KEY = "paperTraderLayers65";
 
 function readLayers() {
   const chosen = {};
@@ -10370,23 +10480,79 @@ function drawStudy(ctx, bars, y, pad, slot) {
   });
 }
 
-function drawArrow(ctx, x, y, up) {
-  const size = 10;
+function drawArrow(ctx, x, y, up, size) {
+  const tip = size || 10;
   ctx.beginPath();
   if (up) {
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x - size * 0.82, y + size * 0.62);
-    ctx.lineTo(x + size * 0.82, y + size * 0.62);
+    ctx.moveTo(x, y - tip);
+    ctx.lineTo(x - tip * 0.82, y + tip * 0.62);
+    ctx.lineTo(x + tip * 0.82, y + tip * 0.62);
   } else {
-    ctx.moveTo(x, y + size);
-    ctx.lineTo(x - size * 0.82, y - size * 0.62);
-    ctx.lineTo(x + size * 0.82, y - size * 0.62);
+    ctx.moveTo(x, y + tip);
+    ctx.lineTo(x - tip * 0.82, y - tip * 0.62);
+    ctx.lineTo(x + tip * 0.82, y - tip * 0.62);
   }
   ctx.closePath();
   ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = "#121417";
+  ctx.lineWidth = Math.max(1.5, tip / 7);
+  ctx.strokeStyle = "#07090b";
   ctx.stroke();
+}
+
+function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBottom) {
+  // Edge fills at the next open after a closed-bar signal. Past marks never move.
+  ctx.save();
+  ctx.font = "bold 11px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  (marks || []).forEach((mark) => {
+    const index = mark.index - dropped;
+    if (index < 0 || index >= bars.length) return;
+    const bar = bars[index];
+    const buy = mark.side === "buy";
+    const x = pad + index * slot + slot / 2;
+    const tip = Math.max(14, Math.min(22, slot * 1.8));
+    const at = buy
+      ? Math.min(priceBottom - tip - 8, y(bar.low) + tip + 10)
+      : Math.max(28, y(bar.high) - tip - 10);
+    ctx.fillStyle = buy ? "#3ddc97" : "#ff4d4d";
+    drawArrow(ctx, x, at, buy, tip);
+    const label = buy ? "BUY" : "SELL";
+    const width = ctx.measureText(label).width + 10;
+    const tagY = buy ? at + tip + 12 : at - tip - 12;
+    ctx.fillStyle = buy ? "#3ddc97" : "#ff4d4d";
+    ctx.fillRect(x - width / 2, tagY - 8, width, 16);
+    ctx.fillStyle = "#07090b";
+    ctx.fillText(label, x, tagY + 4);
+  });
+  ctx.restore();
+}
+
+function paintDeskClear(history) {
+  const node = $("desk-clear");
+  if (!node || !PaperFrames.deskClearRead) return;
+  const read = PaperFrames.deskClearRead(history || []);
+  node.replaceChildren();
+  if (!read) return;
+  const chips = [
+    { k: "VWAP D", v: read.vwapD == null ? "—" : formatPrice(read.vwapD), kind: "vwap" },
+    { k: "VWAP W", v: read.vwapW == null ? "—" : formatPrice(read.vwapW), kind: "vwap" },
+    { k: "VWAP M", v: read.vwapM == null ? "—" : formatPrice(read.vwapM), kind: "vwap" },
+    { k: "Desk B4", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
+    { k: "Bol %B 20", v: read.pctB == null ? "—" : read.pctB.toFixed(1), kind: "" },
+    { k: "Stage", v: read.stage, kind: "stage" },
+  ];
+  chips.forEach((chip) => {
+    const box = document.createElement("div");
+    box.className = "desk-clear-chip" + (chip.kind ? " " + chip.kind : "");
+    const key = document.createElement("span");
+    key.className = "k";
+    key.textContent = chip.k;
+    const value = document.createElement("span");
+    value.className = "v";
+    value.textContent = chip.v;
+    box.append(key, value);
+    node.appendChild(box);
+  });
 }
 
 function studyLayout(width, count, preferPad, preferRight) {

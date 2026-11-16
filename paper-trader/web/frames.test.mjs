@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -93,6 +93,26 @@ test("pivot resistance follows the rising high and support stays under it", () =
   assert.ok(pivots.confirmLow >= pivots.support);
   assert.ok(pivots.riskOffLow >= pivots.confirmLow);
   assert.equal(pivots.fromHigh, 29);
+});
+
+test("desk clear read exposes VWAP chips and a non-empty bias", () => {
+  const bars = [];
+  for (let index = 0; index < 80; index += 1) {
+    const close = 100 + index * 0.4 + Math.sin(index / 5) * 2;
+    bars.push({
+      date: "2024-06-" + String((index % 27) + 1).padStart(2, "0"),
+      open: close - 0.5,
+      high: close + 1,
+      low: close - 1,
+      close,
+      volume: 1000 + index * 10,
+    });
+  }
+  const read = deskClearRead(bars);
+  assert.ok(read);
+  assert.ok(["Bullish", "Bearish", "Mixed", "Waiting"].includes(read.bias));
+  assert.ok(read.pctB == null || Number.isFinite(read.pctB));
+  assert.ok(["Acceleration", "Deceleration", "Steady"].includes(read.stage));
 });
 
 test("cci pane builds three lengths and ±100 cross arrows", () => {

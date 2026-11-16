@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.64";
+const VERSION = "1.9.65";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -4262,18 +4262,7 @@ function drawCandles(retry) {
       ctx.lineTo(x + slot / 2, y(value));
     });
     if (drawing) ctx.stroke();
-    edgeResult.marks.forEach((mark) => {
-      const index = mark.index - dropped;
-      if (index < 0 || index >= bars.length) return;
-      const x = pad + index * slot + slot / 2;
-      ctx.fillStyle = mark.side === "buy" ? "#3ddc97" : "#ff6b7a";
-      ctx.strokeStyle = "#07090b";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(x, y(mark.price), Math.max(3, Math.min(4.5, slot * 0.6)), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    });
+    paintClearEdgeArrows(ctx, edgeResult.marks, dropped, bars, y, pad, slot, priceBottom);
     ctx.restore();
   }
   drawStudy(ctx, bars, y, pad, slot);
@@ -4300,7 +4289,9 @@ function drawCandles(retry) {
     });
   }
   paintChartFlags(history, bars, squeeze[last] || 0, lastMomentum, priorMomentum);
+  paintDeskClear(history);
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
+  // Paper fills only — small arrows. Edge clear BUY/SELL arrows are the main signals and do not repaint.
   (state.paper.markers || []).forEach((marker) => {
     const index = byDate.get(marker.date);
     if (index == null) return;
@@ -4309,18 +4300,20 @@ function drawCandles(retry) {
     const up = marker.side === "buy";
     ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
     const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 16 : y(bar.high) - 16));
-    drawArrow(ctx, x, point, up);
+    drawArrow(ctx, x, point, up, 9);
   });
-  (layers.lesson ? lessonMarks(fitted, history) : []).forEach((mark) => {
-    const index = mark.index - dropped;
-    if (index < 0 || index >= bars.length) return;
-    const bar = bars[index];
-    const x = pad + index * slot + slot / 2;
-    const up = mark.side === "buy";
-    ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
-    const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 36 : y(bar.high) - 36));
-    drawArrow(ctx, x, point, up);
-  });
+  if (layers.lesson) {
+    lessonMarks(fitted, history).forEach((mark) => {
+      const index = mark.index - dropped;
+      if (index < 0 || index >= bars.length) return;
+      const bar = bars[index];
+      const x = pad + index * slot + slot / 2;
+      const up = mark.side === "buy";
+      ctx.fillStyle = up ? "rgba(61,220,151,0.55)" : "rgba(255,107,122,0.55)";
+      const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 36 : y(bar.high) - 36));
+      drawArrow(ctx, x, point, up, 8);
+    });
+  }
   const lastTone = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
   drawPriceTag(ctx, formatPrice(lastBar.close), plotRight, width, y(lastBar.close), priceBottom, lastTone, pad + last * slot + slot / 2);
   drawPriceLine(ctx, bars, pad, slot, y, plotRight, priceBottom, height, width);
@@ -4416,9 +4409,10 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
   }
   if (layers.vwap) {
     ctx.setLineDash([6, 4]);
-    drawLine(ctx, desk.vwap.slice(dropped, dropped + count), y, pad, slot, "#3fd0e0", 1.5);
+    drawLine(ctx, desk.vwap.slice(dropped, dropped + count), y, pad, slot, "#3fd0e0", 1.75);
   }
   ctx.setLineDash([]);
+  if (layers.trend) drawLine(ctx, desk.ema50.slice(dropped, dropped + count), y, pad, slot, "#3ddc97", 1.85);
   if (layers.ema200) drawLine(ctx, desk.ema200.slice(dropped, dropped + count), y, pad, slot, "#b48cff", 1.75);
   if (layers.profile && profile.poc != null) {
     const level = y(profile.poc);
@@ -4438,19 +4432,20 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 }
 
 const LAYERS = [
-  ["edge", "Edge stop", "edgestop", true],
+  ["edge", "Edge stop + clear arrows", "edgestop", true],
+  ["pivots", "Support · Resistance boxes", "pivots", true],
+  ["vwap", "VWAP", "vwap", true],
+  ["trend", "Green trend EMA 50", "trend", true],
   ["stack", "SMA 5 · 9 · 21 · 50 · 100 · 200", "stack", true],
   ["ema200", "200 EMA", "ema200", false],
-  ["profile", "Volume + POC", "poc", true],
-  ["vwap", "VWAP", "vwap", false],
+  ["profile", "Volume + POC", "poc", false],
   ["bands", "Bands", "band", false],
   ["averages", "High · Close · Low", "close", false],
   ["fastslow", "Fast · Slow", "fast", false],
-  ["pivots", "Pivots", "high", false],
-  ["lesson", "Lesson arrows", "low", false],
+  ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-const LAYERS_KEY = "paperTraderLayers";
+const LAYERS_KEY = "paperTraderLayers65";
 
 function readLayers() {
   const chosen = {};
@@ -4540,23 +4535,79 @@ function drawStudy(ctx, bars, y, pad, slot) {
   });
 }
 
-function drawArrow(ctx, x, y, up) {
-  const size = 10;
+function drawArrow(ctx, x, y, up, size) {
+  const tip = size || 10;
   ctx.beginPath();
   if (up) {
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x - size * 0.82, y + size * 0.62);
-    ctx.lineTo(x + size * 0.82, y + size * 0.62);
+    ctx.moveTo(x, y - tip);
+    ctx.lineTo(x - tip * 0.82, y + tip * 0.62);
+    ctx.lineTo(x + tip * 0.82, y + tip * 0.62);
   } else {
-    ctx.moveTo(x, y + size);
-    ctx.lineTo(x - size * 0.82, y - size * 0.62);
-    ctx.lineTo(x + size * 0.82, y - size * 0.62);
+    ctx.moveTo(x, y + tip);
+    ctx.lineTo(x - tip * 0.82, y - tip * 0.62);
+    ctx.lineTo(x + tip * 0.82, y - tip * 0.62);
   }
   ctx.closePath();
   ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = "#121417";
+  ctx.lineWidth = Math.max(1.5, tip / 7);
+  ctx.strokeStyle = "#07090b";
   ctx.stroke();
+}
+
+function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBottom) {
+  // Edge fills at the next open after a closed-bar signal. Past marks never move.
+  ctx.save();
+  ctx.font = "bold 11px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  (marks || []).forEach((mark) => {
+    const index = mark.index - dropped;
+    if (index < 0 || index >= bars.length) return;
+    const bar = bars[index];
+    const buy = mark.side === "buy";
+    const x = pad + index * slot + slot / 2;
+    const tip = Math.max(14, Math.min(22, slot * 1.8));
+    const at = buy
+      ? Math.min(priceBottom - tip - 8, y(bar.low) + tip + 10)
+      : Math.max(28, y(bar.high) - tip - 10);
+    ctx.fillStyle = buy ? "#3ddc97" : "#ff4d4d";
+    drawArrow(ctx, x, at, buy, tip);
+    const label = buy ? "BUY" : "SELL";
+    const width = ctx.measureText(label).width + 10;
+    const tagY = buy ? at + tip + 12 : at - tip - 12;
+    ctx.fillStyle = buy ? "#3ddc97" : "#ff4d4d";
+    ctx.fillRect(x - width / 2, tagY - 8, width, 16);
+    ctx.fillStyle = "#07090b";
+    ctx.fillText(label, x, tagY + 4);
+  });
+  ctx.restore();
+}
+
+function paintDeskClear(history) {
+  const node = $("desk-clear");
+  if (!node || !PaperFrames.deskClearRead) return;
+  const read = PaperFrames.deskClearRead(history || []);
+  node.replaceChildren();
+  if (!read) return;
+  const chips = [
+    { k: "VWAP D", v: read.vwapD == null ? "—" : formatPrice(read.vwapD), kind: "vwap" },
+    { k: "VWAP W", v: read.vwapW == null ? "—" : formatPrice(read.vwapW), kind: "vwap" },
+    { k: "VWAP M", v: read.vwapM == null ? "—" : formatPrice(read.vwapM), kind: "vwap" },
+    { k: "Desk B4", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
+    { k: "Bol %B 20", v: read.pctB == null ? "—" : read.pctB.toFixed(1), kind: "" },
+    { k: "Stage", v: read.stage, kind: "stage" },
+  ];
+  chips.forEach((chip) => {
+    const box = document.createElement("div");
+    box.className = "desk-clear-chip" + (chip.kind ? " " + chip.kind : "");
+    const key = document.createElement("span");
+    key.className = "k";
+    key.textContent = chip.k;
+    const value = document.createElement("span");
+    value.className = "v";
+    value.textContent = chip.v;
+    box.append(key, value);
+    node.appendChild(box);
+  });
 }
 
 function studyLayout(width, count, preferPad, preferRight) {
