@@ -274,7 +274,7 @@
   }
 
   function paintCandles(ctx, bars, xAt, y, slot) {
-    const bodyW = Math.max(2, Math.min(slot * 0.64, Math.max(2, slot - 1.5)));
+    const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
     bars.forEach((bar, index) => {
       const x = xAt(index);
       const up = bar.close >= bar.open;
@@ -283,26 +283,20 @@
       const top = y(topPrice);
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
-      ctx.strokeStyle = up ? "#2bbf8a" : "#d95563";
-      ctx.lineWidth = Math.max(1, Math.min(2.25, slot * 0.14));
+      const tone = up ? "#3ddc97" : "#ff4d4d";
+      const edge = up ? "#1fae78" : "#d63b4a";
+      ctx.strokeStyle = tone;
+      ctx.lineWidth = Math.max(1.25, Math.min(2.5, slot * 0.16));
       ctx.beginPath();
       ctx.moveTo(x, y(bar.high));
       ctx.lineTo(x, y(bar.low));
       ctx.stroke();
       const left = x - bodyW / 2;
-      if (up) {
-        ctx.fillStyle = "rgba(7, 9, 11, 0.55)";
-        ctx.fillRect(left, top, bodyW, bodyH);
-        ctx.strokeStyle = "#3ddc97";
-        ctx.lineWidth = 1.35;
-        ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
-      } else {
-        ctx.fillStyle = "#ff6b7a";
-        ctx.fillRect(left, top, bodyW, bodyH);
-        ctx.strokeStyle = "#d95563";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
-      }
+      ctx.fillStyle = tone;
+      ctx.fillRect(left, top, bodyW, bodyH);
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
     });
     ctx.lineWidth = 1;
   }

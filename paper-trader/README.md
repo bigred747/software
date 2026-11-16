@@ -95,6 +95,10 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Solid candle colors (1.9.66)
+
+Up candles are solid green and down candles are solid red, including the wicks, so the price pane stays easy to read over the overlays.
+
 ## Clear chart overlays (1.9.65)
 
 Price chart shows **large BUY / SELL arrows** from Edge only: closed-bar signal, fill at the next open, past arrows never move. Support and resistance boxes, green trend EMA 50, VWAP line, and a clear chip row for VWAP D/W/M, Desk B4 bias, Bollinger %B(20), and stage. Lesson arrows stay off unless you turn that layer on. Public closed-bar math only. Not a forecast.
