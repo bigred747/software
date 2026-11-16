@@ -128,7 +128,7 @@
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">Up candles are solid green and down candles are solid red. The SMA stack is 5 (pink), 9 (cyan), 21 (red), 50 (white), 100 (yellow), and 200 (peach) on this chart's own bars. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; B4 readings show public-tape proxies such as relative volume and absorption, and those lines do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the three studies share. Not a forecast.</p>
+        <p class="muted chart-note">With big4indicator on, candles paint all green in a bullish stretch and all red in a bearish stretch (mixed is gray). With that layer off, up candles are solid green and down candles are solid red. Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (pink), 9 (cyan), 21 (red), 50 (white), 100 (yellow), and 200 (peach) on this chart's own bars. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator paints candle color from EMA 50/200, MACD, and RSI on closed bars; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the three studies share. Not a forecast.</p>
       </details>
     </section>
 
@@ -247,7 +247,7 @@
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="internals">Internals</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
-        <button type="button" class="dock-tab" data-dock="readings">B4 readings</button>
+        <button type="button" class="dock-tab" data-dock="readings">big4indicator</button>
         <button type="button" class="dock-tab" data-dock="journal">Journal</button>
         <button type="button" class="dock-tab" data-dock="backtest">Backtest</button>
         <button type="button" class="dock-tab" data-dock="signals">Signals</button>
@@ -275,7 +275,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="strategies">
         <h2>Strategies</h2>
-        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · B4 · stack · MTF (desk squeeze, true momentum, B4, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. Scored on this market's own closed bars. The ranking looks backward. Not a forecast.</p>
+        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. Scored on this market's own closed bars. The ranking looks backward. Not a forecast.</p>
         <div class="table-wrap strat-board-wrap">
           <table class="strat-board-table">
             <thead>
@@ -323,7 +323,7 @@ plot Sell = close crosses below baseline;</textarea>
           <select id="strat-pick">
             <option value="edge">Edge · five checks</option>
             <option value="squeeze">Squeeze release</option>
-            <option value="quad">Squeeze · TMO · B4 · stack · MTF</option>
+            <option value="quad">Squeeze · TMO · big4indicator · stack · MTF</option>
             <option value="ccizoom">CCI zoom zone</option>
             <option value="ccisnap">CCI snap-back</option>
             <option value="donchian">20-day breakout</option>
@@ -468,7 +468,7 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="readings">
-        <h2 class="signals-title">B4 readings</h2>
+        <h2 class="signals-title">big4indicator</h2>
         <div id="readings" class="readings"></div>
       </div>
 

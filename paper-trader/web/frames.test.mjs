@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -171,12 +171,16 @@ test("edge fills at the next open and later bars do not move closed trades", () 
   }
   const full = edge(bars);
   assert.ok(full.ready);
+  assert.ok(full.stages);
+  assert.ok(full.big4);
+  assert.equal(big4Indicator(bars).name, "big4indicator");
   assert.ok(full.trades.length > 0);
   assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(full.call));
   assert.ok(full.score >= 0 && full.score <= 5);
   full.marks.forEach((mark) => {
     assert.equal(mark.price, bars[mark.index].open);
     assert.ok(mark.index >= 51);
+    assert.equal(mark.stage, "fire");
   });
   full.trades.forEach((trade) => assert.ok(trade.exitDate > trade.entryDate));
   assert.ok(full.record.worst <= 0);
@@ -191,6 +195,8 @@ test("edge fills at the next open and later bars do not move closed trades", () 
     const signal = edge(bars.slice(0, mark.index));
     assert.equal(signal.call, "BUY");
     assert.equal(signal.score, 5);
+    assert.equal(signal.stage, "fire");
+    assert.ok(signal.big4);
     assert.ok(Object.values(signal.parts).every(Boolean));
   });
   assert.equal(again.trades.length, full.trades.length);
@@ -377,7 +383,7 @@ test("strategies report classic public rows plus the four-study combo from close
   assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"]);
   const quad = board.rows.find((row) => row.id === "quad");
   assert.ok(quad);
-  assert.equal(quad.name, "Squeeze · TMO · B4 · stack · MTF");
+  assert.equal(quad.name, "Squeeze · TMO · big4indicator · stack · MTF");
   const zoom = board.rows.find((row) => row.id === "ccizoom");
   const snap = board.rows.find((row) => row.id === "ccisnap");
   assert.ok(zoom && snap);

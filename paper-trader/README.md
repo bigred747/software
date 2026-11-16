@@ -95,6 +95,11 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## big4indicator + Ready · Aim · Fire (1.9.67)
+
+- **big4indicator** colors candles all green in a bullish stretch and all red in a bearish stretch (mixed gray). Toggle in Layers.
+- **Ready · Aim · Fire** is this desk's Edge staging (not a third-party product): Ready at 3 checks, Aim at 4, Fire when all five turn on. BUY/SELL arrows paint only at Fire (next open). Auto buy waits for Fire and prefers bullish big4indicator.
+
 ## Solid candle colors (1.9.66)
 
 Up candles are solid green and down candles are solid red, including the wicks, so the price pane stays easy to read over the overlays.

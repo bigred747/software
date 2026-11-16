@@ -427,6 +427,8 @@ button.quiet { background: transparent; }
 .legend span.item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .legend .swatch, .layers .swatch { margin: 0; }
 .swatch.edgestop { background: #e2b15a; }
+.swatch.readyaim { background: linear-gradient(90deg, #e2b15a, #ff9f43, #3ddc97); }
+.swatch.big4 { background: linear-gradient(90deg, #3ddc97, #9aa6b2, #ff4d4d); }
 .swatch.key { background: #d7e2ea; }
 .zoom-bar .layers-toggle { margin-left: auto; }
 .layers-toggle[aria-expanded="true"] { background: #1c2733; border-color: var(--fast); }
@@ -1176,7 +1178,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">Up candles are solid green and down candles are solid red. The SMA stack is 5 (pink), 9 (cyan), 21 (red), 50 (white), 100 (yellow), and 200 (peach) on this chart's own bars. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; B4 readings show public-tape proxies such as relative volume and absorption, and those lines do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the three studies share. Not a forecast.</p>
+        <p class="muted chart-note">With big4indicator on, candles paint all green in a bullish stretch and all red in a bearish stretch (mixed is gray). With that layer off, up candles are solid green and down candles are solid red. Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (pink), 9 (cyan), 21 (red), 50 (white), 100 (yellow), and 200 (peach) on this chart's own bars. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator paints candle color from EMA 50/200, MACD, and RSI on closed bars; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the three studies share. Not a forecast.</p>
       </details>
     </section>
 
@@ -1295,7 +1297,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="internals">Internals</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
-        <button type="button" class="dock-tab" data-dock="readings">B4 readings</button>
+        <button type="button" class="dock-tab" data-dock="readings">big4indicator</button>
         <button type="button" class="dock-tab" data-dock="journal">Journal</button>
         <button type="button" class="dock-tab" data-dock="backtest">Backtest</button>
         <button type="button" class="dock-tab" data-dock="signals">Signals</button>
@@ -1323,7 +1325,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="strategies">
         <h2>Strategies</h2>
-        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · B4 · stack · MTF (desk squeeze, true momentum, B4, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. Scored on this market's own closed bars. The ranking looks backward. Not a forecast.</p>
+        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. Scored on this market's own closed bars. The ranking looks backward. Not a forecast.</p>
         <div class="table-wrap strat-board-wrap">
           <table class="strat-board-table">
             <thead>
@@ -1371,7 +1373,7 @@ plot Sell = close crosses below baseline;</textarea>
           <select id="strat-pick">
             <option value="edge">Edge · five checks</option>
             <option value="squeeze">Squeeze release</option>
-            <option value="quad">Squeeze · TMO · B4 · stack · MTF</option>
+            <option value="quad">Squeeze · TMO · big4indicator · stack · MTF</option>
             <option value="ccizoom">CCI zoom zone</option>
             <option value="ccisnap">CCI snap-back</option>
             <option value="donchian">20-day breakout</option>
@@ -1516,7 +1518,7 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="readings">
-        <h2 class="signals-title">B4 readings</h2>
+        <h2 class="signals-title">big4indicator</h2>
         <div id="readings" class="readings"></div>
       </div>
 
@@ -3573,7 +3575,7 @@ plot Sell = close crosses below baseline;</textarea>
     }));
   }
 
-  function paintCandles(ctx, bars, xAt, y, slot) {
+  function paintCandles(ctx, bars, xAt, y, slot, colors) {
     const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
     bars.forEach((bar, index) => {
       const x = xAt(index);
@@ -3583,8 +3585,22 @@ plot Sell = close crosses below baseline;</textarea>
       const top = y(topPrice);
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
-      const tone = up ? "#3ddc97" : "#ff4d4d";
-      const edge = up ? "#1fae78" : "#d63b4a";
+      const mode = colors && colors[index];
+      let tone;
+      let rim;
+      if (mode === "bull") {
+        tone = "#3ddc97";
+        rim = "#1fae78";
+      } else if (mode === "bear") {
+        tone = "#ff4d4d";
+        rim = "#d63b4a";
+      } else if (mode === "mixed") {
+        tone = "#9aa6b2";
+        rim = "#6b7785";
+      } else {
+        tone = up ? "#3ddc97" : "#ff4d4d";
+        rim = up ? "#1fae78" : "#d63b4a";
+      }
       ctx.strokeStyle = tone;
       ctx.lineWidth = Math.max(1.25, Math.min(2.5, slot * 0.16));
       ctx.beginPath();
@@ -3594,11 +3610,49 @@ plot Sell = close crosses below baseline;</textarea>
       const left = x - bodyW / 2;
       ctx.fillStyle = tone;
       ctx.fillRect(left, top, bodyW, bodyH);
-      ctx.strokeStyle = edge;
+      ctx.strokeStyle = rim;
       ctx.lineWidth = 1;
       ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
     });
     ctx.lineWidth = 1;
+  }
+
+  function big4Indicator(bars) {
+    const list = bars || [];
+    const count = list.length;
+    const closes = list.map((bar) => bar.close);
+    const ema50 = ema(closes, 50);
+    const ema200 = ema(closes, 200);
+    const trend = macd(list);
+    const rsi = proRsi(closes, 14);
+    const bias = new Array(count).fill("mixed");
+    const ok = new Array(count).fill(false);
+    for (let index = 0; index < count; index += 1) {
+      if (ema50[index] == null || ema200[index] == null) continue;
+      const bullTrend = closes[index] > ema50[index] && ema50[index] >= ema200[index];
+      const bearTrend = closes[index] < ema50[index] && ema50[index] <= ema200[index];
+      const macdOk = trend.line[index] != null && trend.signal[index] != null && trend.line[index] > trend.signal[index];
+      const rsiOk = rsi[index] != null && rsi[index] < 70 && rsi[index] > 30;
+      if (bullTrend) {
+        bias[index] = "bull";
+        // Strong agreement: trend plus MACD and RSI in range.
+        ok[index] = !!(macdOk && rsiOk);
+      } else if (bearTrend) {
+        bias[index] = "bear";
+      } else {
+        bias[index] = "mixed";
+      }
+    }
+    const last = count - 1;
+    const label = last >= 0 && bias[last] === "bull" ? "Bullish" : last >= 0 && bias[last] === "bear" ? "Bearish" : last >= 0 ? "Mixed" : "Waiting";
+    return {
+      name: "big4indicator",
+      bias,
+      ok,
+      last: last >= 0 ? bias[last] : "mixed",
+      lastOk: last >= 0 ? !!ok[last] : false,
+      label,
+    };
   }
 
   function tickSize(price) {
@@ -4668,6 +4722,7 @@ plot Sell = close crosses below baseline;</textarea>
     const tmo = trueMomentum(list, 14, 5, 3);
     const range = edgeAtr(list, 14);
     const bands = bollinger(list, 20, 2);
+    const big4 = big4Indicator(list);
     const dots = new Array(count).fill(0);
     let run = 0;
     for (let index = 0; index < count; index += 1) {
@@ -4677,6 +4732,7 @@ plot Sell = close crosses below baseline;</textarea>
     const score = new Array(count).fill(null);
     const trail = new Array(count).fill(null);
     const parts = new Array(count).fill(null);
+    const stages = new Array(count).fill(null);
     for (let index = EDGE_WARM; index < end; index += 1) {
       const now = squeeze[index];
       const prior = squeeze[index - 1];
@@ -4690,6 +4746,10 @@ plot Sell = close crosses below baseline;</textarea>
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
+      // Desk Ready · Aim · Fire staging for Edge (closed bars only). Fire is the five-check Edge moment.
+      if (score[index] >= EDGE_SCORE) stages[index] = "fire";
+      else if (score[index] >= EDGE_SCORE - 1) stages[index] = "aim";
+      else if (score[index] >= 3) stages[index] = "ready";
     }
     const trades = [];
     const marks = [];
@@ -4704,13 +4764,14 @@ plot Sell = close crosses below baseline;</textarea>
       if (pending === "buy" && !holding) {
         const price = bar.open;
         const stop = price - EDGE_TRAIL * (range[index - 1] || 0);
-        holding = { index, date: bar.date, price, stop, high: bar.close };
-        marks.push({ index, side: "buy", price });
+        const precise = big4.bias[index - 1] === "bull" || big4.ok[index - 1];
+        holding = { index, date: bar.date, price, stop, high: bar.close, stage: "fire", precise };
+        marks.push({ index, side: "buy", price, stage: "fire", precise });
       } else if (pending === "sell" && holding) {
         const price = bar.open;
         const pct = (price * (1 - EDGE_FEE)) / (holding.price * (1 + EDGE_FEE)) - 1;
         trades.push({ entryDate: holding.date, exitDate: bar.date, entry: holding.price, exit: price, pct, why: holding.why });
-        marks.push({ index, side: "sell", price });
+        marks.push({ index, side: "sell", price, stage: "fire", precise: true });
         equity *= 1 + pct;
         holding = null;
       }
@@ -4736,6 +4797,7 @@ plot Sell = close crosses below baseline;</textarea>
       } else {
         if (equity > peak) peak = equity;
         const prior = index > EDGE_WARM ? score[index - 1] : 0;
+        // Fire: first closed bar where all five Edge checks turn on. big4indicator tags the most precise fires.
         if (score[index] === EDGE_SCORE && prior < EDGE_SCORE) pending = "buy";
       }
     }
@@ -4751,6 +4813,7 @@ plot Sell = close crosses below baseline;</textarea>
     else if (pending === "sell") call = "SELL";
     else if (filledToday) call = filledToday.side === "buy" ? "BUY" : "SELL";
     else if (holding) call = "HOLD";
+    const stageNow = settled >= 0 ? stages[settled] : null;
     const openPct = holding ? closes[last] / (holding.price * (1 + EDGE_FEE)) - 1 : null;
     return {
       call,
@@ -4758,6 +4821,9 @@ plot Sell = close crosses below baseline;</textarea>
       parts: settled >= 0 ? parts[settled] : null,
       scores: score,
       allParts: parts,
+      stages,
+      stage: stageNow,
+      big4: settled >= 0 ? { bias: big4.bias[settled], ok: big4.ok[settled] || big4.bias[settled] === "bull", label: big4.label, name: big4.name } : null,
       live,
       filled: filledToday ? { side: filledToday.side, price: filledToday.price } : null,
       signalDate: settled >= 0 ? list[settled].date : null,
@@ -5173,12 +5239,12 @@ plot Sell = close crosses below baseline;</textarea>
   }
 
   const STRATEGY_INFO = {
-    edge: { name: "Edge · five checks", who: "This bot", idea: "Enters when all five checks turn on together on a closed bar: the first bar that reaches exactly five squeeze dots, squeeze momentum above zero and rising, true momentum above its signal, and close under the upper Bollinger band. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close." },
+    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready when three Edge checks are on, Aim at four, Fire when all five turn on together on a closed bar. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
-      name: "Squeeze · TMO · B4 · stack · MTF",
+      name: "Squeeze · TMO · big4indicator · stack · MTF",
       who: "Four desk studies · multi-TF",
-      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, B4 trend agrees (close above the 50 and 200 EMAs, MACD above signal, RSI under 70), the SMA stack is lined up 5 over 9 over 21 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
+      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, big4indicator agrees (close above the 50 and 200 EMAs, MACD above signal, RSI between 30 and 70), the SMA stack is lined up 5 over 9 over 21 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
     },
     ccizoom: {
       name: "CCI zoom zone",
@@ -5266,6 +5332,9 @@ plot Sell = close crosses below baseline;</textarea>
           why: trade.why || "Exit rule",
         })),
         openSince: known.entry ? ((known.marks || []).filter((mark) => mark.side === "buy").slice(-1).map((mark) => list[mark.index].date)[0] || null) : null,
+        stage: known.stage,
+        big4: known.big4,
+        stages: known.stages,
       });
     } else notReady("edge", "Needs at least 52 bars.");
 
@@ -5301,9 +5370,6 @@ plot Sell = close crosses below baseline;</textarea>
       const on = study.level.map((value) => value >= 2);
       const tmo = trueMomentum(list, 14, 5, 3);
       const ema50 = ema(closes, 50);
-      const ema200 = ema(closes, 200);
-      const trend = macd(list);
-      const rsi = proRsi(closes, 14);
       const stack = stackAverages(list);
       const s5 = stack[0].values;
       const s9 = stack[1].values;
@@ -5312,16 +5378,8 @@ plot Sell = close crosses below baseline;</textarea>
       const mtfFlags = multiFrameLongFlags(list, end);
       const rising = (index) => mom[index] != null && mom[index - 1] != null && mom[index] > 0 && mom[index] > mom[index - 1];
       const tmoUp = (index) => tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index];
-      const b4Ok = (index) =>
-        ema50[index] != null &&
-        ema200[index] != null &&
-        closes[index] > ema50[index] &&
-        closes[index] > ema200[index] &&
-        trend.line[index] != null &&
-        trend.signal[index] != null &&
-        trend.line[index] > trend.signal[index] &&
-        rsi[index] != null &&
-        rsi[index] < 70;
+      const big4 = big4Indicator(list);
+      const big4Ok = (index) => !!big4.ok[index];
       const stackOk = (index) =>
         s5[index] != null &&
         s9[index] != null &&
@@ -5334,7 +5392,7 @@ plot Sell = close crosses below baseline;</textarea>
       const run = runRule(list, end, 240, {
         enter: (index) => {
           const fired = !on[index] && on[index - 1];
-          return fired && rising(index) && tmoUp(index) && b4Ok(index) && stackOk(index) && mtfOk(index)
+          return fired && rising(index) && tmoUp(index) && big4Ok(index) && stackOk(index) && mtfOk(index)
             ? { stop: list[index].low }
             : null;
         },
@@ -5357,7 +5415,9 @@ plot Sell = close crosses below baseline;</textarea>
         fired,
         squeezeOk: fired && rising(last),
         tmoOk: tmoUp(last),
-        b4Ok: b4Ok(last),
+        b4Ok: big4Ok(last),
+        big4Ok: big4Ok(last),
+        big4Bias: big4.bias[last],
         stackOk: stackOk(last),
         weekOk: snap.weekOk,
         monthOk: snap.monthOk,
@@ -5925,6 +5985,7 @@ plot Sell = close crosses below baseline;</textarea>
     paintPivots,
     periodVwap,
     deskClearRead,
+    big4Indicator,
     trueMomentum,
     zoomBars,
     zoomStep,
@@ -6019,7 +6080,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.66";
+const VERSION = "1.9.67";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -8080,10 +8141,12 @@ function edgePlan(result) {
   const today = result.live ? " Signals use closed bars only, through " + result.signalDate + ". Today's bar is still forming." : "";
   if (result.filled && result.filled.side === "buy") return "Edge bought at today's open, " + formatPrice(result.filled.price) + ", after the " + result.signalDate + " close. Starting stop " + stop + risk + "." + size + today;
   if (result.filled && result.filled.side === "sell") return "Edge sold at today's open, " + formatPrice(result.filled.price) + (result.reason ? ": " + result.reason : "") + "." + today;
-  if (result.call === "BUY") return "Buy setup on the " + result.signalDate + " close. A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + today;
-  if (result.call === "SELL") return "Sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
+  const stage = result.stage ? " Ready · Aim · Fire is " + result.stage + "." : "";
+  const big4 = result.big4 ? " big4indicator " + (result.big4.label || result.big4.bias) + (result.big4.ok ? " (agrees)" : " (waiting)") + "." : "";
+  if (result.call === "BUY") return "Fire buy on the " + result.signalDate + " close (Edge + big4indicator). A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + stage + big4 + today;
+  if (result.call === "SELL") return "Fire sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
-  return "No buy yet. Edge waits for all five checks to turn on together on a closed bar." + today;
+  return "No Fire yet. Ready at 3 checks, Aim at 4, Fire when all five turn on with big4indicator." + stage + big4 + today;
 }
 
 
@@ -8792,7 +8855,7 @@ function cardLine(row) {
     const legs = [
       row.squeezeOk ? "Squeeze fire on" : "Squeeze fire off",
       row.tmoOk ? "TMO on" : "TMO off",
-      row.b4Ok ? "B4 on" : "B4 off",
+      row.big4Ok || row.b4Ok ? "big4indicator on" : "big4indicator off",
       row.stackOk ? "SMA stack on" : "SMA stack off",
       row.weekOk ? "Weekly on" : "Weekly off",
       row.monthOk ? "Monthly on" : "Monthly off",
@@ -9227,6 +9290,20 @@ async function autoTrade() {
   const held = state.paper.shares > 0;
   const want = row.call === "BUY" && !held ? "buy" : row.call === "SELL" && held ? "sell" : "";
   if (!want) return "";
+  // Edge Auto buys only on Fire. Prefer big4indicator agreement for the most precise Fire.
+  if (pickId === "edge" && want === "buy") {
+    const edgeNow = currentEdge(bars);
+    if (!edgeNow || !edgeNow.ready || edgeNow.call !== "BUY" || edgeNow.stage !== "fire") {
+      state.strat.note = "Edge Auto waiting for Fire (Ready · Aim · Fire).";
+      renderAutoNote();
+      return state.strat.note;
+    }
+    if (edgeNow.big4 && edgeNow.big4.bias !== "bull") {
+      state.strat.note = "Edge Fire is on, waiting for big4indicator bullish agreement before Auto buy.";
+      renderAutoNote();
+      return state.strat.note;
+    }
+  }
   const key = state.paper.symbol + "|" + row.id + "|" + want + "|" + closedDate(bars) + (state.best && state.best.on ? "|best" : "");
   if (state.strat.acted[key]) return "";
   if (want === "buy") {
@@ -9249,7 +9326,7 @@ async function autoTrade() {
   if (confirmWait) return "Waiting for your answer on the open warning.";
   state.strat.acted[key] = Date.now();
   saveStrat();
-  state.strat.note = row.name + " signal: paper " + want + ". Waiting for your Yes.";
+  state.strat.note = row.name + (pickId === "edge" ? " Fire" : "") + " signal: paper " + want + ". Waiting for your Yes.";
   renderAutoNote();
   answerAuto(row, want, state.paper.symbol, closedDate(bars));
   return state.strat.note;
@@ -10158,7 +10235,11 @@ function drawCandles(retry) {
     ctx.stroke();
     ctx.fillText(formatPrice(price), 4, line - 2);
   }
-  PaperFrames.paintCandles(ctx, bars, xAt, y, slot);
+  const big4 = PaperFrames.big4Indicator ? PaperFrames.big4Indicator(history) : null;
+  const candleColors = layers.big4 && big4
+    ? big4.bias.slice(dropped, dropped + bars.length)
+    : null;
+  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candleColors);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
@@ -10201,8 +10282,12 @@ function drawCandles(retry) {
       ctx.lineTo(x + slot / 2, y(value));
     });
     if (drawing) ctx.stroke();
+    if (layers.readyaim) paintReadyAimStages(ctx, edgeResult.stages, dropped, bars, y, pad, slot, priceBottom);
     paintClearEdgeArrows(ctx, edgeResult.marks, dropped, bars, y, pad, slot, priceBottom);
     ctx.restore();
+  } else if (layers.readyaim) {
+    const staged = currentEdge(history);
+    if (staged && staged.ready) paintReadyAimStages(ctx, staged.stages, dropped, bars, y, pad, slot, priceBottom);
   }
   drawStudy(ctx, bars, y, pad, slot);
   const last = bars.length - 1;
@@ -10211,8 +10296,11 @@ function drawCandles(retry) {
   const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
   const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
   if (width >= 640 && layers.key) {
+    const big4Tone = candleColors && candleColors[last];
+    const candleLabel = big4Tone === "bull" ? "big4indicator green" : big4Tone === "bear" ? "big4indicator red" : big4Tone === "mixed" ? "big4indicator mixed" : lastBar.close >= lastBar.open ? "Candle green" : "Candle red";
+    const candleColor = big4Tone === "bull" ? "#3ddc97" : big4Tone === "bear" ? "#ff4d4d" : big4Tone === "mixed" ? "#9aa6b2" : lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
     const key = [
-      [lastBar.close >= lastBar.open ? "Candle green" : "Candle red", lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a"],
+      [candleLabel, candleColor],
       ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
       ["Momentum " + (lastMomentum == null ? "—" : lastRising ? "rising" : "falling"), PaperFrames.momentumTone(lastMomentum, priorMomentum) || "#9aa6b2"],
       [PaperFrames.candlePlace(lastBar, highLine[last], lowLine[last]), "#d7e2ea"],
@@ -10371,7 +10459,9 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 }
 
 const LAYERS = [
-  ["edge", "Edge stop + clear arrows", "edgestop", true],
+  ["edge", "Edge stop + Fire arrows", "edgestop", true],
+  ["readyaim", "Ready · Aim · Fire", "readyaim", true],
+  ["big4", "big4indicator candle color", "big4", true],
   ["pivots", "Support · Resistance boxes", "pivots", true],
   ["vwap", "VWAP", "vwap", true],
   ["trend", "Green trend EMA 50", "trend", true],
@@ -10384,7 +10474,7 @@ const LAYERS = [
   ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-const LAYERS_KEY = "paperTraderLayers65";
+const LAYERS_KEY = "paperTraderLayers67";
 
 function readLayers() {
   const chosen = {};
@@ -10493,8 +10583,33 @@ function drawArrow(ctx, x, y, up, size) {
   ctx.stroke();
 }
 
+function paintReadyAimStages(ctx, stages, dropped, bars, y, pad, slot, priceBottom) {
+  // Desk Ready · Aim markers only — Fire is the Edge BUY/SELL arrow at the next open.
+  ctx.save();
+  ctx.font = "bold 9px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  (stages || []).forEach((stage, absolute) => {
+    if (!stage || stage === "fire") return;
+    const index = absolute - dropped;
+    if (index < 0 || index >= bars.length) return;
+    const bar = bars[index];
+    const x = pad + index * slot + slot / 2;
+    const ready = stage === "ready";
+    const color = ready ? "#e2b15a" : "#ff9f43";
+    const label = ready ? "R" : "A";
+    const at = Math.min(priceBottom - 10, y(bar.low) + 18);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, at, Math.max(3.5, Math.min(5.5, slot * 0.35)), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#07090b";
+    ctx.fillText(label, x, at + 3);
+  });
+  ctx.restore();
+}
+
 function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBottom) {
-  // Edge fills at the next open after a closed-bar signal. Past marks never move.
+  // Fire only: Edge fills at the next open after Ready · Aim · Fire + big4indicator. Past marks never move.
   ctx.save();
   ctx.font = "bold 11px Segoe UI, sans-serif";
   ctx.textAlign = "center";
@@ -10517,6 +10632,13 @@ function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBott
     ctx.fillRect(x - width / 2, tagY - 8, width, 16);
     ctx.fillStyle = "#07090b";
     ctx.fillText(label, x, tagY + 4);
+    const fire = buy && mark.precise ? "FIRE · big4" : "FIRE";
+    const fireW = ctx.measureText(fire).width + 8;
+    const fireY = buy ? tagY + 14 : tagY - 14;
+    ctx.fillStyle = buy ? "rgba(61,220,151,0.92)" : "rgba(255,77,77,0.92)";
+    ctx.fillRect(x - fireW / 2, fireY - 7, fireW, 14);
+    ctx.fillStyle = "#07090b";
+    ctx.fillText(fire, x, fireY + 3);
   });
   ctx.restore();
 }
@@ -10531,7 +10653,7 @@ function paintDeskClear(history) {
     { k: "VWAP D", v: read.vwapD == null ? "—" : formatPrice(read.vwapD), kind: "vwap" },
     { k: "VWAP W", v: read.vwapW == null ? "—" : formatPrice(read.vwapW), kind: "vwap" },
     { k: "VWAP M", v: read.vwapM == null ? "—" : formatPrice(read.vwapM), kind: "vwap" },
-    { k: "Desk B4", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
+    { k: "big4indicator", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
     { k: "Bol %B 20", v: read.pctB == null ? "—" : read.pctB.toFixed(1), kind: "" },
     { k: "Stage", v: read.stage, kind: "stage" },
   ];

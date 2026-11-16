@@ -80,7 +80,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.66";
+const VERSION = "1.9.67";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const FEE_BPS = 5;
@@ -2141,10 +2141,12 @@ function edgePlan(result) {
   const today = result.live ? " Signals use closed bars only, through " + result.signalDate + ". Today's bar is still forming." : "";
   if (result.filled && result.filled.side === "buy") return "Edge bought at today's open, " + formatPrice(result.filled.price) + ", after the " + result.signalDate + " close. Starting stop " + stop + risk + "." + size + today;
   if (result.filled && result.filled.side === "sell") return "Edge sold at today's open, " + formatPrice(result.filled.price) + (result.reason ? ": " + result.reason : "") + "." + today;
-  if (result.call === "BUY") return "Buy setup on the " + result.signalDate + " close. A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + today;
-  if (result.call === "SELL") return "Sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
+  const stage = result.stage ? " Ready · Aim · Fire is " + result.stage + "." : "";
+  const big4 = result.big4 ? " big4indicator " + (result.big4.label || result.big4.bias) + (result.big4.ok ? " (agrees)" : " (waiting)") + "." : "";
+  if (result.call === "BUY") return "Fire buy on the " + result.signalDate + " close (Edge + big4indicator). A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + stage + big4 + today;
+  if (result.call === "SELL") return "Fire sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
-  return "No buy yet. Edge waits for all five checks to turn on together on a closed bar." + today;
+  return "No Fire yet. Ready at 3 checks, Aim at 4, Fire when all five turn on with big4indicator." + stage + big4 + today;
 }
 
 
@@ -2853,7 +2855,7 @@ function cardLine(row) {
     const legs = [
       row.squeezeOk ? "Squeeze fire on" : "Squeeze fire off",
       row.tmoOk ? "TMO on" : "TMO off",
-      row.b4Ok ? "B4 on" : "B4 off",
+      row.big4Ok || row.b4Ok ? "big4indicator on" : "big4indicator off",
       row.stackOk ? "SMA stack on" : "SMA stack off",
       row.weekOk ? "Weekly on" : "Weekly off",
       row.monthOk ? "Monthly on" : "Monthly off",
@@ -3288,6 +3290,20 @@ async function autoTrade() {
   const held = state.paper.shares > 0;
   const want = row.call === "BUY" && !held ? "buy" : row.call === "SELL" && held ? "sell" : "";
   if (!want) return "";
+  // Edge Auto buys only on Fire. Prefer big4indicator agreement for the most precise Fire.
+  if (pickId === "edge" && want === "buy") {
+    const edgeNow = currentEdge(bars);
+    if (!edgeNow || !edgeNow.ready || edgeNow.call !== "BUY" || edgeNow.stage !== "fire") {
+      state.strat.note = "Edge Auto waiting for Fire (Ready · Aim · Fire).";
+      renderAutoNote();
+      return state.strat.note;
+    }
+    if (edgeNow.big4 && edgeNow.big4.bias !== "bull") {
+      state.strat.note = "Edge Fire is on, waiting for big4indicator bullish agreement before Auto buy.";
+      renderAutoNote();
+      return state.strat.note;
+    }
+  }
   const key = state.paper.symbol + "|" + row.id + "|" + want + "|" + closedDate(bars) + (state.best && state.best.on ? "|best" : "");
   if (state.strat.acted[key]) return "";
   if (want === "buy") {
@@ -3310,7 +3326,7 @@ async function autoTrade() {
   if (confirmWait) return "Waiting for your answer on the open warning.";
   state.strat.acted[key] = Date.now();
   saveStrat();
-  state.strat.note = row.name + " signal: paper " + want + ". Waiting for your Yes.";
+  state.strat.note = row.name + (pickId === "edge" ? " Fire" : "") + " signal: paper " + want + ". Waiting for your Yes.";
   renderAutoNote();
   answerAuto(row, want, state.paper.symbol, closedDate(bars));
   return state.strat.note;
@@ -4219,7 +4235,11 @@ function drawCandles(retry) {
     ctx.stroke();
     ctx.fillText(formatPrice(price), 4, line - 2);
   }
-  PaperFrames.paintCandles(ctx, bars, xAt, y, slot);
+  const big4 = PaperFrames.big4Indicator ? PaperFrames.big4Indicator(history) : null;
+  const candleColors = layers.big4 && big4
+    ? big4.bias.slice(dropped, dropped + bars.length)
+    : null;
+  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candleColors);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
@@ -4262,8 +4282,12 @@ function drawCandles(retry) {
       ctx.lineTo(x + slot / 2, y(value));
     });
     if (drawing) ctx.stroke();
+    if (layers.readyaim) paintReadyAimStages(ctx, edgeResult.stages, dropped, bars, y, pad, slot, priceBottom);
     paintClearEdgeArrows(ctx, edgeResult.marks, dropped, bars, y, pad, slot, priceBottom);
     ctx.restore();
+  } else if (layers.readyaim) {
+    const staged = currentEdge(history);
+    if (staged && staged.ready) paintReadyAimStages(ctx, staged.stages, dropped, bars, y, pad, slot, priceBottom);
   }
   drawStudy(ctx, bars, y, pad, slot);
   const last = bars.length - 1;
@@ -4272,8 +4296,11 @@ function drawCandles(retry) {
   const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
   const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
   if (width >= 640 && layers.key) {
+    const big4Tone = candleColors && candleColors[last];
+    const candleLabel = big4Tone === "bull" ? "big4indicator green" : big4Tone === "bear" ? "big4indicator red" : big4Tone === "mixed" ? "big4indicator mixed" : lastBar.close >= lastBar.open ? "Candle green" : "Candle red";
+    const candleColor = big4Tone === "bull" ? "#3ddc97" : big4Tone === "bear" ? "#ff4d4d" : big4Tone === "mixed" ? "#9aa6b2" : lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
     const key = [
-      [lastBar.close >= lastBar.open ? "Candle green" : "Candle red", lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a"],
+      [candleLabel, candleColor],
       ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
       ["Momentum " + (lastMomentum == null ? "—" : lastRising ? "rising" : "falling"), PaperFrames.momentumTone(lastMomentum, priorMomentum) || "#9aa6b2"],
       [PaperFrames.candlePlace(lastBar, highLine[last], lowLine[last]), "#d7e2ea"],
@@ -4432,7 +4459,9 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 }
 
 const LAYERS = [
-  ["edge", "Edge stop + clear arrows", "edgestop", true],
+  ["edge", "Edge stop + Fire arrows", "edgestop", true],
+  ["readyaim", "Ready · Aim · Fire", "readyaim", true],
+  ["big4", "big4indicator candle color", "big4", true],
   ["pivots", "Support · Resistance boxes", "pivots", true],
   ["vwap", "VWAP", "vwap", true],
   ["trend", "Green trend EMA 50", "trend", true],
@@ -4445,7 +4474,7 @@ const LAYERS = [
   ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-const LAYERS_KEY = "paperTraderLayers65";
+const LAYERS_KEY = "paperTraderLayers67";
 
 function readLayers() {
   const chosen = {};
@@ -4554,8 +4583,33 @@ function drawArrow(ctx, x, y, up, size) {
   ctx.stroke();
 }
 
+function paintReadyAimStages(ctx, stages, dropped, bars, y, pad, slot, priceBottom) {
+  // Desk Ready · Aim markers only — Fire is the Edge BUY/SELL arrow at the next open.
+  ctx.save();
+  ctx.font = "bold 9px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  (stages || []).forEach((stage, absolute) => {
+    if (!stage || stage === "fire") return;
+    const index = absolute - dropped;
+    if (index < 0 || index >= bars.length) return;
+    const bar = bars[index];
+    const x = pad + index * slot + slot / 2;
+    const ready = stage === "ready";
+    const color = ready ? "#e2b15a" : "#ff9f43";
+    const label = ready ? "R" : "A";
+    const at = Math.min(priceBottom - 10, y(bar.low) + 18);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, at, Math.max(3.5, Math.min(5.5, slot * 0.35)), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#07090b";
+    ctx.fillText(label, x, at + 3);
+  });
+  ctx.restore();
+}
+
 function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBottom) {
-  // Edge fills at the next open after a closed-bar signal. Past marks never move.
+  // Fire only: Edge fills at the next open after Ready · Aim · Fire + big4indicator. Past marks never move.
   ctx.save();
   ctx.font = "bold 11px Segoe UI, sans-serif";
   ctx.textAlign = "center";
@@ -4578,6 +4632,13 @@ function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBott
     ctx.fillRect(x - width / 2, tagY - 8, width, 16);
     ctx.fillStyle = "#07090b";
     ctx.fillText(label, x, tagY + 4);
+    const fire = buy && mark.precise ? "FIRE · big4" : "FIRE";
+    const fireW = ctx.measureText(fire).width + 8;
+    const fireY = buy ? tagY + 14 : tagY - 14;
+    ctx.fillStyle = buy ? "rgba(61,220,151,0.92)" : "rgba(255,77,77,0.92)";
+    ctx.fillRect(x - fireW / 2, fireY - 7, fireW, 14);
+    ctx.fillStyle = "#07090b";
+    ctx.fillText(fire, x, fireY + 3);
   });
   ctx.restore();
 }
@@ -4592,7 +4653,7 @@ function paintDeskClear(history) {
     { k: "VWAP D", v: read.vwapD == null ? "—" : formatPrice(read.vwapD), kind: "vwap" },
     { k: "VWAP W", v: read.vwapW == null ? "—" : formatPrice(read.vwapW), kind: "vwap" },
     { k: "VWAP M", v: read.vwapM == null ? "—" : formatPrice(read.vwapM), kind: "vwap" },
-    { k: "Desk B4", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
+    { k: "big4indicator", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
     { k: "Bol %B 20", v: read.pctB == null ? "—" : read.pctB.toFixed(1), kind: "" },
     { k: "Stage", v: read.stage, kind: "stage" },
   ];

@@ -413,6 +413,8 @@ button.quiet { background: transparent; }
 .legend span.item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .legend .swatch, .layers .swatch { margin: 0; }
 .swatch.edgestop { background: #e2b15a; }
+.swatch.readyaim { background: linear-gradient(90deg, #e2b15a, #ff9f43, #3ddc97); }
+.swatch.big4 { background: linear-gradient(90deg, #3ddc97, #9aa6b2, #ff4d4d); }
 .swatch.key { background: #d7e2ea; }
 .zoom-bar .layers-toggle { margin-left: auto; }
 .layers-toggle[aria-expanded="true"] { background: #1c2733; border-color: var(--fast); }

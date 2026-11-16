@@ -273,7 +273,7 @@
     }));
   }
 
-  function paintCandles(ctx, bars, xAt, y, slot) {
+  function paintCandles(ctx, bars, xAt, y, slot, colors) {
     const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
     bars.forEach((bar, index) => {
       const x = xAt(index);
@@ -283,8 +283,22 @@
       const top = y(topPrice);
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
-      const tone = up ? "#3ddc97" : "#ff4d4d";
-      const edge = up ? "#1fae78" : "#d63b4a";
+      const mode = colors && colors[index];
+      let tone;
+      let rim;
+      if (mode === "bull") {
+        tone = "#3ddc97";
+        rim = "#1fae78";
+      } else if (mode === "bear") {
+        tone = "#ff4d4d";
+        rim = "#d63b4a";
+      } else if (mode === "mixed") {
+        tone = "#9aa6b2";
+        rim = "#6b7785";
+      } else {
+        tone = up ? "#3ddc97" : "#ff4d4d";
+        rim = up ? "#1fae78" : "#d63b4a";
+      }
       ctx.strokeStyle = tone;
       ctx.lineWidth = Math.max(1.25, Math.min(2.5, slot * 0.16));
       ctx.beginPath();
@@ -294,11 +308,49 @@
       const left = x - bodyW / 2;
       ctx.fillStyle = tone;
       ctx.fillRect(left, top, bodyW, bodyH);
-      ctx.strokeStyle = edge;
+      ctx.strokeStyle = rim;
       ctx.lineWidth = 1;
       ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
     });
     ctx.lineWidth = 1;
+  }
+
+  function big4Indicator(bars) {
+    const list = bars || [];
+    const count = list.length;
+    const closes = list.map((bar) => bar.close);
+    const ema50 = ema(closes, 50);
+    const ema200 = ema(closes, 200);
+    const trend = macd(list);
+    const rsi = proRsi(closes, 14);
+    const bias = new Array(count).fill("mixed");
+    const ok = new Array(count).fill(false);
+    for (let index = 0; index < count; index += 1) {
+      if (ema50[index] == null || ema200[index] == null) continue;
+      const bullTrend = closes[index] > ema50[index] && ema50[index] >= ema200[index];
+      const bearTrend = closes[index] < ema50[index] && ema50[index] <= ema200[index];
+      const macdOk = trend.line[index] != null && trend.signal[index] != null && trend.line[index] > trend.signal[index];
+      const rsiOk = rsi[index] != null && rsi[index] < 70 && rsi[index] > 30;
+      if (bullTrend) {
+        bias[index] = "bull";
+        // Strong agreement: trend plus MACD and RSI in range.
+        ok[index] = !!(macdOk && rsiOk);
+      } else if (bearTrend) {
+        bias[index] = "bear";
+      } else {
+        bias[index] = "mixed";
+      }
+    }
+    const last = count - 1;
+    const label = last >= 0 && bias[last] === "bull" ? "Bullish" : last >= 0 && bias[last] === "bear" ? "Bearish" : last >= 0 ? "Mixed" : "Waiting";
+    return {
+      name: "big4indicator",
+      bias,
+      ok,
+      last: last >= 0 ? bias[last] : "mixed",
+      lastOk: last >= 0 ? !!ok[last] : false,
+      label,
+    };
   }
 
   function tickSize(price) {
@@ -1368,6 +1420,7 @@
     const tmo = trueMomentum(list, 14, 5, 3);
     const range = edgeAtr(list, 14);
     const bands = bollinger(list, 20, 2);
+    const big4 = big4Indicator(list);
     const dots = new Array(count).fill(0);
     let run = 0;
     for (let index = 0; index < count; index += 1) {
@@ -1377,6 +1430,7 @@
     const score = new Array(count).fill(null);
     const trail = new Array(count).fill(null);
     const parts = new Array(count).fill(null);
+    const stages = new Array(count).fill(null);
     for (let index = EDGE_WARM; index < end; index += 1) {
       const now = squeeze[index];
       const prior = squeeze[index - 1];
@@ -1390,6 +1444,10 @@
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
+      // Desk Ready · Aim · Fire staging for Edge (closed bars only). Fire is the five-check Edge moment.
+      if (score[index] >= EDGE_SCORE) stages[index] = "fire";
+      else if (score[index] >= EDGE_SCORE - 1) stages[index] = "aim";
+      else if (score[index] >= 3) stages[index] = "ready";
     }
     const trades = [];
     const marks = [];
@@ -1404,13 +1462,14 @@
       if (pending === "buy" && !holding) {
         const price = bar.open;
         const stop = price - EDGE_TRAIL * (range[index - 1] || 0);
-        holding = { index, date: bar.date, price, stop, high: bar.close };
-        marks.push({ index, side: "buy", price });
+        const precise = big4.bias[index - 1] === "bull" || big4.ok[index - 1];
+        holding = { index, date: bar.date, price, stop, high: bar.close, stage: "fire", precise };
+        marks.push({ index, side: "buy", price, stage: "fire", precise });
       } else if (pending === "sell" && holding) {
         const price = bar.open;
         const pct = (price * (1 - EDGE_FEE)) / (holding.price * (1 + EDGE_FEE)) - 1;
         trades.push({ entryDate: holding.date, exitDate: bar.date, entry: holding.price, exit: price, pct, why: holding.why });
-        marks.push({ index, side: "sell", price });
+        marks.push({ index, side: "sell", price, stage: "fire", precise: true });
         equity *= 1 + pct;
         holding = null;
       }
@@ -1436,6 +1495,7 @@
       } else {
         if (equity > peak) peak = equity;
         const prior = index > EDGE_WARM ? score[index - 1] : 0;
+        // Fire: first closed bar where all five Edge checks turn on. big4indicator tags the most precise fires.
         if (score[index] === EDGE_SCORE && prior < EDGE_SCORE) pending = "buy";
       }
     }
@@ -1451,6 +1511,7 @@
     else if (pending === "sell") call = "SELL";
     else if (filledToday) call = filledToday.side === "buy" ? "BUY" : "SELL";
     else if (holding) call = "HOLD";
+    const stageNow = settled >= 0 ? stages[settled] : null;
     const openPct = holding ? closes[last] / (holding.price * (1 + EDGE_FEE)) - 1 : null;
     return {
       call,
@@ -1458,6 +1519,9 @@
       parts: settled >= 0 ? parts[settled] : null,
       scores: score,
       allParts: parts,
+      stages,
+      stage: stageNow,
+      big4: settled >= 0 ? { bias: big4.bias[settled], ok: big4.ok[settled] || big4.bias[settled] === "bull", label: big4.label, name: big4.name } : null,
       live,
       filled: filledToday ? { side: filledToday.side, price: filledToday.price } : null,
       signalDate: settled >= 0 ? list[settled].date : null,
@@ -1873,12 +1937,12 @@
   }
 
   const STRATEGY_INFO = {
-    edge: { name: "Edge · five checks", who: "This bot", idea: "Enters when all five checks turn on together on a closed bar: the first bar that reaches exactly five squeeze dots, squeeze momentum above zero and rising, true momentum above its signal, and close under the upper Bollinger band. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close." },
+    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready when three Edge checks are on, Aim at four, Fire when all five turn on together on a closed bar. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
-      name: "Squeeze · TMO · B4 · stack · MTF",
+      name: "Squeeze · TMO · big4indicator · stack · MTF",
       who: "Four desk studies · multi-TF",
-      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, B4 trend agrees (close above the 50 and 200 EMAs, MACD above signal, RSI under 70), the SMA stack is lined up 5 over 9 over 21 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
+      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, big4indicator agrees (close above the 50 and 200 EMAs, MACD above signal, RSI between 30 and 70), the SMA stack is lined up 5 over 9 over 21 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
     },
     ccizoom: {
       name: "CCI zoom zone",
@@ -1966,6 +2030,9 @@
           why: trade.why || "Exit rule",
         })),
         openSince: known.entry ? ((known.marks || []).filter((mark) => mark.side === "buy").slice(-1).map((mark) => list[mark.index].date)[0] || null) : null,
+        stage: known.stage,
+        big4: known.big4,
+        stages: known.stages,
       });
     } else notReady("edge", "Needs at least 52 bars.");
 
@@ -2001,9 +2068,6 @@
       const on = study.level.map((value) => value >= 2);
       const tmo = trueMomentum(list, 14, 5, 3);
       const ema50 = ema(closes, 50);
-      const ema200 = ema(closes, 200);
-      const trend = macd(list);
-      const rsi = proRsi(closes, 14);
       const stack = stackAverages(list);
       const s5 = stack[0].values;
       const s9 = stack[1].values;
@@ -2012,16 +2076,8 @@
       const mtfFlags = multiFrameLongFlags(list, end);
       const rising = (index) => mom[index] != null && mom[index - 1] != null && mom[index] > 0 && mom[index] > mom[index - 1];
       const tmoUp = (index) => tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index];
-      const b4Ok = (index) =>
-        ema50[index] != null &&
-        ema200[index] != null &&
-        closes[index] > ema50[index] &&
-        closes[index] > ema200[index] &&
-        trend.line[index] != null &&
-        trend.signal[index] != null &&
-        trend.line[index] > trend.signal[index] &&
-        rsi[index] != null &&
-        rsi[index] < 70;
+      const big4 = big4Indicator(list);
+      const big4Ok = (index) => !!big4.ok[index];
       const stackOk = (index) =>
         s5[index] != null &&
         s9[index] != null &&
@@ -2034,7 +2090,7 @@
       const run = runRule(list, end, 240, {
         enter: (index) => {
           const fired = !on[index] && on[index - 1];
-          return fired && rising(index) && tmoUp(index) && b4Ok(index) && stackOk(index) && mtfOk(index)
+          return fired && rising(index) && tmoUp(index) && big4Ok(index) && stackOk(index) && mtfOk(index)
             ? { stop: list[index].low }
             : null;
         },
@@ -2057,7 +2113,9 @@
         fired,
         squeezeOk: fired && rising(last),
         tmoOk: tmoUp(last),
-        b4Ok: b4Ok(last),
+        b4Ok: big4Ok(last),
+        big4Ok: big4Ok(last),
+        big4Bias: big4.bias[last],
         stackOk: stackOk(last),
         weekOk: snap.weekOk,
         monthOk: snap.monthOk,
@@ -2625,6 +2683,7 @@
     paintPivots,
     periodVwap,
     deskClearRead,
+    big4Indicator,
     trueMomentum,
     zoomBars,
     zoomStep,
