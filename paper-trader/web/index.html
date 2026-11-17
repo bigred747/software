@@ -16,7 +16,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper</p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.77</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -69,17 +69,12 @@
     </section>
 
     <section id="view-chart" class="panel chart-panel" aria-label="Chart">
-      <div class="chart-head">
-        <button id="chart-back" type="button" class="quiet chart-back">Back</button>
-        <h2 id="chart-title">Chart</h2>
-        <span id="position-chip" class="position-chip" hidden></span>
-        <p id="legend" class="legend"></p>
-      </div>
-      <p id="desk-status" class="desk-status" role="status"></p>
-      <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
-      <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
-      <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div class="chart-tools" id="chart-tools">
+        <div class="chart-head chart-tools-head">
+          <button id="chart-back" type="button" class="quiet chart-back">Back</button>
+          <h2 id="chart-title">Chart</h2>
+          <span id="position-chip" class="position-chip" hidden></span>
+        </div>
         <p class="chart-tools-label">Chart boxes</p>
         <div id="chart-boxes" class="desk-clear chart-boxes" aria-label="Market breadth boxes">
           <div class="desk-clear-chip breadth"><span class="k">TICK</span><span class="v">No feed</span></div>
@@ -106,7 +101,24 @@
         </div>
         <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
         <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
+        <p class="chart-tools-label">Second page</p>
+        <div id="study-pages" class="study-pages" aria-label="Open Study pages">
+          <button type="button" data-open-dock="strategies">Strategies</button>
+          <button type="button" data-open-dock="internals">Internals</button>
+          <button type="button" data-open-dock="frames">Timeframes</button>
+          <button type="button" data-open-dock="squeeze">Squeeze scan</button>
+          <button type="button" data-open-dock="readings">big4indicator</button>
+          <button type="button" data-open-dock="journal">Journal</button>
+          <button type="button" data-open-dock="signals">Signals</button>
+          <button type="button" data-open-dock="backtest">Backtest</button>
+          <button type="button" data-open-dock="study">Study code</button>
+        </div>
       </div>
+      <p id="legend" class="legend"></p>
+      <p id="desk-status" class="desk-status" role="status"></p>
+      <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
+      <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
+      <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div class="study-toolbar" role="toolbar" aria-label="Study panes">
         <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
         <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>

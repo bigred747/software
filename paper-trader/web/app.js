@@ -82,7 +82,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.76";
+const VERSION = "1.9.77";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -6473,6 +6473,18 @@ if (signalSum) signalSum.addEventListener("click", () => showDock("signals"));
 document.querySelectorAll(".dock-tab").forEach((button) => {
   button.addEventListener("click", () => showDock(button.dataset.dock));
 });
+
+document.querySelectorAll("#study-pages [data-open-dock]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const name = button.dataset.openDock;
+    if (window.matchMedia("(max-width: 980px)").matches) showPhoneTab("study");
+    showDock(name);
+    $("status").textContent = "Opened " + (button.textContent || name) + ".";
+  });
+});
+
+const buildTag = $("build-tag");
+if (buildTag) buildTag.textContent = VERSION;
 
 window.addEventListener("resize", () => {
   if (state.market && state.paper) {

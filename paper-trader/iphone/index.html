@@ -102,6 +102,27 @@ body {
   line-height: 1.2;
   text-transform: uppercase;
 }
+.build-tag {
+  display: inline-block;
+  margin-left: 6px;
+  letter-spacing: 0.04em;
+  font-weight: 650;
+  color: #9ad7b8;
+  text-transform: none;
+}
+.study-pages {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.study-pages button {
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 650;
+  background: #151c24;
+}
 
 .eyebrow {
   margin: 0;
@@ -757,10 +778,13 @@ footer { display: none; }
     z-index: 4;
     margin: 0 0 10px;
     padding: 8px 0 10px;
-    background: linear-gradient(#0c1014 70%, rgba(12, 16, 20, 0.92));
+    background: #0c1014;
     border-bottom: 1px solid var(--line);
   }
+  body[data-tab="chart"] .chart-tools-head { margin-bottom: 4px; }
   body[data-tab="chart"] .chart-tools-label { font-size: 12px; color: #c5d0db; }
+  body[data-tab="chart"] .study-pages { margin-top: 2px; }
+  body[data-tab="chart"] .study-pages button { min-height: 42px; font-size: 13px; }
   body[data-tab="chart"] .frame-bar {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -799,14 +823,17 @@ footer { display: none; }
   }
   body[data-tab="chart"] #desk-clear .desk-clear-chip { min-width: 0; width: 100%; }
   body[data-tab="study"] .dock-tabs {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex-wrap: unset;
     overflow: visible;
     gap: 8px;
     margin-bottom: 12px;
   }
   body[data-tab="study"] .dock-tab {
-    min-height: 42px;
-    padding: 8px 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 10px;
     font-size: 13px;
     font-weight: 650;
     background: #151c24;
@@ -1129,7 +1156,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper</p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.77</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -1182,17 +1209,12 @@ body.ready #mood-clock { width: 88px; height: 88px; }
     </section>
 
     <section id="view-chart" class="panel chart-panel" aria-label="Chart">
-      <div class="chart-head">
-        <button id="chart-back" type="button" class="quiet chart-back">Back</button>
-        <h2 id="chart-title">Chart</h2>
-        <span id="position-chip" class="position-chip" hidden></span>
-        <p id="legend" class="legend"></p>
-      </div>
-      <p id="desk-status" class="desk-status" role="status"></p>
-      <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
-      <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
-      <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div class="chart-tools" id="chart-tools">
+        <div class="chart-head chart-tools-head">
+          <button id="chart-back" type="button" class="quiet chart-back">Back</button>
+          <h2 id="chart-title">Chart</h2>
+          <span id="position-chip" class="position-chip" hidden></span>
+        </div>
         <p class="chart-tools-label">Chart boxes</p>
         <div id="chart-boxes" class="desk-clear chart-boxes" aria-label="Market breadth boxes">
           <div class="desk-clear-chip breadth"><span class="k">TICK</span><span class="v">No feed</span></div>
@@ -1219,7 +1241,24 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         </div>
         <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
         <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
+        <p class="chart-tools-label">Second page</p>
+        <div id="study-pages" class="study-pages" aria-label="Open Study pages">
+          <button type="button" data-open-dock="strategies">Strategies</button>
+          <button type="button" data-open-dock="internals">Internals</button>
+          <button type="button" data-open-dock="frames">Timeframes</button>
+          <button type="button" data-open-dock="squeeze">Squeeze scan</button>
+          <button type="button" data-open-dock="readings">big4indicator</button>
+          <button type="button" data-open-dock="journal">Journal</button>
+          <button type="button" data-open-dock="signals">Signals</button>
+          <button type="button" data-open-dock="backtest">Backtest</button>
+          <button type="button" data-open-dock="study">Study code</button>
+        </div>
       </div>
+      <p id="legend" class="legend"></p>
+      <p id="desk-status" class="desk-status" role="status"></p>
+      <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
+      <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
+      <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div class="study-toolbar" role="toolbar" aria-label="Study panes">
         <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
         <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>
@@ -6293,7 +6332,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.76";
+const VERSION = "1.9.77";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -12684,6 +12723,18 @@ if (signalSum) signalSum.addEventListener("click", () => showDock("signals"));
 document.querySelectorAll(".dock-tab").forEach((button) => {
   button.addEventListener("click", () => showDock(button.dataset.dock));
 });
+
+document.querySelectorAll("#study-pages [data-open-dock]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const name = button.dataset.openDock;
+    if (window.matchMedia("(max-width: 980px)").matches) showPhoneTab("study");
+    showDock(name);
+    $("status").textContent = "Opened " + (button.textContent || name) + ".";
+  });
+});
+
+const buildTag = $("build-tag");
+if (buildTag) buildTag.textContent = VERSION;
 
 window.addEventListener("resize", () => {
   if (state.market && state.paper) {
