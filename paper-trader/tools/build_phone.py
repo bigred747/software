@@ -53,8 +53,6 @@ def build() -> Path:
     out.write_text(html, encoding="utf-8")
     (folder / "index.html").write_text(html, encoding="utf-8")
     (folder / "icon.png").write_bytes((web / "icon.png").read_bytes())
-    if (web / "logo.png").exists():
-        (folder / "logo.png").write_bytes((web / "logo.png").read_bytes())
     (folder / "manifest.webmanifest").write_text((web / "manifest.webmanifest").read_text(encoding="utf-8"), encoding="utf-8")
     note = folder / "README.txt"
     note.write_text(
