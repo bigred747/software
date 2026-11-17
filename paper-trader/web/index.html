@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07090b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Paper Trader">
+  <title>Paper Trader</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body data-tab="chart">
+  <header class="top">
+    <div class="brand">
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.78</span></p>
+      <div>
+        <p class="eyebrow">Local paper desk</p>
+        <h1>Paper Trader</h1>
+      </div>
+    </div>
+    <div class="mood-clock">
+      <canvas id="mood-clock" width="112" height="112" aria-label="Fear and greed clock"></canvas>
+      <span id="mood-clock-label" class="mood-clock-label"></span>
+    </div>
+    <div id="quote" class="quote" aria-live="polite">
+      <span id="quote-symbol">—</span>
+      <span id="quote-last">—</span>
+      <span id="quote-change">—</span>
+      <span id="quote-asof" class="muted">Market quote</span>
+      <span id="quote-mood" class="mood">—</span>
+    </div>
+    <p id="lede" class="lede">Loading the paper desk…</p>
+    <p id="open-help" class="open-help">On iPhone, open the Paper Trader web address in Safari. Tap Share, then Add to Home Screen so the desk opens like an app and you stay signed in. A github.com link to this file shows the code and does not run the app. If you saved PaperTrader.html, open the Files app, tap Share, then Edge.</p>
+    <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
+  </header>
+
+  <div class="workspace">
+    <section id="view-markets" class="panel watch" aria-label="Markets">
+      <h2>Markets</h2>
+      <div id="pins" class="pins" aria-label="Pinned markets"></div>
+      <button id="pin-toggle" type="button" class="quiet">Pin this market</button>
+      <div id="scorecard-card" class="scorecard-card" aria-label="Big 3 Market Scorecard">
+        <div class="scorecard-card-head">
+          <h3>Big 3 Market Scorecard</h3>
+          <button id="scorecard-open" type="button" class="quiet">Open scorecard</button>
+        </div>
+        <p id="scorecard-bias" class="scorecard-bias">Press Run scorecard for rankings, A+ squeezes, and day bias.</p>
+        <p id="scorecard-blurb" class="muted">Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.</p>
+      </div>
+      <div class="scan-block">
+        <div class="scan-head">
+          <h3>Daily scan</h3>
+          <button id="scan-toggle" type="button" aria-pressed="true">Scanner on</button>
+        </div>
+        <p id="scan-note" class="muted"></p>
+        <div id="scan" class="pins" aria-label="Daily scan"></div>
+        <p id="today-note" class="muted"></p>
+        <div id="today" class="pins" aria-label="Today's five"></div>
+        <div class="scan-head fire-head">
+          <h3>Fire 5 · best trades</h3>
+          <button id="fire-auto" type="button" class="fire-auto-btn" aria-pressed="false">Fire 5 Auto</button>
+        </div>
+        <p id="fire-note" class="muted">When Ready · Aim · Fire turns Fire on a strong scan name, it lights green here (up to five). Tap one to review the chart, then buy if you want. Fire 5 Auto asks Yes before each paper buy. Paper only. Not a forecast.</p>
+        <div id="fire-five" class="pins" aria-label="Fire five green signals"></div>
+      </div>
+      <label for="search">Find a market</label>
+      <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
+      <label for="category">Type</label>
+      <select id="category">
+        <option value="">All markets</option>
+        <option value="crypto">Crypto</option>
+        <option value="stock">Stocks</option>
+        <option value="etf">ETFs</option>
+        <option value="future">Futures</option>
+      </select>
+      <label for="symbol">Results</label>
+      <div id="symbol" class="results" role="listbox" aria-label="Results"></div>
+      <p id="market-count" class="muted"></p>
+    </section>
+
+    <section id="view-chart" class="panel chart-panel" aria-label="Chart">
+      <div class="chart-tools" id="chart-tools">
+        <div class="chart-head chart-tools-head">
+          <button id="chart-back" type="button" class="quiet chart-back">Back</button>
+          <h2 id="chart-title">Chart</h2>
+          <span id="position-chip" class="position-chip" hidden></span>
+        </div>
+        <p class="chart-tools-label">Chart boxes</p>
+        <div id="chart-boxes" class="desk-clear chart-boxes" aria-label="Market breadth boxes">
+          <div class="desk-clear-chip breadth"><span class="k">TICK</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">ADD</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">TRIN</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">VOLD</span><span class="v">No feed</span></div>
+        </div>
+        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
+        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read">
+          <div class="desk-clear-chip vwap"><span class="k">VWAP D</span><span class="v">—</span></div>
+          <div class="desk-clear-chip vwap"><span class="k">VWAP W</span><span class="v">—</span></div>
+          <div class="desk-clear-chip vwap"><span class="k">VWAP M</span><span class="v">—</span></div>
+          <div class="desk-clear-chip mixed"><span class="k">big4indicator</span><span class="v">Waiting</span></div>
+          <div class="desk-clear-chip"><span class="k">Bol %B 20</span><span class="v">—</span></div>
+          <div class="desk-clear-chip stage"><span class="k">Stage</span><span class="v">Waiting</span></div>
+        </div>
+        <p class="chart-tools-label">Timeframes</p>
+        <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
+        <div class="zoom-bar" aria-label="Chart zoom">
+          <button id="zoom-in" type="button">Zoom in</button>
+          <button id="zoom-out" type="button">Zoom out</button>
+          <span id="zoom-label" class="muted">180 bars</span>
+          <button id="layers-toggle" type="button" class="layers-toggle" aria-expanded="false" aria-controls="layers">Layers</button>
+        </div>
+        <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
+        <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
+        <p class="chart-tools-label">Second page</p>
+        <div id="study-pages" class="study-pages" aria-label="Open Study pages">
+          <button type="button" data-open-dock="strategies">Strategies</button>
+          <button type="button" data-open-dock="internals">Internals</button>
+          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
+          <button type="button" data-open-dock="frames">Timeframes</button>
+          <button type="button" data-open-dock="squeeze">Squeeze scan</button>
+          <button type="button" data-open-dock="readings">big4indicator</button>
+          <button type="button" data-open-dock="journal">Journal</button>
+          <button type="button" data-open-dock="signals">Signals</button>
+          <button type="button" data-open-dock="backtest">Backtest</button>
+          <button type="button" data-open-dock="study">Study code</button>
+        </div>
+      </div>
+      <p id="legend" class="legend"></p>
+      <p id="desk-status" class="desk-status" role="status"></p>
+      <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
+      <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
+      <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
+      <div class="study-toolbar" role="toolbar" aria-label="Study panes">
+        <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
+        <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>
+      </div>
+      <div class="study-stack" aria-label="Price and study panes">
+        <section class="study-pane" data-pane="price" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="candles" title="Roll up price">▾</button>
+            <span>Price</span>
+          </div>
+          <canvas id="candles" width="800" height="360" aria-label="Price chart"></canvas>
+        </section>
+        <section class="study-pane" data-pane="tmo" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="rsi-chart" title="Roll up TMO">▾</button>
+            <span>TMO 14/5/3</span>
+            <button type="button" class="study-pop quiet" data-study="tmo">Open ▢</button>
+          </div>
+          <canvas id="rsi-chart" width="800" height="160" aria-label="True momentum"></canvas>
+        </section>
+        <section class="study-pane" data-pane="sqz" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="sqz-chart" title="Roll up squeeze">▾</button>
+            <span>Squeeze momentum</span>
+            <button type="button" class="study-pop quiet" data-study="sqz">Open ▢</button>
+          </div>
+          <canvas id="sqz-chart" width="800" height="130" aria-label="Squeeze momentum"></canvas>
+        </section>
+        <section class="study-pane" data-pane="cci" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="cci-chart" title="Roll up CCI">▾</button>
+            <span>CCI 50 · 14 · 5</span>
+            <button type="button" class="study-pop quiet" data-study="cci">Open ▢</button>
+          </div>
+          <canvas id="cci-chart" width="800" height="160" aria-label="CCI"></canvas>
+        </section>
+      </div>
+      <details class="chart-fold">
+        <summary>Chart key</summary>
+        <p class="muted chart-note">With big4indicator on, candles paint all green in a bullish stretch and all red in a bearish stretch (mixed is gray). With that layer off, up candles are solid green and down candles are solid red. Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (pink), 9 (cyan), 21 (red), 50 (white), 100 (yellow), and 200 (peach) on this chart's own bars. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator paints candle color from EMA 50/200, MACD, and RSI on closed bars; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the three studies share. Not a forecast.</p>
+      </details>
+    </section>
+
+    <section id="view-trade" class="panel ticket" aria-label="Session">
+      <p id="signal" class="signal">HOLD</p>
+      <p id="signal-note" class="muted"></p>
+      <section id="edge" class="edge" aria-label="Edge indicator">
+        <div class="edge-head">
+          <span class="edge-name">Edge</span>
+          <span id="edge-call" class="edge-call">WAIT</span>
+          <span id="edge-score" class="edge-score">—</span>
+        </div>
+        <ol id="edge-checks" class="edge-checks"></ol>
+        <p id="edge-plan" class="edge-plan"></p>
+        <dl id="edge-record" class="edge-record"></dl>
+        <div class="edge-frames">
+          <span class="muted">Edge on every timeframe</span>
+          <div id="edge-frames" class="edge-chips" aria-label="Edge on every timeframe"></div>
+          <p id="edge-frames-line" class="muted"></p>
+        </div>
+        <p class="muted edge-note-line">Edge buys when five checks turn on together: the first closed bar that reaches exactly five squeeze dots, squeeze momentum above zero, squeeze momentum rising, the true momentum main line above its signal, and the close under the upper Bollinger band. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop 2.5 average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
+      </section>
+      <dl class="stats">
+        <div><dt>Equity</dt><dd id="equity">—</dd></div>
+        <div><dt>Cash</dt><dd id="cash">—</dd></div>
+        <div><dt>Position</dt><dd id="shares">—</dd></div>
+        <div><dt>Session</dt><dd id="through">—</dd></div>
+      </dl>
+      <p id="result" class="result">—</p>
+      <p id="last-fill" class="last-fill">Market orders fill at the latest real trade plus 5 bps slippage and the fee, like a live market order.</p>
+      <div class="modes" role="group" aria-label="Trading controls">
+        <button id="paper" type="button" aria-pressed="false">Paper</button>
+        <button id="auto" type="button" aria-pressed="false">Auto</button>
+        <button id="live" type="button" aria-pressed="false" class="locked">Live</button>
+        <button id="trade" type="button">Trade</button>
+        <button id="voice" type="button" aria-pressed="true">Voice</button>
+      </div>
+      <div class="breaker" id="breaker">
+        <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
+        <p id="breaker-note" class="breaker-note">Breaker armed. A 5% paper drop in one day sells everything and stops buys until tomorrow.</p>
+      </div>
+      <div class="safe-box" id="safe-box">
+        <button id="safe" type="button" class="safe-btn">Safe check</button>
+        <button id="internals-pill" type="button" class="internals-pill">Internals · reading…</button>
+        <p id="safe-note" class="breaker-note">Press to run the safety check. It runs by itself every minute.</p>
+        <ul id="safe-list" class="safe-list"></ul>
+        <div id="win-box" class="win-box" hidden>
+          <h4>Windows extras</h4>
+          <label><input id="win-startup" type="checkbox"> Start the score when I sign in to Windows</label>
+          <label><input id="win-desktop" type="checkbox"> Put Paper Trader.bat on my Desktop</label>
+          <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process. While it runs, every desk section keeps learning on closed bars even when scrolled away (Markets, Chart, Trade, Study, Strategies, Squeeze scan, Big 3 Scorecard, Internals, Timeframes, big4indicator, Journal, Backtest, Signals). New shipped pages and strategies auto-join the learner. Open the desk to start it; tick Start the score for Windows sign-in. Phone/browser alone cannot keep the bot process alive. Not a broker. Not a forecast.</p>
+        </div>
+      </div>
+      <section id="ticket" class="ticket-box" aria-label="Order ticket">
+        <h3>Order ticket</h3>
+        <div class="side-row" role="group" aria-label="Side">
+          <button id="side-buy" type="button" class="buy on" aria-pressed="true">Buy</button>
+          <button id="side-sell" type="button" class="sell" aria-pressed="false">Sell</button>
+        </div>
+        <div class="ticket-grid">
+          <label>Order type
+            <select id="kind">
+              <option value="market">Market</option>
+              <option value="limit">Limit</option>
+              <option value="stop">Stop</option>
+              <option value="stop_limit">Stop Limit</option>
+            </select>
+          </label>
+          <label>Time in force
+            <select id="tif">
+              <option value="DAY">DAY</option>
+              <option value="GTC">GTC</option>
+            </select>
+          </label>
+          <label id="stop-field">Stop price <input id="stop-price" type="number" min="0" step="any" inputmode="decimal"></label>
+          <label id="limit-field">Limit price <input id="limit-price" type="number" min="0" step="any" inputmode="decimal"></label>
+        </div>
+        <p id="ticket-note" class="muted tiny">A buy uses all paper cash. A sell closes the whole paper position. Fills use the latest real trade, the 5 bps slippage, and the fee. Nothing goes to a broker.</p>
+        <p id="ticket-preview" class="ticket-preview muted tiny">Pick a side and order type. The preview shows size and cost before you send.</p>
+        <label class="confirm"><input id="confirm" type="checkbox"> Confirm and Send</label>
+        <button id="send" type="button" class="send">Send paper order</button>
+        <h3>Working orders</h3>
+        <div class="table-wrap">
+          <table class="working">
+            <thead><tr><th>Id</th><th>Side</th><th>Type</th><th>Stop</th><th>Limit</th><th>TIF</th><th></th></tr></thead>
+            <tbody id="working-body"></tbody>
+          </table>
+        </div>
+        <button id="cancel-all" type="button" class="quiet">Cancel all</button>
+      </section>
+      <div class="actions">
+        <button id="next" type="button">Next day</button>
+        <button id="run" type="button">Run remaining days</button>
+        <button id="reset" type="button" class="quiet">Reset session</button>
+        <button id="full" type="button" class="quiet">Run full backtest</button>
+      </div>
+      <p id="status" class="status" role="status"></p>
+      <details>
+        <summary>Strategy settings</summary>
+        <div class="fields">
+          <label>Fast average <input id="fast" type="number" min="2" max="80" value="10" inputmode="numeric"></label>
+          <label>Slow average <input id="slow" type="number" min="3" max="200" value="30" inputmode="numeric"></label>
+          <label>RSI length <input id="rsi" type="number" min="0" max="50" value="14" inputmode="numeric"></label>
+          <label>Starting cash <input id="cash-input" type="number" min="1" step="100" value="10000" inputmode="decimal"></label>
+          <label>Fee (basis points) <input id="fee" type="number" min="0" max="100" step="0.1" value="5" inputmode="decimal"></label>
+          <label>Stop (%) <input id="stop" type="number" min="0" max="50" step="0.1" value="8" inputmode="decimal"></label>
+        </div>
+        <p class="muted">Reset session applies these settings. A stop of 0 turns the stop off. RSI length 0 turns RSI off.</p>
+      </details>
+    </section>
+
+    <section id="view-study" class="panel dock" aria-label="Desk tools">
+      <div class="dock-tabs" role="tablist">
+        <button type="button" class="dock-tab on" data-dock="study">Study</button>
+        <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
+        <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
+        <button type="button" class="dock-tab" data-dock="scorecard">Big 3 Scorecard</button>
+        <button type="button" class="dock-tab" data-dock="internals">Internals</button>
+        <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
+        <button type="button" class="dock-tab" data-dock="readings">big4indicator</button>
+        <button type="button" class="dock-tab" data-dock="journal">Journal</button>
+        <button type="button" class="dock-tab" data-dock="backtest">Backtest</button>
+        <button type="button" class="dock-tab" data-dock="signals">Signals</button>
+      </div>
+
+      <div class="dock-page on" data-dock-page="study">
+        <h2>Install study</h2>
+        <p class="muted">Paste your own price formula. It runs on the quotes in this page only. It cannot place a broker order, open a connection, or read files.</p>
+        <label for="study-name">Name</label>
+        <input id="study-name" maxlength="40" value="Baseline cross" autocomplete="off">
+        <label for="study-code">Formula</label>
+        <textarea id="study-code" spellcheck="false" maxlength="12000">input length = 20;
+def baseline = Average(close, length);
+plot Baseline = baseline;
+plot Buy = close crosses above baseline;
+plot Sell = close crosses below baseline;</textarea>
+        <div class="study-actions">
+          <button id="study-install" type="button">Install study</button>
+          <button id="study-remove" type="button" class="quiet">Remove</button>
+        </div>
+        <label for="study-list">Installed on this device</label>
+        <select id="study-list"></select>
+        <p id="study-status" class="status"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="strategies">
+        <h2>Strategies</h2>
+        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. While this page is open, Learning re-scores each strategy on top Daily scan names and learns from paper buy/sell fills to refine Fire timing. Scored on closed bars only. The ranking looks backward. Not a forecast.</p>
+        <div class="table-wrap strat-board-wrap">
+          <table class="strat-board-table">
+            <thead>
+              <tr><th>Strategy</th><th>Now</th><th>Trades</th><th>Wins</th><th>Result</th><th>Hold</th><th>Worst trade</th></tr>
+            </thead>
+            <tbody id="strat-board"></tbody>
+          </table>
+        </div>
+        <p id="strat-best" class="muted"></p>
+        <div class="strat-trade">
+          <p id="strat-trade-note" class="muted">Click the best strategy row to pick it, then paper Buy or Sell on this market. The second warning still asks. Paper only.</p>
+          <button id="strat-buy" type="button" class="buy">Buy</button>
+          <button id="strat-sell" type="button" class="sell">Sell</button>
+        </div>
+        <p class="muted">Click a strategy row to test it. The panel below shows its own past trades on this market, and you can run it on a whole list of markets. Click a market in that list to open it.</p>
+        <div id="strat-detail" class="strat-detail" hidden>
+          <h3 id="strat-detail-title"></h3>
+          <p id="strat-detail-line" class="muted"></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>In</th><th>Out</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why it closed</th></tr></thead>
+              <tbody id="strat-log"></tbody>
+            </table>
+          </div>
+          <div class="strat-orb-inputs">
+            <label for="strat-sweep-list">Test it on</label>
+            <select id="strat-sweep-list">
+              <option value="starter">Starter list</option>
+              <option value="sectors">Sector funds and big holdings</option>
+              <option value="crypto">Crypto</option>
+              <option value="futures">Futures</option>
+            </select>
+            <button id="strat-sweep" type="button">Run on the list</button>
+          </div>
+          <p id="strat-sweep-note" class="muted"></p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Market</th><th>Now</th><th>Trades</th><th>Wins</th><th>Result</th><th>Hold</th><th>Worst trade</th></tr></thead>
+              <tbody id="strat-sweep-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="strat-auto">
+          <label for="strat-pick">Auto follows</label>
+          <select id="strat-pick">
+            <option value="edge">Edge · five checks</option>
+            <option value="squeeze">Squeeze release</option>
+            <option value="quad">Squeeze · TMO · big4indicator · stack · MTF</option>
+            <option value="ccizoom">CCI zoom zone</option>
+            <option value="ccisnap">CCI snap-back</option>
+            <option value="donchian">20-day breakout</option>
+            <option value="rsi2">RSI 2 pullback</option>
+            <option value="golden">50/200 average cross</option>
+            <option value="dualema">20/50 EMA cross</option>
+            <option value="macdx">MACD cross</option>
+            <option value="bollrev">Bollinger reversion</option>
+            <option value="atrtrail">EMA trend · ATR trail</option>
+            <option value="weeklow">7-day low pullback</option>
+          </select>
+          <label class="strat-switch"><input id="strat-auto-on" type="checkbox"> Let Auto place paper trades from it</label>
+        </div>
+        <div class="best-setup-box">
+          <button id="best-setup" type="button" class="best-setup-btn" aria-pressed="false">Best setup Auto</button>
+          <ul id="best-setup-gates" class="best-setup-gates" aria-label="Best setup gates"></ul>
+          <p id="best-setup-note" class="muted">Off. Turns on only the strictest paper buys: Edge all five green, most timeframes lined up, market internals supportive, desk Squeeze · TMO · big4indicator · stack · MTF, today’s green scan list, and at most three new buys a Denver day. Still asks Yes. Not a forecast.</p>
+        </div>
+        <p id="strat-auto-note" class="muted">Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.</p>
+        <h3>Desk triggers</h3>
+        <p class="muted">Voice and status alerts for closed-bar events on the open market and pinned names. Paper only. Not a forecast.</p>
+        <div class="strat-triggers">
+          <label class="strat-switch"><input id="trig-squeeze" type="checkbox" checked> Squeeze five dots / steam</label>
+          <label class="strat-switch"><input id="trig-edge" type="checkbox" checked> Edge BUY on pinned markets</label>
+          <label class="strat-switch"><input id="trig-strategy" type="checkbox" checked> Followed strategy BUY / SELL</label>
+          <label class="strat-switch"><input id="trig-best" type="checkbox" checked> Best setup ready</label>
+          <label class="strat-switch"><input id="trig-process" type="checkbox" checked> New process learned</label>
+        </div>
+        <div id="strat-cards" class="strat-cards"></div>
+
+        <h3>15-minute opening bar breakout</h3>
+        <p class="muted">A common opening range idea: after the first 15-minute bar closes, a buy stop sits above its high and a sell stop below its low. The clock time, buffer, and target are your own settings. This paper desk is long only, so the low is used as the protective stop and a break below it is shown as a bearish break.</p>
+        <div class="strat-orb-inputs">
+          <label for="strat-open">Opening bar starts</label>
+          <input id="strat-open" type="text" value="09:30" inputmode="numeric" maxlength="5" aria-label="Opening bar start, New York time for stocks and futures, UTC for crypto">
+          <label for="strat-buffer">Buffer %</label>
+          <input id="strat-buffer" type="number" value="0" min="0" max="5" step="0.01">
+          <label for="strat-target">Target × range</label>
+          <input id="strat-target" type="number" value="1" min="0.25" max="10" step="0.25">
+          <button id="strat-load" type="button">Load 15-minute bars</button>
+        </div>
+        <p id="strat-orb-state" class="muted">Press Load to read the real 15-minute bars.</p>
+        <dl id="strat-orb-levels" class="strat-levels"></dl>
+        <p id="strat-orb-plan" class="muted"></p>
+        <dl id="strat-orb-record" class="strat-levels"></dl>
+        <div class="study-actions">
+          <label class="strat-switch"><input id="strat-confirm" type="checkbox"> Confirm and arm</label>
+          <button id="strat-arm-buy" type="button">Arm buy stop</button>
+          <button id="strat-arm-stop" type="button" class="quiet">Arm protective stop</button>
+          <button id="strat-arm-target" type="button" class="quiet">Arm target</button>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="squeeze">
+        <h2>Squeeze scan</h2>
+        <p class="muted">This desk's own squeeze: Bollinger Bands inside Keltner Channels at three compression levels (high, mid, low), or just left them. It ranks closed daily bars on squeeze on or just fired, energy built, compression level, averages stacked with momentum, a clean squeeze, momentum building, a weekly squeeze too, and the same squeeze in the stock, its sector fund, and its index fund. The ranking looks backward. It is not a forecast. It is not a third-party study.</p>
+        <div class="strat-orb-inputs">
+          <label for="sq-list">List</label>
+          <select id="sq-list">
+            <option value="stocks">All stocks</option>
+            <option value="main_etfs">13 main ETFs</option>
+            <option value="futures">All futures</option>
+            <option value="crypto">All crypto</option>
+            <option value="starter">Starter list</option>
+            <option value="sectors">Sector funds and big holdings</option>
+            <option value="custom">My own list</option>
+          </select>
+          <input id="sq-custom" type="text" maxlength="400" placeholder="BTC-USD, NVDA, XLK" aria-label="Your own list of symbols, separated by commas">
+          <label for="sq-side">Show</label>
+          <select id="sq-side">
+            <option value="bull">Bullish (this desk is long only)</option>
+            <option value="bear">Bearish (view only)</option>
+            <option value="all">Both</option>
+          </select>
+          <button id="sq-scan" type="button">Scan now</button>
+          <button id="sq-stop" type="button" class="quiet">Stop</button>
+        </div>
+        <p id="sq-note" class="muted">Press Scan now. Names show up as each market comes back. Large lists take longer. Nothing is guessed.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Market</th><th>State</th><th>Level</th><th>Dots</th><th>Averages</th><th>Momentum</th><th>Weekly</th><th>Triple</th><th>Score</th><th></th></tr>
+            </thead>
+            <tbody id="sq-body"></tbody>
+          </table>
+        </div>
+        <p id="sq-why" class="muted"></p>
+        <p id="sq-skip" class="muted"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="scorecard">
+        <h2>Big 3 Market Scorecard</h2>
+        <p class="muted">Three closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), and (3) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <button id="sc-run" type="button">Run scorecard</button>
+          <button id="sc-stop" type="button" class="quiet">Stop</button>
+        </div>
+        <p id="sc-note" class="muted">Press Run scorecard. Reads real daily bars for indexes, sectors, and the starter squeeze list.</p>
+        <div id="sc-day" class="scorecard-day" aria-live="polite">
+          <p id="sc-day-bias" class="scorecard-bias">Day bias · waiting</p>
+          <p id="sc-day-why" class="muted"></p>
+        </div>
+        <div class="scorecard-grid">
+          <section class="scorecard-panel" aria-label="Index rankings">
+            <h3>Strongest indexes</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Index</th><th>Score</th><th>5d</th><th>Stack</th></tr></thead>
+                <tbody id="sc-indexes"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="scorecard-panel" aria-label="Sector rankings">
+            <h3>Strongest sectors</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Sector</th><th>Score</th><th>5d</th><th>Stack</th></tr></thead>
+                <tbody id="sc-sectors"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <section class="scorecard-panel" aria-label="A plus squeezes">
+          <h3>A+ squeezes</h3>
+          <p id="sc-aplus-note" class="muted">Strict desk filter on the starter squeeze list. Empty is a normal answer.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Market</th><th>State</th><th>Dots</th><th>Level</th><th>Triple</th><th>Score</th><th></th></tr></thead>
+              <tbody id="sc-aplus"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="dock-page" data-dock-page="internals">
+        <h2>Market internals</h2>
+        <p id="int-lead" class="muted">Reads the fear gauges, index trend, how many sectors take part, small against large, offense against defense, credit, rates, and the dollar from real daily bars, then rolls them into one market label: Supportive, Mixed, or Defensive. For the open market it also folds in desk studies — Squeeze, TMO, big4indicator, SMA stack, and weekly/monthly MTF — using the same closed-bar math as Strategies / Best setup / Edge. Looks backward only. Not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <button id="int-refresh" type="button">Refresh internals</button>
+          <label class="strat-switch"><input id="int-gate" type="checkbox" checked> Respect internals: Auto skips buys in stocks, ETFs, and futures while internals are Defensive</label>
+        </div>
+        <p id="int-head" class="muted">Press Refresh internals.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Internal</th><th>Says</th><th>Points</th><th>Reading</th></tr>
+            </thead>
+            <tbody id="int-body"></tbody>
+          </table>
+        </div>
+        <p id="int-miss" class="muted"></p>
+        <p class="muted">NYSE TICK, ADD, TRIN, and VOLD are not shown. The free quote feeds this desk uses do not carry them, and nothing here is guessed in their place — chart-top boxes stay blank until a real breadth feed exists. Sells are never blocked by internals. Crypto is not gated, because these are US market internals. Live stays locked. Paper only.</p>
+      </div>
+
+      <div class="dock-page" data-dock-page="frames">
+        <div class="frames-layout">
+          <div class="frames-side">
+            <div class="study-actions">
+              <button id="frames-all" type="button">Open all 10 windows</button>
+              <button id="brief-window" type="button" class="quiet">Open brief</button>
+            </div>
+            <p id="frame-lead" class="muted"></p>
+            <div id="frame-list" class="frame-list"></div>
+          </div>
+          <div class="frames-main">
+            <h2>Brief</h2>
+            <div id="brief" class="brief"></div>
+            <p id="frame-preview-caption" class="muted"></p>
+            <div class="zoom-bar" aria-label="Preview zoom">
+              <button id="preview-zoom-in" type="button">Zoom in</button>
+              <button id="preview-zoom-out" type="button">Zoom out</button>
+              <span id="preview-zoom-label" class="muted"></span>
+            </div>
+            <canvas id="frame-preview" width="800" height="180" aria-label="Selected timeframe"></canvas>
+          </div>
+        </div>
+        <h3>Edge on every timeframe</h3>
+        <p id="edge-frames-note" class="muted">Edge reads the closed bars of each timeframe on its own. Click a row to put that timeframe in the preview, then click any candle for its price box.</p>
+        <div class="strat-orb-inputs"><button id="edge-frames-refresh" type="button">Read all timeframes now</button></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Timeframe</th><th>Edge</th><th>Checks</th><th>Stop</th><th>Past trades</th><th>Won</th><th>Result</th></tr></thead>
+            <tbody id="edge-frames-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="readings">
+        <h2 class="signals-title">big4indicator</h2>
+        <div id="readings" class="readings"></div>
+      </div>
+
+      <div class="dock-page" data-dock-page="journal">
+        <h2>Today's check</h2>
+        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best. Sell names are open paper longs with an Edge exit. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
+        <h3 class="journal-check-head">Buy signals</h3>
+        <div id="journal-buys" class="pins" aria-label="Today buy signals"></div>
+        <h3 class="journal-check-head">Sell signals</h3>
+        <div id="journal-sells" class="pins" aria-label="Today sell signals"></div>
+        <h3 class="journal-check-head">Filled today</h3>
+        <div id="journal-filled" class="pins" aria-label="Filled today"></div>
+        <div id="day-strip" class="day-strip" aria-label="Today on this desk"></div>
+        <h2>Open positions</h2>
+        <p id="book-device" class="muted">This device keeps its own paper book. Share or load below to move open trades and limit orders between the computer and the phone.</p>
+        <div class="strat-orb-inputs">
+          <button id="book-share" type="button">Share paper book</button>
+          <button id="book-copy" type="button" class="quiet">Copy paper book</button>
+          <label class="quiet book-load">Load paper book<input id="book-file" type="file" accept="application/json,.json,text/plain" hidden></label>
+        </div>
+        <p id="book-share-note" class="muted"></p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Market</th><th>Shares</th><th>Entry</th><th>Last</th><th>Open P/L</th><th>Opened by</th></tr>
+            </thead>
+            <tbody id="positions-body"></tbody>
+          </table>
+        </div>
+        <p id="book-total" class="muted"></p>
+        <h2>Working orders</h2>
+        <p class="muted">Limit, stop, and stop-limit paper orders across every market you are trading. Cancel here or on the Trade ticket.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Market</th><th>Id</th><th>Side</th><th>Type</th><th>Stop</th><th>Limit</th><th>TIF</th><th></th></tr>
+            </thead>
+            <tbody id="journal-working-body"></tbody>
+          </table>
+        </div>
+        <h2>Every fill</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Time (Denver)</th><th>Market</th><th>Side</th><th>Shares</th><th>Price</th><th>Why</th><th>Result</th></tr>
+            </thead>
+            <tbody id="fills-body"></tbody>
+          </table>
+        </div>
+        <h2>Closed trades</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
+            </thead>
+            <tbody id="journal-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="backtest">
+        <h2>Market history</h2>
+        <p id="backtest-summary" class="muted">Replays the loaded market history. The paper session stays on the latest quote.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Entered</th><th>Exited</th><th>Entry</th><th>Exit</th><th>Result</th><th>Why</th></tr>
+            </thead>
+            <tbody id="backtest-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="signals">
+        <h2 class="signals-title">Signals</h2>
+        <ul id="signals" class="signals"></ul>
+      </div>
+    </section>
+  </div>
+
+  <nav class="tabbar" aria-label="Sections">
+    <button type="button" data-tab="markets">Markets</button>
+    <button type="button" data-tab="chart" class="on">Chart</button>
+    <button type="button" data-tab="trade">Trade</button>
+    <button type="button" data-tab="study">Study</button>
+  </nav>
+
+  <footer>
+    Orders stay on the paper account. Quotes are market prices and are not a forecast.
+  </footer>
+  <script>
+  window.addEventListener("error", function (event) {
+    var lede = document.getElementById("lede");
+    var help = document.getElementById("open-help");
+    var message = (event && event.message) || "The desk did not start.";
+    if (lede) lede.textContent = message;
+    if (help) {
+      help.hidden = false;
+      help.textContent = message;
+    }
+  });
+  </script>
+  <div id="confirm-modal" class="modal" role="alertdialog" aria-modal="true" aria-labelledby="cm-title" hidden>
+    <div class="modal-card">
+      <h2 id="cm-title">Confirm</h2>
+      <dl id="cm-rows" class="modal-rows"></dl>
+      <ul id="cm-checks" class="safe-list"></ul>
+      <p id="cm-warn" class="modal-warn"></p>
+      <div class="modal-buttons">
+        <button id="cm-no" type="button" class="quiet">No, cancel</button>
+        <button id="cm-yes" type="button">Yes, do it</button>
+      </div>
+    </div>
+  </div>
+  <script src="live.js"></script>
+  <script src="engine.js"></script>
+  <script src="study.js"></script>
+  <script src="frames.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

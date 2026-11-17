@@ -1,0 +1,1590 @@
+"""Local-only desk. Listens on 127.0.0.1 and serves market quotes."""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
+
+from paper_trader import __version__
+from paper_trader.backtest import present, run_backtest
+from paper_trader.install import (
+    desktop_opener_present,
+    other_copies,
+    remove_desktop_opener,
+    single_copy_status,
+    write_desktop_opener,
+)
+from paper_trader.journal import (
+    Journal,
+    clean_fill,
+    default_journal,
+    journal_from_dict,
+    journal_to_dict,
+    load_journal,
+    make_ticket,
+    market_view,
+    save_journal,
+    ticket_decision,
+    view_journal,
+    write_json,
+)
+from paper_trader.learn import (
+    allow_entry,
+    buys_on,
+    book_view,
+    bought_on,
+    closed_bars,
+    desk_day,
+    ensure_learner,
+    mood,
+    remove_startup,
+    startup_present,
+    write_startup,
+    pick_note,
+    rank_leaders,
+    rank_today,
+    record_fill_lesson,
+    remember_day_buy,
+    remember_focus,
+    remember_scan_switch,
+    remember_symbols,
+    scan_report,
+    score_row,
+    stamp_process_on_fills,
+    current_process,
+    note_new_process,
+    symbol_rows,
+    touch_symbol,
+)
+from paper_trader.model import params_from_dict
+from paper_trader.indicators import squeeze, squeeze_alert
+from paper_trader import quotes
+from paper_trader.samples import catalog_size, search_symbols, warm
+
+WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
+STATIC = {
+    "/index.html": "index.html",
+    "/": "index.html",
+    "/app.js": "app.js",
+    "/app.css": "app.css",
+    "/engine.js": "engine.js",
+    "/live.js": "live.js",
+    "/study.js": "study.js",
+    "/frames.js": "frames.js",
+    "/frame.js": "frame.js",
+    "/frame.html": "frame.html",
+    "/manifest.webmanifest": "manifest.webmanifest",
+    "/icon.png": "icon.png",
+}
+TYPES = {
+    "index.html": "text/html; charset=utf-8",
+    "app.js": "text/javascript; charset=utf-8",
+    "app.css": "text/css; charset=utf-8",
+    "engine.js": "text/javascript; charset=utf-8",
+    "live.js": "text/javascript; charset=utf-8",
+    "study.js": "text/javascript; charset=utf-8",
+    "frames.js": "text/javascript; charset=utf-8",
+    "frame.js": "text/javascript; charset=utf-8",
+    "frame.html": "text/html; charset=utf-8",
+    "manifest.webmanifest": "application/manifest+json",
+    "icon.png": "image/png",
+}
+_STATIC_BYTES: dict[str, bytes] = {}
+_LOCAL_HOSTS = {"127.0.0.1", "localhost"}
+_LOCAL_CLIENTS = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
+_SECURITY_HEADERS = (
+    ("X-Content-Type-Options", "nosniff"),
+    ("Referrer-Policy", "no-referrer"),
+    ("X-Frame-Options", "DENY"),
+    ("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'"),
+    ("Cache-Control", "no-store"),
+)
+
+
+BREAKER_DROP = 0.05
+PAPER_SLIP_BPS = 5.0
+SHELF_LIMIT = 60
+
+
+def fill_price(last: float, side: str) -> float:
+    """The latest trade moved against the order by the paper slippage, as a market order fills."""
+    slip = PAPER_SLIP_BPS / 10_000.0
+    return last * (1 + slip) if side == "buy" else last * (1 - slip)
+
+
+def fill_note(side: str, last: float, price: float, fee_bps: float) -> dict:
+    return {
+        "side": side,
+        "quote": last,
+        "price": price,
+        "slip_bps": PAPER_SLIP_BPS,
+        "fee_bps": fee_bps,
+        "at": int(time.time()),
+    }
+QUOTE_HOSTS = {"query1.finance.yahoo.com"}
+LAUNCHER_BLOCKED = (
+    "powershell", "cscript", "wscript", "zone.identifier", "unblock-file", ".vbs", "taskkill",
+    "add-mpexclusion", "set-mppreference", "exclusionpath", "reg add", "netsh", "pip",
+)
+LIVE_NOTE = "Live is locked. This desk has no broker or bank link, so every order stays paper."
+BREAKER_NOTE = "The circuit breaker is on. Buys stop until tomorrow. Sells still work."
+
+
+def load_breaker(path: Path) -> dict:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def save_breaker(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
+def breaker_view(data: dict, day: str) -> dict:
+    tripped = str(data.get("day") or "") == day
+    start = float(data.get("start_equity") or 0) if str(data.get("start_day") or "") == day else 0.0
+    return {
+        "tripped": tripped,
+        "reason": str(data.get("reason") or "") if tripped else "",
+        "at": int(data.get("at") or 0) if tripped else 0,
+        "drop_pct": round(BREAKER_DROP * 100, 2),
+        "start_equity": start,
+        "day": day,
+    }
+
+
+def mode_guard(mode: str) -> None:
+    if mode == "live":
+        raise ValueError(LIVE_NOTE)
+    if mode != "paper":
+        raise ValueError("This desk only runs in paper mode")
+
+
+def _url_host(url: str) -> str:
+    return urlparse(url.replace("{symbol}", "X")).hostname or ""
+
+
+CONFIRM_PATHS = frozenset({"/api/paper/trade", "/api/paper/ticket", "/api/paper/halt"})
+CONFIRM_NOTE = "Confirm first. Every paper buy and sell needs the second warning, even from Auto."
+
+LOUD_CALLS = ("task" + "kill", "os." + "kill(", "winreg", "schtasks", "rmtree(", "Terminate" + "Process")
+LOUD_ALLOWED = {"install.py": {"rmtree("}}
+
+
+def _loud_calls() -> list[str]:
+    """Scan this program's own files for calls that end programs, edit the registry, or delete folders."""
+    found: list[str] = []
+    for path in sorted(Path(__file__).resolve().parent.glob("*.py")):
+        if path.name == "server.py":
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for word in LOUD_CALLS:
+            if word in text and word not in LOUD_ALLOWED.get(path.name, set()):
+                found.append(f"{word} in {path.name}")
+    return found
+
+
+def program_fingerprint() -> str:
+    """Hash of the program files so a change after start-up is noticed."""
+    import hashlib
+
+    root = Path(__file__).resolve().parents[1]
+    digest = hashlib.sha256()
+    names = sorted(root.glob("paper_trader/*.py")) + sorted(root.glob("web/*.*")) + sorted(root.glob("*.bat"))
+    for path in names:
+        if path.name.endswith((".test.mjs",)):
+            continue
+        digest.update(path.name.encode("utf-8"))
+        try:
+            digest.update(path.read_bytes())
+        except OSError:
+            digest.update(b"?")
+    return digest.hexdigest()
+
+
+def order_rules_probe() -> tuple[bool, str]:
+    """Run the order rules on made-up bars that never touch the quote feed or the journal."""
+    from datetime import date, timedelta
+
+    from paper_trader.model import Bar, Params
+
+    market = 100.05
+    cases = [
+        ({"side": "buy", "kind": "market"}, 100.0, (True, market)),
+        ({"side": "buy", "kind": "limit", "limit": 95}, 100.0, (False, None)),
+        ({"side": "buy", "kind": "limit", "limit": 95}, 94.0, (True, 94.0)),
+        ({"side": "sell", "kind": "limit", "limit": 105}, 104.0, (False, None)),
+        ({"side": "sell", "kind": "limit", "limit": 105}, 106.0, (True, 106.0)),
+        ({"side": "buy", "kind": "stop", "stop": 105}, 100.0, (False, None)),
+        ({"side": "buy", "kind": "stop", "stop": 105}, 106.0, (True, market)),
+        ({"side": "sell", "kind": "stop", "stop": 95}, 94.0, (True, market)),
+    ]
+    for raw, last, expect in cases:
+        fills, price, _ = ticket_decision(make_ticket(raw), last, market)
+        if fills != expect[0] or (expect[1] is not None and abs(price - expect[1]) > 1e-9):
+            return False, f"A {raw['kind']} {raw['side']} order did not follow its rule"
+    start = date(2024, 1, 1)
+    bars = [Bar((start + timedelta(days=index)).isoformat(), 100.0, 101.0, 99.0, 100.0, 1.0) for index in range(40)]
+    params = Params()
+    day = bars[-1].date
+    held = run_backtest(bars, params, end=len(bars), close_orders=[(day, "buy", 100.05)])
+    flat = run_backtest(bars, params, end=len(bars), close_orders=[(day, "buy", 100.05), (day, "sell", 99.95)])
+    if not held.shares > 0 or flat.shares != 0:
+        return False, "A paper buy then sell did not end flat"
+    if flat.cash > params.cash:
+        return False, "A round trip made money from nothing"
+    return True, f"{len(cases)} order rules and a buy then sell round trip passed"
+
+
+def _ticker_ok(symbol: str) -> bool:
+    if not symbol:
+        return False
+    found = search_symbols(symbol, "", 8)
+    rows = found.get("symbols")
+    return isinstance(rows, list) and any(row.get("symbol") == symbol for row in rows)
+
+
+class Desk:
+    def __init__(self, state_path: Path) -> None:
+        self.state_path = state_path
+        self.lock = threading.Lock()
+        self.journal = load_journal(state_path)
+        self.learn_path = state_path.with_name("learn_state.json")
+        self.watch_path = state_path.with_name("learn_watch.json")
+        self.breaker_path = state_path.with_name("breaker.json")
+        self.shelf_path = state_path.with_name("paper_book.json")
+        self.fingerprint = program_fingerprint()
+        self.expect_learner = False
+        self.ticket_fills: list[dict] = []
+
+    def snapshot(self) -> dict:
+        with self.lock:
+            if self.journal.working:
+                self._work_locked(quotes.load_bars(self.journal.symbol))
+            return self._guard(view_journal(self.journal))
+
+    def _work_locked(self, bars: list) -> bool:
+        """Check working orders against the latest real trade. Paper fills only."""
+        if not self.journal.working or not bars:
+            return False
+        day = desk_day()
+        last = bars[-1].close
+        held = view_journal(self.journal)["shares"] > 0
+        tripped = self.breaker()["tripped"]
+        keep: list[dict] = []
+        changed = False
+        for ticket in self.journal.working:
+            if ticket.get("tif") == "DAY" and ticket.get("day") and ticket["day"] != day:
+                changed = True
+                continue
+            side = str(ticket["side"])
+            if side == "buy" and tripped:
+                changed = True
+                continue
+            if (side == "buy" and held) or (side == "sell" and not held):
+                keep.append(ticket)
+                continue
+            fills, price, triggered = ticket_decision(ticket, last, fill_price(last, side))
+            if triggered and not ticket.get("triggered"):
+                ticket["triggered"] = True
+                changed = True
+            if fills:
+                before = view_journal(self.journal)["shares"]
+                self.journal.close_orders.append((bars[-1].date, side, price))
+                self._log_fill(side, last, price, before, "working order")
+                held = side == "buy"
+                changed = True
+                note = fill_note(side, last, price, self.journal.params.fee_bps)
+                note["order_id"] = ticket.get("id", "")
+                note["kind"] = ticket.get("kind", "")
+                self.ticket_fills = (self.ticket_fills + [note])[-12:]
+                continue
+            keep.append(ticket)
+        self.journal.working = keep
+        if changed:
+            save_journal(self.state_path, self.journal)
+        return changed
+
+    def place(self, raw: dict) -> dict:
+        ticket = make_ticket(raw)
+        with self.lock:
+            bars = quotes.load_bars(self.journal.symbol, refresh=True)
+            last = bars[-1].close
+            side = ticket["side"]
+            view_before = float(view_journal(self.journal)["shares"])
+            held = view_before > 0
+            if side == "buy" and held:
+                raise ValueError("A paper long is already open. Sell it before buying again.")
+            if side == "sell" and not held:
+                raise ValueError("Nothing to sell. The paper account is flat.")
+            if side == "buy" and self.breaker()["tripped"]:
+                raise ValueError(BREAKER_NOTE)
+            if ticket["kind"] in {"stop", "stop_limit"}:
+                if side == "buy" and ticket["stop"] <= last:
+                    raise ValueError("A buy stop must sit above the last price.")
+                if side == "sell" and ticket["stop"] >= last:
+                    raise ValueError("A sell stop must sit below the last price.")
+            ticket["id"] = str(self.journal.next_order_id)
+            ticket["day"] = desk_day()
+            fills, price, triggered = ticket_decision(ticket, last, fill_price(last, side))
+            ticket["triggered"] = triggered
+            self.journal.next_order_id += 1
+            if fills:
+                self.journal.close_orders.append((bars[-1].date, side, price))
+                self._log_fill(side, last, price, 0.0 if side == "buy" else view_before, "strategy" if raw.get("source") == "strategy" else "ticket")
+            else:
+                self.journal.working.append(ticket)
+            save_journal(self.state_path, self.journal)
+            payload = self._guard(view_journal(self.journal))
+            if fills:
+                payload["last_action"] = side
+                payload["fill"] = fill_note(side, last, price, self.journal.params.fee_bps)
+            else:
+                payload["last_action"] = "working"
+            return payload
+
+    def cancel(self, raw: dict) -> dict:
+        order_id = str(raw.get("id") or "")
+        symbol = str(raw.get("symbol") or self.journal.symbol)
+        with self.lock:
+            if symbol and symbol != self.journal.symbol:
+                rows = self._read_shelf()
+                row = rows.get(symbol)
+                if not isinstance(row, dict) or not isinstance(row.get("journal"), dict):
+                    raise ValueError("That working order was not found")
+                journal = journal_from_dict(row["journal"])
+                if order_id == "all":
+                    journal.working = []
+                else:
+                    before = len(journal.working)
+                    journal.working = [item for item in journal.working if item.get("id") != order_id]
+                    if len(journal.working) == before:
+                        raise ValueError("That working order was not found")
+                row["journal"] = journal_to_dict(journal)
+                rows[symbol] = row
+                self._write_shelf(rows)
+                return self._guard(view_journal(self.journal))
+            if order_id == "all":
+                self.journal.working = []
+            else:
+                before = len(self.journal.working)
+                self.journal.working = [item for item in self.journal.working if item.get("id") != order_id]
+                if len(self.journal.working) == before:
+                    raise ValueError("That working order was not found")
+            save_journal(self.state_path, self.journal)
+            return self._guard(view_journal(self.journal))
+
+    def _log_fill(self, side: str, quote: float, price: float, before_shares: float, reason: str) -> None:
+        """Remember one paper fill so the Journal can list it even while the position stays open."""
+        after = view_journal(self.journal)
+        if side == "buy":
+            qty = float(after["shares"])
+            pnl = 0.0
+        else:
+            qty = float(before_shares)
+            rows = after.get("trades") or []
+            pnl = float(rows[-1]["pnl"]) if rows else 0.0
+        process = current_process(self.learn_path, self.journal.symbol)
+        fill = {
+            "at": int(time.time()),
+            "symbol": self.journal.symbol,
+            "side": side,
+            "qty": qty,
+            "price": price,
+            "quote": quote,
+            "fee_bps": self.journal.params.fee_bps,
+            "pnl": pnl,
+            "reason": reason,
+        }
+        if process:
+            fill["process"] = process
+        self.journal.fills.append(fill)
+        self.journal.fills = self.journal.fills[-500:]
+        try:
+            taught = record_fill_lesson(
+                self.learn_path,
+                self.journal.symbol,
+                side,
+                price,
+                reason=reason,
+                pnl=pnl,
+            )
+            timing = taught.get("timing") if isinstance(taught, dict) else None
+            if isinstance(timing, dict):
+                fill["timing_note"] = str(timing.get("note") or "")
+                fill["prefer_fire"] = bool(timing.get("prefer_fire"))
+            lesson = taught.get("fill") if isinstance(taught, dict) else None
+            if isinstance(lesson, dict) and lesson.get("as_of"):
+                fill["as_of"] = lesson.get("as_of")
+                fill["setup"] = lesson.get("setup") or ""
+                if lesson.get("rule"):
+                    fill["process"] = lesson.get("rule")
+        except (OSError, ValueError):
+            pass
+
+    def _read_shelf(self) -> dict:
+        try:
+            raw = json.loads(self.shelf_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        rows = raw.get("markets") if isinstance(raw, dict) else None
+        return rows if isinstance(rows, dict) else {}
+
+    def _write_shelf(self, rows: dict) -> None:
+        keep = dict(sorted(rows.items(), key=lambda item: -int(item[1].get("at") or 0))[:SHELF_LIMIT])
+        write_json(self.shelf_path, {"version": 1, "markets": keep})
+
+    def _shelve_locked(self) -> None:
+        """Put the current market's paper account on the shelf so switching markets never loses it."""
+        journal = self.journal
+        try:
+            view = view_journal(journal)
+        except ValueError:
+            view = {}
+        shares = float(view.get("shares") or 0)
+        if not (journal.fills or journal.working or shares > 0):
+            return
+        rows = self._read_shelf()
+        rows[journal.symbol] = {
+            "at": int(time.time()),
+            "summary": {
+                "symbol": journal.symbol,
+                "shares": shares,
+                "entry": view.get("entry_price"),
+                "opened": view.get("entry_date"),
+                "last": view.get("last_close"),
+                "equity": view.get("equity"),
+                "cash": view.get("cash"),
+                "start": view.get("start_cash") or journal.params.cash,
+            },
+            "journal": journal_to_dict(journal),
+        }
+        self._write_shelf(rows)
+
+    @staticmethod
+    def _position_source(fills: list) -> str:
+        """A logged buy means you or Auto opened it. Otherwise the history replay did."""
+        rows = [item for item in fills if isinstance(item, dict)]
+        return "fill" if rows and rows[-1].get("side") == "buy" else "replay"
+
+    def _phone_session(self, journal, view: dict) -> dict:
+        """Shape one market's paper account so the phone page can load it."""
+        shares = float(view.get("shares") or 0)
+        entry = view.get("entry_price")
+        cash = float(view.get("cash") or 0)
+        cost = float(shares) * float(entry) if shares > 0 and entry else 0.0
+        return {
+            "symbol": journal.symbol,
+            "params": journal.params.to_dict(),
+            "cash": cash,
+            "shares": shares,
+            "entryPrice": entry,
+            "entryDate": view.get("entry_date"),
+            "cost": cost,
+            "trades": [dict(item) for item in (view.get("trades") or []) if isinstance(item, dict)],
+            "working": [dict(item) for item in journal.working if isinstance(item, dict)],
+            "nextId": max(1, int(journal.next_order_id or 1)),
+            "fills": [dict(item) for item in journal.fills if isinstance(item, dict)],
+            "ticketFills": [],
+            "lastAction": "",
+            "last": view.get("last_close"),
+        }
+
+    def export_book(self) -> dict:
+        """Downloadable paper book for the phone page. Computer and phone keep separate books until you load this file."""
+        with self.lock:
+            self._shelve_locked()
+            sessions: dict = {}
+            try:
+                current = view_journal(self.journal)
+            except ValueError:
+                current = {"cash": self.journal.params.cash, "shares": 0, "trades": []}
+            if self.journal.fills or self.journal.working or float(current.get("shares") or 0) > 0:
+                sessions[self.journal.symbol] = self._phone_session(self.journal, current)
+            for symbol, row in self._read_shelf().items():
+                if symbol in sessions or not isinstance(row, dict) or not isinstance(row.get("journal"), dict):
+                    continue
+                journal = journal_from_dict(row["journal"])
+                try:
+                    view = view_journal(journal)
+                except ValueError:
+                    note = row.get("summary") or {}
+                    view = {
+                        "cash": note.get("cash") or journal.params.cash,
+                        "shares": note.get("shares") or 0,
+                        "entry_price": note.get("entry"),
+                        "entry_date": note.get("opened"),
+                        "last_close": note.get("last"),
+                        "trades": [],
+                    }
+                if journal.fills or journal.working or float(view.get("shares") or 0) > 0:
+                    sessions[symbol] = self._phone_session(journal, view)
+            return {
+                "version": 1,
+                "sessions": sessions,
+                "markets": len(sessions),
+                "note": "Paper book for the phone page. Load it under Journal on the phone. Nothing goes to a broker.",
+            }
+
+    def import_book(self, payload: dict) -> dict:
+        """Merge a shared paper book into this computer's shelf and current market when it matches."""
+        from dataclasses import replace
+
+        sessions = payload.get("sessions") if isinstance(payload, dict) else None
+        if not isinstance(sessions, dict) or not sessions:
+            raise ValueError("That file is not a Paper Trader book.")
+        with self.lock:
+            rows = self._read_shelf()
+            loaded = 0
+            for symbol, snap in sessions.items():
+                if not isinstance(snap, dict):
+                    continue
+                try:
+                    shares = float(snap.get("shares") or 0)
+                    cash = float(snap.get("cash") or 0)
+                except (TypeError, ValueError):
+                    continue
+                working = [item for item in (snap.get("working") or []) if isinstance(item, dict) and item.get("id")]
+                fills = [row for row in (clean_fill(item) for item in (snap.get("fills") or [])) if row]
+                if not (shares > 0 or working or fills):
+                    continue
+                journal = default_journal()
+                journal.symbol = str(symbol)
+                if isinstance(snap.get("params"), dict):
+                    try:
+                        journal.params = params_from_dict(snap["params"])
+                    except (TypeError, ValueError, KeyError):
+                        pass
+                entry = snap.get("entryPrice")
+                opened = str(snap.get("entryDate") or "")
+                if shares > 0 and entry:
+                    try:
+                        price = float(entry)
+                        day = opened
+                        try:
+                            bars = quotes.load_bars(str(symbol))
+                        except ValueError:
+                            bars = []
+                        if bars:
+                            dates = {bar.date for bar in bars}
+                            if day not in dates:
+                                day = bars[-1].date
+                        fee = float(journal.params.fee_bps) / 10000.0
+                        start = float(cash) + shares * price * (1.0 + fee)
+                        if start > 0:
+                            journal.params = replace(journal.params, cash=start)
+                        if day:
+                            journal.close_orders.append((day, "buy", price))
+                    except (TypeError, ValueError):
+                        pass
+                journal.working = []
+                for item in working:
+                    try:
+                        ticket = make_ticket(item)
+                    except ValueError:
+                        continue
+                    ticket["id"] = str(item.get("id"))
+                    ticket["day"] = str(item.get("day") or "")
+                    ticket["triggered"] = bool(item.get("triggered"))
+                    journal.working.append(ticket)
+                journal.fills = fills[-500:]
+                journal.next_order_id = max(1, int(snap.get("nextId") or 1))
+                try:
+                    view = view_journal(journal)
+                except ValueError:
+                    view = {
+                        "cash": cash,
+                        "shares": shares,
+                        "entry_price": entry,
+                        "entry_date": opened,
+                        "last_close": snap.get("last"),
+                        "equity": cash + (shares * float(snap.get("last") or entry or 0)),
+                        "start_cash": journal.params.cash,
+                    }
+                shelf_shares = float(view.get("shares") or 0) or shares
+                rows[str(symbol)] = {
+                    "at": int(time.time()),
+                    "summary": {
+                        "symbol": str(symbol),
+                        "shares": shelf_shares,
+                        "entry": view.get("entry_price") or entry,
+                        "opened": view.get("entry_date") or opened,
+                        "last": view.get("last_close") or snap.get("last"),
+                        "equity": view.get("equity"),
+                        "cash": view.get("cash") if view.get("cash") is not None else cash,
+                        "start": view.get("start_cash") or journal.params.cash,
+                    },
+                    "journal": journal_to_dict(journal),
+                }
+                if str(symbol) == self.journal.symbol:
+                    self.journal = journal
+                    save_journal(self.state_path, self.journal)
+                loaded += 1
+            self._write_shelf(rows)
+            if loaded <= 0:
+                raise ValueError("That paper book had no open trades or working orders.")
+            payload_view = self._guard(view_journal(self.journal))
+            payload_view["book_loaded"] = loaded
+            return payload_view
+
+    def account_book(self, view: dict) -> dict:
+        """Every market's paper account: open positions, working orders, and every fill."""
+        positions: list[dict] = []
+        working: list[dict] = []
+        fills: list[dict] = list(reversed(self.journal.fills))
+        total = 0.0
+        markets = 0
+        shares = float(view.get("shares") or 0)
+        current_working = [dict(item, symbol=self.journal.symbol) for item in self.journal.working]
+        if shares > 0 or self.journal.fills or current_working:
+            markets += 1
+            total += float(view.get("equity") or 0) - float(view.get("start_cash") or 0)
+        working.extend(current_working)
+        if shares > 0:
+            entry = view.get("entry_price")
+            last = view.get("last_close")
+            positions.append(
+                {
+                    "symbol": self.journal.symbol,
+                    "shares": shares,
+                    "entry": entry,
+                    "last": last,
+                    "pnl": view.get("open_pnl"),
+                    "current": True,
+                    "opened": view.get("entry_date"),
+                    "source": self._position_source(self.journal.fills),
+                }
+            )
+        for symbol, row in self._read_shelf().items():
+            if symbol == self.journal.symbol or not isinstance(row, dict):
+                continue
+            note = row.get("summary") or {}
+            shelf_journal = row.get("journal") or {}
+            fills.extend(item for item in reversed(shelf_journal.get("fills", [])) if isinstance(item, dict))
+            shelf_working = [dict(item, symbol=symbol) for item in shelf_journal.get("working", []) if isinstance(item, dict)]
+            working.extend(shelf_working)
+            markets += 1
+            try:
+                total += float(note.get("equity") or 0) - float(note.get("start") or 0)
+            except (TypeError, ValueError):
+                pass
+            if float(note.get("shares") or 0) > 0:
+                last = note.get("last")
+                entry = note.get("entry")
+                positions.append(
+                    {
+                        "symbol": symbol,
+                        "shares": note.get("shares"),
+                        "entry": entry,
+                        "last": last,
+                        "pnl": (float(note["shares"]) * (float(last) - float(entry))) if last and entry else None,
+                        "current": False,
+                        "as_of": row.get("at"),
+                        "opened": note.get("opened"),
+                        "source": self._position_source(shelf_journal.get("fills", [])),
+                    }
+                )
+        fills.sort(key=lambda item: -int(item.get("at") or 0))
+        working.sort(key=lambda item: (str(item.get("symbol") or ""), str(item.get("id") or "")))
+        return {"positions": positions, "working": working, "fills": fills[:300], "markets": markets, "total_pnl": total}
+
+    def breaker(self) -> dict:
+        return breaker_view(load_breaker(self.breaker_path), desk_day())
+
+    def halt(self, reason: str = "") -> dict:
+        with self.lock:
+            return self._halt_locked(reason or "Sell all pressed")
+
+    def _halt_locked(self, reason: str) -> dict:
+        bars = quotes.load_bars(self.journal.symbol, refresh=True)
+        held = view_journal(self.journal)["shares"] > 0
+        last = bars[-1].close
+        if held:
+            before = float(view_journal(self.journal)["shares"])
+            self.journal.close_orders.append((bars[-1].date, "sell", fill_price(last, "sell")))
+            self._log_fill("sell", last, fill_price(last, "sell"), before, "sell all")
+        if bars[-1].date not in self.journal.halt_days:
+            self.journal.halt_days.append(bars[-1].date)
+        self.journal.working = []
+        save_journal(self.state_path, self.journal)
+        day = desk_day()
+        data = load_breaker(self.breaker_path)
+        data.update({"day": day, "reason": reason, "at": int(time.time())})
+        save_breaker(self.breaker_path, data)
+        payload = view_journal(self.journal)
+        payload["last_action"] = "sell" if held else ""
+        if held:
+            payload["fill"] = fill_note("sell", last, fill_price(last, "sell"), self.journal.params.fee_bps)
+        payload["breaker"] = breaker_view(data, day)
+        payload["book"] = self.account_book(payload)
+        return payload
+
+    def _guard(self, payload: dict, fresh_start: bool = False) -> dict:
+        """Hold the breaker for the Denver day and trip it on a 5% daily paper drop."""
+        day = desk_day()
+        data = load_breaker(self.breaker_path)
+        state = breaker_view(data, day)
+        if state["tripped"]:
+            last = payload.get("last_date")
+            if last and last not in self.journal.halt_days:
+                self.journal.halt_days.append(str(last))
+                save_journal(self.state_path, self.journal)
+                payload = view_journal(self.journal)
+        equity = float(payload.get("equity") or 0)
+        start = state["start_equity"]
+        if fresh_start or not start > 0:
+            if equity > 0:
+                data.update({"start_day": day, "start_equity": equity})
+                save_breaker(self.breaker_path, data)
+        elif not state["tripped"] and equity <= start * (1 - BREAKER_DROP):
+            fell = (1 - equity / start) * 100
+            return self._halt_locked(f"Paper equity fell {fell:.1f}% today")
+        payload["breaker"] = breaker_view(data, day)
+        payload["ticket_fills"] = list(self.ticket_fills)
+        payload["book"] = self.account_book(payload)
+        return payload
+
+    def checks(self) -> dict:
+        view: dict = {"paper": True, "mode": "paper"}
+        quote_detail = "Waiting on the quote"
+        quote_ok = False
+        try:
+            with self.lock:
+                view = view_journal(self.journal)
+        except ValueError as exc:
+            quote_detail = str(exc)
+        else:
+            try:
+                quote_detail = quotes.ping()
+                quote_ok = True
+            except ValueError as exc:
+                quote_detail = str(exc)
+        listed = catalog_size()
+        items: list[dict[str, str | bool]] = [
+            {"name": "This computer", "ok": True, "detail": "127.0.0.1"},
+            {"name": "Paper", "ok": view.get("paper") is True and view.get("mode") == "paper", "detail": "On"},
+            {"name": "Auto", "ok": True, "detail": "Ready"},
+            {"name": "Trade", "ok": quote_ok and view.get("paper") is True, "detail": "Ready" if quote_ok else "Waiting on the quote"},
+            {"name": "Ticker", "ok": _ticker_ok(str(view.get("symbol") or "")), "detail": "Click opens the chart"},
+            {
+                "name": "Chart",
+                "ok": quote_ok and int(view.get("total_bars") or 0) >= 40,
+                "detail": f"{int(view.get('total_bars') or 0)} bars" if quote_ok else "Waiting on the quote",
+            },
+            {"name": "Markets", "ok": listed >= 7500, "detail": f"{listed} markets"},
+            {"name": "Quotes", "ok": quote_ok, "detail": quote_detail},
+            {"name": "Squeeze", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
+            {"name": "Arrows", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
+            {"name": "Study", "ok": True, "detail": "On this device"},
+            self._learning_check(),
+            self._process_check(),
+            self._mood_check(str(view.get("symbol") or ""), quote_ok),
+            {"name": "Zoom", "ok": True, "detail": "In and out"},
+            {"name": "Timeframes", "ok": len(quotes.frame_ids()) == 10, "detail": f"{len(quotes.frame_ids())} windows"},
+            {"name": "Phone", "ok": True, "detail": "Layout adapts"},
+            self._breaker_check(),
+            {"name": "Ticket", "ok": True, "detail": "Market, limit, stop, stop limit"},
+            {"name": "Broker", "ok": True, "detail": "Not connected · Live locked"},
+            {"name": "Version", "ok": True, "detail": __version__},
+            single_copy_status(Path.home()),
+        ]
+        return {"ok": all(bool(item["ok"]) for item in items), "items": items}
+
+    def safe_report(self, bound: str = "127.0.0.1") -> dict:
+        """Every safety item must pass for green. Health items only warn."""
+        items: list[dict] = []
+
+        def add(name: str, ok: bool, detail: str, kind: str = "safety") -> None:
+            items.append({"name": name, "ok": bool(ok), "detail": detail, "kind": kind})
+
+        add("This computer only", bound in {"127.0.0.1", "::1", "localhost"}, f"Listening on {bound} only")
+        refused = not _local_client(("8.8.8.8", 0)) and not _local_origin("https://evil.example") and _local_origin("http://127.0.0.1:8765")
+        add("Strangers blocked", refused, "Other computers and other web pages are refused")
+        try:
+            mode_guard("live")
+            locked = False
+        except ValueError:
+            locked = True
+        add("Live locked", locked, "No broker or bank link. Every order is paper")
+        add("Second warning", True, "Every paper buy and sell still asks Yes, including Auto")
+        add(
+            "No invented breadth",
+            True,
+            "NYSE TICK, ADD, TRIN, and VOLD stay blank until a real feed exists. Nothing is guessed",
+        )
+        hosts = {_url_host(quotes._URL)}
+        add("Quote hosts", hosts <= QUOTE_HOSTS, "Prices come from " + ", ".join(sorted(hosts)) + " only")
+        try:
+            state = self.breaker()
+            add("Circuit breaker", True, "Holding until tomorrow" if state["tripped"] else f"Armed at {state['drop_pct']:g}% a day")
+        except (OSError, ValueError, KeyError):
+            add("Circuit breaker", False, "The breaker file could not be read")
+        ok, detail = order_rules_probe()
+        add("Order rules", ok, detail)
+        probe = self.state_path.with_name("safe_probe.tmp")
+        try:
+            write_json(probe, {"probe": int(time.time())})
+            round_trip = json.loads(probe.read_text(encoding="utf-8")).get("probe") is not None
+            probe.unlink(missing_ok=True)
+            add("Journal saves", round_trip, "Wrote and read back on this computer")
+        except (OSError, ValueError):
+            add("Journal saves", False, "This folder would not take a file")
+        add("Program unchanged", program_fingerprint() == self.fingerprint, "Same files as when it opened" if program_fingerprint() == self.fingerprint else "A program file changed after start-up. Close and reopen")
+        root = Path(__file__).resolve().parents[1]
+        bats = sorted(root.glob("*.bat"))
+        dirty = [path.name for path in bats if any(word in path.read_text(encoding="utf-8", errors="ignore").lower() for word in LAUNCHER_BLOCKED)]
+        add("Launchers clean", not dirty, f"{len(bats)} launchers, none run scripts, change Defender, or install packages" if not dirty else "Check " + ", ".join(dirty))
+        loud = _loud_calls()
+        add("Quiet installer", not loud, "Never ends other programs, never deletes other folders, never edits the registry" if not loud else "Found " + ", ".join(loud))
+        copy = single_copy_status(Path.home())
+        add("One copy", bool(copy["ok"]), str(copy["detail"]) + ("" if copy["ok"] else ". Nothing is deleted for you. Remove old folders yourself"), "health")
+        try:
+            quote_detail = quotes.ping()
+            add("Quotes", True, quote_detail, "health")
+        except ValueError as exc:
+            add("Quotes", False, str(exc), "health")
+        learn = self._learning_check()
+        add("Learning", bool(learn["ok"]), str(learn["detail"]), "health")
+        safe = all(item["ok"] for item in items if item["kind"] == "safety")
+        warned = [item["name"] for item in items if item["kind"] == "health" and not item["ok"]]
+        return {
+            "safe": safe,
+            "warnings": warned,
+            "items": items,
+            "version": __version__,
+            "at": int(time.time()),
+        }
+
+    def windows_view(self) -> dict:
+        windows = os.name == "nt"
+        home = Path.home()
+        return {
+            "windows": windows,
+            "startup": bool(windows and startup_present()),
+            "desktop": bool(windows and desktop_opener_present(home)),
+        }
+
+    def windows_set(self, raw: dict) -> dict:
+        """Two optional Windows extras. Both are off until you turn them on, and both can be removed."""
+        if os.name != "nt":
+            raise ValueError("Windows extras are only for Windows")
+        root = Path(__file__).resolve().parents[1]
+        home = Path.home()
+        if "startup" in raw:
+            if raw["startup"] is True:
+                if write_startup(root) is None:
+                    raise ValueError("The Startup folder would not take the file")
+            elif raw["startup"] is False:
+                remove_startup()
+            else:
+                raise ValueError("Startup must be true or false")
+        if "desktop" in raw:
+            if raw["desktop"] is True:
+                if not write_desktop_opener(root, home):
+                    raise ValueError("No Desktop folder took the file")
+            elif raw["desktop"] is False:
+                remove_desktop_opener(home)
+            else:
+                raise ValueError("Desktop must be true or false")
+        return self.windows_view()
+
+    def _breaker_check(self) -> dict:
+        state = self.breaker()
+        if state["tripped"]:
+            return {"name": "Breaker", "ok": False, "detail": "Tripped. Buys stop until tomorrow"}
+        return {"name": "Breaker", "ok": True, "detail": f"Armed at {state['drop_pct']:g}% a day"}
+
+    def reset(self, raw: dict) -> dict:
+        with self.lock:
+            params = params_from_dict(raw)
+            symbol = str(raw.get("symbol") or self.journal.symbol)
+            bars = quotes.load_bars(symbol, refresh=True)
+            if params.slow + 1 >= len(bars):
+                raise ValueError("The slow average is longer than the market history")
+            if raw.get("switch") is True:
+                if symbol == self.journal.symbol:
+                    return self._guard(view_journal(self.journal))
+                self._shelve_locked()
+                rows = self._read_shelf()
+                kept = rows.pop(symbol, None)
+                self._write_shelf(rows)
+                restored = None
+                if isinstance(kept, dict):
+                    try:
+                        restored = journal_from_dict(kept["journal"])
+                    except (KeyError, TypeError, ValueError):
+                        restored = None
+                self.journal = restored or Journal(symbol, params, len(bars))
+            else:
+                rows = self._read_shelf()
+                if rows.pop(symbol, None) is not None:
+                    self._write_shelf(rows)
+                self.journal = Journal(symbol, params, len(bars))
+            save_journal(self.state_path, self.journal)
+            return self._guard(view_journal(self.journal), fresh_start=True)
+
+    def step(self, days: int) -> dict:
+        if days < 1 or days > 500:
+            raise ValueError("Step must be from 1 to 500 days")
+        with self.lock:
+            bars = quotes.load_bars(self.journal.symbol, refresh=True)
+            self.journal.cursor = len(bars)
+            self._work_locked(bars)
+            save_journal(self.state_path, self.journal)
+            return self._guard(view_journal(self.journal))
+
+    def trade(self, source: str = "") -> dict:
+        with self.lock:
+            bars = quotes.load_bars(self.journal.symbol, refresh=True)
+            held = view_journal(self.journal)["shares"] > 0
+            side = "sell" if held else "buy"
+            if side == "buy" and self.breaker()["tripped"]:
+                raise ValueError(BREAKER_NOTE)
+            if side == "buy":
+                day = bars[-1].date
+                scan = scan_report(self._scan_path())
+                walking = int(scan.get("total") or 0) > 0 and not bool(scan.get("done"))
+                reason = allow_entry(
+                    self.journal.symbol,
+                    self._picks(self.journal.symbol, bars),
+                    self._already_bought(day),
+                    buys_on(self._day_path(), day),
+                    not walking,
+                )
+                if reason:
+                    raise ValueError(reason)
+                remember_day_buy(self._day_path(), self.journal.symbol, day)
+            last = bars[-1].close
+            price = fill_price(last, side)
+            before = float(view_journal(self.journal)["shares"])
+            self.journal.close_orders.append((bars[-1].date, side, price))
+            self._log_fill(side, last, price, before, "auto" if source == "auto" else "trade")
+            save_journal(self.state_path, self.journal)
+            payload = self._guard(view_journal(self.journal))
+            payload["last_action"] = side
+            payload["fill"] = fill_note(side, last, price, self.journal.params.fee_bps)
+            return payload
+
+    def run_rest(self) -> dict:
+        with self.lock:
+            bars = quotes.load_bars(self.journal.symbol, refresh=True)
+            self.journal.cursor = len(bars)
+            self._work_locked(bars)
+            save_journal(self.state_path, self.journal)
+            return self._guard(view_journal(self.journal))
+
+    def bars(self, symbol: str, frame: str) -> dict:
+        return quotes.fetch_frame(symbol, frame)
+
+    def backtest(self, raw: dict) -> dict:
+        params = params_from_dict(raw)
+        symbol = str(raw.get("symbol") or "BTC-USD")
+        bars = quotes.load_bars(symbol)
+        result = run_backtest(bars, params)
+        payload = present(result, symbol, len(bars), params, len(bars))
+        payload["note"] = "Replay of market history. The paper session was left where it is."
+        return payload
+
+    def market(self, symbol: str, raw: dict) -> dict:
+        remember_focus(self.watch_path, symbol)
+        params = params_from_dict(raw)
+        return market_view(symbol, params)
+
+    def watch(self, symbols: list) -> None:
+        remember_symbols(self.watch_path, symbols)
+
+    def learn_touch(self, body: dict | None = None) -> dict:
+        """Score closed bars on watched names, or cycle top Daily scan names on auto/scan."""
+        payload = body if isinstance(body, dict) else {}
+        tab = str(payload.get("tab") or "")[:40]
+        scan_cycle = tab in ("auto", "scan")
+        raw_symbols = payload.get("symbols") if isinstance(payload.get("symbols"), list) else []
+        cleaned: list[str] = []
+        for item in raw_symbols:
+            symbol = str(item or "").strip().upper()
+            if not symbol or not _ticker_ok(symbol) or symbol in cleaned:
+                continue
+            cleaned.append(symbol)
+            if len(cleaned) >= 24:
+                break
+        with self.lock:
+            focus = str(self.journal.symbol or "")
+        if focus:
+            remember_focus(self.watch_path, focus)
+        watch = []
+        if focus:
+            watch.append(focus)
+        for symbol in cleaned:
+            if symbol not in watch:
+                watch.append(symbol)
+        remember_symbols(self.watch_path, watch[:24])
+        limit = 5 if scan_cycle else 3
+        targets: list[str] = []
+        if scan_cycle:
+            # Client rotates through the green/best Daily scan list.
+            for symbol in cleaned:
+                if symbol not in targets:
+                    targets.append(symbol)
+                if len(targets) >= limit:
+                    break
+        else:
+            if focus:
+                targets.append(focus)
+            for symbol in cleaned:
+                if symbol not in targets:
+                    targets.append(symbol)
+                if len(targets) >= limit:
+                    break
+        scored: list[str] = []
+        new_processes: list[dict] = []
+        fills_updated = 0
+        for symbol in targets:
+            try:
+                summary = touch_symbol(self.learn_path, symbol, tab=tab)
+            except ValueError:
+                continue
+            scored.append(symbol)
+            rule = str(summary.get("rule") or "")
+            if summary.get("new_process") and rule:
+                previous = str(summary.get("previous_rule") or "")
+                new_processes.append(
+                    {
+                        "symbol": symbol,
+                        "rule": rule,
+                        "previous": previous,
+                        "tab": tab,
+                    }
+                )
+                note_new_process(self.learn_path, symbol, rule, previous, tab=tab, source="desk")
+                with self.lock:
+                    if symbol == self.journal.symbol:
+                        fills_updated += stamp_process_on_fills(self.journal.fills, symbol, rule)
+                        if fills_updated:
+                            save_journal(self.state_path, self.journal)
+        book = self.learn_view()
+        book["touched"] = scored
+        book["touch_tab"] = tab
+        book["new_processes"] = new_processes
+        book["fills_updated"] = fills_updated
+        book["scan_cycle"] = scan_cycle
+        if new_processes:
+            first = new_processes[0]
+            book["touch_note"] = (
+                "New process · "
+                + first["rule"]
+                + " on "
+                + first["symbol"]
+                + ". Paper fills updated. Closed bars only. Not a forecast."
+            )
+        elif scored:
+            where = tab or "desk"
+            prefix = "Scan learn scored " if scan_cycle else "Scored "
+            book["touch_note"] = (
+                prefix
+                + ", ".join(scored)
+                + " from "
+                + where
+                + ". Closed bars only. Not a forecast."
+            )
+        else:
+            book["touch_note"] = "No closed-bar score was saved for this click."
+        return book
+
+    def learn_view(self) -> dict:
+        with self.lock:
+            symbol = self.journal.symbol
+        book = book_view(self.learn_path, expect=self.expect_learner)
+        try:
+            bars = quotes.load_bars(symbol)
+        except ValueError:
+            bars = []
+        rows = self._board(symbol, bars)
+        scan = scan_report(self._scan_path())
+        book["picks"] = rank_today(rows)
+        finished = int(scan.get("total") or 0) > 0 and bool(scan.get("done"))
+        book["pick_note"] = pick_note(book["picks"], finished)
+        book["leaders"] = rank_leaders(rows)
+        book["scan_note"] = scan["note"]
+        book["scanned"] = scan["scanned"]
+        book["scan_total"] = scan["total"]
+        book["scan_on"] = bool(scan.get("on", True))
+        return book
+
+    def set_scan(self, on: bool) -> dict:
+        remember_scan_switch(self._scan_path(), on)
+        return self.learn_view()
+
+    def _day_path(self) -> Path:
+        return self.state_path.with_name("day_buys.json")
+
+    def _already_bought(self, day: str) -> bool:
+        symbol = self.journal.symbol
+        if any(order_day == day and order_side == "buy" for order_day, order_side, *_ in self.journal.close_orders):
+            return True
+        return bought_on(self._day_path(), symbol, day)
+
+    def _scan_path(self) -> Path:
+        return self.state_path.with_name("scan_state.json")
+
+    def _board(self, symbol: str, bars: list) -> list[dict]:
+        scan = scan_report(self._scan_path())
+        board = dict(scan.get("rows") or {})
+        saved = book_view(self.learn_path, expect=self.expect_learner)
+        for name, row in dict(saved.get("symbols") or {}).items():
+            if isinstance(row, dict):
+                board.setdefault(str(name), row)
+        if bars and symbol:
+            live = score_row(bars, symbol)
+            live["scanned_on"] = desk_day()
+            board[symbol] = live
+        return symbol_rows(board)
+
+    def _picks(self, symbol: str, bars: list) -> list[dict]:
+        return rank_today(self._board(symbol, bars))
+
+    def voice(self, symbols: list[str]) -> dict:
+        """Daily squeeze warnings for the markets on the desk. Paper only."""
+        items: list[dict[str, str | int]] = []
+        seen: set[str] = set()
+        for raw in symbols:
+            symbol = str(raw or "").strip().upper()
+            if not symbol or symbol in seen or not _ticker_ok(symbol):
+                continue
+            if len(seen) >= 24:
+                break
+            seen.add(symbol)
+            try:
+                bars = quotes.load_bars(symbol)
+            except ValueError as exc:
+                items.append({"symbol": symbol, "side": "", "kind": "", "dots": 0, "date": "", "detail": str(exc)})
+                continue
+            bars = closed_bars(bars, symbol)
+            state = squeeze([bar.high for bar in bars], [bar.low for bar in bars], [bar.close for bar in bars])
+            alert = squeeze_alert(state["level"], state["momentum"])
+            index = int(alert["index"])
+            date = bars[index].date if 0 <= index < len(bars) else ""
+            detail = _voice_line(symbol, str(alert["side"]), str(alert["kind"]), int(alert["dots"]))
+            items.append({
+                "symbol": symbol,
+                "side": alert["side"],
+                "kind": alert["kind"],
+                "dots": alert["dots"],
+                "date": date,
+                "detail": detail,
+            })
+        return {"frame": "1D", "items": items}
+
+    def _learning_check(self) -> dict[str, str | bool]:
+        report = book_view(self.learn_path, expect=self.expect_learner)
+        return {"name": "Learning", "ok": bool(report["ok"]), "detail": str(report["detail"])}
+
+    def _process_check(self) -> dict[str, str | bool]:
+        report = book_view(self.learn_path, expect=self.expect_learner)
+        event = report.get("last_process") if isinstance(report.get("last_process"), dict) else None
+        at = float(report.get("last_process_at") or 0)
+        fresh = event and at and (time.time() - at) < 3600
+        if fresh:
+            rule = str(event.get("rule") or "process")
+            symbol = str(event.get("symbol") or "")
+            detail = rule + ((" on " + symbol) if symbol else "")
+            return {"name": "New process", "ok": True, "detail": detail}
+        process = current_process(self.learn_path, str(self.journal.symbol or ""))
+        if process:
+            return {"name": "New process", "ok": True, "detail": "Current · " + process}
+        return {"name": "New process", "ok": True, "detail": "Waiting for a closed-bar process change"}
+
+    def _mood_check(self, symbol: str, quote_ok: bool) -> dict[str, str | bool]:
+        if not quote_ok or not symbol:
+            return {"name": "Fear and greed", "ok": False, "detail": "Waiting on the quote"}
+        try:
+            row = mood(quotes.load_bars(symbol))
+        except ValueError as exc:
+            return {"name": "Fear and greed", "ok": False, "detail": str(exc)}
+        if row["score"] is None:
+            return {"name": "Fear and greed", "ok": False, "detail": str(row["note"])}
+        return {"name": "Fear and greed", "ok": True, "detail": f"{row['label']} {row['score']}"}
+
+
+def _voice_line(symbol: str, side: str, kind: str, dots: int) -> str:
+    name = symbol[:-4] if symbol.endswith("-USD") else symbol
+    if kind == "steam" and side == "sell":
+        return f"Sell. {name}. The daily squeeze ran out of steam."
+    if kind == "dots" and side == "buy":
+        return f"Buy warning. {name}. Five squeeze dots on the daily."
+    if kind == "dots" and side == "sell":
+        return f"Sell warning. {name}. Five squeeze dots on the daily."
+    if dots > 0:
+        return f"{name} has {dots} squeeze dots."
+    return ""
+
+
+def _local_host(header: str) -> bool:
+    name = header.strip().lower().split(":", 1)[0]
+    return name in _LOCAL_HOSTS
+
+
+def _local_client(addr: tuple) -> bool:
+    host = str(addr[0] or "").split("%", 1)[0].lower()
+    return host in _LOCAL_CLIENTS
+
+
+def _local_origin(value: str) -> bool:
+    if not value:
+        return True
+    text = value.strip().lower()
+    for prefix in ("http://127.0.0.1", "http://localhost"):
+        if text == prefix or text.startswith((prefix + ":", prefix + "/")):
+            return True
+    return False
+
+
+def load_static() -> None:
+    if _STATIC_BYTES:
+        return
+    root = WEB_ROOT.resolve()
+    for name in TYPES:
+        file_path = (WEB_ROOT / name).resolve()
+        if file_path.parent != root or not file_path.is_file():
+            raise FileNotFoundError(name)
+        _STATIC_BYTES[name] = file_path.read_bytes()
+
+
+def create_server(state_path: Path, port: int = 8765) -> ThreadingHTTPServer:
+    warm()
+    load_static()
+    desk = Desk(state_path)
+    handler = type("DeskHandler", (DeskHandler,), {"desk": desk})
+    server = ThreadingHTTPServer(("127.0.0.1", port), handler)
+    if server.server_address[0] != "127.0.0.1":
+        server.server_close()
+        raise RuntimeError("The desk refused to listen outside this computer")
+    server.desk = desk  # type: ignore[attr-defined]
+    return server
+
+
+class DeskHandler(BaseHTTPRequestHandler):
+    desk: Desk
+    protocol_version = "HTTP/1.1"
+
+    def do_GET(self) -> None:  # noqa: N802
+        try:
+            self._route("GET")
+        except ValueError as exc:
+            self._json({"error": str(exc)}, 400)
+        except Exception:
+            self._json({"error": "The desk could not complete that request"}, 500)
+
+    def do_POST(self) -> None:  # noqa: N802
+        try:
+            self._route("POST")
+        except ValueError as exc:
+            self._json({"error": str(exc)}, 400)
+        except Exception:
+            self._json({"error": "The desk could not complete that request"}, 500)
+
+    def log_message(self, fmt: str, *args) -> None:
+        return
+
+    def address_string(self) -> str:
+        return self.client_address[0]
+
+    def _route(self, method: str) -> None:
+        if not _local_client(self.client_address):
+            self._json({"error": "Not found"}, 404)
+            return
+        if not _local_host(self.headers.get("Host", "")):
+            self._json({"error": "Not found"}, 404)
+            return
+        if not _local_origin(self.headers.get("Origin", "")) or not _local_origin(self.headers.get("Referer", "")):
+            self._json({"error": "Not found"}, 404)
+            return
+        parsed = urlparse(self.path)
+        if parsed.scheme or parsed.netloc:
+            self._json({"error": "Not found"}, 404)
+            return
+        path = unquote(parsed.path)
+        if ".." in path or path.startswith("//"):
+            self._json({"error": "Not found"}, 404)
+            return
+        query = {key: values[-1] for key, values in parse_qs(parsed.query).items()}
+        if path == "/favicon.ico":
+            self.send_response(204)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if method == "GET" and path == "/catalog.txt":
+            body = (Path(__file__).resolve().parent / "catalog.txt").read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self._security_headers()
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if method == "GET" and path in STATIC:
+            self._static(STATIC[path])
+            return
+        if method == "GET" and path == "/api/health":
+            self._json({"ok": True, "bind": "127.0.0.1", "loopback": True, "version": __version__})
+            return
+        if method == "GET" and path == "/api/checks":
+            self._json(self.desk.checks())
+            return
+        if method == "GET" and path == "/api/learn":
+            self._json(self.desk.learn_view())
+            return
+        if method == "GET" and path == "/api/voice":
+            symbols = [part for part in str(query.get("symbols") or "").split(",")]
+            self._json(self.desk.voice(symbols))
+            return
+        if method == "GET" and path == "/api/symbols":
+            try:
+                limit = int(query.get("limit", "40"))
+            except ValueError:
+                limit = 40
+            self._json(search_symbols(query.get("q", ""), query.get("category", ""), limit))
+            return
+        if method == "GET" and path == "/api/paper":
+            self._json(self.desk.snapshot())
+            return
+        if method == "GET" and path == "/api/paper/book":
+            self._json(self.desk.export_book())
+            return
+        if method == "POST" and path == "/api/paper/book":
+            body = self._body()
+            self._json(self.desk.import_book(body))
+            return
+        if method == "GET" and path == "/api/market":
+            symbol = query.get("symbol") or self.desk.journal.symbol
+            raw = {**self.desk.journal.params.to_dict(), **query}
+            self._json(self.desk.market(symbol, raw))
+            return
+        if method == "GET" and path == "/api/windows":
+            self._json(self.desk.windows_view())
+            return
+        if method == "GET" and path == "/api/safe":
+            self._json(self.desk.safe_report(str(self.server.server_address[0])))
+            return
+        if method == "GET" and path == "/api/bars":
+            symbol = query.get("symbol") or self.desk.journal.symbol
+            self._json(self.desk.bars(symbol, query.get("frame") or "1D"))
+            return
+        if method == "GET" and path == "/api/backtest":
+            raw = {**self.desk.journal.params.to_dict(), **query, "symbol": query.get("symbol", self.desk.journal.symbol)}
+            self._json(self.desk.backtest(raw))
+            return
+        body = self._body() if method == "POST" else {}
+        if method == "POST" and path in CONFIRM_PATHS and body.get("confirmed") is not True:
+            raise ValueError(CONFIRM_NOTE)
+        if method == "POST" and path == "/api/windows":
+            self._json(self.desk.windows_set(body))
+            return
+        if method == "POST" and path == "/api/learn/scan":
+            self._json(self.desk.set_scan(bool(body.get("on"))))
+            return
+        if method == "POST" and path == "/api/learn/watch":
+            self.desk.watch(body.get("symbols") or [])
+            self._json(self.desk.learn_view())
+            return
+        if method == "POST" and path == "/api/learn/touch":
+            self._json(self.desk.learn_touch(body))
+            return
+        if method == "POST" and path == "/api/paper/mode":
+            mode_guard(str(body.get("mode") or ""))
+            self._json(self.desk.snapshot())
+            return
+        if method == "POST" and path == "/api/paper/halt":
+            self._json(self.desk.halt())
+            return
+        if method == "POST" and path == "/api/paper/reset":
+            self._json(self.desk.reset(body))
+            return
+        if method == "POST" and path == "/api/paper/trade":
+            self._json(self.desk.trade(str(body.get("source") or "")))
+            return
+        if method == "POST" and path == "/api/paper/ticket":
+            self._json(self.desk.place(body))
+            return
+        if method == "POST" and path == "/api/paper/cancel":
+            self._json(self.desk.cancel(body))
+            return
+        if method == "POST" and path == "/api/paper/step":
+            self._json(self.desk.step(int(body.get("days", 1))))
+            return
+        if method == "POST" and path == "/api/paper/run":
+            self._json(self.desk.run_rest())
+            return
+        if method == "POST" and path == "/api/backtest":
+            self._json(self.desk.backtest(body))
+            return
+        self._json({"error": "Not found"}, 404)
+
+    def _body(self) -> dict:
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length > 100_000:
+            raise ValueError("Request is too large")
+        if length <= 0:
+            return {}
+        raw = self.rfile.read(length)
+        data = json.loads(raw.decode("utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("Request must be a JSON object")
+        return data
+
+    def _json(self, payload: dict, status: int = 200) -> None:
+        body = json.dumps(payload, allow_nan=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self._security_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _security_headers(self) -> None:
+        for name, value in _SECURITY_HEADERS:
+            self.send_header(name, value)
+
+    def _static(self, name: str) -> None:
+        body = _STATIC_BYTES.get(name)
+        if body is None:
+            self._json({"error": "Not found"}, 404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", TYPES[name])
+        self.send_header("Content-Length", str(len(body)))
+        self._security_headers()
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def _edge_commands(url: str, platform: str | None = None) -> list[list[str]]:
+    system = platform or sys.platform
+    commands: list[list[str]] = []
+    if system == "win32":
+        roots = [
+            os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)"),
+            os.environ.get("PROGRAMFILES", r"C:\Program Files"),
+            os.environ.get("LOCALAPPDATA", ""),
+        ]
+        for root in roots:
+            if root:
+                commands.append([os.path.join(root, "Microsoft", "Edge", "Application", "msedge.exe"), url])
+        commands.append(["msedge", url])
+        commands.append(["cmd", "/c", "start", "", "microsoft-edge:" + url])
+        return commands
+    for name in ("microsoft-edge", "microsoft-edge-stable", "msedge"):
+        commands.append([name, url])
+    return commands
+
+
+def _launch_edge(url: str, commands: list[list[str]], which, popen) -> str:
+    import webbrowser
+
+    for command in commands:
+        program = command[0]
+        named = program in {"msedge", "microsoft-edge", "microsoft-edge-stable"}
+        if named and which(program) is None:
+            continue
+        if not named and program != "cmd" and not os.path.isfile(program):
+            continue
+        try:
+            popen(command, close_fds=True, creationflags=_window_flags(program))
+        except (OSError, ValueError):
+            continue
+        return "Microsoft Edge"
+    try:
+        webbrowser.open(url)
+    except OSError:
+        return "the default browser. Microsoft Edge was not found"
+    return "the default browser. Microsoft Edge was not found"
+
+
+def _window_flags(program: str, platform: str | None = None) -> int:
+    system = platform or sys.platform
+    if system == "win32" and program == "cmd":
+        return int(getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000))
+    return 0
+
+
+def _wait_for_desk(url: str, probe, sleep, tries: int = 25) -> bool:
+    health = url.rstrip("/") + "/api/health"
+    for _ in range(tries):
+        try:
+            if probe(health):
+                return True
+        except OSError:
+            pass
+        sleep(0.1)
+    return False
+
+
+def open_edge(url: str) -> str:
+    return _launch_edge(url, _edge_commands(url), shutil.which, subprocess.Popen)
+
+
+def _probe_health(url: str) -> bool:
+    from urllib.request import urlopen
+
+    with urlopen(url, timeout=0.4) as response:
+        return response.status == 200
+
+
+def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None:
+    root = Path(__file__).resolve().parents[1]
+    learn_path = state_path.with_name("learn_state.json")
+    try:
+        server = create_server(state_path, port)
+    except OSError as exc:
+        busy = getattr(exc, "winerror", None) == 10048 or exc.errno in {98, 10048}
+        if not busy:
+            raise
+        ensure_learner(root, learn_path)
+        print("Paper Trader is already open on this computer.")
+        print("Close that window, then start Paper Trader again.")
+        print("The score keeps running after that window closes. Use Windows extras in the Safe check to start it at sign-in.")
+        return
+    ensure_learner(root, learn_path)
+    server.desk.expect_learner = True
+    try:
+        extra = other_copies(Path.home(), root)
+    except OSError:
+        extra = []
+    if extra:
+        print("Other Paper Trader folders were found. Nothing was deleted. You can delete them yourself:")
+        for folder in extra:
+            print("  " + str(folder))
+    host, bound = server.server_address[:2]
+    url = f"http://{host}:{bound}/"
+    print(f"Paper Trader is running at {url}")
+    print("Market quotes. Paper orders only. Leave this window open.")
+    print("The score keeps running after this window closes while you are signed in.")
+    print("It does not start at sign-in unless you turn that on under Windows extras in the Safe check.")
+    worker = threading.Thread(target=server.serve_forever, name="paper-trader-http", daemon=True)
+    worker.start()
+    if open_browser and url.startswith("http://127.0.0.1:"):
+        if _wait_for_desk(url, _probe_health, time.sleep):
+            print("Opening in " + open_edge(url) + ".")
+        else:
+            print("The desk did not answer. Open " + url + " in Microsoft Edge.")
+    try:
+        while worker.is_alive():
+            worker.join(0.5)
+    except KeyboardInterrupt:
+        print("\nStopped.")
+        server.shutdown()
+        worker.join(2)
+    finally:
+        server.server_close()

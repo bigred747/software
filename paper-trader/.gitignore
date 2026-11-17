@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+paper_state.json
+learn_state.json
+learn_watch.json
+learn.lock
+iphone/PaperTrader.html
+
+breaker.json
+scan_state.json
