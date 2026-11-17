@@ -90,6 +90,15 @@ body {
 .quote.down #quote-last, .quote.down #quote-change { color: var(--down); }
 
 .brand { display: flex; align-items: center; gap: 12px; grid-column: 1; grid-row: 1; min-width: 0; }
+.brand-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid #2a3a4a;
+  background: #0c1218;
+  flex: 0 0 auto;
+}
 .seal {
   margin: 0;
   padding: 4px 8px;
@@ -858,6 +867,7 @@ footer { display: none; }
 @media (max-width: 428px) {
   #quote-last { font-size: 30px; }
   .top { padding-left: 14px; padding-right: 14px; }
+  .brand-logo { width: 48px; height: 48px; border-radius: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1129,9 +1139,9 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper</p>
+      <img class="brand-logo" src="logo.png" width="56" height="56" alt="LuxeTrendsetters">
       <div>
-        <p class="eyebrow">Local paper desk</p>
+        <p class="eyebrow">LuxeTrendsetters desk</p>
         <h1>Paper Trader</h1>
       </div>
     </div>
@@ -6293,7 +6303,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.74";
+const VERSION = "1.9.75";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";

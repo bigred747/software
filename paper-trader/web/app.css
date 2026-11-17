@@ -76,6 +76,15 @@ body {
 .quote.down #quote-last, .quote.down #quote-change { color: var(--down); }
 
 .brand { display: flex; align-items: center; gap: 12px; grid-column: 1; grid-row: 1; min-width: 0; }
+.brand-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid #2a3a4a;
+  background: #0c1218;
+  flex: 0 0 auto;
+}
 .seal {
   margin: 0;
   padding: 4px 8px;
@@ -844,6 +853,7 @@ footer { display: none; }
 @media (max-width: 428px) {
   #quote-last { font-size: 30px; }
   .top { padding-left: 14px; padding-right: 14px; }
+  .brand-logo { width: 48px; height: 48px; border-radius: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -83,6 +83,7 @@ STATIC = {
     "/frame.html": "frame.html",
     "/manifest.webmanifest": "manifest.webmanifest",
     "/icon.png": "icon.png",
+    "/logo.png": "logo.png",
 }
 TYPES = {
     "index.html": "text/html; charset=utf-8",
@@ -96,6 +97,7 @@ TYPES = {
     "frame.html": "text/html; charset=utf-8",
     "manifest.webmanifest": "application/manifest+json",
     "icon.png": "image/png",
+    "logo.png": "image/png",
 }
 _STATIC_BYTES: dict[str, bytes] = {}
 _LOCAL_HOSTS = {"127.0.0.1", "localhost"}
