@@ -83,11 +83,32 @@
     </section>
 
     <section id="view-chart" class="panel chart-panel" aria-label="Chart">
+      <div class="chart-head">
+        <button id="chart-back" type="button" class="quiet chart-back">Back</button>
+        <h2 id="chart-title">Chart</h2>
+        <span id="position-chip" class="position-chip" hidden></span>
+        <p id="legend" class="legend"></p>
+      </div>
+      <p id="desk-status" class="desk-status" role="status"></p>
+      <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
+      <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
+      <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div class="chart-tools" id="chart-tools">
-        <div class="chart-head chart-tools-head">
-          <button id="chart-back" type="button" class="quiet chart-back">Back</button>
-          <h2 id="chart-title">Chart</h2>
-          <span id="position-chip" class="position-chip" hidden></span>
+        <p class="chart-tools-label">Chart boxes</p>
+        <div id="chart-boxes" class="desk-clear chart-boxes" aria-label="Market breadth boxes">
+          <div class="desk-clear-chip breadth"><span class="k">TICK</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">ADD</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">TRIN</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">VOLD</span><span class="v">No feed</span></div>
+        </div>
+        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
+        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read">
+          <div class="desk-clear-chip vwap"><span class="k">VWAP D</span><span class="v">—</span></div>
+          <div class="desk-clear-chip vwap"><span class="k">VWAP W</span><span class="v">—</span></div>
+          <div class="desk-clear-chip vwap"><span class="k">VWAP M</span><span class="v">—</span></div>
+          <div class="desk-clear-chip mixed"><span class="k">big4indicator</span><span class="v">Waiting</span></div>
+          <div class="desk-clear-chip"><span class="k">Bol %B 20</span><span class="v">—</span></div>
+          <div class="desk-clear-chip stage"><span class="k">Stage</span><span class="v">Waiting</span></div>
         </div>
         <p class="chart-tools-label">Timeframes</p>
         <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
@@ -100,11 +121,6 @@
         <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
         <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
       </div>
-      <p id="legend" class="legend"></p>
-      <p id="desk-status" class="desk-status" role="status"></p>
-      <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
-      <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
-      <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div class="study-toolbar" role="toolbar" aria-label="Study panes">
         <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
         <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>
@@ -142,23 +158,7 @@
           <canvas id="cci-chart" width="800" height="160" aria-label="CCI"></canvas>
         </section>
       </div>
-      <div class="chart-below" aria-label="Chart boxes and pages">
-        <p class="chart-tools-label">Chart boxes</p>
-        <div id="chart-boxes" class="desk-clear chart-boxes" aria-label="Market breadth boxes">
-          <div class="desk-clear-chip breadth"><span class="k">TICK</span><span class="v">No feed</span></div>
-          <div class="desk-clear-chip breadth"><span class="k">ADD</span><span class="v">No feed</span></div>
-          <div class="desk-clear-chip breadth"><span class="k">TRIN</span><span class="v">No feed</span></div>
-          <div class="desk-clear-chip breadth"><span class="k">VOLD</span><span class="v">No feed</span></div>
-        </div>
-        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
-        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read">
-          <div class="desk-clear-chip vwap"><span class="k">VWAP D</span><span class="v">—</span></div>
-          <div class="desk-clear-chip vwap"><span class="k">VWAP W</span><span class="v">—</span></div>
-          <div class="desk-clear-chip vwap"><span class="k">VWAP M</span><span class="v">—</span></div>
-          <div class="desk-clear-chip mixed"><span class="k">big4indicator</span><span class="v">Waiting</span></div>
-          <div class="desk-clear-chip"><span class="k">Bol %B 20</span><span class="v">—</span></div>
-          <div class="desk-clear-chip stage"><span class="k">Stage</span><span class="v">Waiting</span></div>
-        </div>
+      <div class="chart-below" aria-label="Second page">
         <p class="chart-tools-label">Second page</p>
         <div id="study-pages" class="study-pages" aria-label="Open Study pages">
           <button type="button" data-open-dock="strategies">Strategies</button>

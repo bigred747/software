@@ -189,9 +189,6 @@ h2 { font-size: 15px; }
   display: grid;
   gap: 6px;
   margin: 0 0 8px;
-  padding: 8px 0 10px;
-  border-bottom: 1px solid var(--line);
-  background: #0c1014;
 }
 .chart-below {
   display: grid;
@@ -200,7 +197,6 @@ h2 { font-size: 15px; }
   padding: 10px 0 0;
   border-top: 1px solid var(--line);
 }
-.chart-tools-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .chart-tools-label {
   margin: 2px 0 0;
   font-size: 11px;
@@ -245,17 +241,6 @@ h2 { font-size: 15px; }
   }
   .study-pages { grid-template-columns: repeat(9, minmax(0, 1fr)); }
   .study-pages button { min-height: 36px; }
-  /* Keep the computer desk familiar: boxes/pages above the chart panes. */
-  .chart-panel > .chart-tools { order: 1; }
-  .chart-panel > .chart-below { order: 2; margin-top: 0; padding-top: 0; border-top: 0; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 8px; }
-  .chart-panel > .legend { order: 3; }
-  .chart-panel > .desk-status { order: 4; }
-  .chart-panel > .chart-read { order: 5; }
-  .chart-panel > .signal-sum { order: 6; }
-  .chart-panel > .signal-strip { order: 7; }
-  .chart-panel > .study-toolbar { order: 8; }
-  .chart-panel > .study-stack { order: 9; }
-  .chart-panel > .chart-fold { order: 10; }
 }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
 .dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
@@ -848,16 +833,15 @@ footer { display: none; }
   .signal-sum::before { content: ""; flex: 0 0 8px; height: 8px; border-radius: 50%; background: var(--slow); }
   .signal-sum.ok { color: var(--up); border-color: #1d4d3a; }
   .signal-sum.ok::before { background: var(--up); }
+  /* No sticky chrome — sticky tools were covering the panes when scrolling. */
   body[data-tab="chart"] .chart-tools {
-    position: sticky;
-    top: 0;
-    z-index: 4;
+    position: static;
+    z-index: auto;
     margin: 0 0 10px;
-    padding: 8px 0 10px;
-    background: #0c1014;
+    padding: 0 0 10px;
+    background: transparent;
     border-bottom: 1px solid var(--line);
   }
-  body[data-tab="chart"] .chart-tools-head { margin-bottom: 4px; }
   body[data-tab="chart"] .chart-tools-label { font-size: 12px; color: #c5d0db; }
   body[data-tab="chart"] .study-pages { margin-top: 2px; }
   body[data-tab="chart"] .study-pages button { min-height: 42px; font-size: 13px; }
@@ -916,9 +900,10 @@ footer { display: none; }
   }
   body[data-tab="chart"] .desk-status,
   body[data-tab="chart"] .signal-sum,
-  body[data-tab="chart"] .study-toolbar,
   body[data-tab="chart"] .chart-fold { display: none; }
   body[data-tab="chart"] .chart-read { margin: 2px 0 6px; font-size: 12px; }
+  body[data-tab="chart"] .study-toolbar { margin: 8px 0; gap: 6px; }
+  body[data-tab="chart"] .study-toolbar button { min-height: 36px; padding: 6px 10px; font-size: 12px; }
   body[data-tab="chart"] .chart-below {
     margin: 8px 0 24px;
     padding-top: 12px;
@@ -1263,6 +1248,8 @@ body.ready #mood-clock { width: 88px; height: 88px; }
     background: var(--panel);
   }
   body[data-tab="chart"] .desk-status {
+    position: static;
+    z-index: auto;
     background: var(--panel);
   }
   body.ready #mood-clock { width: 48px; height: 48px; }

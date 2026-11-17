@@ -952,7 +952,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.83", script)
+        self.assertIn(b"1.9.84", script)
         self.assertIn(b"function runScorecard", script)
         self.assertIn(b"function scorecardPublish", script)
         self.assertIn(b"function bestFires", script)
