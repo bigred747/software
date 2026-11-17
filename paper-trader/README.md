@@ -101,7 +101,7 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
-## Edge TMO · Squeeze · CCI buys (1.9.86)
+## Edge TMO · Squeeze · CCI buys (1.9.87)
 
 Edge five checks now follow the Open TMO · Squeeze · CCI chart stack (closed bars only), tuned on a 40-name Squeeze/Fire-style scan:
 1. TMO above −10 (main cleared above the 14/5/3 OS line)
