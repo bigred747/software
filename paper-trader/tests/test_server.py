@@ -496,7 +496,9 @@ class ServerTests(unittest.TestCase):
         for name in (
             "This computer only",
             "Strangers blocked",
+            "Foreign bots kept out",
             "Live locked",
+            "Paper only",
             "Second warning",
             "No invented breadth",
             "Quote hosts",
@@ -832,6 +834,8 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.open("/api/health", host="example.test")[0], 404)
 
     def test_refuses_a_temporary_zip_folder_and_a_low_port(self) -> None:
+        from paper_trader.guard import path_looks_foreign
+
         temp_zip = Path(r"C:\Users\rick\AppData\Local\Temp\abc_pack.zip.43d\app")
         self.assertTrue(is_temp_zip_extract(temp_zip))
         self.assertFalse(is_temp_zip_extract(Path(r"C:\Users\rick\Documents\paper-trader")))
@@ -840,6 +844,11 @@ class ServerTests(unittest.TestCase):
         program = Path(r"C:\Users\rick\Documents\Paper Trader")
         self.assertFalse(is_temp_zip_extract(program))
         assert_safe_launch([program])
+        artex = Path(r"C:\Users\rick\Documents\Artex\paper-trader")
+        self.assertTrue(path_looks_foreign(artex))
+        with self.assertRaises(ValueError) as blocked:
+            assert_safe_launch([artex])
+        self.assertIn("artex", str(blocked.exception).lower())
         self.assertEqual(main(["serve", "--port", "80", "--no-browser"]), 2)
 
     def test_serve_leaves_the_shell_folder_before_it_starts(self) -> None:
@@ -952,7 +961,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.84", script)
+        self.assertIn(b"1.9.85", script)
         self.assertIn(b"function runScorecard", script)
         self.assertIn(b"function scorecardPublish", script)
         self.assertIn(b"function bestFires", script)
@@ -970,6 +979,8 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b'data-dock="scorecard"', page)
         self.assertIn(b"No invented breadth", script)
         self.assertIn(b"Live locked", script)
+        self.assertIn(b"Foreign bots kept out", script)
+        self.assertIn(b"studies-head", script)
         self.assertIn(b'id="chart-tools"', page)
         self.assertIn(b'id="chart-boxes"', page)
         self.assertIn(b'id="study-pages"', page)

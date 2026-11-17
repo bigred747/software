@@ -6662,7 +6662,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.84";
+const VERSION = "1.9.85";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -10919,6 +10919,11 @@ async function phoneSafe() {
   }
   add("Live locked", locked, "No broker or bank link. Every order is paper");
   add("Paper only", !state.paper || state.paper.paper === true, "Paper mode is on");
+  add(
+    "Foreign bots kept out",
+    true,
+    "Artex and other foreign bots cannot share this desk's files. Paper book stays in this browser only"
+  );
   add("Second warning", true, "Every paper buy and sell still asks Yes, including Auto");
   add(
     "No invented breadth",
@@ -13906,11 +13911,11 @@ function openStudiesWindow(focus) {
   }
   win.document.open();
   win.document.write(
-    "<!DOCTYPE html><title>" + symbol + " · Studies</title>" +
+    "<!DOCTYPE html><title>Studies</title>" +
     "<body style=\"margin:0;background:#05070a;color:#e7edf3;font:14px Segoe UI,sans-serif\">" +
     "<div style=\"display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #1a222c;background:#0d1218\">" +
     "<button id=\"back\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Back</button>" +
-    "<strong style=\"letter-spacing:.04em\">" + symbol + " · TMO · Squeeze · CCI</strong>" +
+    "<strong id=\"studies-head\" style=\"letter-spacing:.04em\"></strong>" +
     "<span id=\"note\" style=\"color:#9aa6b2;margin-left:auto\"></span>" +
     "<button id=\"in\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Zoom in</button>" +
     "<button id=\"out\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Zoom out</button>" +
@@ -13923,6 +13928,9 @@ function openStudiesWindow(focus) {
     "</div></body>"
   );
   win.document.close();
+  win.document.title = symbol + " · Studies";
+  const head = win.document.getElementById("studies-head");
+  if (head) head.textContent = symbol + " · TMO · Squeeze · CCI";
   const paint = () => {
     const view = PaperFrames.zoomBars(sliceToCursor(state.market.bars), state.zoom);
     const note = win.document.getElementById("note");

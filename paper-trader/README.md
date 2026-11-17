@@ -95,6 +95,12 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Artex / foreign-bot isolation (1.9.85)
+
+- Will not start or install from an **Artex** folder (or other foreign-bot path), or from a temporary zip fold.
+- Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
+- Live stays locked. Every paper buy/sell still asks Yes.
+
 ## Restore Chart layout (1.9.84)
 
 - Brings back the earlier phone Chart order: boxes → timeframes → price / TMO / Squeeze / CCI.

@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from paper_trader import __version__
 from paper_trader.backtest import present, run_backtest
+from paper_trader.guard import isolation_status
 from paper_trader.install import (
     desktop_opener_present,
     other_copies,
@@ -813,12 +814,16 @@ class Desk:
         add("This computer only", bound in {"127.0.0.1", "::1", "localhost"}, f"Listening on {bound} only")
         refused = not _local_client(("8.8.8.8", 0)) and not _local_origin("https://evil.example") and _local_origin("http://127.0.0.1:8765")
         add("Strangers blocked", refused, "Other computers and other web pages are refused")
+        root = Path(__file__).resolve().parents[1]
+        alone = isolation_status([root, self.state_path, self.learn_path, self.shelf_path, self.breaker_path])
+        add(str(alone["name"]), bool(alone["ok"]), str(alone["detail"]))
         try:
             mode_guard("live")
             locked = False
         except ValueError:
             locked = True
         add("Live locked", locked, "No broker or bank link. Every order is paper")
+        add("Paper only", True, "No live orders. Folded zip extracts and foreign bots cannot place trades")
         add("Second warning", True, "Every paper buy and sell still asks Yes, including Auto")
         add(
             "No invented breadth",
@@ -843,7 +848,6 @@ class Desk:
         except (OSError, ValueError):
             add("Journal saves", False, "This folder would not take a file")
         add("Program unchanged", program_fingerprint() == self.fingerprint, "Same files as when it opened" if program_fingerprint() == self.fingerprint else "A program file changed after start-up. Close and reopen")
-        root = Path(__file__).resolve().parents[1]
         bats = sorted(root.glob("*.bat"))
         dirty = [path.name for path in bats if any(word in path.read_text(encoding="utf-8", errors="ignore").lower() for word in LAUNCHER_BLOCKED)]
         add("Launchers clean", not dirty, f"{len(bats)} launchers, none run scripts, change Defender, or install packages" if not dirty else "Check " + ", ".join(dirty))
