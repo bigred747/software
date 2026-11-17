@@ -22,6 +22,10 @@ const state = {
   scanOn: true,
   picks: [],
   pickNote: "",
+  fires: [],
+  fireNote: "",
+  fireAuto: false,
+  fireCursor: 0,
   leaders: [],
   scanNote: "",
   scanDone: false,
@@ -82,7 +86,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.80";
+const VERSION = "1.9.81";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -668,6 +672,56 @@ function bestPicks(rows) {
   return kept;
 }
 
+const FIRE_FIVE_LIMIT = 5;
+const FIRE_AUTO_KEY = "paperTraderFireAuto";
+
+function loadFireAuto() {
+  try {
+    return JSON.parse(localStorage.getItem(FIRE_AUTO_KEY) || "{}").on === true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function saveFireAuto(on) {
+  try {
+    localStorage.setItem(FIRE_AUTO_KEY, JSON.stringify({ on: !!on }));
+  } catch (error) {
+    /* Fire Auto still holds for this page. */
+  }
+  state.fireAuto = !!on;
+}
+
+function bestFires(rows) {
+  // Top Fire BUY setups from the scan: Edge Fire (Ready · Aim · Fire) on strong closed-bar scores.
+  return (rows || [])
+    .filter((row) => row && row.symbol && (row.fire === true || row.edge === "BUY") && row.seen >= 20 && row.rate >= 60)
+    .sort((a, b) => {
+      const aPlus = a.setup === "buy" ? 1 : 0;
+      const bPlus = b.setup === "buy" ? 1 : 0;
+      const aBull = a.big4 === "bull" ? 1 : 0;
+      const bBull = b.big4 === "bull" ? 1 : 0;
+      return b.rate - a.rate || bPlus - aPlus || bBull - aBull || b.seen - a.seen || a.symbol.localeCompare(b.symbol);
+    })
+    .slice(0, FIRE_FIVE_LIMIT);
+}
+
+function fireNoteText(fires, scanning) {
+  const rows = fires || [];
+  if (scanning && !rows.length) {
+    return "Scanning for Fire. When Ready · Aim · Fire turns Fire on a strong name, it lights green here (up to five). Tap to review, then buy if you want.";
+  }
+  if (!rows.length) {
+    return "No Fire 5 signals right now. Waiting for Ready · Aim · Fire to turn Fire on a strong scan name. Paper only. Not a forecast.";
+  }
+  return (
+    rows.length +
+    " Fire trade" +
+    (rows.length === 1 ? "" : "s") +
+    " lit green. Tap each to review the chart and decide. Fire 5 Auto asks Yes before each paper buy. Not a forecast."
+  );
+}
+
 function phoneBuyReason(symbol) {
   if (breakerState().tripped) return BREAKER_STOP;
   if (!state.scanOn && !state.scanDone) return "Turn the scanner on to fill today's best.";
@@ -676,7 +730,9 @@ function phoneBuyReason(symbol) {
   const names = day.names;
   const maxBuys = state.best && state.best.on ? BEST_MAX_BUYS : 5;
   if (names.size >= maxBuys) return "Today already has " + maxBuys + " paper buys.";
-  if (!(state.picks || []).some((row) => row.symbol === symbol)) return "This market is not in today's best.";
+  const onBest = (state.picks || []).some((row) => row.symbol === symbol);
+  const onFire = (state.fires || []).some((row) => row.symbol === symbol);
+  if (!onBest && !onFire) return "This market is not in today's best or Fire 5 list.";
   if (names.has(symbol)) return "This market already has a paper buy today.";
   const bestBlock = bestBuyReason(symbol);
   if (bestBlock) return bestBlock;
@@ -898,6 +954,7 @@ function applyScanBook(book) {
   renderScanToggle();
   renderToday();
   renderScan();
+  refreshFireFive().catch(() => {});
 }
 
 async function setScanner(on) {
@@ -942,16 +999,21 @@ async function scanPhone() {
   state.scanDone = false;
   state.leaders = [];
   state.picks = [];
+  state.fires = [];
   state.scanNote = "Scanned 0 of " + total + ". " + scanKindNote();
   state.pickNote = "";
+  state.fireNote = fireNoteText([], true);
   renderScan();
   renderToday();
+  renderFireFive();
   const live = () => token === phoneScanToken && state.scanOn;
   const publish = () => {
     const leaders = phoneLeaders(scored, false).slice(0, 10);
     const picks = bestPicks(scored);
+    const fires = bestFires(scored);
     state.leaders = leaders;
     state.picks = picks;
+    state.fires = fires;
     const done = finished === total;
     const score = leaders.length ? "Highest closed-bar scores. Not a forecast." : "No market cleared the bar yet. Not a forecast.";
     state.scanNote = "Scanned " + finished + " of " + total + ". " + scanKindNote() + " " + score + missNote(errors);
@@ -960,10 +1022,12 @@ async function scanPhone() {
         ? "Scan finished. Green signal on each name. Three to five, and no more. Not a forecast."
         : "No market cleared the bar today.")
       : "Ten names, then three to five. Green signals come on when the scan finishes.";
+    state.fireNote = fireNoteText(fires, !done);
     state.scanDone = done;
     renderScan();
     renderToday();
-    if (done && (leaders.length || picks.length)) {
+    renderFireFive();
+    if (done && (leaders.length || picks.length || fires.length)) {
       cycleScanLearn("scan").catch(() => {});
     }
   };
@@ -990,6 +1054,7 @@ async function scanPhone() {
         const seen = Number(lesson && lesson.seen) || 0;
         const matched = Number(lesson && lesson.matched) || 0;
         const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) }) : null;
+        const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
         scored.push({
           symbol,
           seen,
@@ -997,6 +1062,9 @@ async function scanPhone() {
           rate: seen ? Math.round((matched / seen) * 100) : 0,
           setup: alert.kind === "dots" && alert.side === "buy" ? "buy" : "",
           edge: timing && timing.ready ? timing.call : "",
+          fire: fireOn,
+          stage: timing && timing.stage ? timing.stage : "",
+          big4: timing && timing.big4 && timing.big4.bias ? timing.big4.bias : "",
         });
       } catch (error) {
         errors += 1;
@@ -1171,6 +1239,7 @@ async function loadSignals() {
     renderPins();
     renderToday();
     renderScan();
+    refreshFireFive().catch(() => {});
     document.querySelectorAll("#symbol button").forEach((button) => {
       const symbol = button.dataset.symbol;
       const row = state.moods[symbol];
@@ -1367,18 +1436,25 @@ function pinLabel(symbol) {
 
 function renderScoreButtons(bar, rows, signal) {
   const current = (state.paper && state.paper.symbol) || "";
-  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + (row.edge || "") + ":" + row.matched + ":" + row.seen).join(",");
+  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + (row.edge || "") + ":" + (row.fire ? "F" : "") + ":" + row.matched + ":" + row.seen).join(",");
   if (sameStamp(bar, stamp)) return;
   bar.replaceChildren();
   (rows || []).forEach((row) => {
     if (!row || !row.symbol) return;
     const button = document.createElement("button");
     button.type = "button";
-    const ready = row.setup === "buy" ? " buy" : "";
-    const timing = row.edge ? " · " + row.edge : "";
+    const fire = row.fire || row.edge === "BUY";
+    const ready = fire ? " · FIRE" : row.setup === "buy" ? " buy" : "";
+    const timing = !fire && row.edge ? " · " + row.edge : "";
     button.textContent = pinLabel(row.symbol) + " " + row.rate + "%" + ready + timing;
-    button.title = row.matched + " of " + row.seen + " closed bars." + (row.edge ? " Edge " + row.edge + "." : "") + " Not a forecast.";
-    if (signal) button.classList.add("go");
+    button.title =
+      row.matched +
+      " of " +
+      row.seen +
+      " closed bars." +
+      (fire ? " Ready · Aim · Fire is Fire." : row.edge ? " Edge " + row.edge + "." : "") +
+      " Tap to review. Not a forecast.";
+    if (signal || fire) button.classList.add("go");
     if (row.symbol === current) {
       button.classList.add("on");
       button.setAttribute("aria-pressed", "true");
@@ -1386,6 +1462,116 @@ function renderScoreButtons(bar, rows, signal) {
     button.addEventListener("click", () => chooseSymbol(row.symbol));
     bar.appendChild(button);
   });
+}
+
+async function refreshFireFive() {
+  const pool = [];
+  const seen = new Set();
+  []
+    .concat(state.fires || [])
+    .concat(state.picks || [])
+    .concat(state.leaders || [])
+    .forEach((row) => {
+      if (!row || !row.symbol || seen.has(row.symbol)) return;
+      seen.add(row.symbol);
+      pool.push(row);
+    });
+  const targets = pool.slice(0, 12);
+  if (!targets.length) {
+    state.fires = [];
+    state.fireNote = fireNoteText([], !state.scanDone);
+    renderFireFive();
+    return state.fires;
+  }
+  const scored = [];
+  for (let index = 0; index < targets.length; index += 1) {
+    const base = targets[index];
+    const symbol = base.symbol;
+    try {
+      const row = state.catalog.find((item) => item.symbol === symbol);
+      const bars = state.offline
+        ? await sqDaily(symbol)
+        : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
+      const crypto = phoneCrypto(symbol, row);
+      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+      const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
+      scored.push({
+        symbol,
+        seen: Number(base.seen) || 0,
+        matched: Number(base.matched) || 0,
+        rate: Number(base.rate) || 0,
+        setup: base.setup || "",
+        edge: timing && timing.ready ? timing.call : base.edge || "",
+        fire: fireOn,
+        stage: timing && timing.stage ? timing.stage : "",
+        big4: timing && timing.big4 && timing.big4.bias ? timing.big4.bias : "",
+      });
+    } catch (error) {
+      scored.push(Object.assign({}, base, { fire: false }));
+    }
+  }
+  state.fires = bestFires(scored);
+  state.fireNote = fireNoteText(state.fires, !state.scanDone);
+  renderFireFive();
+  return state.fires;
+}
+
+async function fireAutoTrade() {
+  if (!state.fireAuto || !state.paper || state.paper.paper !== true) return "";
+  if (breakerState().tripped) return "";
+  if (confirmWait) return "Waiting for your answer on the open warning.";
+  let fires = state.fires || [];
+  if (!fires.length) {
+    await refreshFireFive();
+    fires = state.fires || [];
+  }
+  if (!fires.length) {
+    state.fireNote = "Fire 5 Auto is on. Waiting for a green Fire signal on the scan.";
+    renderFireFive();
+    return state.fireNote;
+  }
+  const open = state.paper.symbol;
+  let row = fires.find((item) => item.symbol === open);
+  if (!row) {
+    const next = fires[state.fireCursor % fires.length];
+    state.fireCursor = (state.fireCursor + 1) % fires.length;
+    if (next && next.symbol) {
+      await chooseSymbol(next.symbol);
+      return "Fire 5 Auto opened " + next.symbol + " for review.";
+    }
+    return "";
+  }
+  const bars = seenBars();
+  const edgeNow = currentEdge(bars);
+  if (!edgeNow || !edgeNow.ready || edgeNow.call !== "BUY" || edgeNow.stage !== "fire") {
+    state.fireNote = row.symbol + " left the Fire list for now. Watching the other green names.";
+    renderFireFive();
+    return state.fireNote;
+  }
+  if (state.paper.shares > 0) return "";
+  const blocked = phoneBuyReason(row.symbol) || internalsGate(row.symbol);
+  // Fire 5 Auto still requires the name to be on today's best / Fire list; ignore "not in today's best" only if it is on Fire 5.
+  const soft = blocked && blocked.indexOf("not in today's best") >= 0 && fires.some((item) => item.symbol === row.symbol);
+  if (blocked && !soft) {
+    state.fireNote = "Fire 5 Auto skipped " + row.symbol + ": " + blocked;
+    renderFireFive();
+    return state.fireNote;
+  }
+  const board = currentBoard(bars);
+  const edgeRow = board.rows.find((item) => item.id === "edge") || {
+    id: "edge",
+    name: "Edge · Ready · Aim · Fire",
+    ready: true,
+    call: "BUY",
+  };
+  const key = row.symbol + "|fire5|buy|" + closedDate(bars);
+  if (state.strat.acted[key]) return "";
+  state.strat.acted[key] = Date.now();
+  saveStrat();
+  state.fireNote = "Fire 5 green on " + row.symbol + ". Waiting for your Yes on the paper buy.";
+  renderFireFive();
+  answerAuto(edgeRow, "buy", row.symbol, closedDate(bars));
+  return state.fireNote;
 }
 
 function renderScan() {
@@ -1403,6 +1589,35 @@ function renderToday() {
   if (!line || !bar) return;
   line.textContent = state.pickNote || "";
   renderScoreButtons(bar, state.picks || [], !!state.scanDone);
+  renderFireFive();
+}
+
+function renderFireFive() {
+  const line = $("fire-note");
+  const bar = $("fire-five");
+  const button = $("fire-auto");
+  if (line) line.textContent = state.fireNote || fireNoteText(state.fires, !state.scanDone);
+  if (bar) {
+    const rows = (state.fires || []).map((row) =>
+      Object.assign({}, row, {
+        edge: row.edge || (row.fire ? "BUY" : row.edge),
+        setup: row.setup || (row.fire ? "buy" : row.setup),
+      })
+    );
+    // Green as soon as Fire is on — do not wait for the full scan to finish.
+    renderScoreButtons(bar, rows, rows.length > 0);
+  }
+  if (button) {
+    const on = !!state.fireAuto;
+    const ready = on && (state.fires || []).length > 0;
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+    button.className = "fire-auto-btn" + (on ? (ready ? " ready" : " on") : "");
+    button.textContent = on
+      ? ready
+        ? "Fire 5 Auto · " + state.fires.length + " green"
+        : "Fire 5 Auto · waiting for Fire"
+      : "Fire 5 Auto";
+  }
 }
 
 function renderResult(paper) {
@@ -1667,6 +1882,12 @@ function chooseSymbol(symbol) {
     await loadMarket(paper.symbol);
     render(paper);
     showChart();
+    if (state.fireAuto && paper.paper === true) {
+      state.auto = true;
+      setTimeout(() => {
+        if (state.auto && !state.autoTimer) autoTick();
+      }, 0);
+    }
     showRead("Opened " + paper.symbol + " on the chart.");
   });
 }
@@ -2745,11 +2966,13 @@ function bestSetupStatus() {
 
   const symbol = state.paper && state.paper.symbol;
   let scanOk = false;
-  if (!state.scanDone) addGate("Green scan list", false, "Daily scan still walking");
-  else if (!(state.picks || []).some((row) => row.symbol === symbol)) addGate("Green scan list", false, "Open market is not in today's green best list");
+  const onBest = (state.picks || []).some((row) => row.symbol === symbol);
+  const onFire = (state.fires || []).some((row) => row.symbol === symbol);
+  if (!state.scanDone && !onFire) addGate("Green scan list", false, "Daily scan still walking");
+  else if (!onBest && !onFire) addGate("Green scan list", false, "Open market is not in today's green best or Fire 5 list");
   else {
     scanOk = true;
-    addGate("Green scan list", true, "In today's green best list");
+    addGate("Green scan list", true, onFire ? "In Fire 5 green list" : "In today's green best list");
   }
 
   const asOf = state.market && state.market.as_of;
@@ -6033,9 +6256,18 @@ async function autoTick() {
       return;
     }
     const traded = await autoTrade();
+    const fired = await fireAutoTrade();
     renderBestSetup();
+    renderFireFive();
     if (state.offline) renderLocalSignals();
-    $("status").textContent = traded || (state.best && state.best.on && bestSetupStatus().ready ? "Best setup ready. Waiting for your Yes if a buy warning is open." : "Auto is on. Refreshing the market quote.");
+    $("status").textContent =
+      traded ||
+      fired ||
+      (state.best && state.best.on && bestSetupStatus().ready
+        ? "Best setup ready. Waiting for your Yes if a buy warning is open."
+        : state.fireAuto && (state.fires || []).length
+          ? "Fire 5 Auto is watching " + state.fires.length + " green Fire trade" + (state.fires.length === 1 ? "" : "s") + "."
+          : "Auto is on. Refreshing the market quote.");
     await cycleScanLearn("auto");
   } catch (error) {
     state.auto = false;
@@ -6513,6 +6745,29 @@ if (scanToggle) {
       state.scanNote = "The scanner switch did not save.";
       renderScan();
     });
+  });
+}
+
+const fireAutoBtn = $("fire-auto");
+if (fireAutoBtn) {
+  state.fireAuto = loadFireAuto();
+  renderFireFive();
+  fireAutoBtn.addEventListener("click", () => {
+    const next = !state.fireAuto;
+    saveFireAuto(next);
+    renderFireFive();
+    if (next) {
+      if (state.paper && state.paper.paper === true && !state.auto) {
+        state.auto = true;
+        render(state.paper);
+        autoTick();
+      }
+      $("status").textContent =
+        "Fire 5 Auto is on. Green Fire trades get a Yes warning before each paper buy. Scanner should stay on.";
+      refreshFireFive().catch(() => {});
+    } else {
+      $("status").textContent = "Fire 5 Auto is off. Green Fire signals still show for review.";
+    }
   });
 }
 

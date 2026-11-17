@@ -95,6 +95,12 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Fire 5 · best trades (1.9.81)
+
+- Daily scan lights up to **five green Fire signals** when Ready · Aim · Fire turns **Fire** on a strong scan name.
+- Tap each green name to review the chart, then buy if you want (Confirm still asks).
+- **Fire 5 Auto** watches that list and opens a Yes warning before each paper buy. Paper only. Not a forecast.
+
 ## Big 3 Market Scorecard (1.9.80)
 
 On the computer desk (Markets card + **Big 3 Scorecard** dock):
