@@ -22,9 +22,18 @@ const state = {
   scanOn: true,
   picks: [],
   pickNote: "",
+  fires: [],
+  fireNote: "",
+  fireAuto: false,
+  fireCursor: 0,
+  journalSells: [],
+  journalSellNote: "",
+  journalSellGen: 0,
   leaders: [],
   scanNote: "",
   scanDone: false,
+  scanLearn: { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 },
+  stratLearn: { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 },
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -80,11 +89,16 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.61";
+const VERSION = "1.9.82";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
+const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
+const FILL_LEARN_KEY = "paper_trader_fill_learn_v1";
 const FEE_BPS = 5;
 const SLIP_BPS = 5;
+const SCAN_LEARN_GAP_MS = 12000;
+const SCAN_LEARN_BATCH = 2;
+const STRAT_LEARN_GAP_MS = 14000;
 let learnTouchAt = 0;
 let learnTouchTab = "";
 let learnTouchNote = "";
@@ -379,8 +393,12 @@ function withHooks(items) {
   const edge = inMicrosoftEdge();
   const webPage = state.offline && location.protocol !== "file:";
   applyHook(next, "Edge", edge || webPage, edge ? "This page is in Microsoft Edge" : webPage ? "This browser loads the quotes" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
+  const botOn = !!(state.learnBook && state.learnBook.bot_on);
   const learnDetail = learnTouchNote
-    || (state.offline ? "This symbol, while the page is open. Tabs and strategy clicks score closed bars here." : "Starts when you open the desk, then keeps scoring after that window closes. Tabs and strategy clicks score closed bars now.");
+    || fillTimingNote()
+    || (botOn
+      ? "Bot on · learning all desk pages (scan, strategies, timing) even when tabs are closed. Not a forecast."
+      : "Bot score off for background learning. Open Paper Trader or tick Start the score under Windows extras. Page-open cycles still run here.");
   if (!next.some((item) => item.name === "Learning")) {
     setSignal(next, "Learning", true, learnDetail);
   } else {
@@ -471,9 +489,20 @@ function renderLocalSignals() {
     { name: "Markets", ok: liveNames > 0, detail: liveNames + " live crypto" },
     { name: "Quotes", ok: !!(state.market && state.market.price), detail: state.market && state.market.price ? "Live crypto" : "Waiting on the quote" },
     { name: "Squeeze", ok: !!(state.market && (state.market.squeeze || []).length), detail: "Ready" },
+    { name: "TMO pane", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.trueMomentum, detail: "True momentum 14/5/3" },
+    { name: "CCI pane", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.cciPane, detail: "CCI 50 / 14 / 5" },
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
-    { name: "Learning", ok: true, detail: learnTouchNote || "This symbol, while the page is open" },
+    {
+      name: "Learning",
+      ok: true,
+      detail:
+        learnTouchNote ||
+        fillTimingNote() ||
+        (state.learnBook && state.learnBook.bot_on
+          ? "Bot on · all pages while score runs"
+          : "Page open cycles · turn bot score on for closed pages"),
+    },
     { name: "New process", ok: true, detail: newProcessNote || "Waiting for a closed-bar process change" },
     { name: "Fear and greed", ok: !!(state.market && state.market.bars && state.market.bars.length >= 20), detail: phoneMood() },
     { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
@@ -646,6 +675,56 @@ function bestPicks(rows) {
   return kept;
 }
 
+const FIRE_FIVE_LIMIT = 5;
+const FIRE_AUTO_KEY = "paperTraderFireAuto";
+
+function loadFireAuto() {
+  try {
+    return JSON.parse(localStorage.getItem(FIRE_AUTO_KEY) || "{}").on === true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function saveFireAuto(on) {
+  try {
+    localStorage.setItem(FIRE_AUTO_KEY, JSON.stringify({ on: !!on }));
+  } catch (error) {
+    /* Fire Auto still holds for this page. */
+  }
+  state.fireAuto = !!on;
+}
+
+function bestFires(rows) {
+  // Top Fire BUY setups from the scan: Edge Fire (Ready · Aim · Fire) on strong closed-bar scores.
+  return (rows || [])
+    .filter((row) => row && row.symbol && (row.fire === true || row.edge === "BUY") && row.seen >= 20 && row.rate >= 60)
+    .sort((a, b) => {
+      const aPlus = a.setup === "buy" ? 1 : 0;
+      const bPlus = b.setup === "buy" ? 1 : 0;
+      const aBull = a.big4 === "bull" ? 1 : 0;
+      const bBull = b.big4 === "bull" ? 1 : 0;
+      return b.rate - a.rate || bPlus - aPlus || bBull - aBull || b.seen - a.seen || a.symbol.localeCompare(b.symbol);
+    })
+    .slice(0, FIRE_FIVE_LIMIT);
+}
+
+function fireNoteText(fires, scanning) {
+  const rows = fires || [];
+  if (scanning && !rows.length) {
+    return "Scanning for Fire. When Ready · Aim · Fire turns Fire on a strong name, it lights green here (up to five). Tap to review, then buy if you want.";
+  }
+  if (!rows.length) {
+    return "No Fire 5 signals right now. Waiting for Ready · Aim · Fire to turn Fire on a strong scan name. Paper only. Not a forecast.";
+  }
+  return (
+    rows.length +
+    " Fire trade" +
+    (rows.length === 1 ? "" : "s") +
+    " lit green. Tap each to review the chart and decide. Fire 5 Auto asks Yes before each paper buy. Not a forecast."
+  );
+}
+
 function phoneBuyReason(symbol) {
   if (breakerState().tripped) return BREAKER_STOP;
   if (!state.scanOn && !state.scanDone) return "Turn the scanner on to fill today's best.";
@@ -654,7 +733,9 @@ function phoneBuyReason(symbol) {
   const names = day.names;
   const maxBuys = state.best && state.best.on ? BEST_MAX_BUYS : 5;
   if (names.size >= maxBuys) return "Today already has " + maxBuys + " paper buys.";
-  if (!(state.picks || []).some((row) => row.symbol === symbol)) return "This market is not in today's best.";
+  const onBest = (state.picks || []).some((row) => row.symbol === symbol);
+  const onFire = (state.fires || []).some((row) => row.symbol === symbol);
+  if (!onBest && !onFire) return "This market is not in today's best or Fire 5 list.";
   if (names.has(symbol)) return "This market already has a paper buy today.";
   const bestBlock = bestBuyReason(symbol);
   if (bestBlock) return bestBlock;
@@ -876,6 +957,7 @@ function applyScanBook(book) {
   renderScanToggle();
   renderToday();
   renderScan();
+  refreshFireFive().catch(() => {});
 }
 
 async function setScanner(on) {
@@ -920,16 +1002,21 @@ async function scanPhone() {
   state.scanDone = false;
   state.leaders = [];
   state.picks = [];
+  state.fires = [];
   state.scanNote = "Scanned 0 of " + total + ". " + scanKindNote();
   state.pickNote = "";
+  state.fireNote = fireNoteText([], true);
   renderScan();
   renderToday();
+  renderFireFive();
   const live = () => token === phoneScanToken && state.scanOn;
   const publish = () => {
     const leaders = phoneLeaders(scored, false).slice(0, 10);
     const picks = bestPicks(scored);
+    const fires = bestFires(scored);
     state.leaders = leaders;
     state.picks = picks;
+    state.fires = fires;
     const done = finished === total;
     const score = leaders.length ? "Highest closed-bar scores. Not a forecast." : "No market cleared the bar yet. Not a forecast.";
     state.scanNote = "Scanned " + finished + " of " + total + ". " + scanKindNote() + " " + score + missNote(errors);
@@ -938,9 +1025,14 @@ async function scanPhone() {
         ? "Scan finished. Green signal on each name. Three to five, and no more. Not a forecast."
         : "No market cleared the bar today.")
       : "Ten names, then three to five. Green signals come on when the scan finishes.";
+    state.fireNote = fireNoteText(fires, !done);
     state.scanDone = done;
     renderScan();
     renderToday();
+    renderFireFive();
+    if (done && (leaders.length || picks.length || fires.length)) {
+      cycleScanLearn("scan").catch(() => {});
+    }
   };
   const reader = async () => {
     while (live() && next < total) {
@@ -965,6 +1057,7 @@ async function scanPhone() {
         const seen = Number(lesson && lesson.seen) || 0;
         const matched = Number(lesson && lesson.matched) || 0;
         const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) }) : null;
+        const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
         scored.push({
           symbol,
           seen,
@@ -972,6 +1065,9 @@ async function scanPhone() {
           rate: seen ? Math.round((matched / seen) * 100) : 0,
           setup: alert.kind === "dots" && alert.side === "buy" ? "buy" : "",
           edge: timing && timing.ready ? timing.call : "",
+          fire: fireOn,
+          stage: timing && timing.stage ? timing.stage : "",
+          big4: timing && timing.big4 && timing.big4.bias ? timing.big4.bias : "",
         });
       } catch (error) {
         errors += 1;
@@ -1120,7 +1216,11 @@ async function loadSignals() {
   paintSignals(withHooks(report.items));
   requestAnimationFrame(() => paintSignals(withHooks(report.items)));
   try {
-    await postJSON("/api/learn/watch", { symbols: readPins().concat([state.paper && state.paper.symbol].filter(Boolean)) });
+    await postJSON("/api/learn/watch", {
+      symbols: readPins()
+        .concat([state.paper && state.paper.symbol].filter(Boolean))
+        .concat(topScanLearnNames()),
+    });
     const book = await getJSON("/api/learn");
     const openSymbol = state.paper && state.paper.symbol;
     Object.entries(book.symbols || {}).forEach(([symbol, row]) => {
@@ -1134,9 +1234,15 @@ async function loadSignals() {
     const scanned = Number(book.scanned) || 0;
     const total = Number(book.scan_total) || 0;
     state.scanDone = total > 0 && scanned >= total;
+    state.learnBook = book;
+    if (book.timing) {
+      state.fillLearn = Object.assign(readFillLearn(), { timing: book.timing, fills: book.fills || [] });
+      writeFillLearn(state.fillLearn);
+    }
     renderPins();
     renderToday();
     renderScan();
+    refreshFireFive().catch(() => {});
     document.querySelectorAll("#symbol button").forEach((button) => {
       const symbol = button.dataset.symbol;
       const row = state.moods[symbol];
@@ -1187,8 +1293,7 @@ function stepZoom(which, direction) {
   }
   const count = seenBars().length;
   state.zoom = PaperFrames.zoomStep(state.zoom, direction, count);
-  drawCandles();
-  drawTmo();
+  redrawStudies();
   paintZoom(count);
 }
 
@@ -1245,7 +1350,9 @@ function render(paper) {
   renderQuote(paper);
   paintPositionChip(paper);
   paintTicketPreview();
+  syncDeskInternals();
   syncDeskStatus();
+  if ($("int-body") && (state.int.result || state.int.desk)) renderInternals();
   $("next").disabled = state.auto || paper.finished;
   $("run").disabled = state.auto || paper.finished;
   $("trade").disabled = false;
@@ -1257,7 +1364,10 @@ function render(paper) {
   renderWorking(paper);
   seedTicketPrices(paper);
   announceTicketFills(paper);
-  if (paper.fill && paper.fill.price > 0 && paper.symbol) state.lastFill = { symbol: paper.symbol, text: fillText(paper) };
+  if (paper.fill && paper.fill.price > 0 && paper.symbol) {
+    state.lastFill = { symbol: paper.symbol, text: fillText(paper) };
+    learnFromPaperFill(paper);
+  }
   const fillNode = $("last-fill");
   if (fillNode && state.lastFill && state.lastFill.symbol === paper.symbol && fillNode.textContent !== "Last fill: " + state.lastFill.text) {
     fillNode.textContent = "Last fill: " + state.lastFill.text;
@@ -1274,8 +1384,7 @@ function render(paper) {
   renderScan();
   renderReadings();
   renderFrames();
-  drawCandles();
-  drawTmo();
+  redrawStudies();
 }
 
 function savedSymbol() {
@@ -1330,18 +1439,25 @@ function pinLabel(symbol) {
 
 function renderScoreButtons(bar, rows, signal) {
   const current = (state.paper && state.paper.symbol) || "";
-  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + (row.edge || "") + ":" + row.matched + ":" + row.seen).join(",");
+  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + (row.edge || "") + ":" + (row.fire ? "F" : "") + ":" + row.matched + ":" + row.seen).join(",");
   if (sameStamp(bar, stamp)) return;
   bar.replaceChildren();
   (rows || []).forEach((row) => {
     if (!row || !row.symbol) return;
     const button = document.createElement("button");
     button.type = "button";
-    const ready = row.setup === "buy" ? " buy" : "";
-    const timing = row.edge ? " · " + row.edge : "";
+    const fire = row.fire || row.edge === "BUY";
+    const ready = fire ? " · FIRE" : row.setup === "buy" ? " buy" : "";
+    const timing = !fire && row.edge ? " · " + row.edge : "";
     button.textContent = pinLabel(row.symbol) + " " + row.rate + "%" + ready + timing;
-    button.title = row.matched + " of " + row.seen + " closed bars." + (row.edge ? " Edge " + row.edge + "." : "") + " Not a forecast.";
-    if (signal) button.classList.add("go");
+    button.title =
+      row.matched +
+      " of " +
+      row.seen +
+      " closed bars." +
+      (fire ? " Ready · Aim · Fire is Fire." : row.edge ? " Edge " + row.edge + "." : "") +
+      " Tap to review. Not a forecast.";
+    if (signal || fire) button.classList.add("go");
     if (row.symbol === current) {
       button.classList.add("on");
       button.setAttribute("aria-pressed", "true");
@@ -1349,6 +1465,116 @@ function renderScoreButtons(bar, rows, signal) {
     button.addEventListener("click", () => chooseSymbol(row.symbol));
     bar.appendChild(button);
   });
+}
+
+async function refreshFireFive() {
+  const pool = [];
+  const seen = new Set();
+  []
+    .concat(state.fires || [])
+    .concat(state.picks || [])
+    .concat(state.leaders || [])
+    .forEach((row) => {
+      if (!row || !row.symbol || seen.has(row.symbol)) return;
+      seen.add(row.symbol);
+      pool.push(row);
+    });
+  const targets = pool.slice(0, 12);
+  if (!targets.length) {
+    state.fires = [];
+    state.fireNote = fireNoteText([], !state.scanDone);
+    renderFireFive();
+    return state.fires;
+  }
+  const scored = [];
+  for (let index = 0; index < targets.length; index += 1) {
+    const base = targets[index];
+    const symbol = base.symbol;
+    try {
+      const row = state.catalog.find((item) => item.symbol === symbol);
+      const bars = state.offline
+        ? await sqDaily(symbol)
+        : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
+      const crypto = phoneCrypto(symbol, row);
+      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+      const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
+      scored.push({
+        symbol,
+        seen: Number(base.seen) || 0,
+        matched: Number(base.matched) || 0,
+        rate: Number(base.rate) || 0,
+        setup: base.setup || "",
+        edge: timing && timing.ready ? timing.call : base.edge || "",
+        fire: fireOn,
+        stage: timing && timing.stage ? timing.stage : "",
+        big4: timing && timing.big4 && timing.big4.bias ? timing.big4.bias : "",
+      });
+    } catch (error) {
+      scored.push(Object.assign({}, base, { fire: false }));
+    }
+  }
+  state.fires = bestFires(scored);
+  state.fireNote = fireNoteText(state.fires, !state.scanDone);
+  renderFireFive();
+  return state.fires;
+}
+
+async function fireAutoTrade() {
+  if (!state.fireAuto || !state.paper || state.paper.paper !== true) return "";
+  if (breakerState().tripped) return "";
+  if (confirmWait) return "Waiting for your answer on the open warning.";
+  let fires = state.fires || [];
+  if (!fires.length) {
+    await refreshFireFive();
+    fires = state.fires || [];
+  }
+  if (!fires.length) {
+    state.fireNote = "Fire 5 Auto is on. Waiting for a green Fire signal on the scan.";
+    renderFireFive();
+    return state.fireNote;
+  }
+  const open = state.paper.symbol;
+  let row = fires.find((item) => item.symbol === open);
+  if (!row) {
+    const next = fires[state.fireCursor % fires.length];
+    state.fireCursor = (state.fireCursor + 1) % fires.length;
+    if (next && next.symbol) {
+      await chooseSymbol(next.symbol);
+      return "Fire 5 Auto opened " + next.symbol + " for review.";
+    }
+    return "";
+  }
+  const bars = seenBars();
+  const edgeNow = currentEdge(bars);
+  if (!edgeNow || !edgeNow.ready || edgeNow.call !== "BUY" || edgeNow.stage !== "fire") {
+    state.fireNote = row.symbol + " left the Fire list for now. Watching the other green names.";
+    renderFireFive();
+    return state.fireNote;
+  }
+  if (state.paper.shares > 0) return "";
+  const blocked = phoneBuyReason(row.symbol) || internalsGate(row.symbol);
+  // Fire 5 Auto still requires the name to be on today's best / Fire list; ignore "not in today's best" only if it is on Fire 5.
+  const soft = blocked && blocked.indexOf("not in today's best") >= 0 && fires.some((item) => item.symbol === row.symbol);
+  if (blocked && !soft) {
+    state.fireNote = "Fire 5 Auto skipped " + row.symbol + ": " + blocked;
+    renderFireFive();
+    return state.fireNote;
+  }
+  const board = currentBoard(bars);
+  const edgeRow = board.rows.find((item) => item.id === "edge") || {
+    id: "edge",
+    name: "Edge · Ready · Aim · Fire",
+    ready: true,
+    call: "BUY",
+  };
+  const key = row.symbol + "|fire5|buy|" + closedDate(bars);
+  if (state.strat.acted[key]) return "";
+  state.strat.acted[key] = Date.now();
+  saveStrat();
+  state.fireNote = "Fire 5 green on " + row.symbol + ". Waiting for your Yes on the paper buy.";
+  renderFireFive();
+  answerAuto(edgeRow, "buy", row.symbol, closedDate(bars));
+  return state.fireNote;
 }
 
 function renderScan() {
@@ -1366,6 +1592,244 @@ function renderToday() {
   if (!line || !bar) return;
   line.textContent = state.pickNote || "";
   renderScoreButtons(bar, state.picks || [], !!state.scanDone);
+  renderFireFive();
+}
+
+function renderFireFive() {
+  const line = $("fire-note");
+  const bar = $("fire-five");
+  const button = $("fire-auto");
+  if (line) line.textContent = state.fireNote || fireNoteText(state.fires, !state.scanDone);
+  if (bar) {
+    const rows = (state.fires || []).map((row) =>
+      Object.assign({}, row, {
+        edge: row.edge || (row.fire ? "BUY" : row.edge),
+        setup: row.setup || (row.fire ? "buy" : row.setup),
+      })
+    );
+    // Green as soon as Fire is on — do not wait for the full scan to finish.
+    renderScoreButtons(bar, rows, rows.length > 0);
+  }
+  if (button) {
+    const on = !!state.fireAuto;
+    const ready = on && (state.fires || []).length > 0;
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+    button.className = "fire-auto-btn" + (on ? (ready ? " ready" : " on") : "");
+    button.textContent = on
+      ? ready
+        ? "Fire 5 Auto · " + state.fires.length + " green"
+        : "Fire 5 Auto · waiting for Fire"
+      : "Fire 5 Auto";
+  }
+  paintJournalCheckSync();
+}
+
+function currentBook(paper) {
+  if (state.offline) return phoneBook();
+  return (paper && paper.book) || (state.paper && state.paper.book) || null;
+}
+
+function todayFillRows(book) {
+  const day = denverDay();
+  return ((book && book.fills) || []).filter((item) => {
+    if (!(item && item.at > 0)) return false;
+    return denverDay(new Date(item.at * 1000)) === day;
+  });
+}
+
+function journalBuyRows(book) {
+  const held = new Set((((book && book.positions) || []).map((item) => item.symbol)));
+  const bought = dayBuySymbols().names;
+  const filled = new Set(
+    todayFillRows(book)
+      .filter((item) => item.side === "buy")
+      .map((item) => item.symbol)
+  );
+  const rows = [];
+  const seen = new Set();
+  []
+    .concat(state.fires || [])
+    .concat(state.picks || [])
+    .forEach((row) => {
+      if (!row || !row.symbol || seen.has(row.symbol)) return;
+      seen.add(row.symbol);
+      const fire = !!(row.fire || row.edge === "BUY");
+      let status = "best";
+      if (held.has(row.symbol)) status = "held";
+      else if (bought.has(row.symbol) || filled.has(row.symbol)) status = "bought";
+      else if (fire) status = "fire";
+      rows.push(
+        Object.assign({}, row, {
+          edge: row.edge || (fire ? "BUY" : row.edge),
+          setup: row.setup || (fire ? "buy" : row.setup),
+          fire,
+          journalStatus: status,
+        })
+      );
+    });
+  return rows;
+}
+
+function paintJournalPins(bar, rows, mode) {
+  if (!bar) return;
+  const current = (state.paper && state.paper.symbol) || "";
+  const emptyNote =
+    mode === "buys"
+      ? "No buy signals yet. Fire 5 and today's best light here when Ready · Aim · Fire turns Fire on a strong name."
+      : mode === "sells"
+        ? state.journalSellNote || "No Edge exit signals on open paper longs right now."
+        : "No paper fills yet today (Denver).";
+  const stamp =
+    mode +
+    "|" +
+    current +
+    "|" +
+    ((rows || []).length ? "" : emptyNote + "|") +
+    (rows || [])
+      .map((row) => row.symbol + ":" + (row.journalStatus || "") + ":" + (row.rate || "") + ":" + (row.side || "") + ":" + (row.reason || ""))
+      .join(",");
+  if (sameStamp(bar, stamp)) return;
+  bar.replaceChildren();
+  if (!(rows || []).length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = emptyNote;
+    bar.appendChild(empty);
+    return;
+  }
+  (rows || []).forEach((row) => {
+    if (!row || !row.symbol) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    const label = pinLabel(row.symbol);
+    if (mode === "filled") {
+      const verb = row.side === "buy" ? "Bought" : "Sold";
+      button.textContent = label + " · " + verb + (row.price > 0 ? " " + formatPrice(row.price) : "");
+      button.className = "done";
+      button.title = verb + " today on the paper book. Tap to open the chart. Not a forecast.";
+    } else if (mode === "sells") {
+      button.textContent = label + " · EXIT" + (row.reason ? " · " + row.reason : "");
+      button.className = "exit";
+      button.title = "Edge exit on " + row.symbol + (row.reason ? ": " + row.reason : "") + ". Tap to review. Auto still asks Yes before a paper sell. Not a forecast.";
+    } else {
+      const status = row.journalStatus || "best";
+      const tag = status === "fire" ? " · FIRE" : status === "held" ? " · held" : status === "bought" ? " · bought" : " · best";
+      button.textContent = label + (row.rate != null ? " " + row.rate + "%" : "") + tag;
+      if (status === "fire" || status === "best") button.classList.add("go");
+      else button.classList.add("done");
+      button.title =
+        (status === "fire" ? "Fire buy signal. " : status === "best" ? "Today's best buy candidate. " : status === "held" ? "Already in a paper long. " : "Already bought today. ") +
+        "Tap to review the chart. Auto asks Yes before any paper buy. Not a forecast.";
+    }
+    if (row.symbol === current) {
+      button.classList.add("on");
+      button.setAttribute("aria-pressed", "true");
+    }
+    button.addEventListener("click", () => chooseSymbol(row.symbol));
+    bar.appendChild(button);
+  });
+}
+
+function renderJournalBuys(book) {
+  paintJournalPins($("journal-buys"), journalBuyRows(book || currentBook(state.paper)), "buys");
+}
+
+function renderJournalSells() {
+  paintJournalPins($("journal-sells"), state.journalSells || [], "sells");
+}
+
+function renderJournalFilled(book) {
+  const fills = todayFillRows(book || currentBook(state.paper)).map((item) => ({
+    symbol: item.symbol,
+    side: item.side,
+    price: item.price,
+    journalStatus: "filled",
+  }));
+  paintJournalPins($("journal-filled"), fills, "filled");
+}
+
+function journalCheckNoteText(book) {
+  const buys = journalBuyRows(book);
+  const actionable = buys.filter((row) => row.journalStatus === "fire" || row.journalStatus === "best").length;
+  const sells = (state.journalSells || []).length;
+  const filled = todayFillRows(book).length;
+  const open = ((book && book.positions) || []).length;
+  const parts = [];
+  parts.push(actionable ? actionable + " buy signal" + (actionable === 1 ? "" : "s") + " to review" : "No open buy signals");
+  parts.push(sells ? sells + " sell / exit" + (sells === 1 ? "" : "s") : open ? open + " open · no Edge exit yet" : "No sell signals");
+  parts.push(filled ? filled + " fill" + (filled === 1 ? "" : "s") + " today" : "No fills today");
+  return parts.join(" · ") + ". Tap a product name to open the chart. Paper Yes still required. Not a forecast.";
+}
+
+function paintJournalCheckSync(paper) {
+  const book = currentBook(paper || state.paper);
+  const note = $("journal-check-note");
+  if (note) note.textContent = journalCheckNoteText(book);
+  renderJournalBuys(book);
+  renderJournalSells();
+  renderJournalFilled(book);
+}
+
+function renderJournalCheck(paper) {
+  const book = currentBook(paper || state.paper);
+  paintJournalCheckSync(paper);
+  refreshJournalSells(book);
+}
+
+async function refreshJournalSells(book) {
+  const positions = ((book || currentBook(state.paper) || {}).positions || []).slice();
+  const gen = (state.journalSellGen || 0) + 1;
+  state.journalSellGen = gen;
+  if (!positions.length) {
+    state.journalSells = [];
+    state.journalSellNote = "No open paper longs. Buy fills appear under Open positions.";
+    if (state.journalSellGen === gen) {
+      renderJournalSells();
+      const note = $("journal-check-note");
+      if (note) note.textContent = journalCheckNoteText(book || currentBook(state.paper));
+    }
+    return state.journalSells;
+  }
+  state.journalSellNote = "Checking Edge exits on " + positions.length + " open paper long" + (positions.length === 1 ? "" : "s") + "…";
+  renderJournalSells();
+  const sells = [];
+  for (let index = 0; index < positions.length; index += 1) {
+    if (state.journalSellGen !== gen) return state.journalSells;
+    const item = positions[index];
+    const symbol = item && item.symbol;
+    if (!symbol) continue;
+    try {
+      const row = state.catalog.find((entry) => entry.symbol === symbol);
+      const bars =
+        state.paper && state.paper.symbol === symbol && seenBars().length
+          ? seenBars()
+          : state.offline
+            ? await sqDaily(symbol)
+            : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
+      if (!bars || !bars.length || !PaperFrames.edge) continue;
+      const crypto = phoneCrypto(symbol, row);
+      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+      if (timing && timing.ready && timing.call === "SELL") {
+        sells.push({
+          symbol,
+          reason: timing.reason || "Edge exit",
+          journalStatus: "exit",
+          rate: timing.score != null ? timing.score : "",
+        });
+      }
+    } catch (error) {
+      // Keep honesty: skip inventing an exit when bars or Edge are unavailable.
+    }
+  }
+  if (state.journalSellGen !== gen) return state.journalSells;
+  state.journalSells = sells;
+  state.journalSellNote = sells.length
+    ? sells.length + " open long" + (sells.length === 1 ? "" : "s") + " due for Edge exit. Tap to review; Auto asks Yes before a paper sell."
+    : positions.length + " open long" + (positions.length === 1 ? "" : "s") + " · no Edge exit on the last closed bar.";
+  renderJournalSells();
+  const note = $("journal-check-note");
+  if (note) note.textContent = journalCheckNoteText(book || currentBook(state.paper));
+  return state.journalSells;
 }
 
 function renderResult(paper) {
@@ -1569,10 +2033,7 @@ function showChart() {
   const narrow = window.matchMedia("(max-width: 980px)").matches;
   if (narrow) showPhoneTab("chart");
   requestAnimationFrame(() => {
-    if (state.market && state.paper) {
-      drawCandles();
-      drawTmo();
-    }
+    if (state.market && state.paper) redrawStudies();
   });
 }
 
@@ -1633,6 +2094,12 @@ function chooseSymbol(symbol) {
     await loadMarket(paper.symbol);
     render(paper);
     showChart();
+    if (state.fireAuto && paper.paper === true) {
+      state.auto = true;
+      setTimeout(() => {
+        if (state.auto && !state.autoTimer) autoTick();
+      }, 0);
+    }
     showRead("Opened " + paper.symbol + " on the chart.");
   });
 }
@@ -2144,10 +2611,12 @@ function edgePlan(result) {
   const today = result.live ? " Signals use closed bars only, through " + result.signalDate + ". Today's bar is still forming." : "";
   if (result.filled && result.filled.side === "buy") return "Edge bought at today's open, " + formatPrice(result.filled.price) + ", after the " + result.signalDate + " close. Starting stop " + stop + risk + "." + size + today;
   if (result.filled && result.filled.side === "sell") return "Edge sold at today's open, " + formatPrice(result.filled.price) + (result.reason ? ": " + result.reason : "") + "." + today;
-  if (result.call === "BUY") return "Buy setup on the " + result.signalDate + " close. A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + today;
-  if (result.call === "SELL") return "Sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
+  const stage = result.stage ? " Ready · Aim · Fire is " + result.stage + "." : "";
+  const big4 = result.big4 ? " big4indicator " + (result.big4.label || result.big4.bias) + (result.big4.ok ? " (agrees)" : " (waiting)") + "." : "";
+  if (result.call === "BUY") return "Fire buy on the " + result.signalDate + " close (Edge + big4indicator). A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + stage + big4 + today;
+  if (result.call === "SELL") return "Fire sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
-  return "No buy yet. Edge waits for all five checks to turn on together on a closed bar." + today;
+  return "No Fire yet. Ready at 3 checks, Aim at 4, Fire when all five turn on with big4indicator." + stage + big4 + today;
 }
 
 
@@ -2413,6 +2882,7 @@ function renderBook(paper) {
       : "This device keeps its own paper book. Tap Share paper book, then on the phone open Journal and Load paper book. Load here to bring a phone book back to this computer.";
   }
   paintDayStrip(book);
+  renderJournalCheck(paper);
 }
 
 
@@ -2448,10 +2918,11 @@ function confirmOrder(plan) {
     if (!check.ok) item.className = check.block ? "stop" : "warn";
     list.appendChild(item);
   });
-  const blocked = plan.checks.some((check) => check.block && !check.ok);
+  const blockers = plan.checks.filter((check) => check.block && !check.ok);
+  const blocked = blockers.length > 0;
   $("cm-yes").disabled = blocked;
   $("cm-warn").textContent = blocked
-    ? "This cannot go ahead until the STOP line is fixed. Nothing was traded."
+    ? "This cannot go ahead until these are fixed: " + blockers.map((check) => check.label).join(", ") + ". Nothing was traded."
     : "Do you really want to do this? It is paper money only and nothing goes to a broker.";
   box.hidden = false;
   $("cm-no").focus();
@@ -2463,7 +2934,15 @@ function confirmOrder(plan) {
 function lineUp(side, symbol, source, row) {
   const checks = [];
   const add = (label, ok, detail, block) => checks.push({ label, ok: !!ok, detail, block: !!block });
+  // Best setup gates Auto only. Manual Send paper buy stays usable (no fake "STOP line" lock).
+  const bestBlocks = !!(state.best && state.best.on && source === "auto");
   add("Paper only", state.paper && state.paper.paper === true, "No broker. Nothing real is bought or sold", true);
+  add(
+    "Live locked",
+    !state.paper || state.paper.mode !== "live",
+    "Live stays off. This desk has no broker or bank link",
+    true
+  );
   const safe = state.safe;
   add("Safe check", !safe || safe.safe, safe ? (safe.safe ? "Every safety check passed" : "A safety check failed. Press Safe check to see which") : "Not run yet", !!(safe && !safe.safe));
   if (side === "buy") {
@@ -2471,18 +2950,18 @@ function lineUp(side, symbol, source, row) {
     add("Circuit breaker", !tripped, tripped ? "Tripped. Buys stop until tomorrow" : "Armed, buys allowed", true);
     const held = internalsGate(symbol);
     const read = state.int && state.int.result;
-    add("Internals", !held, held || (read && read.ready ? read.label + " (" + read.score + ")" : "Not read yet"), !!(state.best && state.best.on && held));
+    add("Internals", !held, held || (read && read.ready ? read.label + " (" + read.score + ")" : "Not read yet"), !!(bestBlocks && held));
   }
   const agree = edgeFramesSummary();
   if (agree.total) {
     const want = side === "buy" ? agree.long : agree.short;
     const need = state.best && state.best.on ? Math.ceil((agree.total * 2) / 3) : Math.ceil(agree.total / 2);
-    add("Timeframes", want >= need, "Edge: " + agree.text, !!(state.best && state.best.on && want < need));
+    add("Timeframes", want >= need, "Edge: " + agree.text, !!(bestBlocks && want < need));
   }
   if (state.best && state.best.on && side === "buy") {
     const status = bestSetupStatus();
-    add("Best setup", status.ready, status.detail, true);
-    add("Daily buys", status.roomOk, status.day.count + " of " + BEST_MAX_BUYS + " used today", true);
+    add("Best setup", status.ready, status.detail, bestBlocks);
+    add("Daily buys", status.roomOk, status.day.count + " of " + BEST_MAX_BUYS + " used today", bestBlocks);
   }
   const board = state.board;
   const picked = row || (board && board.rows.find((item) => item.id === state.strat.pick)) || null;
@@ -2674,10 +3153,23 @@ function bestSetupStatus() {
     internals && internals.ready ? "Internals " + internals.label + " " + internals.score : "Internals not ready"
   );
 
+  const desk =
+    bars.length && typeof PaperFrames !== "undefined" && PaperFrames.deskInternals
+      ? PaperFrames.deskInternals(bars, { live: chartCrypto() })
+      : state.int && state.int.desk
+        ? state.int.desk
+        : null;
   const board = bars.length >= 2 ? currentBoard(bars) : null;
   const quad = board && board.rows ? board.rows.find((row) => row.id === "quad") : null;
-  const stackOk = !!(quad && quad.ready && quad.stackOk);
-  const htfOk = !!(quad && quad.ready && quad.weekOk && quad.monthOk);
+  const squeezeOk = !!(desk && desk.ready && desk.squeezeOk) || !!(quad && quad.ready && quad.squeezeOk);
+  const tmoOk = !!(desk && desk.ready && desk.tmoOk) || !!(quad && quad.ready && quad.tmoOk);
+  const big4Ok = !!(desk && desk.ready && desk.big4Ok) || !!(quad && quad.ready && (quad.big4Ok || quad.b4Ok));
+  const stackOk = !!(desk && desk.ready && desk.stackOk) || !!(quad && quad.ready && quad.stackOk);
+  const htfOk =
+    !!(desk && desk.ready && desk.weekOk && desk.monthOk) || !!(quad && quad.ready && quad.weekOk && quad.monthOk);
+  addGate("Squeeze (desk)", squeezeOk, squeezeOk ? "Squeeze fire on" : "Squeeze fire off");
+  addGate("TMO", tmoOk, tmoOk ? "True momentum above signal" : "TMO not above signal");
+  addGate("big4indicator", big4Ok, big4Ok ? "big4indicator agrees" : "big4indicator waiting");
   addGate("SMA stack", stackOk, stackOk ? "SMA stack lined up" : "SMA stack not lined up");
   addGate("Weekly + monthly MTF", htfOk, htfOk ? "Weekly and monthly agree" : "Weekly/monthly multi-TF not both on");
 
@@ -2687,11 +3179,13 @@ function bestSetupStatus() {
 
   const symbol = state.paper && state.paper.symbol;
   let scanOk = false;
-  if (!state.scanDone) addGate("Green scan list", false, "Daily scan still walking");
-  else if (!(state.picks || []).some((row) => row.symbol === symbol)) addGate("Green scan list", false, "Open market is not in today's green best list");
+  const onBest = (state.picks || []).some((row) => row.symbol === symbol);
+  const onFire = (state.fires || []).some((row) => row.symbol === symbol);
+  if (!state.scanDone && !onFire) addGate("Green scan list", false, "Daily scan still walking");
+  else if (!onBest && !onFire) addGate("Green scan list", false, "Open market is not in today's green best or Fire 5 list");
   else {
     scanOk = true;
-    addGate("Green scan list", true, "In today's green best list");
+    addGate("Green scan list", true, onFire ? "In Fire 5 green list" : "In today's green best list");
   }
 
   const asOf = state.market && state.market.as_of;
@@ -2706,19 +3200,34 @@ function bestSetupStatus() {
   const held = !!(state.paper && state.paper.shares > 0);
   if (held) waiting.unshift("Already in a paper long — Best setup buys wait; Edge SELL can still exit");
 
-  const ready = !!(state.best && state.best.on) && edgeOk && mtfOk && intOk && stackOk && htfOk && roomOk && scanOk && quoteOk && moodOk && !held;
+  const deskOk = squeezeOk && tmoOk && big4Ok && stackOk && htfOk;
+  const ready =
+    !!(state.best && state.best.on) &&
+    edgeOk &&
+    mtfOk &&
+    intOk &&
+    deskOk &&
+    roomOk &&
+    scanOk &&
+    quoteOk &&
+    moodOk &&
+    !held;
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
-      ? "Ready · Edge 5/5 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
+      ? "Ready · Edge 5/5 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
       : "Armed · waiting: " + waiting.slice(0, 3).join("; ");
   return {
     ready,
     edgeOk,
     mtfOk,
     intOk,
+    squeezeOk,
+    tmoOk,
+    big4Ok,
     stackOk,
     htfOk,
+    deskOk,
     roomOk,
     scanOk,
     quoteOk,
@@ -2729,6 +3238,7 @@ function bestSetupStatus() {
     detail,
     frames,
     internals,
+    desk,
     day,
   };
 }
@@ -2756,7 +3266,7 @@ function renderBestSetup() {
   button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
   note.textContent = on
     ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Strictest paper buys only: Edge all five, multi-TF majority, supportive internals, SMA stack + weekly/monthly MTF, green scan list, fresh quote, not extreme greed, max three buys a Denver day. Still asks Yes. Not a forecast.";
+    : "Off. Strictest paper buys only: Edge all five, multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, max three buys a Denver day. Still asks Yes. Not a forecast.";
   if (list) {
     list.replaceChildren();
     list.hidden = !on;
@@ -2856,7 +3366,7 @@ function cardLine(row) {
     const legs = [
       row.squeezeOk ? "Squeeze fire on" : "Squeeze fire off",
       row.tmoOk ? "TMO on" : "TMO off",
-      row.b4Ok ? "B4 on" : "B4 off",
+      row.big4Ok || row.b4Ok ? "big4indicator on" : "big4indicator off",
       row.stackOk ? "SMA stack on" : "SMA stack off",
       row.weekOk ? "Weekly on" : "Weekly off",
       row.monthOk ? "Monthly on" : "Monthly off",
@@ -3055,25 +3565,66 @@ function announceNewProcess(symbol, rule, previous) {
   }
 }
 
-function touchPhoneLearn(tab, symbols) {
+function topScanLearnNames() {
+  const rows = (state.picks && state.picks.length ? state.picks : state.leaders) || [];
+  const names = [];
+  rows.forEach((row) => {
+    const symbol = row && row.symbol;
+    if (symbol && names.indexOf(symbol) < 0) names.push(symbol);
+  });
+  return names;
+}
+
+function nextScanLearnBatch(size) {
+  const list = topScanLearnNames();
+  const count = Math.max(1, Math.min(Number(size) || SCAN_LEARN_BATCH, 5));
+  if (!list.length) return [];
+  const out = [];
+  let cursor = Number((state.scanLearn && state.scanLearn.cursor) || 0);
+  for (let step = 0; step < count; step += 1) {
+    out.push(list[cursor % list.length]);
+    cursor += 1;
+  }
+  if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
+  state.scanLearn.cursor = cursor % list.length;
+  state.scanLearn.lastSymbol = out[out.length - 1] || "";
+  return out;
+}
+
+async function barsForLearn(symbol) {
+  if (!symbol) return null;
+  if (state.market && state.market.symbol === symbol && state.market.bars) return state.market.bars;
+  if (state.session && state.session.symbol === symbol && state.session.bars) return state.session.bars;
+  try {
+    if (state.offline) {
+      const row = state.catalog.find((item) => item.symbol === symbol);
+      return await PaperLive.daily(symbol, row ? row.category : "");
+    }
+    const payload = await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D");
+    return (payload && payload.bars) || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function touchPhoneLearn(tab, symbols) {
   const book = readPhoneLearn();
-  const current = state.paper && state.paper.symbol;
+  const scanCycle = tab === "scan" || tab === "auto";
   const targets = [];
-  if (current) targets.push(current);
+  if (!scanCycle && state.paper && state.paper.symbol) targets.push(state.paper.symbol);
   (symbols || []).forEach((symbol) => {
     if (symbol && targets.indexOf(symbol) < 0) targets.push(symbol);
   });
   let scored = [];
   let newest = null;
-  targets.slice(0, 3).forEach((symbol) => {
+  const limit = scanCycle ? SCAN_LEARN_BATCH : 3;
+  for (const symbol of targets.slice(0, limit)) {
     try {
-      let bars = null;
-      if (state.market && state.market.symbol === symbol) bars = state.market.bars;
-      else if (state.session && state.session.symbol === symbol && state.session.bars) bars = state.session.bars;
-      if (!bars || !bars.length || typeof PaperFrames === "undefined") return;
+      const bars = await barsForLearn(symbol);
+      if (!bars || !bars.length || typeof PaperFrames === "undefined") continue;
       const settled = PaperFrames.closedBars(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol)));
       const lesson = PaperFrames.lesson(settled);
-      if (!lesson) return;
+      if (!lesson) continue;
       const previous = String((book.symbols[symbol] && book.symbols[symbol].rule) || "");
       book.symbols[symbol] = {
         rule: lesson.rule,
@@ -3084,6 +3635,7 @@ function touchPhoneLearn(tab, symbols) {
         setup: lesson.setup || "",
         tab: tab || "",
       };
+      if (lesson.mood) state.moods[symbol] = lesson.mood;
       book.passes = (Number(book.passes) || 0) + 1;
       book.last_symbol = symbol;
       scored.push(symbol);
@@ -3096,16 +3648,17 @@ function touchPhoneLearn(tab, symbols) {
         book.last_process = history[history.length - 1];
       }
     } catch (error) {
-      return;
+      continue;
     }
-  });
+  }
   book.updated = Date.now();
   book.last_touch_tab = tab || "";
   writePhoneLearn(book);
   if (newest) {
     announceNewProcess(newest.symbol, newest.rule, newest.previous);
   } else if (scored.length) {
-    learnTouchNote = "Scored " + scored.join(", ") + " from " + (tab || "desk") + ". Closed bars only. Not a forecast.";
+    const prefix = scanCycle ? "Scan learn scored " : "Scored ";
+    learnTouchNote = prefix + scored.join(", ") + " from " + (tab || "desk") + ". Closed bars only. Not a forecast.";
     refreshLearnSignal();
   }
   return scored;
@@ -3124,21 +3677,23 @@ function refreshLearnSignal() {
 }
 
 async function nudgeLearn(tab, extraSymbols) {
-  const symbols = readPins()
-    .concat([state.paper && state.paper.symbol].filter(Boolean))
-    .concat(Array.isArray(extraSymbols) ? extraSymbols : []);
+  const scanCycle = tab === "scan" || tab === "auto";
+  const symbols = scanCycle
+    ? [].concat(Array.isArray(extraSymbols) ? extraSymbols : [])
+    : readPins()
+        .concat([state.paper && state.paper.symbol].filter(Boolean))
+        .concat(Array.isArray(extraSymbols) ? extraSymbols : []);
   const unique = [];
   symbols.forEach((symbol) => {
     if (symbol && unique.indexOf(symbol) < 0) unique.push(symbol);
   });
   const now = Date.now();
-  const gap = tab === "auto" ? 30000 : 900;
+  const gap = tab === "auto" || tab === "scan" ? SCAN_LEARN_GAP_MS : 900;
   if (tab === learnTouchTab && now - learnTouchAt < gap) return;
   learnTouchAt = now;
   learnTouchTab = tab || "";
   if (state.offline) {
-    touchPhoneLearn(tab, unique);
-    return;
+    return touchPhoneLearn(tab, unique);
   }
   try {
     const book = await postJSON("/api/learn/touch", { tab: tab || "", symbols: unique });
@@ -3151,9 +3706,291 @@ async function nudgeLearn(tab, extraSymbols) {
       learnTouchNote = book.touch_note;
       refreshLearnSignal();
     }
+    return book.touched || [];
   } catch (error) {
-    return;
+    return [];
   }
+}
+
+async function cycleScanLearn(reason) {
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return [];
+  const list = topScanLearnNames();
+  if (!list.length) {
+    learnTouchNote = "Learning waits for Daily scan names. Closed bars only. Not a forecast.";
+    refreshLearnSignal();
+    return [];
+  }
+  const now = Date.now();
+  if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
+  if (now - (state.scanLearn.lastAt || 0) < SCAN_LEARN_GAP_MS) return [];
+  const batch = nextScanLearnBatch(SCAN_LEARN_BATCH);
+  state.scanLearn.lastAt = now;
+  const scored = await nudgeLearn(reason || "scan", batch);
+  const done = Array.isArray(scored) ? scored : batch;
+  if (done && done.length) {
+    state.scanLearn.scored = (state.scanLearn.scored || []).concat(done).slice(-40);
+    if (!state.offline) {
+      try {
+        await postJSON("/api/learn/watch", { symbols: list.concat(readPins()) });
+      } catch (error) {
+        /* Background watch update is best-effort. */
+      }
+    }
+    if (!learnTouchNote || reason === "scan" || reason === "auto") {
+      learnTouchNote =
+        "Scan learn " +
+        done.join(", ") +
+        " · " +
+        list.length +
+        " top names cycling (page open). Background score keeps those names after the desk closes. Closed bars only. Not a forecast.";
+      refreshLearnSignal();
+    }
+  }
+  return done || [];
+}
+
+function readStratLearn() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STRAT_LEARN_KEY) || "{}");
+    return raw && typeof raw.symbols === "object" && raw.symbols ? raw : { version: 1, symbols: {}, passes: 0 };
+  } catch (error) {
+    return { version: 1, symbols: {}, passes: 0 };
+  }
+}
+
+function writeStratLearn(book) {
+  try {
+    localStorage.setItem(STRAT_LEARN_KEY, JSON.stringify(book));
+  } catch (error) {
+    /* Strategy learn still holds for this page. */
+  }
+}
+
+async function cycleStrategyLearn() {
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return "";
+  if (typeof PaperFrames === "undefined" || !PaperFrames.strategies) return "";
+  const now = Date.now();
+  if (!state.stratLearn) state.stratLearn = { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 };
+  if (now - (state.stratLearn.lastAt || 0) < STRAT_LEARN_GAP_MS) return "";
+  const list = topScanLearnNames();
+  const open = (state.paper && state.paper.symbol) || "";
+  const queue = list.length ? list.slice() : open ? [open] : [];
+  if (!queue.length) {
+    learnTouchNote = "Strategy learn waits for a market or Daily scan names. Page open only. Closed bars only. Not a forecast.";
+    refreshLearnSignal();
+    return "";
+  }
+  const symbol = queue[state.stratLearn.cursor % queue.length];
+  state.stratLearn.cursor += 1;
+  state.stratLearn.lastAt = now;
+  state.stratLearn.lastSymbol = symbol;
+  const bars = await barsForLearn(symbol);
+  if (!bars || !bars.length) return "";
+  const row = state.catalog.find((item) => item.symbol === symbol);
+  const settled = PaperFrames.closedBars(bars, phoneCrypto(symbol, row));
+  if (settled.length < 2) return "";
+  const board = PaperFrames.strategies(settled, { live: false });
+  const snapshot = {
+    at: now,
+    best: board.best || "",
+    rows: (board.rows || []).map((item) => ({
+      id: item.id,
+      name: item.name,
+      call: item.call,
+      ready: !!item.ready,
+      trades: item.trades || 0,
+      winRate: item.winRate || 0,
+      total: item.total || 0,
+      hold: item.hold || 0,
+      worst: item.worst || 0,
+    })),
+  };
+  const book = readStratLearn();
+  book.symbols[symbol] = snapshot;
+  book.passes = (Number(book.passes) || 0) + 1;
+  book.updated = now;
+  book.last_symbol = symbol;
+  writeStratLearn(book);
+  state.stratLearn.passes = book.passes;
+  state.stratLearn.lastId = snapshot.best || "";
+  if (open && symbol === open) {
+    state.boardKey = "";
+    state.board = board;
+    try {
+      renderStrategies();
+    } catch (error) {
+      /* Chart can refresh on the next paint. */
+    }
+  }
+  const best = (board.rows || []).find((item) => item.id === board.best);
+  learnTouchNote =
+    "Strategy learn " +
+    symbol +
+    " · " +
+    snapshot.rows.length +
+    " strategies on closed bars" +
+    (best ? " · best " + best.name : "") +
+    ". Page open for strategy table. Background score covers scan names after the desk closes. Not a forecast.";
+  refreshLearnSignal();
+  nudgeLearn("strategies", [symbol]);
+  return symbol;
+}
+
+function readFillLearn() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FILL_LEARN_KEY) || "{}");
+    return raw && typeof raw === "object" ? raw : { version: 1, fills: [], timing: {} };
+  } catch (error) {
+    return { version: 1, fills: [], timing: {} };
+  }
+}
+
+function writeFillLearn(book) {
+  try {
+    localStorage.setItem(FILL_LEARN_KEY, JSON.stringify(book));
+  } catch (error) {
+    /* Fill learn still holds for this page. */
+  }
+}
+
+function fillTimingNote() {
+  const timing = (state.fillLearn && state.fillLearn.timing) || readFillLearn().timing || {};
+  if (timing.note) return String(timing.note);
+  if (timing.prefer_fire) return "Paper fills prefer Ready · Aim · Fire buys. Closed bars only. Not a forecast.";
+  return "";
+}
+
+function preferFireFromFills() {
+  const timing = (state.fillLearn && state.fillLearn.timing) || readFillLearn().timing || {};
+  if (typeof timing.prefer_fire === "boolean") return timing.prefer_fire;
+  const buy = timing.buy || {};
+  const sell = timing.sell || {};
+  if ((Number(sell.wins) || 0) > 0 && (Number(buy.setup_buys) || 0) > 0) return true;
+  const count = Number(buy.count) || 0;
+  return count >= 3 && (Number(buy.setup_buys) || 0) >= Math.max(1, Math.floor(count / 2));
+}
+
+function learnFromPaperFill(paper) {
+  const fill = paper && paper.fill;
+  if (!fill || !(fill.price > 0) || !paper.symbol) return null;
+  const stamp = paper.symbol + "|" + fill.side + "|" + String(fill.at || "") + "|" + String(fill.price);
+  if (state.lastFillLearnKey === stamp) return null;
+  state.lastFillLearnKey = stamp;
+  const bars = seenBars();
+  const edge = bars.length ? currentEdge(bars) : null;
+  const board = bars.length >= 2 ? currentBoard(bars) : null;
+  const picked = board && board.rows ? board.rows.find((item) => item.id === ((state.best && state.best.on && "edge") || state.strat.pick)) : null;
+  const event = {
+    at: fill.at || Date.now() / 1000,
+    symbol: paper.symbol,
+    side: fill.side,
+    price: fill.price,
+    pnl: Number(fill.pnl) || 0,
+    reason: fill.reason || "",
+    as_of: closedDate(bars) || fill.as_of || "",
+    stage: edge && edge.stage ? edge.stage : "",
+    score: edge && edge.score != null ? edge.score : null,
+    big4: edge && edge.big4 ? edge.big4.bias : "",
+    strategy: picked ? picked.id : state.strat.pick || "",
+    call: picked ? picked.call : "",
+    process: fill.process || "",
+    setup: fill.setup || "",
+  };
+  const book = readFillLearn();
+  book.fills = (Array.isArray(book.fills) ? book.fills : []).concat([event]).slice(-200);
+  const timing = Object.assign({}, book.timing || {});
+  const key = event.side === "buy" ? "buy" : "sell";
+  const row = Object.assign({ count: 0, wins: 0, setup_buys: 0, fire: 0 }, timing[key] || {});
+  row.count = (Number(row.count) || 0) + 1;
+  if (event.side === "sell" && event.pnl > 0) row.wins = (Number(row.wins) || 0) + 1;
+  if (event.side === "buy" && (event.setup === "buy" || event.stage === "fire")) {
+    row.setup_buys = (Number(row.setup_buys) || 0) + 1;
+    if (event.stage === "fire") row.fire = (Number(row.fire) || 0) + 1;
+  }
+  timing[key] = row;
+  const buyStats = timing.buy || {};
+  const sellStats = timing.sell || {};
+  timing.prefer_fire =
+    (Number(sellStats.wins) || 0) > 0 && (Number(buyStats.setup_buys) || 0) > 0
+      ? true
+      : (Number(buyStats.count) || 0) >= 3 && (Number(buyStats.setup_buys) || 0) >= Math.max(1, Math.floor((Number(buyStats.count) || 0) / 2))
+        ? true
+        : (Number(buyStats.fire) || 0) > 0;
+  timing.note =
+    "Learned paper " +
+    event.side +
+    " on " +
+    event.symbol +
+    (event.stage ? " · " + event.stage : "") +
+    ". " +
+    (timing.prefer_fire ? "Prefer Ready · Aim · Fire for the next precise buy. " : "Gathering fill timing. ") +
+    "Closed bars only. Not a forecast.";
+  book.timing = timing;
+  book.updated = Date.now();
+  writeFillLearn(book);
+  state.fillLearn = book;
+  learnTouchNote = timing.note;
+  refreshLearnSignal();
+  nudgeLearn("fills", [paper.symbol]);
+  return event;
+}
+
+function deskLearnPages() {
+  // Auto-includes every dock tab and phone tab present in the shipped UI.
+  const pages = [];
+  const push = (id) => {
+    if (id && pages.indexOf(id) < 0) pages.push(id);
+  };
+  ["markets", "chart", "trade", "study"].forEach(push);
+  document.querySelectorAll(".dock-tab[data-dock]").forEach((button) => push(button.dataset.dock));
+  document.querySelectorAll(".tabbar [data-tab]").forEach((button) => push(button.dataset.tab));
+  ((state.learnBook && state.learnBook.desk_pages) || []).forEach((row) => push(row && row.id));
+  return pages;
+}
+
+async function cycleDeskPageLearn() {
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return "";
+  const pages = deskLearnPages();
+  if (!pages.length) return "";
+  if (!state.pageLearn) state.pageLearn = { cursor: 0, lastAt: 0, lastPage: "" };
+  const now = Date.now();
+  if (now - (state.pageLearn.lastAt || 0) < SCAN_LEARN_GAP_MS) return state.pageLearn.lastPage || "";
+  const page = pages[state.pageLearn.cursor % pages.length];
+  state.pageLearn.cursor += 1;
+  state.pageLearn.lastAt = now;
+  state.pageLearn.lastPage = page;
+  const batch = topScanLearnNames().slice(0, 2);
+  await nudgeLearn(page, batch);
+  learnTouchNote =
+    "Desk page learn · " +
+    page +
+    " (" +
+    pages.length +
+    " sections). Bot-on covers scrolled-away pages too. Closed bars only. Not a forecast.";
+  refreshLearnSignal();
+  return page;
+}
+
+function startScanLearnLoop() {
+  if (state.scanLearn && state.scanLearn.timer) return;
+  if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
+  let turn = 0;
+  const tick = async () => {
+    try {
+      if (typeof document === "undefined" || document.visibilityState !== "hidden") {
+        const step = turn % 3;
+        if (step === 0) await cycleScanLearn(state.auto ? "auto" : "scan");
+        else if (step === 1) await cycleStrategyLearn();
+        else await cycleDeskPageLearn();
+        turn += 1;
+      }
+    } catch (error) {
+      /* Keep the page-open cycle alive. */
+    }
+    const wait = state.auto ? SCAN_LEARN_GAP_MS : SCAN_LEARN_GAP_MS + 4000;
+    state.scanLearn.timer = setTimeout(tick, wait);
+  };
+  state.scanLearn.timer = setTimeout(tick, 2500);
 }
 
 function renderStratDetail(board) {
@@ -3291,6 +4128,25 @@ async function autoTrade() {
   const held = state.paper.shares > 0;
   const want = row.call === "BUY" && !held ? "buy" : row.call === "SELL" && held ? "sell" : "";
   if (!want) return "";
+  // Edge Auto buys only on Fire. Prefer big4indicator + fill-learned precise timing.
+  if (pickId === "edge" && want === "buy") {
+    const edgeNow = currentEdge(bars);
+    if (!edgeNow || !edgeNow.ready || edgeNow.call !== "BUY" || edgeNow.stage !== "fire") {
+      state.strat.note = "Edge Auto waiting for Fire (Ready · Aim · Fire).";
+      renderAutoNote();
+      return state.strat.note;
+    }
+    if (edgeNow.big4 && edgeNow.big4.bias !== "bull") {
+      state.strat.note = "Edge Fire is on, waiting for big4indicator bullish agreement before Auto buy.";
+      renderAutoNote();
+      return state.strat.note;
+    }
+    if (preferFireFromFills() && edgeNow.parts && !Object.values(edgeNow.parts).every(Boolean)) {
+      state.strat.note = "Fill learn wants every Edge check on for the most precise Fire buy.";
+      renderAutoNote();
+      return state.strat.note;
+    }
+  }
   const key = state.paper.symbol + "|" + row.id + "|" + want + "|" + closedDate(bars) + (state.best && state.best.on ? "|best" : "");
   if (state.strat.acted[key]) return "";
   if (want === "buy") {
@@ -3313,7 +4169,7 @@ async function autoTrade() {
   if (confirmWait) return "Waiting for your answer on the open warning.";
   state.strat.acted[key] = Date.now();
   saveStrat();
-  state.strat.note = row.name + " signal: paper " + want + ". Waiting for your Yes.";
+  state.strat.note = row.name + (pickId === "edge" ? " Fire" : "") + " signal: paper " + want + ". Waiting for your Yes.";
   renderAutoNote();
   answerAuto(row, want, state.paper.symbol, closedDate(bars));
   return state.strat.note;
@@ -3490,6 +4346,12 @@ async function phoneSafe() {
   }
   add("Live locked", locked, "No broker or bank link. Every order is paper");
   add("Paper only", !state.paper || state.paper.paper === true, "Paper mode is on");
+  add("Second warning", true, "Every paper buy and sell still asks Yes, including Auto");
+  add(
+    "No invented breadth",
+    true,
+    "NYSE TICK, ADD, TRIN, and VOLD stay blank until a real feed exists. Nothing is guessed"
+  );
   let rules = true;
   try {
     const market = 100.05;
@@ -3523,7 +4385,15 @@ async function phoneSafe() {
   }
   add("Paper book saves", saves, saves ? "This browser keeps positions and fills" : "This browser blocks saving. Positions last until the page closes");
   add("Quotes", !!state.market, state.market ? "A real quote is loaded" : "Waiting on the quote", "health");
-  add("Learning", true, "Runs only while this page is open", "health");
+  const botOn = !!(state.learnBook && state.learnBook.bot_on);
+  add(
+    "Learning",
+    true,
+    botOn
+      ? "Bot on · every desk section (Study, Strategies, Squeeze, Internals, Timeframes, big4indicator, Journal, Backtest, Signals, Markets, Chart, Trade) keeps learning on closed bars even when scrolled away. New shipped pages/strategies auto-join. Not a broker."
+      : "Bot score off. Open Paper Trader to start it, or tick Start the score under Windows extras. Page-open learning still runs in this tab.",
+    "health"
+  );
   return { safe: items.filter((item) => item.kind === "safety").every((item) => item.ok), items };
 }
 
@@ -3794,6 +4664,268 @@ function renderSqueeze() {
 }
 
 
+state.sc = { busy: false, stop: false, result: null, at: 0, error: "", progress: "" };
+
+function scorecardBiasClass(bias) {
+  const text = String(bias || "").toLowerCase();
+  if (text.indexOf("swing") >= 0) return "swing";
+  if (text.indexOf("day") >= 0) return "day";
+  if (text.indexOf("flat") >= 0) return "flat";
+  return "";
+}
+
+function renderScorecardCard() {
+  const bias = $("scorecard-bias");
+  const blurb = $("scorecard-blurb");
+  if (!bias) return;
+  const result = state.sc && state.sc.result;
+  if (!result || !result.day) {
+    bias.className = "scorecard-bias";
+    bias.textContent = state.sc && state.sc.busy
+      ? (state.sc.progress || "Reading scorecard…")
+      : "Press Run scorecard for rankings, A+ squeezes, and day bias.";
+    if (blurb) {
+      blurb.textContent =
+        "Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.";
+    }
+    return;
+  }
+  const day = result.day;
+  bias.className = "scorecard-bias " + scorecardBiasClass(day.bias);
+  bias.textContent = "Day bias · " + day.bias;
+  if (blurb) {
+    const topIndex = result.indexes && result.indexes[0] ? result.indexes[0].symbol : "—";
+    const topSector = result.sectors && result.sectors[0] ? result.sectors[0].symbol : "—";
+    const aPlus = (result.aPlus || []).length;
+    blurb.textContent =
+      day.why +
+      " Leader index " +
+      topIndex +
+      ", leader sector " +
+      topSector +
+      ", " +
+      aPlus +
+      " A+ squeeze" +
+      (aPlus === 1 ? "" : "s") +
+      ". Closed bars only.";
+  }
+}
+
+function fillScorecardRankBody(bodyId, rows) {
+  const body = $(bodyId);
+  if (!body) return;
+  body.replaceChildren();
+  if (!(rows && rows.length)) {
+    const empty = document.createElement("tr");
+    addCells(empty, ["", "No closed-bar ranking yet.", "", "", ""]);
+    body.appendChild(empty);
+    return;
+  }
+  rows.forEach((row, index) => {
+    const tr = document.createElement("tr");
+    const ret = row.ret5 != null ? (row.ret5 * 100).toFixed(1) + "%" : "—";
+    addCells(tr, [
+      String(index + 1),
+      row.symbol,
+      String(row.score),
+      { text: ret, cls: row.ret5 > 0 ? "up" : row.ret5 < 0 ? "down" : "" },
+      row.stacked ? "Up" : "Off",
+    ]);
+    tr.addEventListener("click", () => chooseSymbol(row.symbol));
+    body.appendChild(tr);
+  });
+}
+
+function renderScorecard() {
+  renderScorecardCard();
+  const result = state.sc && state.sc.result;
+  const note = $("sc-note");
+  const dayBias = $("sc-day-bias");
+  const dayWhy = $("sc-day-why");
+  if (dayBias) {
+    if (result && result.day) {
+      dayBias.className = "scorecard-bias " + scorecardBiasClass(result.day.bias);
+      dayBias.textContent = "Day bias · " + result.day.bias;
+      if (dayWhy) dayWhy.textContent = result.day.why;
+    } else {
+      dayBias.className = "scorecard-bias";
+      dayBias.textContent = state.sc && state.sc.busy ? "Day bias · reading…" : "Day bias · waiting";
+      if (dayWhy) dayWhy.textContent = "";
+    }
+  }
+  if (result) {
+    fillScorecardRankBody("sc-indexes", result.indexes);
+    fillScorecardRankBody("sc-sectors", result.sectors);
+  }
+  const aBody = $("sc-aplus");
+  if (aBody) {
+    aBody.replaceChildren();
+    const rows = (result && result.aPlus) || [];
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      addCells(tr, ["", "No A+ squeezes right now. A quiet list is a normal answer.", "", "", "", "", "", ""]);
+      aBody.appendChild(tr);
+    } else {
+      rows.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        const open = document.createElement("button");
+        open.type = "button";
+        open.textContent = "Open";
+        open.addEventListener("click", (event) => {
+          event.stopPropagation();
+          chooseSymbol(row.symbol);
+        });
+        addCells(tr, [
+          String(index + 1),
+          row.symbol,
+          row.state || "—",
+          String(row.dots != null ? row.dots : "—"),
+          PaperFrames.squeezeName(row.level || 0),
+          row.triple ? "Yes" : "—",
+          String(row.score != null ? row.score : "—"),
+          open,
+        ]);
+        aBody.appendChild(tr);
+      });
+    }
+  }
+  const aNote = $("sc-aplus-note");
+  if (aNote) {
+    aNote.textContent = result
+      ? (result.aPlus || []).length +
+        " A+ squeeze" +
+        ((result.aPlus || []).length === 1 ? "" : "s") +
+        " after the strict desk filter (score 80+, rising bullish momentum, stacked averages, mid/high compression or five+ dots)."
+      : "Strict desk filter on the starter squeeze list. Empty is a normal answer.";
+  }
+  if (note) {
+    if (state.sc && state.sc.busy) note.textContent = state.sc.progress || "Reading scorecard…";
+    else if (state.sc && state.sc.error) note.textContent = state.sc.error;
+    else if (result) {
+      const when = state.sc.at
+        ? new Date(state.sc.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
+        : "";
+      note.textContent =
+        "Scorecard ready" +
+        (result.asOf ? " as of " + result.asOf : "") +
+        (when ? " · read " + when + " Denver" : "") +
+        ". Closed bars only. Not a forecast.";
+    }
+  }
+}
+
+function scorecardPublish(box, indexes, sectors, bars, squeezes, progress) {
+  box.progress = progress || "";
+  box.result = PaperFrames.marketScorecard({
+    bars,
+    internals: state.int.result,
+    squeezes: squeezes || [],
+    indexSymbols: indexes,
+    sectorSymbols: sectors,
+  });
+  box.at = Date.now();
+  renderScorecard();
+}
+
+async function runScorecard() {
+  const box = state.sc;
+  if (box.busy) return;
+  box.busy = true;
+  box.stop = false;
+  box.error = "";
+  box.progress = "Reading indexes and sectors first…";
+  renderScorecard();
+  // Internals can refresh in the background; don't block the scorecard on a full gauge walk.
+  loadInternals(false).catch(() => {});
+  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(5000);
+  try {
+    const indexes = PaperFrames.SCORECARD_INDEXES.slice();
+    const sectors = PaperFrames.SCORECARD_SECTORS.slice();
+    // Phone/computer: rank boards first, then A+ from the shorter sectors/starter overlap.
+    const squeezeList = SQ_LISTS.sectors.slice();
+    const primary = [];
+    const rest = [];
+    const seen = new Set();
+    indexes.concat(sectors).forEach((symbol) => {
+      if (!seen.has(symbol)) {
+        seen.add(symbol);
+        primary.push(symbol);
+      }
+    });
+    squeezeList.forEach((symbol) => {
+      if (!seen.has(symbol)) {
+        seen.add(symbol);
+        rest.push(symbol);
+      }
+    });
+    const need = primary.concat(rest);
+    const bars = {};
+    let next = 0;
+    let done = 0;
+    const workers = Math.min(state.offline ? 2 : 3, Math.max(1, need.length));
+    const worker = async () => {
+      while (!box.stop && next < need.length) {
+        const symbol = need[next];
+        next += 1;
+        try {
+          bars[symbol] = await sqDaily(symbol);
+        } catch (error) {
+          /* Missing quote stays out of the ranking. */
+        }
+        done += 1;
+        box.progress = "Reading daily bars: " + done + " of " + need.length + "…";
+        if (done === primary.length || done % 4 === 0 || done === need.length) {
+          scorecardPublish(box, indexes, sectors, bars, [], box.progress);
+        } else {
+          renderScorecardCard();
+          if ($("sc-note")) $("sc-note").textContent = box.progress;
+        }
+        await new Promise((resolve) => setTimeout(resolve, state.offline ? 120 : 40));
+      }
+    };
+    await Promise.all(Array.from({ length: workers }, () => worker()));
+    if (box.stop) {
+      box.progress = "Scorecard stopped.";
+      return;
+    }
+    const squeezes = [];
+    squeezeList.forEach((symbol) => {
+      const list = bars[symbol];
+      if (!list || !list.length) return;
+      const read = PaperFrames.squeezeRead(list, {
+        live: PaperFrames.liveBar(list, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol))),
+      });
+      if (!read || !read.ready || read.state === "OFF") return;
+      const sector = SQ_SECTOR[symbol];
+      const indexSym = sqIndexOf(symbol);
+      const sectorOn = !!(sector && bars[sector] && (() => {
+        const parent = PaperFrames.squeezeRead(bars[sector]);
+        return parent && parent.ready && parent.state === "ON";
+      })());
+      const indexOn = !!(indexSym && bars[indexSym] && (() => {
+        const parent = PaperFrames.squeezeRead(bars[indexSym]);
+        return parent && parent.ready && parent.state === "ON";
+      })());
+      const scored = PaperFrames.squeezeScore(read, { sector: sectorOn, index: indexOn });
+      squeezes.push({
+        symbol,
+        read,
+        scored,
+        sector: sector || "",
+        index: indexSym || "",
+      });
+    });
+    scorecardPublish(box, indexes, sectors, bars, squeezes, "");
+    box.progress = "";
+  } catch (error) {
+    box.error = error.message || String(error);
+  } finally {
+    box.busy = false;
+    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    renderScorecard();
+  }
+}
+
 const INT_KEY = "paper_trader_internals_v1";
 const INT_GAUGES = ["^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP"];
 
@@ -3805,16 +4937,35 @@ function loadIntGate() {
   }
 }
 
-state.int = { gate: loadIntGate(), result: null, at: 0, busy: false, error: "" };
+state.int = { gate: loadIntGate(), result: null, desk: null, at: 0, busy: false, error: "" };
 
 async function internalBars(symbol) {
   if (state.offline && INT_GAUGES.includes(symbol)) return PaperLive.gauge(symbol);
   return sqDaily(symbol);
 }
 
+function syncDeskInternals() {
+  const box = state.int;
+  if (!box || typeof PaperFrames === "undefined" || !PaperFrames.deskInternals) {
+    if (box) box.desk = null;
+    return null;
+  }
+  const bars = seenBars();
+  if (!bars || bars.length < 60) {
+    box.desk = null;
+    return null;
+  }
+  box.desk = PaperFrames.deskInternals(bars, { live: chartCrypto() });
+  return box.desk;
+}
+
 async function loadInternals(force) {
   const box = state.int;
-  if (box.busy || (!force && box.at && Date.now() - box.at < 600000)) return;
+  if (box.busy || (!force && box.at && Date.now() - box.at < 600000)) {
+    syncDeskInternals();
+    renderInternals();
+    return;
+  }
   box.busy = true;
   const symbols = PaperFrames.INTERNAL_SYMBOLS;
   const data = {};
@@ -3841,40 +4992,82 @@ async function loadInternals(force) {
   } finally {
     box.busy = false;
   }
+  syncDeskInternals();
   renderInternals();
   runSafe(false);
 }
 
 function internalsLine() {
   const result = state.int.result;
-  if (!result) return "Internals not read yet.";
-  if (!result.ready) return "Internals unknown: only " + result.coverage + " of 100 points could be read.";
-  return "Internals " + result.label + " " + result.score + " as of the " + result.asOf + " close.";
+  const desk = state.int.desk || syncDeskInternals();
+  if (!result && !desk) return "Internals not read yet.";
+  const market = !result
+    ? "Market gauges not read yet"
+    : !result.ready
+      ? "Market gauges unknown: only " + result.coverage + " of 100 points could be read"
+      : "Market " + result.label + " " + result.score + (result.asOf ? " as of the " + result.asOf + " close" : "");
+  if (!desk || !desk.ready) return market + ".";
+  const legs = [
+    desk.squeezeOk ? "Squeeze on" : "Squeeze off",
+    desk.tmoOk ? "TMO on" : "TMO off",
+    desk.big4Ok ? "big4 on" : "big4 off",
+    desk.stackOk ? "stack on" : "stack off",
+    desk.mtfOk ? "MTF on" : "MTF off",
+  ].join(" · ");
+  return market + ". Desk " + legs + " (" + desk.score + ").";
 }
 
 function renderInternals() {
   const pill = $("internals-pill");
   if (!pill) return;
   const result = state.int.result;
+  const desk = syncDeskInternals();
   pill.className = "internals-pill " + (result && result.ready ? result.label.toLowerCase() : "");
-  pill.textContent = result ? (result.ready ? "Internals · " + result.label + " " + result.score : "Internals · unknown") : state.int.error ? "Internals · could not read" : "Internals · reading…";
+  pill.textContent = result
+    ? result.ready
+      ? "Internals · " + result.label + " " + result.score + (desk && desk.ready ? " · desk " + desk.score : "")
+      : "Internals · unknown"
+    : state.int.error
+      ? "Internals · could not read"
+      : "Internals · reading…";
   const body = $("int-body");
   if (!body) return;
   body.replaceChildren();
   $("int-gate").checked = state.int.gate;
-  if (!result) {
+  if (!result && !(desk && desk.ready)) {
     $("int-head").textContent = state.int.error || "Press Refresh internals.";
     return;
   }
-  result.parts.forEach((part) => {
-    const row = document.createElement("tr");
-    addCells(row, [part.name, { text: part.says === "good" ? "Good" : part.says === "bad" ? "Bad" : "Neutral", cls: part.says === "good" ? "up" : part.says === "bad" ? "down" : "" }, part.points + " of " + part.weight, part.text]);
-    body.appendChild(row);
-  });
-  const when = new Date(state.int.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
-  $("int-head").textContent = internalsLine() + " Read at " + when + " Denver." + (result.ready && result.label === "Defensive" ? " Auto skips new stock, ETF, and futures buys while this holds." : "");
-  $("int-miss").textContent = result.missing.length ? "Not read: " + result.missing.join(", ") + ". The score uses only what was read." : "";
+  if (result) {
+    result.parts.forEach((part) => {
+      const row = document.createElement("tr");
+      addCells(row, [part.name, { text: part.says === "good" ? "Good" : part.says === "bad" ? "Bad" : "Neutral", cls: part.says === "good" ? "up" : part.says === "bad" ? "down" : "" }, part.points + " of " + part.weight, part.text]);
+      body.appendChild(row);
+    });
+  }
+  if (desk && desk.ready) {
+    desk.parts.forEach((part) => {
+      const row = document.createElement("tr");
+      addCells(row, [
+        part.name,
+        { text: part.says === "good" ? "Good" : part.says === "bad" ? "Bad" : "Neutral", cls: part.says === "good" ? "up" : part.says === "bad" ? "down" : "" },
+        part.points + " of " + part.weight,
+        part.text,
+      ]);
+      body.appendChild(row);
+    });
+  }
+  const when = state.int.at ? new Date(state.int.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" }) : "";
+  $("int-head").textContent =
+    internalsLine() +
+    (when ? " Read at " + when + " Denver." : "") +
+    (result && result.ready && result.label === "Defensive" ? " Auto skips new stock, ETF, and futures buys while this holds." : "");
+  const missing = []
+    .concat(result && result.missing ? result.missing : [])
+    .concat(desk && desk.missing ? desk.missing : []);
+  $("int-miss").textContent = missing.length ? "Not read: " + missing.join(", ") + ". The score uses only what was read." : "";
   renderAutoNote();
+  renderBestSetup();
 }
 
 function internalsGate(symbol) {
@@ -4167,7 +5360,7 @@ function drawCandles(retry) {
   if (!bars.length) return;
   const width = canvas.paperWidth;
   const height = canvas.paperHeight;
-  const priceBottom = Math.min(height - 36, Math.max(72, Math.round(height * 0.72)));
+  const priceBottom = Math.max(72, height - 10);
   let low = Math.min(...bars.map((bar) => bar.low));
   let high = Math.max(...bars.map((bar) => bar.high));
   [layers.averages ? highLine : [], layers.averages ? midLine : [], layers.averages ? lowLine : [], fast, slow]
@@ -4201,11 +5394,15 @@ function drawCandles(retry) {
     pad = Math.max(36, Math.floor((pad * budget) / used));
     rightGap = Math.max(36, Math.floor((rightGap * budget) / used));
   }
+  const layout = studyLayout(width, bars.length, pad, rightGap);
+  pad = layout.pad;
+  rightGap = layout.rightGap;
   const y = (price) => 16 + ((high - price) / (high - low)) * (priceBottom - 28);
-  const slot = (width - pad - rightGap) / bars.length;
-  const plotRight = width - rightGap;
+  const slot = layout.slot;
+  const plotRight = layout.plotRight;
   const xAt = (index) => pad + index * slot + slot / 2;
-  state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  state.chartMap = { bars, pad, slot, symbol: state.paper && state.paper.symbol, rightGap };
+  state.studyPad = { pad, rightGap, slot, count: bars.length };
   ctx.strokeStyle = "#2d3640";
   ctx.fillStyle = "#9aa6b2";
   ctx.font = "12px Segoe UI, sans-serif";
@@ -4218,7 +5415,11 @@ function drawCandles(retry) {
     ctx.stroke();
     ctx.fillText(formatPrice(price), 4, line - 2);
   }
-  PaperFrames.paintCandles(ctx, bars, xAt, y, slot);
+  const big4 = PaperFrames.big4Indicator ? PaperFrames.big4Indicator(history) : null;
+  const candleColors = layers.big4 && big4
+    ? big4.bias.slice(dropped, dropped + bars.length)
+    : null;
+  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candleColors);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
@@ -4261,52 +5462,25 @@ function drawCandles(retry) {
       ctx.lineTo(x + slot / 2, y(value));
     });
     if (drawing) ctx.stroke();
-    edgeResult.marks.forEach((mark) => {
-      const index = mark.index - dropped;
-      if (index < 0 || index >= bars.length) return;
-      const x = pad + index * slot + slot / 2;
-      ctx.fillStyle = mark.side === "buy" ? "#3ddc97" : "#ff6b7a";
-      ctx.strokeStyle = "#07090b";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(x, y(mark.price), Math.max(3, Math.min(4.5, slot * 0.6)), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    });
+    if (layers.readyaim) paintReadyAimStages(ctx, edgeResult.stages, dropped, bars, y, pad, slot, priceBottom);
+    paintClearEdgeArrows(ctx, edgeResult.marks, dropped, bars, y, pad, slot, priceBottom);
     ctx.restore();
+  } else if (layers.readyaim) {
+    const staged = currentEdge(history);
+    if (staged && staged.ready) paintReadyAimStages(ctx, staged.stages, dropped, bars, y, pad, slot, priceBottom);
   }
   drawStudy(ctx, bars, y, pad, slot);
-  const histoTop = priceBottom + 8;
-  const histoBottom = height - 8;
-  const zero = (histoTop + histoBottom) / 2;
-  const scale = Math.max(...momentum.map((value) => Math.abs(value || 0)), 1e-9);
-  ctx.strokeStyle = "#2d3640";
-  ctx.beginPath();
-  ctx.moveTo(pad, zero);
-  ctx.lineTo(plotRight, zero);
-  ctx.stroke();
-  momentum.forEach((value, index) => {
-    if (value == null) return;
-    const x = pad + index * slot + slot / 2;
-    const previous = index === 0 ? allMomentum[dropped - 1] : momentum[index - 1];
-    const tone = PaperFrames.momentumTone(value, previous == null ? null : previous);
-    const room = Math.max(4, (histoBottom - histoTop) / 2 - 6);
-    const barHeight = (Math.abs(value) / scale) * room;
-    ctx.fillStyle = tone;
-    ctx.fillRect(x - Math.max(1, slot * 0.28), value >= 0 ? zero - barHeight : zero, Math.max(2, slot * 0.56), Math.max(1, barHeight));
-    ctx.fillStyle = PaperFrames.squeezeTone(squeeze[index] || 0);
-    ctx.beginPath();
-    ctx.arc(x, zero, Math.max(2, Math.min(3.5, slot * 0.18)), 0, Math.PI * 2);
-    ctx.fill();
-  });
   const last = bars.length - 1;
   const lastBar = bars[last];
   const lastMomentum = momentum[last];
   const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
   const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
   if (width >= 640 && layers.key) {
+    const big4Tone = candleColors && candleColors[last];
+    const candleLabel = big4Tone === "bull" ? "big4indicator green" : big4Tone === "bear" ? "big4indicator red" : big4Tone === "mixed" ? "big4indicator mixed" : lastBar.close >= lastBar.open ? "Candle green" : "Candle red";
+    const candleColor = big4Tone === "bull" ? "#3ddc97" : big4Tone === "bear" ? "#ff4d4d" : big4Tone === "mixed" ? "#9aa6b2" : lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
     const key = [
-      [lastBar.close >= lastBar.open ? "Candle green" : "Candle red", lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a"],
+      [candleLabel, candleColor],
       ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
       ["Momentum " + (lastMomentum == null ? "—" : lastRising ? "rising" : "falling"), PaperFrames.momentumTone(lastMomentum, priorMomentum) || "#9aa6b2"],
       [PaperFrames.candlePlace(lastBar, highLine[last], lowLine[last]), "#d7e2ea"],
@@ -4321,7 +5495,10 @@ function drawCandles(retry) {
       ctx.fillText(row[0], keyLeft + 8, 18 + index * 15);
     });
   }
+  paintChartFlags(history, bars, squeeze[last] || 0, lastMomentum, priorMomentum);
+  paintChartToolBoxes(history);
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
+  // Paper fills only — small arrows. Edge clear BUY/SELL arrows are the main signals and do not repaint.
   (state.paper.markers || []).forEach((marker) => {
     const index = byDate.get(marker.date);
     if (index == null) return;
@@ -4330,21 +5507,39 @@ function drawCandles(retry) {
     const up = marker.side === "buy";
     ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
     const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 16 : y(bar.high) - 16));
-    drawArrow(ctx, x, point, up);
+    drawArrow(ctx, x, point, up, 9);
   });
-  (layers.lesson ? lessonMarks(fitted, history) : []).forEach((mark) => {
-    const index = mark.index - dropped;
-    if (index < 0 || index >= bars.length) return;
-    const bar = bars[index];
-    const x = pad + index * slot + slot / 2;
-    const up = mark.side === "buy";
-    ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
-    const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 36 : y(bar.high) - 36));
-    drawArrow(ctx, x, point, up);
-  });
+  if (layers.lesson) {
+    lessonMarks(fitted, history).forEach((mark) => {
+      const index = mark.index - dropped;
+      if (index < 0 || index >= bars.length) return;
+      const bar = bars[index];
+      const x = pad + index * slot + slot / 2;
+      const up = mark.side === "buy";
+      ctx.fillStyle = up ? "rgba(61,220,151,0.55)" : "rgba(255,107,122,0.55)";
+      const point = Math.max(24, Math.min(priceBottom - 12, up ? y(bar.low) + 36 : y(bar.high) - 36));
+      drawArrow(ctx, x, point, up, 8);
+    });
+  }
   const lastTone = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
   drawPriceTag(ctx, formatPrice(lastBar.close), plotRight, width, y(lastBar.close), priceBottom, lastTone, pad + last * slot + slot / 2);
   drawPriceLine(ctx, bars, pad, slot, y, plotRight, priceBottom, height, width);
+  const paneOpen = (id) => {
+    const pane = document.querySelector('.study-pane[data-pane="' + id + '"]');
+    return !pane || pane.dataset.expanded !== "false";
+  };
+  if (paneOpen("tmo")) drawTmo();
+  if (paneOpen("sqz")) drawSqueeze();
+  if (paneOpen("cci")) drawCci();
+  if (state.studiesWin && !state.studiesWin.closed) {
+    try {
+      drawTmo(state.studiesWin.document.getElementById("tmo"));
+      drawSqueeze(state.studiesWin.document.getElementById("sqz"));
+      drawCci(state.studiesWin.document.getElementById("cci"));
+    } catch (error) {
+      state.studiesWin = null;
+    }
+  }
 }
 
 function drawPriceTag(ctx, text, plotRight, width, at, priceBottom, tone, fromX) {
@@ -4421,9 +5616,10 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
   }
   if (layers.vwap) {
     ctx.setLineDash([6, 4]);
-    drawLine(ctx, desk.vwap.slice(dropped, dropped + count), y, pad, slot, "#3fd0e0", 1.5);
+    drawLine(ctx, desk.vwap.slice(dropped, dropped + count), y, pad, slot, "#3fd0e0", 1.75);
   }
   ctx.setLineDash([]);
+  if (layers.trend) drawLine(ctx, desk.ema50.slice(dropped, dropped + count), y, pad, slot, "#3ddc97", 1.85);
   if (layers.ema200) drawLine(ctx, desk.ema200.slice(dropped, dropped + count), y, pad, slot, "#b48cff", 1.75);
   if (layers.profile && profile.poc != null) {
     const level = y(profile.poc);
@@ -4443,19 +5639,22 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 }
 
 const LAYERS = [
-  ["edge", "Edge stop", "edgestop", true],
+  ["edge", "Edge stop + Fire arrows", "edgestop", true],
+  ["readyaim", "Ready · Aim · Fire", "readyaim", true],
+  ["big4", "big4indicator candle color", "big4", true],
+  ["pivots", "Support · Resistance boxes", "pivots", true],
+  ["vwap", "VWAP", "vwap", true],
+  ["trend", "Green trend EMA 50", "trend", true],
   ["stack", "SMA 5 · 9 · 21 · 50 · 100 · 200", "stack", true],
   ["ema200", "200 EMA", "ema200", false],
-  ["profile", "Volume + POC", "poc", true],
-  ["vwap", "VWAP", "vwap", false],
+  ["profile", "Volume + POC", "poc", false],
   ["bands", "Bands", "band", false],
   ["averages", "High · Close · Low", "close", false],
   ["fastslow", "Fast · Slow", "fast", false],
-  ["pivots", "Pivots", "high", false],
-  ["lesson", "Lesson arrows", "low", false],
+  ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-const LAYERS_KEY = "paperTraderLayers";
+const LAYERS_KEY = "paperTraderLayers67";
 
 function readLayers() {
   const chosen = {};
@@ -4545,61 +5744,258 @@ function drawStudy(ctx, bars, y, pad, slot) {
   });
 }
 
-function drawArrow(ctx, x, y, up) {
-  const size = 10;
+function drawArrow(ctx, x, y, up, size) {
+  const tip = size || 10;
   ctx.beginPath();
   if (up) {
-    ctx.moveTo(x, y - size);
-    ctx.lineTo(x - size * 0.82, y + size * 0.62);
-    ctx.lineTo(x + size * 0.82, y + size * 0.62);
+    ctx.moveTo(x, y - tip);
+    ctx.lineTo(x - tip * 0.82, y + tip * 0.62);
+    ctx.lineTo(x + tip * 0.82, y + tip * 0.62);
   } else {
-    ctx.moveTo(x, y + size);
-    ctx.lineTo(x - size * 0.82, y - size * 0.62);
-    ctx.lineTo(x + size * 0.82, y - size * 0.62);
+    ctx.moveTo(x, y + tip);
+    ctx.lineTo(x - tip * 0.82, y - tip * 0.62);
+    ctx.lineTo(x + tip * 0.82, y - tip * 0.62);
   }
   ctx.closePath();
   ctx.fill();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = "#121417";
+  ctx.lineWidth = Math.max(1.5, tip / 7);
+  ctx.strokeStyle = "#07090b";
   ctx.stroke();
 }
 
-function drawTmo() {
-  const canvas = $("rsi-chart");
+function paintReadyAimStages(ctx, stages, dropped, bars, y, pad, slot, priceBottom) {
+  // Desk Ready · Aim markers only — Fire is the Edge BUY/SELL arrow at the next open.
+  ctx.save();
+  ctx.font = "bold 9px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  (stages || []).forEach((stage, absolute) => {
+    if (!stage || stage === "fire") return;
+    const index = absolute - dropped;
+    if (index < 0 || index >= bars.length) return;
+    const bar = bars[index];
+    const x = pad + index * slot + slot / 2;
+    const ready = stage === "ready";
+    const color = ready ? "#e2b15a" : "#ff9f43";
+    const label = ready ? "R" : "A";
+    const at = Math.min(priceBottom - 10, y(bar.low) + 18);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, at, Math.max(3.5, Math.min(5.5, slot * 0.35)), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#07090b";
+    ctx.fillText(label, x, at + 3);
+  });
+  ctx.restore();
+}
+
+function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBottom) {
+  // Fire only: Edge fills at the next open after Ready · Aim · Fire + big4indicator. Past marks never move.
+  ctx.save();
+  ctx.font = "bold 11px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  (marks || []).forEach((mark) => {
+    const index = mark.index - dropped;
+    if (index < 0 || index >= bars.length) return;
+    const bar = bars[index];
+    const buy = mark.side === "buy";
+    const x = pad + index * slot + slot / 2;
+    const tip = Math.max(14, Math.min(22, slot * 1.8));
+    const at = buy
+      ? Math.min(priceBottom - tip - 8, y(bar.low) + tip + 10)
+      : Math.max(28, y(bar.high) - tip - 10);
+    ctx.fillStyle = buy ? "#3ddc97" : "#ff4d4d";
+    drawArrow(ctx, x, at, buy, tip);
+    const label = buy ? "BUY" : "SELL";
+    const width = ctx.measureText(label).width + 10;
+    const tagY = buy ? at + tip + 12 : at - tip - 12;
+    ctx.fillStyle = buy ? "#3ddc97" : "#ff4d4d";
+    ctx.fillRect(x - width / 2, tagY - 8, width, 16);
+    ctx.fillStyle = "#07090b";
+    ctx.fillText(label, x, tagY + 4);
+    const fire = buy && mark.precise ? "FIRE · big4" : "FIRE";
+    const fireW = ctx.measureText(fire).width + 8;
+    const fireY = buy ? tagY + 14 : tagY - 14;
+    ctx.fillStyle = buy ? "rgba(61,220,151,0.92)" : "rgba(255,77,77,0.92)";
+    ctx.fillRect(x - fireW / 2, fireY - 7, fireW, 14);
+    ctx.fillStyle = "#07090b";
+    ctx.fillText(fire, x, fireY + 3);
+  });
+  ctx.restore();
+}
+
+function paintChipRow(node, chips) {
+  if (!node) return;
+  node.replaceChildren();
+  chips.forEach((chip) => {
+    const box = document.createElement("div");
+    box.className = "desk-clear-chip" + (chip.kind ? " " + chip.kind : "");
+    const key = document.createElement("span");
+    key.className = "k";
+    key.textContent = chip.k;
+    const value = document.createElement("span");
+    value.className = "v";
+    value.textContent = chip.v;
+    box.append(key, value);
+    node.appendChild(box);
+  });
+}
+
+function paintChartBoxes() {
+  // Honest empty boxes: free feeds do not carry NYSE breadth. Never invent numbers.
+  paintChipRow($("chart-boxes"), [
+    { k: "TICK", v: "No feed", kind: "breadth" },
+    { k: "ADD", v: "No feed", kind: "breadth" },
+    { k: "TRIN", v: "No feed", kind: "breadth" },
+    { k: "VOLD", v: "No feed", kind: "breadth" },
+  ]);
+}
+
+function paintDeskClear(history) {
+  const node = $("desk-clear");
+  if (!node) return;
+  const read = typeof PaperFrames !== "undefined" && PaperFrames.deskClearRead ? PaperFrames.deskClearRead(history || []) : null;
+  // Always paint the desk boxes so phone users can see them; values stay "—" until bars are ready.
+  const chips = read
+    ? [
+        { k: "VWAP D", v: read.vwapD == null ? "—" : formatPrice(read.vwapD), kind: "vwap" },
+        { k: "VWAP W", v: read.vwapW == null ? "—" : formatPrice(read.vwapW), kind: "vwap" },
+        { k: "VWAP M", v: read.vwapM == null ? "—" : formatPrice(read.vwapM), kind: "vwap" },
+        { k: "big4indicator", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
+        { k: "Bol %B 20", v: read.pctB == null ? "—" : read.pctB.toFixed(1), kind: "" },
+        { k: "Stage", v: read.stage, kind: "stage" },
+      ]
+    : [
+        { k: "VWAP D", v: "—", kind: "vwap" },
+        { k: "VWAP W", v: "—", kind: "vwap" },
+        { k: "VWAP M", v: "—", kind: "vwap" },
+        { k: "big4indicator", v: "Waiting", kind: "mixed" },
+        { k: "Bol %B 20", v: "—", kind: "" },
+        { k: "Stage", v: "Waiting", kind: "stage" },
+      ];
+  paintChipRow(node, chips);
+}
+
+function paintChartToolBoxes(history) {
+  paintChartBoxes();
+  paintDeskClear(history);
+}
+
+function studyLayout(width, count, preferPad, preferRight) {
+  const pad = preferPad != null ? preferPad : (state.studyPad && state.studyPad.pad) || 48;
+  const rightGap = preferRight != null ? preferRight : (state.studyPad && state.studyPad.rightGap) || Math.max(96, Math.round(width * 0.14));
+  const slot = (width - pad - rightGap) / Math.max(1, count || (state.studyPad && state.studyPad.count) || 1);
+  return { pad, rightGap, slot, plotRight: width - rightGap };
+}
+
+function redrawStudies() {
+  drawCandles();
+}
+
+function paintChartFlags(history, bars, squeezeLevel, momentum, priorMomentum) {
+  const node = $("chart-flags");
+  if (!node) return;
+  if (!bars || !bars.length) {
+    node.replaceChildren();
+    return;
+  }
+  const last = bars[bars.length - 1];
+  const stack = PaperFrames.stackAverages(history);
+  const sma50 = stack.find((row) => row.length === 50);
+  const sma200 = stack.find((row) => row.length === 200);
+  const s50 = sma50 && sma50.values[sma50.values.length - 1];
+  const s200 = sma200 && sma200.values[sma200.values.length - 1];
+  const bull = s50 != null && s200 != null && last.close >= s50 && s50 >= s200;
+  const bear = s50 != null && s200 != null && last.close <= s50 && s50 <= s200;
+  const look = Math.min(20, bars.length - 1);
+  let hi = -Infinity;
+  let lo = Infinity;
+  for (let index = bars.length - 1 - look; index < bars.length - 1; index += 1) {
+    if (index < 0) continue;
+    hi = Math.max(hi, bars[index].high);
+    lo = Math.min(lo, bars[index].low);
+  }
+  const breakUp = Number.isFinite(hi) && last.close > hi;
+  const breakDown = Number.isFinite(lo) && last.close < lo;
+  const dots = (() => {
+    const study = PaperFrames.compression(history, 20);
+    let count = 0;
+    for (let index = study.level.length - 1; index >= 0 && study.level[index] > 0; index -= 1) count += 1;
+    return count;
+  })();
+  const edge = currentEdge(history);
+  const desk = currentPro(history);
+  const vwap = desk && desk.vwap ? desk.vwap[desk.vwap.length - 1] : null;
+  const chips = [];
+  chips.push({
+    text: bull ? "Trend bullish" : bear ? "Trend bearish" : "Trend mixed",
+    kind: bull ? "bull" : bear ? "bear" : "",
+  });
+  if (breakDown) chips.push({ text: "Breakdown", kind: "break" });
+  else if (breakUp) chips.push({ text: "Breakout", kind: "bull" });
+  if (dots >= 5 || squeezeLevel > 0) {
+    chips.push({
+      text: dots >= 5 ? "Squeeze alert · " + dots + " dots" : "Squeeze " + PaperFrames.squeezeName(squeezeLevel),
+      kind: "alert",
+    });
+  }
+  if (edge && edge.ready) {
+    chips.push({
+      text: "Edge " + edge.call + " " + edge.score + "/5",
+      kind: edge.call === "BUY" || edge.call === "HOLD" ? "score" : edge.call === "SELL" ? "break" : "",
+    });
+  }
+  const rising = momentum != null && (priorMomentum == null ? momentum >= 0 : momentum > priorMomentum);
+  if (momentum != null) {
+    chips.push({
+      text: (rising ? "Mom up " : "Mom down ") + Number(momentum).toFixed(1),
+      kind: rising && momentum >= 0 ? "score" : momentum < 0 && !rising ? "break" : "",
+    });
+  }
+  if (vwap != null) chips.push({ text: "VWAP " + formatPrice(vwap), kind: "vwap" });
+  node.replaceChildren();
+  chips.forEach((chip) => {
+    const span = document.createElement("span");
+    span.className = "chart-flag" + (chip.kind ? " " + chip.kind : "");
+    span.textContent = chip.text;
+    node.appendChild(span);
+  });
+}
+
+function drawTmo(target) {
+  const canvas = target || $("rsi-chart");
   if (!state.market || !canvas) return;
   const history = sliceToCursor(state.market.bars);
   if (!history.length) return;
   const study = PaperFrames.trueMomentum(history, 14, 5, 3);
   const view = PaperFrames.zoomBars(history, state.zoom);
-  const count = view.size;
   const dropped = view.start;
   const main = study.main.slice(dropped);
   const signal = study.signal.slice(dropped);
   const up = study.up.slice(dropped);
   const down = study.down.slice(dropped);
-  const ctx = prepare(canvas);
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  const pad = 28;
-  const rightGap = Math.max(120, Math.round(width * 0.16));
+  const ctx = prepare(canvas, 300, Math.max(118, canvas.clientHeight || 118));
+  const width = canvas.paperWidth;
+  const height = canvas.paperHeight;
+  const layout = studyLayout(width, main.length);
+  const pad = layout.pad;
+  const plotRight = layout.plotRight;
+  const slot = layout.slot;
   const limit = study.length;
-  const y = (value) => 10 + ((limit - value) / (limit * 2)) * (height - 18);
-  const slot = (width - pad - rightGap) / Math.max(1, main.length);
-  const plotRight = width - rightGap;
-  state.tmoMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
-  ctx.fillStyle = "rgba(255, 107, 122, 0.16)";
+  const y = (value) => 22 + ((limit - value) / (limit * 2)) * (height - 30);
+  if (!target) state.tmoMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  ctx.fillStyle = "rgba(255, 77, 77, 0.12)";
   ctx.fillRect(pad, y(limit), plotRight - pad, Math.max(1, y(study.ob) - y(limit)));
-  ctx.fillStyle = "rgba(61, 220, 151, 0.16)";
+  ctx.fillStyle = "rgba(61, 220, 151, 0.12)";
   ctx.fillRect(pad, y(study.os), plotRight - pad, Math.max(1, y(-limit) - y(study.os)));
   ctx.font = "11px Segoe UI, sans-serif";
   ctx.setLineDash([3, 3]);
-  ctx.strokeStyle = "#8b98a5";
+  ctx.strokeStyle = "#5a6570";
   [study.ob, 0, study.os].forEach((level) => {
     ctx.beginPath();
     ctx.moveTo(pad, y(level));
     ctx.lineTo(plotRight, y(level));
     ctx.stroke();
-    ctx.fillStyle = "#9aa6b2";
+    ctx.fillStyle = "#8b98a5";
     ctx.fillText(String(level), 4, y(level) + 4);
   });
   ctx.setLineDash([]);
@@ -4613,7 +6009,7 @@ function drawTmo() {
     ctx.lineTo(right, y(signal[index]));
     ctx.lineTo(left, y(signal[index - 1]));
     ctx.closePath();
-    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.42)" : "rgba(122, 28, 40, 0.42)";
+    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.45)" : "rgba(122, 28, 40, 0.45)";
     ctx.fill();
   }
   strokeOscillator(ctx, main, main, signal, y, pad, slot);
@@ -4621,17 +6017,145 @@ function drawTmo() {
   up.forEach((mark, index) => {
     if (!mark || main[index] == null) return;
     ctx.fillStyle = "#67e8f9";
-    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) + 12, true);
+    drawArrow(ctx, pad + index * slot + slot / 2, Math.min(height - 8, y(main[index]) + 12), true);
   });
   down.forEach((mark, index) => {
     if (!mark || main[index] == null) return;
-    ctx.fillStyle = "#e879f9";
-    drawArrow(ctx, pad + index * slot + slot / 2, y(main[index]) - 12, false);
+    ctx.fillStyle = "#ff4db8";
+    drawArrow(ctx, pad + index * slot + slot / 2, Math.max(28, y(main[index]) - 12), false);
   });
+  const last = main.length - 1;
+  const mainNow = main[last];
+  const signalNow = signal[last];
+  const banner = "TMO 14/5/3  |  Main " + (mainNow == null ? "—" : Number(mainNow).toFixed(2)) + "  |  Signal " + (signalNow == null ? "—" : Number(signalNow).toFixed(2)) + (mainNow != null && signalNow != null ? (mainNow >= signalNow ? "  |  Above" : "  |  Below") : "");
+  ctx.fillStyle = "#12b6c9";
+  ctx.fillRect(pad, 2, Math.min(plotRight - pad, ctx.measureText(banner).width + 16), 16);
+  ctx.fillStyle = "#041016";
+  ctx.fillText(banner, pad + 6, 14);
   const calls = currentEdge(history);
-  if (calls && calls.ready) PaperFrames.drawEdgeCalls(ctx, calls.marks, dropped, view.bars.length, (index) => pad + index * slot + slot / 2, 14, height - 4, pad, plotRight);
+  if (calls && calls.ready) PaperFrames.drawEdgeCalls(ctx, calls.marks, dropped, view.bars.length, (index) => pad + index * slot + slot / 2, 20, height - 4, pad, plotRight);
+  if (mainNow != null) {
+    ctx.fillStyle = mainNow >= (signalNow == null ? 0 : signalNow) ? "#3ddc97" : "#ff4d4d";
+    ctx.fillText(Number(mainNow).toFixed(2), plotRight + 6, Math.max(28, Math.min(height - 6, y(mainNow))));
+  }
+}
+
+function drawSqueeze(target) {
+  const canvas = target || $("sqz-chart");
+  if (!state.market || !canvas) return;
+  const history = sliceToCursor(state.market.bars);
+  if (!history.length) return;
+  const view = PaperFrames.zoomBars(history, state.zoom);
+  const dropped = view.start;
+  const compressed = PaperFrames.compression(history, 20);
+  const allMomentum = compressed.momentum;
+  const momentum = allMomentum.slice(dropped);
+  const squeeze = compressed.level.slice(dropped);
+  const ctx = prepare(canvas, 300, Math.max(88, canvas.clientHeight || 88));
+  const width = canvas.paperWidth;
+  const height = canvas.paperHeight;
+  const layout = studyLayout(width, momentum.length);
+  const pad = layout.pad;
+  const plotRight = layout.plotRight;
+  const slot = layout.slot;
+  if (!target) state.sqzMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  const histoTop = 20;
+  const histoBottom = height - 8;
+  const zero = (histoTop + histoBottom) / 2;
+  const scale = Math.max(...momentum.map((value) => Math.abs(value || 0)), 1e-9);
+  ctx.strokeStyle = "#2d3640";
+  ctx.beginPath();
+  ctx.moveTo(pad, zero);
+  ctx.lineTo(plotRight, zero);
+  ctx.stroke();
+  momentum.forEach((value, index) => {
+    if (value == null) return;
+    const x = pad + index * slot + slot / 2;
+    const previous = index === 0 ? allMomentum[dropped - 1] : momentum[index - 1];
+    const tone = PaperFrames.momentumTone(value, previous == null ? null : previous);
+    const room = Math.max(4, (histoBottom - histoTop) / 2 - 4);
+    const barHeight = (Math.abs(value) / scale) * room;
+    ctx.fillStyle = tone;
+    ctx.fillRect(x - Math.max(1, slot * 0.28), value >= 0 ? zero - barHeight : zero, Math.max(2, slot * 0.56), Math.max(1, barHeight));
+    ctx.fillStyle = PaperFrames.squeezeTone(squeeze[index] || 0);
+    ctx.beginPath();
+    ctx.arc(x, zero, Math.max(2, Math.min(3.5, slot * 0.18)), 0, Math.PI * 2);
+    ctx.fill();
+  });
+  const last = momentum.length - 1;
+  const lastMomentum = momentum[last];
+  const label = "Squeeze momentum  |  " + (lastMomentum == null ? "—" : Number(lastMomentum).toFixed(3)) + "  |  " + PaperFrames.squeezeName(squeeze[last] || 0);
+  ctx.font = "11px Segoe UI, sans-serif";
   ctx.fillStyle = "#d7e2ea";
-  ctx.fillText("True momentum 14/5/3" + (calls && calls.ready ? " · Edge " + calls.call : ""), pad, 12);
+  ctx.fillText(label, pad, 12);
+  if (lastMomentum != null) {
+    ctx.fillStyle = PaperFrames.momentumTone(lastMomentum, last === 0 ? allMomentum[dropped - 1] : momentum[last - 1]) || "#d7e2ea";
+    ctx.fillText(Number(lastMomentum).toFixed(2), plotRight + 6, zero + 4);
+  }
+}
+
+function drawCci(target) {
+  const canvas = target || $("cci-chart");
+  if (!state.market || !canvas || !PaperFrames.cciPane) return;
+  const history = sliceToCursor(state.market.bars);
+  if (!history.length) return;
+  const pane = PaperFrames.cciPane(history);
+  const view = PaperFrames.zoomBars(history, state.zoom);
+  const dropped = view.start;
+  const slow = pane.slow.slice(dropped);
+  const mid = pane.mid.slice(dropped);
+  const fast = pane.fast.slice(dropped);
+  const up = pane.up.slice(dropped);
+  const down = pane.down.slice(dropped);
+  const ctx = prepare(canvas, 300, Math.max(118, canvas.clientHeight || 118));
+  const width = canvas.paperWidth;
+  const height = canvas.paperHeight;
+  const layout = studyLayout(width, slow.length);
+  const pad = layout.pad;
+  const plotRight = layout.plotRight;
+  const slot = layout.slot;
+  if (!target) state.cciMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  const high = pane.high;
+  const low = pane.low;
+  const y = (value) => 22 + ((high - value) / (high - low || 1)) * (height - 30);
+  ctx.font = "11px Segoe UI, sans-serif";
+  ctx.setLineDash([3, 3]);
+  pane.levels.forEach((level) => {
+    ctx.strokeStyle = level === 0 ? "#5a6570" : "#3a4655";
+    ctx.beginPath();
+    ctx.moveTo(pad, y(level));
+    ctx.lineTo(plotRight, y(level));
+    ctx.stroke();
+    ctx.fillStyle = "#8b98a5";
+    ctx.fillText(String(level), 4, y(level) + 4);
+  });
+  ctx.setLineDash([]);
+  drawLine(ctx, slow, y, pad, slot, "#f4f7fb", 1.6);
+  drawLine(ctx, mid, y, pad, slot, "#facc15", 1.25);
+  drawLine(ctx, fast, y, pad, slot, "#22d3ee", 1.15);
+  up.forEach((mark, index) => {
+    if (!mark || slow[index] == null) return;
+    ctx.fillStyle = "#3ddc97";
+    drawArrow(ctx, pad + index * slot + slot / 2, Math.min(height - 8, y(slow[index]) + 12), true);
+  });
+  down.forEach((mark, index) => {
+    if (!mark || slow[index] == null) return;
+    ctx.fillStyle = "#ff4d4d";
+    drawArrow(ctx, pad + index * slot + slot / 2, Math.max(28, y(slow[index]) - 12), false);
+  });
+  const last = slow.length - 1;
+  const banner = "CCI 50 / 14 / 5  |  " +
+    (slow[last] == null ? "—" : Number(slow[last]).toFixed(1)) + "  " +
+    (mid[last] == null ? "—" : Number(mid[last]).toFixed(1)) + "  " +
+    (fast[last] == null ? "—" : Number(fast[last]).toFixed(1));
+  ctx.fillStyle = "#1b2430";
+  ctx.fillRect(pad, 2, Math.min(plotRight - pad, ctx.measureText(banner).width + 16), 16);
+  ctx.fillStyle = "#d7e2ea";
+  ctx.fillText(banner, pad + 6, 14);
+  if (slow[last] != null) {
+    ctx.fillStyle = "#f4f7fb";
+    ctx.fillText(Number(slow[last]).toFixed(1), plotRight + 6, Math.max(28, Math.min(height - 6, y(slow[last]))));
+  }
 }
 
 function strokeOscillator(ctx, values, lead, other, y, pad, slot) {
@@ -4945,10 +6469,19 @@ async function autoTick() {
       return;
     }
     const traded = await autoTrade();
+    const fired = await fireAutoTrade();
     renderBestSetup();
+    renderFireFive();
     if (state.offline) renderLocalSignals();
-    $("status").textContent = traded || (state.best && state.best.on && bestSetupStatus().ready ? "Best setup ready. Waiting for your Yes if a buy warning is open." : "Auto is on. Refreshing the market quote.");
-    nudgeLearn("auto");
+    $("status").textContent =
+      traded ||
+      fired ||
+      (state.best && state.best.on && bestSetupStatus().ready
+        ? "Best setup ready. Waiting for your Yes if a buy warning is open."
+        : state.fireAuto && (state.fires || []).length
+          ? "Fire 5 Auto is watching " + state.fires.length + " green Fire trade" + (state.fires.length === 1 ? "" : "s") + "."
+          : "Auto is on. Refreshing the market quote.");
+    await cycleScanLearn("auto");
   } catch (error) {
     state.auto = false;
     if (state.paper) render(state.paper);
@@ -5100,12 +6633,14 @@ $("send").addEventListener("click", () => withBusy(async () => {
     $("status").textContent = "Check Confirm and Send, then send the paper order.";
     return;
   }
+  const kind = $("kind").value;
   const ticket = {
     side: state.side,
-    kind: $("kind").value,
+    kind,
     tif: $("tif").value,
-    stop: Number($("stop-price").value) || 0,
-    limit: Number($("limit-price").value) || 0,
+    // Market buys do not require a stop price. Stop/limit fields only apply to those order types.
+    stop: kind === "stop" || kind === "stop_limit" ? Number($("stop-price").value) || 0 : 0,
+    limit: kind === "limit" || kind === "stop_limit" ? Number($("limit-price").value) || 0 : 0,
   };
   if (!(await askFirst(ticket.side, (state.paper && state.paper.symbol) || selectedSymbol(), "you", { ticket }))) return;
   const paper = await paperCall("/api/paper/ticket", { ...ticket, confirmed: true });
@@ -5171,6 +6706,15 @@ $("int-gate").addEventListener("change", () => {
   renderInternals();
 });
 $("sq-scan").addEventListener("click", scanSqueeze);
+if ($("sc-run")) $("sc-run").addEventListener("click", runScorecard);
+if ($("sc-stop")) {
+  $("sc-stop").addEventListener("click", () => {
+    if (state.sc) state.sc.stop = true;
+  });
+}
+if ($("scorecard-open")) {
+  $("scorecard-open").addEventListener("click", () => showDock("scorecard"));
+}
 $("sq-stop").addEventListener("click", () => {
   state.sq.stop = true;
   $("sq-note").textContent = "Stopping after the markets already being read.";
@@ -5344,16 +6888,29 @@ function showChartTip(event, map, index) {
   PaperFrames.showTip(document, event.clientX, event.clientY, info);
 }
 
-$("rsi-chart").addEventListener("click", (event) => {
-  const map = state.tmoMap;
-  const canvas = $("rsi-chart");
-  if (!map || !map.bars.length) return;
-  const index = PaperFrames.barIndexAt(map.pad, map.slot, map.bars.length, canvasX(event, canvas));
-  const bar = map.bars[index < 0 ? 0 : index];
-  state.ruler = { date: bar.date };
-  showChartTip(event, map, index < 0 ? 0 : index);
-  drawCandles();
-});
+function bindStudyScrub(id, mapKey) {
+  const canvas = $(id);
+  if (!canvas) return;
+  canvas.addEventListener("click", (event) => {
+    const map = state[mapKey];
+    if (!map || !map.bars || !map.bars.length) return;
+    const index = PaperFrames.barIndexAt(map.pad, map.slot, map.bars.length, canvasX(event, canvas));
+    const bar = map.bars[index < 0 ? 0 : index];
+    state.ruler = { date: bar.date };
+    showChartTip(event, map, index < 0 ? 0 : index);
+    redrawStudies();
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (event.pointerType === "touch" && event.buttons === 0) return;
+    scrubReadout(event, state[mapKey], canvas);
+  });
+  canvas.addEventListener("pointerleave", () => {
+    if (state.paper) paintChartRead(state.paper);
+  });
+}
+bindStudyScrub("rsi-chart", "tmoMap");
+bindStudyScrub("sqz-chart", "sqzMap");
+bindStudyScrub("cci-chart", "cciMap");
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !confirmWait) {
@@ -5401,6 +6958,29 @@ if (scanToggle) {
       state.scanNote = "The scanner switch did not save.";
       renderScan();
     });
+  });
+}
+
+const fireAutoBtn = $("fire-auto");
+if (fireAutoBtn) {
+  state.fireAuto = loadFireAuto();
+  renderFireFive();
+  fireAutoBtn.addEventListener("click", () => {
+    const next = !state.fireAuto;
+    saveFireAuto(next);
+    renderFireFive();
+    if (next) {
+      if (state.paper && state.paper.paper === true && !state.auto) {
+        state.auto = true;
+        render(state.paper);
+        autoTick();
+      }
+      $("status").textContent =
+        "Fire 5 Auto is on. Green Fire trades get a Yes warning before each paper buy. Scanner should stay on.";
+      refreshFireFive().catch(() => {});
+    } else {
+      $("status").textContent = "Fire 5 Auto is off. Green Fire signals still show for review.";
+    }
   });
 }
 
@@ -5511,6 +7091,10 @@ function restoreStudies() {
 
 function showDock(name) {
   if (name === "internals") loadInternals(false);
+  if (name === "scorecard") {
+    renderScorecard();
+    if (!(state.sc && state.sc.result) && !(state.sc && state.sc.busy)) runScorecard();
+  }
   if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
     state.orbBusy = true;
     loadOrb().finally(() => {
@@ -5531,7 +7115,12 @@ function showDock(name) {
   if (name === "journal") {
     const box = $("positions-body");
     if (box) delete box.dataset.stamp;
+    ["journal-buys", "journal-sells", "journal-filled"].forEach((id) => {
+      const node = $(id);
+      if (node) delete node.dataset.stamp;
+    });
     renderBook(state.paper);
+    renderJournalCheck(state.paper);
   }
   nudgeLearn(name);
   if (window.matchMedia("(max-width: 980px)").matches) {
@@ -5604,10 +7193,8 @@ $("brief-window").addEventListener("click", () => openBrief());
 function showPhoneTab(name) {
   document.body.dataset.tab = name;
   document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
-  if (state.market && state.paper && (name === "chart" || name === "study")) {
-    drawCandles();
-    drawTmo();
-  }
+  if (name === "chart") paintChartToolBoxes(state.market && state.market.history);
+  if (state.market && state.paper && (name === "chart" || name === "study")) redrawStudies();
   nudgeLearn(name === "study" ? (document.querySelector(".dock-tab.on") || {}).dataset.dock || "study" : name);
 }
 
@@ -5635,10 +7222,21 @@ document.querySelectorAll(".dock-tab").forEach((button) => {
   button.addEventListener("click", () => showDock(button.dataset.dock));
 });
 
+document.querySelectorAll("#study-pages [data-open-dock]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const name = button.dataset.openDock;
+    if (window.matchMedia("(max-width: 980px)").matches) showPhoneTab("study");
+    showDock(name);
+    $("status").textContent = "Opened " + (button.textContent || name) + ".";
+  });
+});
+
+const buildTag = $("build-tag");
+if (buildTag) buildTag.textContent = VERSION;
+
 window.addEventListener("resize", () => {
   if (state.market && state.paper) {
-    drawCandles();
-    drawTmo();
+    redrawStudies();
     const bars = seenBars();
     const tone = currentMood(bars);
     drawMoodClock(tone && tone.score, tone && tone.label);
@@ -5671,10 +7269,162 @@ state.layers = readLayers();
 paintLayers();
 bindZoom($("candles"), "chart");
 bindZoom($("rsi-chart"), "chart");
+bindZoom($("sqz-chart"), "chart");
+bindZoom($("cci-chart"), "chart");
 bindZoom($("frame-preview"), "preview");
+
+const STUDY_PANE_KEY = "paperTraderStudyPanes";
+
+function readStudyPanes() {
+  const chosen = { price: true, tmo: true, sqz: true, cci: true, big: true };
+  try {
+    const saved = JSON.parse(localStorage.getItem(STUDY_PANE_KEY) || "{}");
+    if (saved && typeof saved === "object") {
+      ["price", "tmo", "sqz", "cci"].forEach((id) => {
+        if (typeof saved[id] === "boolean") chosen[id] = saved[id];
+      });
+      if (typeof saved.big === "boolean") chosen.big = saved.big;
+    }
+  } catch (error) {
+    /* Keep the open panes. */
+  }
+  return chosen;
+}
+
+function saveStudyPanes(next) {
+  try {
+    localStorage.setItem(STUDY_PANE_KEY, JSON.stringify(next));
+  } catch (error) {
+    /* Choice still holds for this page. */
+  }
+}
+
+function setStudyPane(id, open) {
+  const pane = document.querySelector('.study-pane[data-pane="' + id + '"]');
+  if (!pane) return;
+  pane.dataset.expanded = open ? "true" : "false";
+  const roll = pane.querySelector(".study-roll");
+  if (roll) {
+    roll.setAttribute("aria-expanded", open ? "true" : "false");
+    roll.textContent = open ? "▾" : "▸";
+  }
+}
+
+function paintStudyPanes() {
+  const saved = readStudyPanes();
+  ["price", "tmo", "sqz", "cci"].forEach((id) => setStudyPane(id, saved[id] !== false));
+  document.querySelectorAll(".study-pane").forEach((pane) => {
+    pane.classList.toggle("big", !!saved.big);
+  });
+  const expand = $("studies-expand-all");
+  if (expand) expand.textContent = saved.big ? "Compact studies ▴" : "Expand studies ▾";
+}
+
+function openStudiesWindow(focus) {
+  if (!state.market || !state.paper) {
+    setStatus("Open a market first, then open TMO · Squeeze · CCI.");
+    return;
+  }
+  const symbol = state.paper.symbol || "Chart";
+  const win = window.open("", "paper-studies", "popup=yes,width=980,height=860,left=48,top=48");
+  if (!win) {
+    setStatus("The studies window was blocked. Allow popups for this desk, or expand the panes below the price chart.");
+    return;
+  }
+  win.document.open();
+  win.document.write(
+    "<!DOCTYPE html><title>" + symbol + " · Studies</title>" +
+    "<body style=\"margin:0;background:#05070a;color:#e7edf3;font:14px Segoe UI,sans-serif\">" +
+    "<div style=\"display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #1a222c;background:#0d1218\">" +
+    "<button id=\"back\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Back</button>" +
+    "<strong style=\"letter-spacing:.04em\">" + symbol + " · TMO · Squeeze · CCI</strong>" +
+    "<span id=\"note\" style=\"color:#9aa6b2;margin-left:auto\"></span>" +
+    "<button id=\"in\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Zoom in</button>" +
+    "<button id=\"out\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Zoom out</button>" +
+    "</div>" +
+    "<p style=\"margin:8px 14px 0;color:#9aa6b2;font-size:12px\">Same closed-bar studies as the chart. Public math only. Not a forecast.</p>" +
+    "<div style=\"display:flex;flex-direction:column;gap:10px;padding:10px 14px 18px;height:calc(100vh - 78px);box-sizing:border-box\">" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#67e8f9\">TMO 14/5/3</div><canvas id=\"tmo\" style=\"width:100%;height:28vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#facc15\">Squeeze momentum</div><canvas id=\"sqz\" style=\"width:100%;height:22vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#f4f7fb\">CCI 50 · 14 · 5</div><canvas id=\"cci\" style=\"width:100%;height:28vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "</div></body>"
+  );
+  win.document.close();
+  const paint = () => {
+    const view = PaperFrames.zoomBars(sliceToCursor(state.market.bars), state.zoom);
+    const note = win.document.getElementById("note");
+    if (note) note.textContent = view.size + " bars · Edge on the main desk";
+    drawTmo(win.document.getElementById("tmo"));
+    drawSqueeze(win.document.getElementById("sqz"));
+    drawCci(win.document.getElementById("cci"));
+  };
+  const back = win.document.getElementById("back");
+  if (back) back.addEventListener("click", () => win.close());
+  const inn = win.document.getElementById("in");
+  const out = win.document.getElementById("out");
+  if (inn) inn.addEventListener("click", () => {
+    state.zoom = PaperFrames.zoomStep(state.zoom, -1, seenBars().length);
+    paintZoom(seenBars().length);
+    redrawStudies();
+    paint();
+  });
+  if (out) out.addEventListener("click", () => {
+    state.zoom = PaperFrames.zoomStep(state.zoom, 1, seenBars().length);
+    paintZoom(seenBars().length);
+    redrawStudies();
+    paint();
+  });
+  win.addEventListener("resize", paint);
+  requestAnimationFrame(paint);
+  if (focus === "tmo") win.document.getElementById("tmo").scrollIntoView();
+  if (focus === "sqz") win.document.getElementById("sqz").scrollIntoView();
+  if (focus === "cci") win.document.getElementById("cci").scrollIntoView();
+  setStatus("Opened TMO · Squeeze · CCI in a separate window.");
+  state.studiesWin = win;
+}
+
+document.querySelectorAll(".study-roll").forEach((button) => {
+  button.addEventListener("click", () => {
+    const pane = button.closest(".study-pane");
+    if (!pane) return;
+    const id = pane.dataset.pane;
+    const open = pane.dataset.expanded !== "true";
+    setStudyPane(id, open);
+    const saved = readStudyPanes();
+    saved[id] = open;
+    saveStudyPanes(saved);
+    requestAnimationFrame(() => redrawStudies());
+  });
+});
+
+document.querySelectorAll(".study-pop").forEach((button) => {
+  button.addEventListener("click", () => openStudiesWindow(button.dataset.study));
+});
+
+const studiesWindowBtn = $("studies-window");
+if (studiesWindowBtn) studiesWindowBtn.addEventListener("click", () => openStudiesWindow());
+
+const studiesExpandBtn = $("studies-expand-all");
+if (studiesExpandBtn) {
+  studiesExpandBtn.addEventListener("click", () => {
+    const saved = readStudyPanes();
+    saved.big = !saved.big;
+    saved.tmo = true;
+    saved.sqz = true;
+    saved.cci = true;
+    saveStudyPanes(saved);
+    paintStudyPanes();
+    requestAnimationFrame(() => redrawStudies());
+    setStatus(saved.big ? "Study panes expanded. Use Open TMO · Squeeze · CCI for a full window." : "Study panes back to normal size.");
+  });
+}
+
+paintStudyPanes();
+paintChartToolBoxes([]);
 
 boot().then(() => {
   document.body.classList.add("ready");
+  paintChartToolBoxes(state.market && state.market.history);
   restoreDock();
   runSafe(false);
   loadInternals(false);
@@ -5686,6 +7436,7 @@ boot().then(() => {
     if (state.paper) renderQuote(state.paper);
     syncDeskStatus();
   }, 1000);
+  startScanLearnLoop();
 }).catch((error) => {
   showProblem(error && error.message ? error.message : "The desk did not start.");
 });

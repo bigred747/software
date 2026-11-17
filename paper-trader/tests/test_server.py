@@ -203,6 +203,86 @@ class ServerTests(unittest.TestCase):
             self.assertIn("touch_note", payload)
             self.assertTrue(payload.get("touched"))
 
+    def test_learn_touch_scan_cycle_scores_top_scan_names_not_only_focus(self) -> None:
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            desk = Desk(Path(folder) / "paper_state.json")
+            bars = self._flat_bars(100.0)
+            with patch("paper_trader.quotes.load_bars", return_value=bars):
+                touched = desk.learn_touch({"tab": "scan", "symbols": ["ETH-USD", "XRP-USD", "SOL-USD"]})
+                scored = touched.get("touched") or []
+                self.assertTrue(touched.get("scan_cycle"))
+                self.assertIn("ETH-USD", scored)
+                self.assertIn("XRP-USD", scored)
+                self.assertNotIn(desk.journal.symbol, scored)
+                note = touched.get("touch_note") or ""
+                self.assertTrue("Scan learn scored" in note or "New process" in note, note)
+                again = desk.learn_touch({"tab": "auto", "symbols": ["BTC-USD", "SPY"]})
+                self.assertTrue(again.get("scan_cycle"))
+                self.assertEqual(again.get("touched"), ["BTC-USD", "SPY"])
+
+    def test_paper_fills_teach_timing_on_closed_bars(self) -> None:
+        from paper_trader.learn import record_fill_lesson
+        from paper_trader.server import Desk
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "learn_state.json"
+            bars = self._flat_bars(100.0)
+            taught = record_fill_lesson(path, "BTC-USD", "buy", 101.0, reason="auto", pnl=0.0, bars=bars)
+            self.assertEqual(taught["fill"]["side"], "buy")
+            self.assertIn("timing", taught)
+            self.assertIn("note", taught["timing"])
+            desk = Desk(Path(folder) / "paper_state.json")
+            desk.learn_path = path
+            with patch("paper_trader.quotes.load_bars", return_value=bars):
+                desk._log_fill("buy", 100.0, 101.0, 0.0, "auto")
+            self.assertTrue(desk.journal.fills)
+            self.assertIn("as_of", desk.journal.fills[-1])
+            book = desk.learn_view()
+            self.assertTrue(book.get("last_fill"))
+            self.assertIn("timing", book)
+
+    def test_bot_on_desk_pages_and_strategies_auto_register(self) -> None:
+        from paper_trader.learn import desk_pages, page_snapshot, register_desk_page
+        from paper_trader.strategy_board import register_strategy, strategy_ids, strategy_snapshot
+
+        pages = desk_pages()
+        ids = [row[0] for row in pages]
+        for needed in (
+            "markets",
+            "chart",
+            "trade",
+            "study",
+            "strategies",
+            "squeeze",
+            "internals",
+            "frames",
+            "readings",
+            "journal",
+            "backtest",
+            "signals",
+        ):
+            self.assertIn(needed, ids)
+        register_desk_page("custom-ship", "Custom shipped page")
+        self.assertIn("custom-ship", [row[0] for row in desk_pages()])
+        snap = page_snapshot(
+            "custom-ship",
+            symbol="BTC-USD",
+            lesson={"as_of": "2024-01-01", "rule": "Squeeze 20", "setup": "buy"},
+            board={"best": "squeeze", "rows": []},
+        )
+        self.assertEqual(snap["page"], "custom-ship")
+        self.assertTrue(snap.get("auto"))
+
+        before = set(strategy_ids())
+        register_strategy("demo", "Demo strategy", lambda bars, closes, count: (None, "Needs bars."))
+        self.assertIn("demo", strategy_ids())
+        self.assertTrue(before.issubset(set(strategy_ids())))
+        board = strategy_snapshot([])
+        self.assertIn("demo", board.get("ids") or [])
+        self.assertTrue(any(row.get("id") == "demo" for row in board.get("rows") or []))
+
     def test_new_process_updates_fills_and_lights_a_green_signal(self) -> None:
         from paper_trader.server import Desk
 
@@ -413,7 +493,20 @@ class ServerTests(unittest.TestCase):
         report = json.loads(raw)
         self.assertTrue(report["safe"], report)
         names = {item["name"] for item in report["items"]}
-        for name in ("This computer only", "Strangers blocked", "Live locked", "Quote hosts", "Circuit breaker", "Order rules", "Journal saves", "Program unchanged", "Launchers clean", "Quiet installer"):
+        for name in (
+            "This computer only",
+            "Strangers blocked",
+            "Live locked",
+            "Second warning",
+            "No invented breadth",
+            "Quote hosts",
+            "Circuit breaker",
+            "Order rules",
+            "Journal saves",
+            "Program unchanged",
+            "Launchers clean",
+            "Quiet installer",
+        ):
             self.assertIn(name, names)
         self.assertTrue(all(item["ok"] for item in report["items"] if item["kind"] == "safety"))
 
@@ -831,8 +924,13 @@ class ServerTests(unittest.TestCase):
             note = packed.read("paper-trader/iphone/README.txt")
             desk = packed.read("paper-trader/paper_trader/server.py")
             learn = packed.read("paper-trader/paper_trader/learn.py")
+            board = packed.read("paper-trader/paper_trader/strategy_board.py")
             live = packed.read("paper-trader/web/live.js")
             journal = packed.getinfo("paper-trader/paper_trader/journal.py")
+        self.assertIn("paper-trader/paper_trader/strategy_board.py", names)
+        self.assertIn(b"register_strategy", board)
+        self.assertIn(b"strategy_snapshot", board)
+        self.assertIn(b"register_desk_page", learn)
         self.assertIn("paper-trader/runtime/python.exe", names)
         self.assertIn("paper-trader/Start-Paper-Trader.bat", names)
         self.assertIn("paper-trader/1 Allow Paper Trader.bat", names)
@@ -844,7 +942,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b">Trade<", page)
         self.assertIn(b">Paper<", page)
         self.assertIn(b'id="signals"', page)
-        self.assertIn(b"B4 readings", page)
+        self.assertIn(b"big4indicator", page)
         self.assertIn(b"drawArrow", script)
         self.assertIn("paper-trader/paper_trader/catalog.txt", names)
         self.assertIn("paper-trader/web/study.js", names)
@@ -854,10 +952,55 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.61", script)
+        self.assertIn(b"1.9.82", script)
+        self.assertIn(b"function runScorecard", script)
+        self.assertIn(b"function scorecardPublish", script)
+        self.assertIn(b"function bestFires", script)
+        self.assertIn(b"function fireAutoTrade", script)
+        self.assertIn(b"function renderJournalCheck", script)
+        self.assertIn(b"function refreshJournalSells", script)
+        self.assertIn(b'id="fire-five"', page)
+        self.assertIn(b'id="fire-auto"', page)
+        self.assertIn(b'id="journal-buys"', page)
+        self.assertIn(b'id="journal-sells"', page)
+        self.assertIn(b'id="journal-filled"', page)
+        self.assertIn(b"Today's check", page)
+        self.assertIn(b"function marketScorecard", Path(__file__).resolve().parents[1].joinpath("web", "frames.js").read_bytes())
+        self.assertIn(b"Big 3 Market Scorecard", page)
+        self.assertIn(b'data-dock="scorecard"', page)
+        self.assertIn(b"No invented breadth", script)
+        self.assertIn(b"Live locked", script)
+        self.assertIn(b'id="chart-tools"', page)
+        self.assertIn(b'id="chart-boxes"', page)
+        self.assertIn(b'id="study-pages"', page)
+        self.assertIn(b"Second page", page)
+        self.assertIn(b"paintChartBoxes", script)
+        self.assertIn(b"No feed", page)
+        self.assertIn(b'class="seal"', page)
+        self.assertNotIn(b"LuxeTrendsetters", page)
+        self.assertNotIn(b"logo.png", page)
+        self.assertNotIn("paper-trader/web/logo.png", names)
+        self.assertIn(b"function paintClearEdgeArrows", script)
+        self.assertIn(b"function paintReadyAimStages", script)
+        self.assertIn(b"big4indicator", script)
+        self.assertIn(b"function cycleScanLearn", script)
+        self.assertIn(b"function topScanLearnNames", script)
+        self.assertIn(b"function startScanLearnLoop", script)
+        self.assertIn(b"function cycleStrategyLearn", script)
+        self.assertIn(b"function learnFromPaperFill", script)
+        self.assertIn(b"function preferFireFromFills", script)
+        self.assertIn(b"function deskLearnPages", script)
+        self.assertIn(b"function cycleDeskPageLearn", script)
+        self.assertIn(b'id="desk-clear"', page)
         self.assertIn(b"best-setup", page)
         self.assertIn(b"Best setup Auto", page)
         self.assertIn(b"best-setup-gates", page)
+        self.assertIn(b'id="sqz-chart"', page)
+        self.assertIn(b'id="cci-chart"', page)
+        self.assertIn(b'id="chart-flags"', page)
+        self.assertIn(b'id="studies-window"', page)
+        self.assertIn(b"function openStudiesWindow", script)
+        self.assertIn(b"function drawCci", script)
         self.assertIn(b"trig-best", page)
         self.assertIn(b"BEST_MAX_BUYS = 3", script)
         self.assertIn(b"function bestSetupStatus", script)
@@ -867,8 +1010,15 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"EDGE_TRAIL = 2.5", Path(__file__).resolve().parents[1].joinpath("web", "frames.js").read_bytes())
         self.assertIn(b"dots[index] === EDGE_DOTS", Path(__file__).resolve().parents[1].joinpath("web", "frames.js").read_bytes())
         frames = Path(__file__).resolve().parents[1].joinpath("web", "frames.js").read_bytes()
+        self.assertIn(b"function deskClearRead", frames)
+        self.assertIn(b"function cciPane", frames)
         self.assertIn(b"multiFrameLongFlags", frames)
-        self.assertIn("Squeeze · TMO · B4 · stack · MTF".encode(), frames)
+        self.assertIn("Squeeze · TMO · big4indicator · stack · MTF".encode(), frames)
+        self.assertIn(b"function big4Indicator", frames)
+        self.assertIn(b"function deskInternals", frames)
+        self.assertIn(b"syncDeskInternals", script)
+        self.assertIn(b"bestBlocks", script)
+        self.assertNotIn(b"until the STOP line is fixed", script)
         self.assertNotIn(b"Squeeze Pro", frames)
         self.assertNotIn(b"Ten X", script)
         self.assertIn(b"strat-board-table", page)
@@ -890,7 +1040,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"stratTrade", script)
         self.assertIn(b'"quad"', script)
         self.assertIn(b'value="quad"', page)
-        self.assertIn("Squeeze · TMO · B4 · stack · MTF".encode("utf-8"), page)
+        self.assertIn("Squeeze · TMO · big4indicator · stack · MTF".encode("utf-8"), page)
         self.assertNotIn(b"Squeeze Pro", script)
         self.assertNotIn(b"Squeeze Pro", page)
         self.assertIn(b"nudgeLearn", script)
@@ -978,7 +1128,8 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"quote-mood", page)
         self.assertIn(b"mood-clock", page)
         self.assertIn(b"true momentum", page)
-        self.assertIn(b"Up candles are hollow green and down candles are solid red", page)
+        self.assertIn(b"big4indicator on, candles paint all green", page)
+        self.assertIn("Ready · Aim · Fire".encode("utf-8"), page)
         self.assertIn(b"Desk is working.", script)
         self.assertIn(b'id="signal-strip"', page)
         self.assertIn(b'id="chart-read"', page)

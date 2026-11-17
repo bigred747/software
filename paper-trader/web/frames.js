@@ -255,12 +255,12 @@
   }
 
   const STACK_AVGS = [
-    { length: 5, color: "#e879f9", name: "5" },
+    { length: 5, color: "#ff4db8", name: "5" },
     { length: 9, color: "#22d3ee", name: "9" },
-    { length: 21, color: "#f9a8d4", name: "21" },
-    { length: 50, color: "#94a3b8", name: "50" },
-    { length: 100, color: "#fb923c", name: "100" },
-    { length: 200, color: "#f87171", name: "200" },
+    { length: 21, color: "#ff4d4d", name: "21" },
+    { length: 50, color: "#f4f7fb", name: "50" },
+    { length: 100, color: "#facc15", name: "100" },
+    { length: 200, color: "#d4a574", name: "200" },
   ];
 
   function stackAverages(bars) {
@@ -273,8 +273,8 @@
     }));
   }
 
-  function paintCandles(ctx, bars, xAt, y, slot) {
-    const bodyW = Math.max(2, Math.min(slot * 0.64, Math.max(2, slot - 1.5)));
+  function paintCandles(ctx, bars, xAt, y, slot, colors) {
+    const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
     bars.forEach((bar, index) => {
       const x = xAt(index);
       const up = bar.close >= bar.open;
@@ -283,28 +283,74 @@
       const top = y(topPrice);
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
-      ctx.strokeStyle = up ? "#2bbf8a" : "#d95563";
-      ctx.lineWidth = Math.max(1, Math.min(2.25, slot * 0.14));
+      const mode = colors && colors[index];
+      let tone;
+      let rim;
+      if (mode === "bull") {
+        tone = "#3ddc97";
+        rim = "#1fae78";
+      } else if (mode === "bear") {
+        tone = "#ff4d4d";
+        rim = "#d63b4a";
+      } else if (mode === "mixed") {
+        tone = "#9aa6b2";
+        rim = "#6b7785";
+      } else {
+        tone = up ? "#3ddc97" : "#ff4d4d";
+        rim = up ? "#1fae78" : "#d63b4a";
+      }
+      ctx.strokeStyle = tone;
+      ctx.lineWidth = Math.max(1.25, Math.min(2.5, slot * 0.16));
       ctx.beginPath();
       ctx.moveTo(x, y(bar.high));
       ctx.lineTo(x, y(bar.low));
       ctx.stroke();
       const left = x - bodyW / 2;
-      if (up) {
-        ctx.fillStyle = "rgba(7, 9, 11, 0.55)";
-        ctx.fillRect(left, top, bodyW, bodyH);
-        ctx.strokeStyle = "#3ddc97";
-        ctx.lineWidth = 1.35;
-        ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
-      } else {
-        ctx.fillStyle = "#ff6b7a";
-        ctx.fillRect(left, top, bodyW, bodyH);
-        ctx.strokeStyle = "#d95563";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
-      }
+      ctx.fillStyle = tone;
+      ctx.fillRect(left, top, bodyW, bodyH);
+      ctx.strokeStyle = rim;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
     });
     ctx.lineWidth = 1;
+  }
+
+  function big4Indicator(bars) {
+    const list = bars || [];
+    const count = list.length;
+    const closes = list.map((bar) => bar.close);
+    const ema50 = ema(closes, 50);
+    const ema200 = ema(closes, 200);
+    const trend = macd(list);
+    const rsi = proRsi(closes, 14);
+    const bias = new Array(count).fill("mixed");
+    const ok = new Array(count).fill(false);
+    for (let index = 0; index < count; index += 1) {
+      if (ema50[index] == null || ema200[index] == null) continue;
+      const bullTrend = closes[index] > ema50[index] && ema50[index] >= ema200[index];
+      const bearTrend = closes[index] < ema50[index] && ema50[index] <= ema200[index];
+      const macdOk = trend.line[index] != null && trend.signal[index] != null && trend.line[index] > trend.signal[index];
+      const rsiOk = rsi[index] != null && rsi[index] < 70 && rsi[index] > 30;
+      if (bullTrend) {
+        bias[index] = "bull";
+        // Strong agreement: trend plus MACD and RSI in range.
+        ok[index] = !!(macdOk && rsiOk);
+      } else if (bearTrend) {
+        bias[index] = "bear";
+      } else {
+        bias[index] = "mixed";
+      }
+    }
+    const last = count - 1;
+    const label = last >= 0 && bias[last] === "bull" ? "Bullish" : last >= 0 && bias[last] === "bear" ? "Bearish" : last >= 0 ? "Mixed" : "Waiting";
+    return {
+      name: "big4indicator",
+      bias,
+      ok,
+      last: last >= 0 ? bias[last] : "mixed",
+      lastOk: last >= 0 ? !!ok[last] : false,
+      label,
+    };
   }
 
   function tickSize(price) {
@@ -390,26 +436,31 @@
   function paintPivots(ctx, pivots, xAt, y, lastIndex) {
     if (!pivots) return;
     const bands = [
-      [pivots.fromHigh, pivots.confirmHigh, pivots.resistance, "rgba(255, 107, 122, 0.16)"],
-      [pivots.fromLow, pivots.support, pivots.confirmLow, "rgba(61, 220, 151, 0.16)"],
+      [pivots.fromHigh, pivots.confirmHigh, pivots.resistance, "rgba(255, 70, 80, 0.28)", "rgba(255, 90, 100, 0.85)"],
+      [pivots.fromLow, pivots.support, pivots.confirmLow, "rgba(20, 140, 80, 0.30)", "rgba(50, 210, 130, 0.90)"],
     ];
-    bands.forEach(([from, first, second, color]) => {
+    ctx.save();
+    bands.forEach(([from, first, second, fill, edge]) => {
       const x1 = xAt(Math.max(0, from));
-      const x2 = xAt(lastIndex);
-      const y1 = y(first);
-      const y2 = y(second);
-      ctx.fillStyle = color;
-      ctx.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.max(1, Math.abs(y2 - y1)));
+      const x2 = xAt(lastIndex) + Math.max(2, (xAt(1) - xAt(0)) * 0.35);
+      const top = Math.min(y(first), y(second));
+      const height = Math.max(4, Math.abs(y(second) - y(first)));
+      const left = Math.min(x1, x2);
+      const width = Math.max(8, Math.abs(x2 - x1));
+      ctx.fillStyle = fill;
+      ctx.fillRect(left, top, width, height);
+      ctx.strokeStyle = edge;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(left + 0.5, top + 0.5, width - 1, height - 1);
     });
     const lines = [
       [pivots.fromHigh, pivots.resistance, "#ff6b7a", false, "Resistance"],
-      [pivots.fromHigh, pivots.confirmHigh, "#ff8f9a", false, "Confirm"],
+      [pivots.fromHigh, pivots.confirmHigh, "#ffb0b8", true, "Confirm"],
       [pivots.fromHigh, pivots.riskOffHigh, "#d7e2ea", true, "Risk off"],
       [pivots.fromLow, pivots.support, "#3ddc97", false, "Support"],
-      [pivots.fromLow, pivots.confirmLow, "#8ee8bf", false, "Confirm"],
+      [pivots.fromLow, pivots.confirmLow, "#9af0c8", true, "Confirm"],
       [pivots.fromLow, pivots.riskOffLow, "#d7e2ea", true, "Risk off"],
     ];
-    ctx.save();
     ctx.font = "11px Segoe UI, sans-serif";
     const narrow = (ctx.canvas.paperWidth || 0) < 640;
     const placed = [];
@@ -419,19 +470,93 @@
       const x2 = xAt(lastIndex);
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
-      ctx.lineWidth = dashed ? 1 : 1.75;
-      ctx.setLineDash(dashed ? [4, 4] : []);
+      ctx.lineWidth = dashed ? 1 : 2;
+      ctx.setLineDash(dashed ? [5, 4] : []);
       ctx.beginPath();
       ctx.moveTo(x1, y(price));
       ctx.lineTo(x2, y(price));
       ctx.stroke();
-      if (dashed || narrow) return;
-      const textY = y(price) - 3;
-      if (placed.some((prior) => Math.abs(prior - textY) < 14)) return;
+      ctx.setLineDash([]);
+      if (narrow && dashed) return;
+      const text = label + " " + (Number.isFinite(price) ? String(Math.round(price * 100) / 100) : "");
+      const textY = y(price) - 4;
+      if (placed.some((prior) => Math.abs(prior - textY) < 13)) return;
       placed.push(textY);
-      ctx.fillText(label, Math.max(x1 + 4, x2 - ctx.measureText(label).width - 4), textY);
+      const tagW = ctx.measureText(text).width + 8;
+      const tagX = Math.max(x1 + 4, x2 - tagW);
+      ctx.fillStyle = "rgba(5, 8, 12, 0.82)";
+      ctx.fillRect(tagX - 2, textY - 11, tagW, 14);
+      ctx.fillStyle = color;
+      ctx.fillText(text, tagX, textY);
     });
     ctx.restore();
+  }
+
+  function periodVwap(bars, keyFn) {
+    const list = bars || [];
+    if (!list.length || typeof keyFn !== "function") return null;
+    const last = list[list.length - 1];
+    const key = keyFn(last.date);
+    let money = 0;
+    let volume = 0;
+    for (let index = list.length - 1; index >= 0; index -= 1) {
+      const bar = list[index];
+      if (keyFn(bar.date) !== key) break;
+      const vol = Math.max(0, Number(bar.volume) || 0);
+      const typical = (bar.high + bar.low + bar.close) / 3;
+      if (!(vol > 0)) continue;
+      money += typical * vol;
+      volume += vol;
+    }
+    if (!(volume > 0)) return null;
+    return money / volume;
+  }
+
+  function deskClearRead(bars) {
+    const list = bars || [];
+    if (list.length < 30) return null;
+    const desk = pro(list);
+    const last = list.length - 1;
+    const close = list[last].close;
+    const upper = desk.bands.upper[last];
+    const lower = desk.bands.lower[last];
+    const pctB = upper != null && lower != null && upper !== lower ? ((close - lower) / (upper - lower)) * 100 : null;
+    const ema50 = desk.last.ema50;
+    const ema200 = desk.last.ema200;
+    const bias =
+      ema50 != null && ema200 != null
+        ? close >= ema50 && ema50 >= ema200
+          ? "Bullish"
+          : close <= ema50 && ema50 <= ema200
+            ? "Bearish"
+            : "Mixed"
+        : "Waiting";
+    const hist = desk.macd.hist || [];
+    const now = hist[last];
+    const prior = hist[last - 1];
+    let stage = "Steady";
+    if (now != null && prior != null) {
+      if (Math.abs(now) > Math.abs(prior) + 1e-9) stage = "Acceleration";
+      else if (Math.abs(now) < Math.abs(prior) - 1e-9) stage = "Deceleration";
+    }
+    const weekKey = (date) => {
+      const day = new Date(String(date).slice(0, 10) + "T12:00:00Z");
+      const utc = day.getUTCDay();
+      const monday = new Date(day);
+      monday.setUTCDate(day.getUTCDate() - ((utc + 6) % 7));
+      return monday.toISOString().slice(0, 10);
+    };
+    const monthKey = (date) => String(date).slice(0, 7);
+    return {
+      bias,
+      pctB,
+      stage,
+      ema50,
+      vwapD: desk.last.vwap,
+      vwapW: periodVwap(list, weekKey),
+      vwapM: periodVwap(list, monthKey),
+      close,
+    };
   }
 
   function candlePlace(bar, highLine, lowLine) {
@@ -1295,6 +1420,7 @@
     const tmo = trueMomentum(list, 14, 5, 3);
     const range = edgeAtr(list, 14);
     const bands = bollinger(list, 20, 2);
+    const big4 = big4Indicator(list);
     const dots = new Array(count).fill(0);
     let run = 0;
     for (let index = 0; index < count; index += 1) {
@@ -1304,6 +1430,7 @@
     const score = new Array(count).fill(null);
     const trail = new Array(count).fill(null);
     const parts = new Array(count).fill(null);
+    const stages = new Array(count).fill(null);
     for (let index = EDGE_WARM; index < end; index += 1) {
       const now = squeeze[index];
       const prior = squeeze[index - 1];
@@ -1317,6 +1444,10 @@
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
+      // Desk Ready · Aim · Fire staging for Edge (closed bars only). Fire is the five-check Edge moment.
+      if (score[index] >= EDGE_SCORE) stages[index] = "fire";
+      else if (score[index] >= EDGE_SCORE - 1) stages[index] = "aim";
+      else if (score[index] >= 3) stages[index] = "ready";
     }
     const trades = [];
     const marks = [];
@@ -1331,13 +1462,14 @@
       if (pending === "buy" && !holding) {
         const price = bar.open;
         const stop = price - EDGE_TRAIL * (range[index - 1] || 0);
-        holding = { index, date: bar.date, price, stop, high: bar.close };
-        marks.push({ index, side: "buy", price });
+        const precise = big4.bias[index - 1] === "bull" || big4.ok[index - 1];
+        holding = { index, date: bar.date, price, stop, high: bar.close, stage: "fire", precise };
+        marks.push({ index, side: "buy", price, stage: "fire", precise });
       } else if (pending === "sell" && holding) {
         const price = bar.open;
         const pct = (price * (1 - EDGE_FEE)) / (holding.price * (1 + EDGE_FEE)) - 1;
         trades.push({ entryDate: holding.date, exitDate: bar.date, entry: holding.price, exit: price, pct, why: holding.why });
-        marks.push({ index, side: "sell", price });
+        marks.push({ index, side: "sell", price, stage: "fire", precise: true });
         equity *= 1 + pct;
         holding = null;
       }
@@ -1363,6 +1495,7 @@
       } else {
         if (equity > peak) peak = equity;
         const prior = index > EDGE_WARM ? score[index - 1] : 0;
+        // Fire: first closed bar where all five Edge checks turn on. big4indicator tags the most precise fires.
         if (score[index] === EDGE_SCORE && prior < EDGE_SCORE) pending = "buy";
       }
     }
@@ -1378,6 +1511,7 @@
     else if (pending === "sell") call = "SELL";
     else if (filledToday) call = filledToday.side === "buy" ? "BUY" : "SELL";
     else if (holding) call = "HOLD";
+    const stageNow = settled >= 0 ? stages[settled] : null;
     const openPct = holding ? closes[last] / (holding.price * (1 + EDGE_FEE)) - 1 : null;
     return {
       call,
@@ -1385,6 +1519,9 @@
       parts: settled >= 0 ? parts[settled] : null,
       scores: score,
       allParts: parts,
+      stages,
+      stage: stageNow,
+      big4: settled >= 0 ? { bias: big4.bias[settled], ok: big4.ok[settled] || big4.bias[settled] === "bull", label: big4.label, name: big4.name } : null,
       live,
       filled: filledToday ? { side: filledToday.side, price: filledToday.price } : null,
       signalDate: settled >= 0 ? list[settled].date : null,
@@ -1600,6 +1737,44 @@
     return out;
   }
 
+  function cciPane(bars) {
+    const list = bars || [];
+    const count = list.length;
+    const slow = cci(list, 50);
+    const mid = cci(list, 14);
+    const fast = cci(list, 5);
+    const up = new Array(count).fill(false);
+    const down = new Array(count).fill(false);
+    for (let index = 1; index < count; index += 1) {
+      if (slow[index] == null || slow[index - 1] == null) continue;
+      if (slow[index - 1] <= 100 && slow[index] > 100) up[index] = true;
+      if (slow[index - 1] >= -100 && slow[index] < -100) down[index] = true;
+      const snap = cciSnapState(fast, slow, index);
+      if (snap.fireUp) up[index] = true;
+      if (snap.fireDown) down[index] = true;
+    }
+    let hi = 100;
+    let lo = -100;
+    [slow, mid, fast].forEach((series) => {
+      series.forEach((value) => {
+        if (value == null) return;
+        if (value > hi) hi = value;
+        if (value < lo) lo = value;
+      });
+    });
+    const pad = Math.max(40, (hi - lo) * 0.08);
+    return {
+      fast,
+      mid,
+      slow,
+      up,
+      down,
+      high: hi + pad,
+      low: lo - pad,
+      levels: [-100, 0, 100],
+    };
+  }
+
   function cciSnapState(fast, slow, index) {
     if (fast[index] == null || slow[index] == null) return { readyUp: false, readyDown: false, fireUp: false, fireDown: false, gap: null };
     const gap = slow[index] - fast[index];
@@ -1762,12 +1937,12 @@
   }
 
   const STRATEGY_INFO = {
-    edge: { name: "Edge · five checks", who: "This bot", idea: "Enters when all five checks turn on together on a closed bar: the first bar that reaches exactly five squeeze dots, squeeze momentum above zero and rising, true momentum above its signal, and close under the upper Bollinger band. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close." },
+    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready when three Edge checks are on, Aim at four, Fire when all five turn on together on a closed bar. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
-      name: "Squeeze · TMO · B4 · stack · MTF",
+      name: "Squeeze · TMO · big4indicator · stack · MTF",
       who: "Four desk studies · multi-TF",
-      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, B4 trend agrees (close above the 50 and 200 EMAs, MACD above signal, RSI under 70), the SMA stack is lined up 5 over 9 over 21 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
+      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, big4indicator agrees (close above the 50 and 200 EMAs, MACD above signal, RSI between 30 and 70), the SMA stack is lined up 5 over 9 over 21 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
     },
     ccizoom: {
       name: "CCI zoom zone",
@@ -1855,6 +2030,9 @@
           why: trade.why || "Exit rule",
         })),
         openSince: known.entry ? ((known.marks || []).filter((mark) => mark.side === "buy").slice(-1).map((mark) => list[mark.index].date)[0] || null) : null,
+        stage: known.stage,
+        big4: known.big4,
+        stages: known.stages,
       });
     } else notReady("edge", "Needs at least 52 bars.");
 
@@ -1890,9 +2068,6 @@
       const on = study.level.map((value) => value >= 2);
       const tmo = trueMomentum(list, 14, 5, 3);
       const ema50 = ema(closes, 50);
-      const ema200 = ema(closes, 200);
-      const trend = macd(list);
-      const rsi = proRsi(closes, 14);
       const stack = stackAverages(list);
       const s5 = stack[0].values;
       const s9 = stack[1].values;
@@ -1901,16 +2076,8 @@
       const mtfFlags = multiFrameLongFlags(list, end);
       const rising = (index) => mom[index] != null && mom[index - 1] != null && mom[index] > 0 && mom[index] > mom[index - 1];
       const tmoUp = (index) => tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index];
-      const b4Ok = (index) =>
-        ema50[index] != null &&
-        ema200[index] != null &&
-        closes[index] > ema50[index] &&
-        closes[index] > ema200[index] &&
-        trend.line[index] != null &&
-        trend.signal[index] != null &&
-        trend.line[index] > trend.signal[index] &&
-        rsi[index] != null &&
-        rsi[index] < 70;
+      const big4 = big4Indicator(list);
+      const big4Ok = (index) => !!big4.ok[index];
       const stackOk = (index) =>
         s5[index] != null &&
         s9[index] != null &&
@@ -1923,7 +2090,7 @@
       const run = runRule(list, end, 240, {
         enter: (index) => {
           const fired = !on[index] && on[index - 1];
-          return fired && rising(index) && tmoUp(index) && b4Ok(index) && stackOk(index) && mtfOk(index)
+          return fired && rising(index) && tmoUp(index) && big4Ok(index) && stackOk(index) && mtfOk(index)
             ? { stop: list[index].low }
             : null;
         },
@@ -1946,7 +2113,9 @@
         fired,
         squeezeOk: fired && rising(last),
         tmoOk: tmoUp(last),
-        b4Ok: b4Ok(last),
+        b4Ok: big4Ok(last),
+        big4Ok: big4Ok(last),
+        big4Bias: big4.bias[last],
         stackOk: stackOk(last),
         weekOk: snap.weekOk,
         monthOk: snap.monthOk,
@@ -2324,6 +2493,135 @@
     return { ready: total >= 60, label, score, coverage: total, parts, missing, asOf: dated ? dated[dated.length - 1].date : "" };
   }
 
+  // Open-market desk studies for the Internals path (Best setup / Edge / scan). Same closed-bar math as Strategies.
+  function deskInternals(bars, options) {
+    const list = bars || [];
+    const live = !!(options && options.live) && list.length > 0;
+    const end = live ? list.length - 1 : list.length;
+    const parts = [];
+    const add = (id, name, weight, says, text) => {
+      parts.push({
+        id,
+        name,
+        weight,
+        says,
+        points: says === "good" ? weight : says === "neutral" ? weight / 2 : 0,
+        text,
+        desk: true,
+      });
+    };
+    if (end < 60) {
+      return {
+        ready: false,
+        parts: [],
+        missing: ["Squeeze", "TMO", "big4indicator", "SMA stack", "Weekly MTF", "Monthly MTF"],
+        squeezeOk: false,
+        tmoOk: false,
+        big4Ok: false,
+        stackOk: false,
+        weekOk: false,
+        monthOk: false,
+        mtfOk: false,
+        asOf: "",
+      };
+    }
+    const closes = list.map((bar) => bar.close);
+    const study = compression(list, 20);
+    const mom = study.momentum;
+    const on = study.level.map((value) => value >= 2);
+    const last = end - 1;
+    const rising = mom[last] != null && mom[last - 1] != null && mom[last] > 0 && mom[last] > mom[last - 1];
+    const fired = last > 0 && !on[last] && on[last - 1];
+    let dots = 0;
+    for (let index = last; index >= 0 && on[index]; index -= 1) dots += 1;
+    const squeezeOk = !!(fired && rising);
+    const bearish = !!(fired && mom[last] != null && mom[last] < 0 && mom[last - 1] != null && mom[last] < mom[last - 1]);
+    const squeezeSays = squeezeOk ? "good" : bearish ? "bad" : dots > 0 ? "neutral" : "neutral";
+    add(
+      "squeeze",
+      "Squeeze (desk)",
+      20,
+      squeezeSays,
+      squeezeOk
+        ? "Squeeze just fired with momentum above zero and rising."
+        : bearish
+          ? "Bearish squeeze fire. This long-only desk stands aside."
+          : dots > 0
+            ? "Squeeze on, " + dots + " compression dot" + (dots === 1 ? "" : "s") + " building."
+            : "No squeeze fire on the last closed bar."
+    );
+
+    const tmo = trueMomentum(list, 14, 5, 3);
+    const tmoOk = !!(tmo.main[last] != null && tmo.signal[last] != null && tmo.main[last] > tmo.signal[last]);
+    add(
+      "tmo",
+      "TMO 14/5/3",
+      20,
+      tmoOk ? "good" : tmo.main[last] != null && tmo.signal[last] != null ? "bad" : "neutral",
+      tmo.main[last] != null && tmo.signal[last] != null
+        ? "True momentum " + tmo.main[last].toFixed(2) + (tmoOk ? " above" : " below") + " signal " + tmo.signal[last].toFixed(2) + "."
+        : "True momentum needs more bars."
+    );
+
+    const big4 = big4Indicator(list);
+    const big4Ok = !!big4.ok[last];
+    add(
+      "big4",
+      "big4indicator",
+      20,
+      big4Ok ? "good" : big4.bias[last] === "bear" ? "bad" : "neutral",
+      "big4indicator " + (big4.label || big4.bias[last] || "Waiting") + (big4Ok ? " (agrees)" : " (waiting).")
+    );
+
+    const stack = stackAverages(list);
+    const s5 = stack[0].values;
+    const s9 = stack[1].values;
+    const s21 = stack[2].values;
+    const s50 = stack[3].values;
+    const stackOk =
+      s5[last] != null &&
+      s9[last] != null &&
+      s21[last] != null &&
+      s50[last] != null &&
+      s5[last] > s9[last] &&
+      s9[last] > s21[last] &&
+      s21[last] > s50[last];
+    add(
+      "stack",
+      "SMA stack 5·9·21·50",
+      20,
+      stackOk ? "good" : "bad",
+      stackOk ? "SMA stack lined up 5 over 9 over 21 over 50." : "SMA stack is not lined up on the last closed bar."
+    );
+
+    const snap = end >= 260 ? multiFrameSnapshot(list, end) : { weekOk: false, monthOk: false, mtfOk: false };
+    if (end < 260) {
+      add("week", "Weekly MTF", 10, "neutral", "Needs at least 260 daily bars for weekly multi-TF.");
+      add("month", "Monthly MTF", 10, "neutral", "Needs at least 260 daily bars for monthly multi-TF.");
+    } else {
+      add("week", "Weekly MTF", 10, snap.weekOk ? "good" : "bad", snap.weekOk ? "Completed weekly bars agree (TMO above signal, close above 20-EMA)." : "Completed weekly bars do not agree yet.");
+      add("month", "Monthly MTF", 10, snap.monthOk ? "good" : "bad", snap.monthOk ? "Completed monthly bars agree (TMO above signal, close above 20-EMA)." : "Completed monthly bars do not agree yet.");
+    }
+
+    const total = parts.reduce((sum, item) => sum + item.weight, 0);
+    const earned = parts.reduce((sum, item) => sum + item.points, 0);
+    const score = total > 0 ? Math.round((earned / total) * 100) : 0;
+    return {
+      ready: true,
+      parts,
+      missing: [],
+      score,
+      squeezeOk,
+      tmoOk,
+      big4Ok,
+      stackOk,
+      weekOk: !!snap.weekOk,
+      monthOk: !!snap.monthOk,
+      mtfOk: !!snap.mtfOk,
+      asOf: list[last] ? list[last].date : "",
+    };
+  }
+
   const EDGE_NAMES = { dots: "exactly 5 squeeze dots", above: "squeeze momentum above 0", rising: "squeeze momentum rising", tmo: "true momentum above signal", band: "under the upper Bollinger band" };
 
   function plainPrice(value) {
@@ -2463,6 +2761,133 @@
     return "Edge " + known.call + " · " + (known.score == null ? "—" : known.score + " of " + EDGE_SCORE) + stop + " · " + known.record.trades + " past trades, " + (known.record.trades ? Math.round(known.record.winRate * 100) + "% won" : "none yet");
   }
 
+  // Big 3 Market Scorecard: index/sector strength, strict A+ squeezes, day bias.
+  // Desk closed-bar math only — not a third-party or trademarked scorecard product.
+  const SCORECARD_INDEXES = ["SPY", "QQQ", "IWM", "DIA", "ES", "NQ"];
+  const SCORECARD_SECTORS = ["XLK", "SMH", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB"];
+
+  function strengthRead(bars) {
+    const list = closedBars(bars || [], false);
+    if (list.length < 50) return null;
+    const closes = list.map((bar) => bar.close);
+    const close = closes[closes.length - 1];
+    const e21 = ema(closes, 21);
+    const e50 = ema(closes, 50);
+    const last21 = e21[e21.length - 1];
+    const last50 = e50[e50.length - 1];
+    if (!(last21 > 0) || !(last50 > 0)) return null;
+    const prior = closes[Math.max(0, closes.length - 6)];
+    const ret5 = prior > 0 ? close / prior - 1 : 0;
+    let score = 0;
+    if (close > last21) score += 35;
+    if (last21 > last50) score += 25;
+    if (close > last50) score += 15;
+    score += Math.max(0, Math.min(25, Math.round(ret5 * 500)));
+    return {
+      ready: true,
+      score: Math.min(100, score),
+      close,
+      ema21: last21,
+      ema50: last50,
+      ret5,
+      stacked: close > last21 && last21 > last50,
+      asOf: list[list.length - 1].date,
+    };
+  }
+
+  function isAPlusSqueeze(row, scored) {
+    if (!row || !row.ready) return false;
+    if (row.direction !== "bull") return false;
+    const score = scored && scored.score != null ? scored.score : 0;
+    if (score < 80) return false;
+    if (!row.rising) return false;
+    if (row.stack !== "positive") return false;
+    if (!(row.level >= 2 || row.dots >= 5)) return false;
+    return !!(row.clean || score >= 90 || (scored && scored.triple));
+  }
+
+  function dayBias(internalsResult, indexRanks) {
+    const ranks = indexRanks || [];
+    const stacked = ranks.filter((row) => row.stacked).length;
+    const share = ranks.length ? stacked / ranks.length : 0;
+    const top = ranks[0];
+    const int = internalsResult || {};
+    if (!int.ready || int.label === "Defensive" || int.score < 40) {
+      return {
+        bias: "Stay flat",
+        why:
+          !int.ready
+            ? "Internals not ready — stand aside until gauges read."
+            : "Defensive / weak market gauges (" + (int.label || "Unknown") + " " + (int.score || 0) + "). Size down or stand aside.",
+      };
+    }
+    if (int.label === "Supportive" && int.score >= 65 && share >= 0.5) {
+      return {
+        bias: "Swing trades",
+        why:
+          "Supportive internals " +
+          int.score +
+          " and " +
+          stacked +
+          " of " +
+          ranks.length +
+          " indexes stacked up" +
+          (top ? " (leader " + top.symbol + ")" : "") +
+          ". Favor multi-day holds on A+ squeezes in strong sectors.",
+      };
+    }
+    return {
+      bias: "Day trades",
+      why:
+        "Market is " +
+        int.label +
+        " " +
+        int.score +
+        " with " +
+        stacked +
+        " of " +
+        ranks.length +
+        " indexes stacked. Prefer shorter holds; wait for A+ squeezes in the strongest indexes/sectors.",
+    };
+  }
+
+  function marketScorecard(input) {
+    const source = input || {};
+    const rankGroup = (symbols, barsMap) =>
+      (symbols || [])
+        .map((symbol) => {
+          const read = strengthRead((barsMap || {})[symbol]);
+          if (!read) return null;
+          return Object.assign({ symbol }, read);
+        })
+        .filter(Boolean)
+        .sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol));
+    const indexes = rankGroup(source.indexSymbols || SCORECARD_INDEXES, source.bars || {});
+    const sectors = rankGroup(source.sectorSymbols || SCORECARD_SECTORS, source.bars || {});
+    const aPlus = (source.squeezes || [])
+      .filter((row) => row && isAPlusSqueeze(row.read || row, row.scored || row))
+      .map((row) => ({
+        symbol: row.symbol,
+        score: (row.scored || row).score,
+        state: (row.read || row).state,
+        dots: (row.read || row).dots,
+        level: (row.read || row).level,
+        triple: !!(row.scored || row).triple,
+        sector: row.sector || "",
+        index: row.index || "",
+      }))
+      .sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol));
+    const day = dayBias(source.internals, indexes);
+    return {
+      ready: indexes.length > 0 || sectors.length > 0 || aPlus.length > 0 || !!(source.internals && source.internals.ready),
+      indexes,
+      sectors,
+      aPlus,
+      day,
+      asOf: (indexes[0] && indexes[0].asOf) || (sectors[0] && sectors[0].asOf) || "",
+    };
+  }
+
   root.PaperFrames = {
     edge,
     drawEdgeCalls,
@@ -2474,13 +2899,21 @@
     edgeLine,
     plainPrice,
     internals,
+    deskInternals,
     INTERNAL_SYMBOLS,
     squeezeRead,
     squeezeScore,
+    strengthRead,
+    isAPlusSqueeze,
+    dayBias,
+    marketScorecard,
+    SCORECARD_INDEXES,
+    SCORECARD_SECTORS,
     strategies,
     STRATEGY_INFO,
     STRATEGY_IDS,
     cci,
+    cciPane,
     cciSnapState,
     openingRange,
     pro,
@@ -2511,6 +2944,9 @@
     compression,
     trendPivots,
     paintPivots,
+    periodVwap,
+    deskClearRead,
+    big4Indicator,
     trueMomentum,
     zoomBars,
     zoomStep,

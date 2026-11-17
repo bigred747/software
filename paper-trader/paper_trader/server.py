@@ -51,6 +51,7 @@ from paper_trader.learn import (
     pick_note,
     rank_leaders,
     rank_today,
+    record_fill_lesson,
     remember_day_buy,
     remember_focus,
     remember_scan_switch,
@@ -412,6 +413,27 @@ class Desk:
             fill["process"] = process
         self.journal.fills.append(fill)
         self.journal.fills = self.journal.fills[-500:]
+        try:
+            taught = record_fill_lesson(
+                self.learn_path,
+                self.journal.symbol,
+                side,
+                price,
+                reason=reason,
+                pnl=pnl,
+            )
+            timing = taught.get("timing") if isinstance(taught, dict) else None
+            if isinstance(timing, dict):
+                fill["timing_note"] = str(timing.get("note") or "")
+                fill["prefer_fire"] = bool(timing.get("prefer_fire"))
+            lesson = taught.get("fill") if isinstance(taught, dict) else None
+            if isinstance(lesson, dict) and lesson.get("as_of"):
+                fill["as_of"] = lesson.get("as_of")
+                fill["setup"] = lesson.get("setup") or ""
+                if lesson.get("rule"):
+                    fill["process"] = lesson.get("rule")
+        except (OSError, ValueError):
+            pass
 
     def _read_shelf(self) -> dict:
         try:
@@ -797,6 +819,12 @@ class Desk:
         except ValueError:
             locked = True
         add("Live locked", locked, "No broker or bank link. Every order is paper")
+        add("Second warning", True, "Every paper buy and sell still asks Yes, including Auto")
+        add(
+            "No invented breadth",
+            True,
+            "NYSE TICK, ADD, TRIN, and VOLD stay blank until a real feed exists. Nothing is guessed",
+        )
         hosts = {_url_host(quotes._URL)}
         add("Quote hosts", hosts <= QUOTE_HOSTS, "Prices come from " + ", ".join(sorted(hosts)) + " only")
         try:
@@ -979,9 +1007,10 @@ class Desk:
         remember_symbols(self.watch_path, symbols)
 
     def learn_touch(self, body: dict | None = None) -> dict:
-        """Score the open market (and a few watched names) when a desk tab is opened."""
+        """Score closed bars on watched names, or cycle top Daily scan names on auto/scan."""
         payload = body if isinstance(body, dict) else {}
         tab = str(payload.get("tab") or "")[:40]
+        scan_cycle = tab in ("auto", "scan")
         raw_symbols = payload.get("symbols") if isinstance(payload.get("symbols"), list) else []
         cleaned: list[str] = []
         for item in raw_symbols:
@@ -1002,14 +1031,23 @@ class Desk:
             if symbol not in watch:
                 watch.append(symbol)
         remember_symbols(self.watch_path, watch[:24])
+        limit = 5 if scan_cycle else 3
         targets: list[str] = []
-        if focus:
-            targets.append(focus)
-        for symbol in cleaned:
-            if symbol not in targets:
-                targets.append(symbol)
-            if len(targets) >= 3:
-                break
+        if scan_cycle:
+            # Client rotates through the green/best Daily scan list.
+            for symbol in cleaned:
+                if symbol not in targets:
+                    targets.append(symbol)
+                if len(targets) >= limit:
+                    break
+        else:
+            if focus:
+                targets.append(focus)
+            for symbol in cleaned:
+                if symbol not in targets:
+                    targets.append(symbol)
+                if len(targets) >= limit:
+                    break
         scored: list[str] = []
         new_processes: list[dict] = []
         fills_updated = 0
@@ -1041,6 +1079,7 @@ class Desk:
         book["touch_tab"] = tab
         book["new_processes"] = new_processes
         book["fills_updated"] = fills_updated
+        book["scan_cycle"] = scan_cycle
         if new_processes:
             first = new_processes[0]
             book["touch_note"] = (
@@ -1052,8 +1091,9 @@ class Desk:
             )
         elif scored:
             where = tab or "desk"
+            prefix = "Scan learn scored " if scan_cycle else "Scored "
             book["touch_note"] = (
-                "Scored "
+                prefix
                 + ", ".join(scored)
                 + " from "
                 + where

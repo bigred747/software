@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, marketScorecard, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -95,6 +95,46 @@ test("pivot resistance follows the rising high and support stays under it", () =
   assert.equal(pivots.fromHigh, 29);
 });
 
+test("desk clear read exposes VWAP chips and a non-empty bias", () => {
+  const bars = [];
+  for (let index = 0; index < 80; index += 1) {
+    const close = 100 + index * 0.4 + Math.sin(index / 5) * 2;
+    bars.push({
+      date: "2024-06-" + String((index % 27) + 1).padStart(2, "0"),
+      open: close - 0.5,
+      high: close + 1,
+      low: close - 1,
+      close,
+      volume: 1000 + index * 10,
+    });
+  }
+  const read = deskClearRead(bars);
+  assert.ok(read);
+  assert.ok(["Bullish", "Bearish", "Mixed", "Waiting"].includes(read.bias));
+  assert.ok(read.pctB == null || Number.isFinite(read.pctB));
+  assert.ok(["Acceleration", "Deceleration", "Steady"].includes(read.stage));
+});
+
+test("cci pane builds three lengths and ±100 cross arrows", () => {
+  const bars = [];
+  for (let index = 0; index < 80; index += 1) {
+    const close = index < 40 ? 100 + index * 2 : 180 - (index - 40) * 3;
+    bars.push(day("2024-05-" + String((index % 27) + 1).padStart(2, "0"), close - 1, close + 2, close - 2, close));
+  }
+  const pane = cciPane(bars);
+  assert.equal(pane.slow.length, 80);
+  assert.equal(pane.mid.length, 80);
+  assert.equal(pane.fast.length, 80);
+  assert.equal(cci(bars, 50)[79], pane.slow[79]);
+  assert.ok(pane.high > 100);
+  assert.ok(pane.low < -100);
+  assert.equal(pane.levels[0], -100);
+  assert.equal(pane.levels[1], 0);
+  assert.equal(pane.levels[2], 100);
+  assert.equal(pane.up.length, 80);
+  assert.equal(pane.down.length, 80);
+});
+
 test("true momentum stays inside the length and confirms arrows on a closed bar", () => {
   const bars = [];
   for (let index = 0; index < 40; index += 1) {
@@ -131,12 +171,16 @@ test("edge fills at the next open and later bars do not move closed trades", () 
   }
   const full = edge(bars);
   assert.ok(full.ready);
+  assert.ok(full.stages);
+  assert.ok(full.big4);
+  assert.equal(big4Indicator(bars).name, "big4indicator");
   assert.ok(full.trades.length > 0);
   assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(full.call));
   assert.ok(full.score >= 0 && full.score <= 5);
   full.marks.forEach((mark) => {
     assert.equal(mark.price, bars[mark.index].open);
     assert.ok(mark.index >= 51);
+    assert.equal(mark.stage, "fire");
   });
   full.trades.forEach((trade) => assert.ok(trade.exitDate > trade.entryDate));
   assert.ok(full.record.worst <= 0);
@@ -151,6 +195,8 @@ test("edge fills at the next open and later bars do not move closed trades", () 
     const signal = edge(bars.slice(0, mark.index));
     assert.equal(signal.call, "BUY");
     assert.equal(signal.score, 5);
+    assert.equal(signal.stage, "fire");
+    assert.ok(signal.big4);
     assert.ok(Object.values(signal.parts).every(Boolean));
   });
   assert.equal(again.trades.length, full.trades.length);
@@ -337,7 +383,7 @@ test("strategies report classic public rows plus the four-study combo from close
   assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"]);
   const quad = board.rows.find((row) => row.id === "quad");
   assert.ok(quad);
-  assert.equal(quad.name, "Squeeze · TMO · B4 · stack");
+  assert.equal(quad.name, "Squeeze · TMO · big4indicator · stack · MTF");
   const zoom = board.rows.find((row) => row.id === "ccizoom");
   const snap = board.rows.find((row) => row.id === "ccisnap");
   assert.ok(zoom && snap);
@@ -426,6 +472,24 @@ test("internals roll real gauges into a label and never guess a missing one", ()
   assert.equal(internals({}).ready, false);
 });
 
+test("deskInternals folds Squeeze · TMO · big4 · stack · MTF into the internals path", () => {
+  const short = deskInternals(walk(40, 12, 0.001), { live: false });
+  assert.equal(short.ready, false);
+  assert.ok(short.missing.includes("Squeeze"));
+  const desk = JSON.parse(JSON.stringify(deskInternals(walk(320, 18, 0.0012), { live: false })));
+  assert.equal(desk.ready, true);
+  assert.deepEqual(
+    desk.parts.map((part) => part.id),
+    ["squeeze", "tmo", "big4", "stack", "week", "month"]
+  );
+  assert.equal(typeof desk.squeezeOk, "boolean");
+  assert.equal(typeof desk.tmoOk, "boolean");
+  assert.equal(typeof desk.big4Ok, "boolean");
+  assert.equal(typeof desk.stackOk, "boolean");
+  assert.equal(typeof desk.mtfOk, "boolean");
+  assert.ok(desk.score >= 0 && desk.score <= 100);
+});
+
 function intraday(count, seed, minutes) {
   const daily = walk(count, seed, 0.0004);
   return daily.map((bar, index) => {
@@ -458,4 +522,44 @@ test("the price box lists open, high, low, close, change and the Edge checks for
   assert.equal(describeBar(bars, -1, {}), null);
   assert.equal(describeBar(bars, 300, {}), null);
   assert.equal(describeBar(bars, 0, { crypto: true }).rows.some((row) => row[0] === "Change"), false);
+});
+
+test("Big 3 Market Scorecard ranks strength and day bias", () => {
+  assert.ok(SCORECARD_INDEXES.includes("SPY"));
+  assert.ok(SCORECARD_SECTORS.includes("XLK"));
+  const up = [];
+  for (let index = 0; index < 80; index += 1) {
+    const close = 100 + index * 0.8;
+    up.push(day("2024-03-" + String((index % 28) + 1).padStart(2, "0"), close - 1, close + 1, close - 2, close));
+  }
+  const down = [];
+  for (let index = 0; index < 80; index += 1) {
+    const close = 180 - index * 0.7;
+    down.push(day("2024-03-" + String((index % 28) + 1).padStart(2, "0"), close + 1, close + 2, close - 1, close));
+  }
+  const strong = strengthRead(up);
+  const weak = strengthRead(down);
+  assert.equal(strong.ready, true);
+  assert.ok(strong.score > weak.score);
+  assert.equal(strong.stacked, true);
+  const flat = dayBias({ ready: true, label: "Defensive", score: 30 }, [{ symbol: "SPY", stacked: false, score: 20 }]);
+  assert.equal(flat.bias, "Stay flat");
+  const swing = dayBias({ ready: true, label: "Supportive", score: 72 }, [
+    { symbol: "SPY", stacked: true, score: 80 },
+    { symbol: "QQQ", stacked: true, score: 78 },
+  ]);
+  assert.equal(swing.bias, "Swing trades");
+  const card = marketScorecard({
+    bars: { SPY: up, QQQ: up, XLK: up, XLU: down },
+    internals: { ready: true, label: "Supportive", score: 70 },
+    squeezes: [],
+    indexSymbols: ["SPY", "QQQ"],
+    sectorSymbols: ["XLK", "XLU"],
+  });
+  assert.deepEqual(card.indexes.map((row) => row.symbol).sort(), ["QQQ", "SPY"]);
+  assert.equal(card.sectors[0].symbol, "XLK");
+  assert.ok(card.sectors[0].score > card.sectors[1].score);
+  assert.equal(card.day.bias, "Swing trades");
+  assert.equal(isAPlusSqueeze({ ready: true, direction: "bear", rising: true, stack: "positive", level: 3, dots: 6, clean: true }, { score: 90 }), false);
+  assert.equal(isAPlusSqueeze({ ready: true, direction: "bull", rising: true, stack: "positive", level: 3, dots: 6, clean: true }, { score: 90 }), true);
 });

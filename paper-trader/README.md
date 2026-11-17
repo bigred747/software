@@ -95,6 +95,69 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Journal daily check (1.9.82)
+
+- Open **Journal** each day for **Today's check**: buy signals (Fire 5 / today's best), sell / exit signals on open paper longs (Edge exit), and products already filled today.
+- Tap a product name to open the chart. No separate sell button — Auto / Trade still ask **Yes** before any paper fill. Paper only. Not a forecast.
+
+## Fire 5 · best trades (1.9.81)
+
+- Daily scan lights up to **five green Fire signals** when Ready · Aim · Fire turns **Fire** on a strong scan name.
+- Tap each green name to review the chart, then buy if you want (Confirm still asks).
+- **Fire 5 Auto** watches that list and opens a Yes warning before each paper buy. Paper only. Not a forecast.
+
+## Big 3 Market Scorecard (1.9.80)
+
+On the computer desk (Markets card + **Big 3 Scorecard** dock):
+
+- Ranks the strongest indexes and sector funds from closed daily bars (shows ranks as soon as those boards finish).
+- Lists A+ squeezes that meet this desk’s strict rules (score 80+, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product).
+- Says whether the day favors **swing trades**, **day trades**, or **staying flat** from internals + index stack.
+- Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.
+
+## Bot-on Learning (1.9.79 · QPT-11+)
+
+- **Bot on** = the Paper Trader Learn score process (starts when you open the desk; tick **Start the score** under Windows extras for sign-in).
+- While bot on: **every** desk section keeps learning on closed bars even when scrolled away — Markets, Chart, Trade, Study, Strategies, Squeeze scan, Big 3 Scorecard, Internals, Timeframes, big4indicator, Journal, Backtest, Signals.
+- **Auto-include:** new dock pages register via `register_desk_page`; new classic strategies via `register_strategy` — the learner picks them up after the next ship without a separate hook.
+- **Page open** still refreshes live UI faster.
+- Phone/browser alone cannot keep the bot process alive. Paper only. Not a forecast. Not a broker.
+
+## Continuous Learning (1.9.69)
+
+- **Page open:** cycles top Daily scan names, re-scores every strategy on those names, and learns from paper buy/sell fills to refine Ready · Aim · Fire timing.
+- **Background (Windows):** the closed-bar scorer keeps running after the desk closes while you are signed in; tick **Start the score** under Windows extras for sign-in. It covers lessons + Daily scan and watches top scan names. Strategy table UI refresh still needs the page.
+- Paper only. Closed bars only. Not a forecast. Not a broker.
+
+## Continuous scan Learning (1.9.68)
+
+While the page is open, Learning cycles through the top Daily scan names (green best list, else leaders). Each pass scores closed bars only, two names at a time, and keeps going with Auto refresh. Paper only. Not a forecast.
+
+## big4indicator + Ready · Aim · Fire (1.9.67)
+
+- **big4indicator** colors candles all green in a bullish stretch and all red in a bearish stretch (mixed gray). Toggle in Layers.
+- **Ready · Aim · Fire** is this desk's Edge staging (not a third-party product): Ready at 3 checks, Aim at 4, Fire when all five turn on. BUY/SELL arrows paint only at Fire (next open). Auto buy waits for Fire and prefers bullish big4indicator.
+
+## Solid candle colors (1.9.66)
+
+Up candles are solid green and down candles are solid red, including the wicks, so the price pane stays easy to read over the overlays.
+
+## Clear chart overlays (1.9.65)
+
+Price chart shows **large BUY / SELL arrows** from Edge only: closed-bar signal, fill at the next open, past arrows never move. Support and resistance boxes, green trend EMA 50, VWAP line, and a clear chip row for VWAP D/W/M, Desk B4 bias, Bollinger %B(20), and stage. Lesson arrows stay off unless you turn that layer on. Public closed-bar math only. Not a forecast.
+
+## Study spacing (1.9.64)
+
+Price, TMO, Squeeze, and CCI are separate boxes one under another (not overlapping). Scroll the chart to see each full pane. **Open TMO · Squeeze · CCI** still opens a full window. Compact studies tightens heights if you want more on screen at once.
+
+## Study rollup and window (1.9.63)
+
+On computer and phone, each study pane has a **▾ / ▸** rollup arrow. **Expand studies** makes TMO, squeeze, and CCI taller. **Open TMO · Squeeze · CCI** (and each pane’s Open ▢) opens the three studies in a separate window so you can see the full oscillators while the main desk stays open. Chart area scrolls so the four panes are not crushed into tiny squares.
+
+## TOS-style study panes (1.9.62)
+
+The chart stacks four panes like a desk layout: price with the SMA stack, then **true momentum (TMO 14/5/3)** with a cyan readout banner and cyan/pink cross arrows, then **squeeze momentum** as its own cyan/blue/yellow/red histogram with compression dots, then **CCI 50 / 14 / 5** in white/yellow/cyan with ±100 lines and green/red arrows on closed-bar crosses. Status chips above the chart show trend, breakdown/breakout, squeeze alert, Edge, momentum, and VWAP from closed bars. Public closed-bar math only — not a third-party or trademarked study. Not a forecast.
+
 ## Best setup Auto (1.9.61)
 
 **Best setup Auto** on Strategies arms the strictest paper-buy gate and shows a live gate checklist. With Auto and strategy follow on, it only offers an Edge buy when all of these are green on closed bars: Edge 5/5 BUY, most timeframes buying or holding (at least two-thirds), internals Supportive (or Mixed 55+ with more good than bad), SMA stack lined up, weekly and monthly multi-TF on, the open market in today’s green scan list, a fresh quote, not extreme greed (fear/greed under 85), and fewer than three new paper buys that Denver day. Arming it loads timeframes and internals and turns the internals gate on. Edge SELL can still exit a long. Voice can announce **Best setup ready**. The second warning still asks Yes. Green **Best setup** signal lights when every gate is ready. Not a forecast.
