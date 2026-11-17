@@ -1418,8 +1418,8 @@
     const study = compression(list, 20);
     const squeeze = study.momentum;
     const tmo = trueMomentum(list, 14, 5, 3);
+    const cciSlow = cci(list, 50);
     const range = edgeAtr(list, 14);
-    const bands = bollinger(list, 20, 2);
     const big4 = big4Indicator(list);
     const dots = new Array(count).fill(0);
     let run = 0;
@@ -1433,14 +1433,27 @@
     const stages = new Array(count).fill(null);
     for (let index = EDGE_WARM; index < end; index += 1) {
       const now = squeeze[index];
-      const prior = squeeze[index - 1];
+      const main = tmo.main[index];
+      const signal = tmo.signal[index];
+      // TMO −10: oversold OS on this closed bar or within the prior 13 (swing room so CCI can reach +100 after the dip).
+      let tmoOs = false;
+      for (let back = 0; back <= 13; back += 1) {
+        const at = index - back;
+        if (at < 0) break;
+        if (tmo.main[at] != null && tmo.main[at] <= tmo.os) {
+          tmoOs = true;
+          break;
+        }
+      }
       const checks = {
-        // First closed bar that reaches exactly five squeeze dots — not every later day still in the squeeze.
-        dots: dots[index] === EDGE_DOTS,
+        // Chart stack: TMO · Squeeze · CCI (closed bars only). Replaces the old Bollinger fifth check.
+        tmoOs,
+        tmo: main != null && signal != null && main > signal,
+        // Five red squeeze dots, or currently in a squeeze (any compression level).
+        dots: dots[index] >= EDGE_DOTS || study.level[index] > 0,
         above: now != null && now > 0,
-        rising: now != null && prior != null && now >= prior,
-        tmo: tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index],
-        band: bands.upper[index] != null && closes[index] < bands.upper[index],
+        // CCI(50) in / into the +100 zone (pane also marks closed-bar crosses with arrows).
+        cci: cciSlow[index] != null && cciSlow[index] > 100,
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
@@ -1937,7 +1950,7 @@
   }
 
   const STRATEGY_INFO = {
-    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready when three Edge checks are on, Aim at four, Fire when all five turn on together on a closed bar. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
+    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready when three Edge checks are on, Aim at four, Fire when all five turn on together on a closed bar: TMO at or from −10, TMO main above signal (green / red-green cross arrows), 5 squeeze dots or in a squeeze, squeeze momentum above zero, and CCI(50) into zone +100. Matches the Open TMO · Squeeze · CCI panes. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
       name: "Squeeze · TMO · big4indicator · stack · MTF",
@@ -2622,7 +2635,13 @@
     };
   }
 
-  const EDGE_NAMES = { dots: "exactly 5 squeeze dots", above: "squeeze momentum above 0", rising: "squeeze momentum rising", tmo: "true momentum above signal", band: "under the upper Bollinger band" };
+  const EDGE_NAMES = {
+    tmoOs: "TMO at or from −10",
+    tmo: "TMO main above signal",
+    dots: "5 squeeze dots or in a squeeze",
+    above: "squeeze momentum above 0",
+    cci: "CCI into zone +100",
+  };
 
   function plainPrice(value) {
     if (value == null || !Number.isFinite(Number(value))) return "—";

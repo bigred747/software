@@ -89,7 +89,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.84";
+const VERSION = "1.9.85";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -2494,11 +2494,11 @@ function fillTrades(body, trades) {
 }
 
 const EDGE_CHECKS = [
-  ["dots", "Exactly 5 squeeze dots"],
+  ["tmoOs", "TMO at or from −10"],
+  ["tmo", "TMO main above signal"],
+  ["dots", "5 squeeze dots or in a squeeze"],
   ["above", "Squeeze momentum above 0"],
-  ["rising", "Squeeze momentum rising"],
-  ["tmo", "True momentum above signal"],
-  ["band", "Under the upper Bollinger band"],
+  ["cci", "CCI into zone +100"],
 ];
 
 function currentPro(bars) {

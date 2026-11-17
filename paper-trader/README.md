@@ -42,9 +42,9 @@ The desk is a wide layout on a computer: markets on the left, the daily chart in
 
 ## Edge
 
-Edge is the desk's buy and sell indicator. It joins the 5-dot squeeze, true momentum (14, 5, 3), and a Bollinger filter. Edge buys at the next bar's open when five checks turn on together on a closed bar: the first bar that reaches exactly five squeeze dots (not every later day still in the squeeze), squeeze momentum above zero, squeeze momentum rising, the true momentum main line above its signal line, and the close under the upper Bollinger band (20 days, two deviations). The starting stop is 2.5 average ranges under that open. While it holds, the stop trails 2.5 average ranges under the best close and never moves down. A close under that stop, or squeeze momentum dropping below zero, sells at the next open.
+Edge is the desk's buy and sell indicator. It matches the Open TMO · Squeeze · CCI chart stack. Edge buys at the next bar's open when five checks turn on together on a closed bar: TMO at or from −10 (true momentum 14/5/3 OS, with green / red-green main-vs-signal cross arrows on closed bars), TMO main above signal, five squeeze dots or currently in a squeeze, squeeze momentum above zero, and CCI(50) into zone +100 (CCI 50 / 14 / 5 with ±100 lines). The starting stop is 2.5 average ranges under that open. While it holds, the stop trails 2.5 average ranges under the best close and never moves down. A close under that stop, or squeeze momentum dropping below zero, sells at the next open.
 
-These settings were tested on two years of real daily bars with 10 basis points each way for the fee and slippage. On BTC, ETH, XRP, XLM, SOL, SPY, QQQ, AAPL, NVDA, MSFT, TSLA, and ES, Edge averaged +14.3% while buy-and-hold averaged −2.2%, and it was positive on 10 of those 12. On 20 other markets that were not used to pick the settings, Edge averaged +28.1% while buy-and-hold averaged +19.3%, and it was positive on 17 of those 20. About one trade in three made money, so most of the gain came from a few large wins. The worst drop averaged about 22% to 25%. Adding the Bollinger check lifted those two sets from +10.2% and +27.1%. A 200-day EMA filter hurt. MACD, VWAP, and POC filters were mixed. ATR profit targets and extra volatility filters added noise. Changing the dots to 4 or 6, or the true momentum length to 10 or 21, made no reliable difference, so 5 dots and true momentum 14 stay. That is the past. It is not a forecast.
+Earlier Edge settings (5-dot first bar, momentum rising, and an upper Bollinger filter) were tested on two years of real daily bars with 10 basis points each way for the fee and slippage. On BTC, ETH, XRP, XLM, SOL, SPY, QQQ, AAPL, NVDA, MSFT, TSLA, and ES, that older Edge averaged +14.3% while buy-and-hold averaged −2.2%, and it was positive on 10 of those 12. On 20 other markets that were not used to pick the settings, it averaged +28.1% while buy-and-hold averaged +19.3%, and it was positive on 17 of those 20. About one trade in three made money, so most of the gain came from a few large wins. The worst drop averaged about 22% to 25%. That is the past on the prior rule set. The live Edge buy gates now follow TMO · Squeeze · CCI. It is not a forecast.
 
 The Trade panel shows the call (Buy, Hold, Sell, or Wait), which of the five checks are on, the stop and how far price is from it, a 1% risk size from ATR, and the record on this market's past bars: Edge's return, buy-and-hold over the same bars, the worst drop, the number of trades, the share that made money, and the time in the market. Signals use closed bars only. Today's forming bar can still print on the chart, but it does not change the Edge score, the lesson, or the arrows. The chart's clean view draws the candles, paper trades, the Edge stop, the 200-day EMA, and the volume profile. Layers turns VWAP, Bollinger bands, averages, pivots, and lesson arrows on or off. The true momentum panel marks only zero-line crosses after a bar closes. On the phone each Daily scan name also shows its Edge call. B4 readings add the 200 and 50 EMAs, VWAP, POC, MACD, RSI 14, Bollinger, yearly volatility, and ATR size. Edge does not place an order. Trade and Auto keep their own rules.
 
@@ -94,6 +94,18 @@ Version 1.9.38 adds a broker-style paper order ticket under the Trade buttons: *
 The ticket buys on your own call. The Trade button still follows the scanner's green list.
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
+
+## Edge TMO · Squeeze · CCI buys (1.9.85)
+
+Edge five checks now follow the Open TMO · Squeeze · CCI chart stack (closed bars only):
+
+1. TMO at or from −10 on this bar or within the prior 13 closed bars (14/5/3 OS; green / red-green cross arrows on the pane)
+2. TMO main above signal
+3. Five squeeze dots or currently in a squeeze
+4. Squeeze momentum above zero
+5. CCI(50) into zone +100 (replaces the old under-upper-Bollinger check)
+
+Ready · Aim · Fire, Best setup Auto, Fire 5 / Fire 5 Auto, Big 3, Journal daily check, and boxes-above / charts-below layout stay. Paper only. Live locked. Not a forecast.
 
 ## Restore Chart layout (1.9.84)
 
