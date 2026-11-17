@@ -82,7 +82,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.78";
+const VERSION = "1.9.79";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -4228,6 +4228,242 @@ function renderSqueeze() {
 }
 
 
+state.sc = { busy: false, stop: false, result: null, at: 0, error: "", progress: "" };
+
+function scorecardBiasClass(bias) {
+  const text = String(bias || "").toLowerCase();
+  if (text.indexOf("swing") >= 0) return "swing";
+  if (text.indexOf("day") >= 0) return "day";
+  if (text.indexOf("flat") >= 0) return "flat";
+  return "";
+}
+
+function renderScorecardCard() {
+  const bias = $("scorecard-bias");
+  const blurb = $("scorecard-blurb");
+  if (!bias) return;
+  const result = state.sc && state.sc.result;
+  if (!result || !result.day) {
+    bias.className = "scorecard-bias";
+    bias.textContent = state.sc && state.sc.busy
+      ? (state.sc.progress || "Reading scorecard…")
+      : "Press Run scorecard for rankings, A+ squeezes, and day bias.";
+    if (blurb) {
+      blurb.textContent =
+        "Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.";
+    }
+    return;
+  }
+  const day = result.day;
+  bias.className = "scorecard-bias " + scorecardBiasClass(day.bias);
+  bias.textContent = "Day bias · " + day.bias;
+  if (blurb) {
+    const topIndex = result.indexes && result.indexes[0] ? result.indexes[0].symbol : "—";
+    const topSector = result.sectors && result.sectors[0] ? result.sectors[0].symbol : "—";
+    const aPlus = (result.aPlus || []).length;
+    blurb.textContent =
+      day.why +
+      " Leader index " +
+      topIndex +
+      ", leader sector " +
+      topSector +
+      ", " +
+      aPlus +
+      " A+ squeeze" +
+      (aPlus === 1 ? "" : "s") +
+      ". Closed bars only.";
+  }
+}
+
+function fillScorecardRankBody(bodyId, rows) {
+  const body = $(bodyId);
+  if (!body) return;
+  body.replaceChildren();
+  if (!(rows && rows.length)) {
+    const empty = document.createElement("tr");
+    addCells(empty, ["", "No closed-bar ranking yet.", "", "", ""]);
+    body.appendChild(empty);
+    return;
+  }
+  rows.forEach((row, index) => {
+    const tr = document.createElement("tr");
+    const ret = row.ret5 != null ? (row.ret5 * 100).toFixed(1) + "%" : "—";
+    addCells(tr, [
+      String(index + 1),
+      row.symbol,
+      String(row.score),
+      { text: ret, cls: row.ret5 > 0 ? "up" : row.ret5 < 0 ? "down" : "" },
+      row.stacked ? "Up" : "Off",
+    ]);
+    tr.addEventListener("click", () => chooseSymbol(row.symbol));
+    body.appendChild(tr);
+  });
+}
+
+function renderScorecard() {
+  renderScorecardCard();
+  const result = state.sc && state.sc.result;
+  const note = $("sc-note");
+  const dayBias = $("sc-day-bias");
+  const dayWhy = $("sc-day-why");
+  if (dayBias) {
+    if (result && result.day) {
+      dayBias.className = "scorecard-bias " + scorecardBiasClass(result.day.bias);
+      dayBias.textContent = "Day bias · " + result.day.bias;
+      if (dayWhy) dayWhy.textContent = result.day.why;
+    } else {
+      dayBias.className = "scorecard-bias";
+      dayBias.textContent = state.sc && state.sc.busy ? "Day bias · reading…" : "Day bias · waiting";
+      if (dayWhy) dayWhy.textContent = "";
+    }
+  }
+  if (result) {
+    fillScorecardRankBody("sc-indexes", result.indexes);
+    fillScorecardRankBody("sc-sectors", result.sectors);
+  }
+  const aBody = $("sc-aplus");
+  if (aBody) {
+    aBody.replaceChildren();
+    const rows = (result && result.aPlus) || [];
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      addCells(tr, ["", "No A+ squeezes right now. A quiet list is a normal answer.", "", "", "", "", "", ""]);
+      aBody.appendChild(tr);
+    } else {
+      rows.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        const open = document.createElement("button");
+        open.type = "button";
+        open.textContent = "Open";
+        open.addEventListener("click", (event) => {
+          event.stopPropagation();
+          chooseSymbol(row.symbol);
+        });
+        addCells(tr, [
+          String(index + 1),
+          row.symbol,
+          row.state || "—",
+          String(row.dots != null ? row.dots : "—"),
+          PaperFrames.squeezeName(row.level || 0),
+          row.triple ? "Yes" : "—",
+          String(row.score != null ? row.score : "—"),
+          open,
+        ]);
+        aBody.appendChild(tr);
+      });
+    }
+  }
+  const aNote = $("sc-aplus-note");
+  if (aNote) {
+    aNote.textContent = result
+      ? (result.aPlus || []).length +
+        " A+ squeeze" +
+        ((result.aPlus || []).length === 1 ? "" : "s") +
+        " after the strict desk filter (score 80+, rising bullish momentum, stacked averages, mid/high compression or five+ dots)."
+      : "Strict desk filter on the starter squeeze list. Empty is a normal answer.";
+  }
+  if (note) {
+    if (state.sc && state.sc.busy) note.textContent = state.sc.progress || "Reading scorecard…";
+    else if (state.sc && state.sc.error) note.textContent = state.sc.error;
+    else if (result) {
+      const when = state.sc.at
+        ? new Date(state.sc.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
+        : "";
+      note.textContent =
+        "Scorecard ready" +
+        (result.asOf ? " as of " + result.asOf : "") +
+        (when ? " · read " + when + " Denver" : "") +
+        ". Closed bars only. Not a forecast.";
+    }
+  }
+}
+
+async function runScorecard() {
+  const box = state.sc;
+  if (box.busy) return;
+  box.busy = true;
+  box.stop = false;
+  box.error = "";
+  box.progress = "Loading internals and daily bars…";
+  renderScorecard();
+  try {
+    await loadInternals(false);
+    if (box.stop) return;
+    const indexes = PaperFrames.SCORECARD_INDEXES.slice();
+    const sectors = PaperFrames.SCORECARD_SECTORS.slice();
+    const squeezeList = SQ_LISTS.starter.slice();
+    const need = [];
+    const seen = new Set();
+    indexes.concat(sectors).concat(squeezeList).forEach((symbol) => {
+      if (!seen.has(symbol)) {
+        seen.add(symbol);
+        need.push(symbol);
+      }
+    });
+    const bars = {};
+    let done = 0;
+    for (let index = 0; index < need.length; index += 1) {
+      if (box.stop) break;
+      const symbol = need[index];
+      box.progress = "Reading daily bars: " + done + " of " + need.length + "…";
+      renderScorecardCard();
+      if ($("sc-note")) $("sc-note").textContent = box.progress;
+      try {
+        bars[symbol] = await sqDaily(symbol);
+      } catch (error) {
+        /* Missing quote stays out of the ranking. */
+      }
+      done += 1;
+      if (done % 3 === 0) await afterSqueeze();
+    }
+    if (box.stop) {
+      box.progress = "Scorecard stopped.";
+      return;
+    }
+    const squeezes = [];
+    squeezeList.forEach((symbol) => {
+      const list = bars[symbol];
+      if (!list || !list.length) return;
+      const read = PaperFrames.squeezeRead(list, {
+        live: PaperFrames.liveBar(list, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol))),
+      });
+      if (!read || !read.ready || read.state === "OFF") return;
+      const sector = SQ_SECTOR[symbol];
+      const indexSym = sqIndexOf(symbol);
+      const sectorOn = !!(sector && bars[sector] && (() => {
+        const parent = PaperFrames.squeezeRead(bars[sector]);
+        return parent && parent.ready && parent.state === "ON";
+      })());
+      const indexOn = !!(indexSym && bars[indexSym] && (() => {
+        const parent = PaperFrames.squeezeRead(bars[indexSym]);
+        return parent && parent.ready && parent.state === "ON";
+      })());
+      const scored = PaperFrames.squeezeScore(read, { sector: sectorOn, index: indexOn });
+      squeezes.push({
+        symbol,
+        read,
+        scored,
+        sector: sector || "",
+        index: indexSym || "",
+      });
+    });
+    box.result = PaperFrames.marketScorecard({
+      bars,
+      internals: state.int.result,
+      squeezes,
+      indexSymbols: indexes,
+      sectorSymbols: sectors,
+    });
+    box.at = Date.now();
+    box.progress = "";
+  } catch (error) {
+    box.error = error.message || String(error);
+  } finally {
+    box.busy = false;
+    renderScorecard();
+  }
+}
+
 const INT_KEY = "paper_trader_internals_v1";
 const INT_GAUGES = ["^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP"];
 
@@ -5999,6 +6235,15 @@ $("int-gate").addEventListener("change", () => {
   renderInternals();
 });
 $("sq-scan").addEventListener("click", scanSqueeze);
+if ($("sc-run")) $("sc-run").addEventListener("click", runScorecard);
+if ($("sc-stop")) {
+  $("sc-stop").addEventListener("click", () => {
+    if (state.sc) state.sc.stop = true;
+  });
+}
+if ($("scorecard-open")) {
+  $("scorecard-open").addEventListener("click", () => showDock("scorecard"));
+}
 $("sq-stop").addEventListener("click", () => {
   state.sq.stop = true;
   $("sq-note").textContent = "Stopping after the markets already being read.";
@@ -6352,6 +6597,10 @@ function restoreStudies() {
 
 function showDock(name) {
   if (name === "internals") loadInternals(false);
+  if (name === "scorecard") {
+    renderScorecard();
+    if (!(state.sc && state.sc.result) && !(state.sc && state.sc.busy)) runScorecard();
+  }
   if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
     state.orbBusy = true;
     loadOrb().finally(() => {

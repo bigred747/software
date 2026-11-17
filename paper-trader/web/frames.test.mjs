@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, marketScorecard, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -522,4 +522,44 @@ test("the price box lists open, high, low, close, change and the Edge checks for
   assert.equal(describeBar(bars, -1, {}), null);
   assert.equal(describeBar(bars, 300, {}), null);
   assert.equal(describeBar(bars, 0, { crypto: true }).rows.some((row) => row[0] === "Change"), false);
+});
+
+test("Big 3 Market Scorecard ranks strength and day bias", () => {
+  assert.ok(SCORECARD_INDEXES.includes("SPY"));
+  assert.ok(SCORECARD_SECTORS.includes("XLK"));
+  const up = [];
+  for (let index = 0; index < 80; index += 1) {
+    const close = 100 + index * 0.8;
+    up.push(day("2024-03-" + String((index % 28) + 1).padStart(2, "0"), close - 1, close + 1, close - 2, close));
+  }
+  const down = [];
+  for (let index = 0; index < 80; index += 1) {
+    const close = 180 - index * 0.7;
+    down.push(day("2024-03-" + String((index % 28) + 1).padStart(2, "0"), close + 1, close + 2, close - 1, close));
+  }
+  const strong = strengthRead(up);
+  const weak = strengthRead(down);
+  assert.equal(strong.ready, true);
+  assert.ok(strong.score > weak.score);
+  assert.equal(strong.stacked, true);
+  const flat = dayBias({ ready: true, label: "Defensive", score: 30 }, [{ symbol: "SPY", stacked: false, score: 20 }]);
+  assert.equal(flat.bias, "Stay flat");
+  const swing = dayBias({ ready: true, label: "Supportive", score: 72 }, [
+    { symbol: "SPY", stacked: true, score: 80 },
+    { symbol: "QQQ", stacked: true, score: 78 },
+  ]);
+  assert.equal(swing.bias, "Swing trades");
+  const card = marketScorecard({
+    bars: { SPY: up, QQQ: up, XLK: up, XLU: down },
+    internals: { ready: true, label: "Supportive", score: 70 },
+    squeezes: [],
+    indexSymbols: ["SPY", "QQQ"],
+    sectorSymbols: ["XLK", "XLU"],
+  });
+  assert.deepEqual(card.indexes.map((row) => row.symbol).sort(), ["QQQ", "SPY"]);
+  assert.equal(card.sectors[0].symbol, "XLK");
+  assert.ok(card.sectors[0].score > card.sectors[1].score);
+  assert.equal(card.day.bias, "Swing trades");
+  assert.equal(isAPlusSqueeze({ ready: true, direction: "bear", rising: true, stack: "positive", level: 3, dots: 6, clean: true }, { score: 90 }), false);
+  assert.equal(isAPlusSqueeze({ ready: true, direction: "bull", rising: true, stack: "positive", level: 3, dots: 6, clean: true }, { score: 90 }), true);
 });

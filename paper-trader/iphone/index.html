@@ -1012,6 +1012,46 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 .internals-pill.mixed{border-color:#ffd166;color:#ffe9b0}
 .internals-pill.defensive{border-color:#ff6b7a;color:#ffc7ce}
 
+.scorecard-card {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: #0e1318;
+}
+.scorecard-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.scorecard-card-head h3 { margin: 0; font-size: 15px; font-weight: 640; }
+.scorecard-bias {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+.scorecard-bias.swing { color: var(--up); }
+.scorecard-bias.day { color: #ffd166; }
+.scorecard-bias.flat { color: var(--down); }
+.scorecard-day {
+  margin: 10px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: #0e1318;
+}
+.scorecard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.scorecard-panel h3 { margin: 0 0 8px; font-size: 15px; font-weight: 640; }
+@media (max-width: 980px) {
+  .scorecard-grid { grid-template-columns: 1fr; }
+}
+
 .win-box{margin-top:8px;display:grid;gap:4px;font-size:12px}
 .win-box h4{margin:0;font-size:12px}
 .win-box label{display:flex;gap:6px;align-items:center}
@@ -1220,6 +1260,14 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       <h2>Markets</h2>
       <div id="pins" class="pins" aria-label="Pinned markets"></div>
       <button id="pin-toggle" type="button" class="quiet">Pin this market</button>
+      <div id="scorecard-card" class="scorecard-card" aria-label="Big 3 Market Scorecard">
+        <div class="scorecard-card-head">
+          <h3>Big 3 Market Scorecard</h3>
+          <button id="scorecard-open" type="button" class="quiet">Open scorecard</button>
+        </div>
+        <p id="scorecard-bias" class="scorecard-bias">Press Run scorecard for rankings, A+ squeezes, and day bias.</p>
+        <p id="scorecard-blurb" class="muted">Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.</p>
+      </div>
       <div class="scan-block">
         <div class="scan-head">
           <h3>Daily scan</h3>
@@ -1282,6 +1330,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         <div id="study-pages" class="study-pages" aria-label="Open Study pages">
           <button type="button" data-open-dock="strategies">Strategies</button>
           <button type="button" data-open-dock="internals">Internals</button>
+          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
           <button type="button" data-open-dock="squeeze">Squeeze scan</button>
           <button type="button" data-open-dock="readings">big4indicator</button>
@@ -1386,7 +1435,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <h4>Windows extras</h4>
           <label><input id="win-startup" type="checkbox"> Start the score when I sign in to Windows</label>
           <label><input id="win-desktop" type="checkbox"> Put Paper Trader.bat on my Desktop</label>
-          <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process. While it runs, every desk section keeps learning on closed bars even when scrolled away (Markets, Chart, Trade, Study, Strategies, Squeeze scan, Internals, Timeframes, big4indicator, Journal, Backtest, Signals). New shipped pages and strategies auto-join the learner. Open the desk to start it; tick Start the score for Windows sign-in. Phone/browser alone cannot keep the bot process alive. Not a broker. Not a forecast.</p>
+          <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process. While it runs, every desk section keeps learning on closed bars even when scrolled away (Markets, Chart, Trade, Study, Strategies, Squeeze scan, Big 3 Scorecard, Internals, Timeframes, big4indicator, Journal, Backtest, Signals). New shipped pages and strategies auto-join the learner. Open the desk to start it; tick Start the score for Windows sign-in. Phone/browser alone cannot keep the bot process alive. Not a broker. Not a forecast.</p>
         </div>
       </div>
       <section id="ticket" class="ticket-box" aria-label="Order ticket">
@@ -1452,6 +1501,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         <button type="button" class="dock-tab on" data-dock="study">Study</button>
         <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
+        <button type="button" class="dock-tab" data-dock="scorecard">Big 3 Scorecard</button>
         <button type="button" class="dock-tab" data-dock="internals">Internals</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">big4indicator</button>
@@ -1619,6 +1669,50 @@ plot Sell = close crosses below baseline;</textarea>
         </div>
         <p id="sq-why" class="muted"></p>
         <p id="sq-skip" class="muted"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="scorecard">
+        <h2>Big 3 Market Scorecard</h2>
+        <p class="muted">Three closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), and (3) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <button id="sc-run" type="button">Run scorecard</button>
+          <button id="sc-stop" type="button" class="quiet">Stop</button>
+        </div>
+        <p id="sc-note" class="muted">Press Run scorecard. Reads real daily bars for indexes, sectors, and the starter squeeze list.</p>
+        <div id="sc-day" class="scorecard-day" aria-live="polite">
+          <p id="sc-day-bias" class="scorecard-bias">Day bias · waiting</p>
+          <p id="sc-day-why" class="muted"></p>
+        </div>
+        <div class="scorecard-grid">
+          <section class="scorecard-panel" aria-label="Index rankings">
+            <h3>Strongest indexes</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Index</th><th>Score</th><th>5d</th><th>Stack</th></tr></thead>
+                <tbody id="sc-indexes"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="scorecard-panel" aria-label="Sector rankings">
+            <h3>Strongest sectors</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Sector</th><th>Score</th><th>5d</th><th>Stack</th></tr></thead>
+                <tbody id="sc-sectors"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <section class="scorecard-panel" aria-label="A plus squeezes">
+          <h3>A+ squeezes</h3>
+          <p id="sc-aplus-note" class="muted">Strict desk filter on the starter squeeze list. Empty is a normal answer.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Market</th><th>State</th><th>Dots</th><th>Level</th><th>Triple</th><th>Score</th><th></th></tr></thead>
+              <tbody id="sc-aplus"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
       <div class="dock-page" data-dock-page="internals">
@@ -6220,6 +6314,133 @@ plot Sell = close crosses below baseline;</textarea>
     return "Edge " + known.call + " · " + (known.score == null ? "—" : known.score + " of " + EDGE_SCORE) + stop + " · " + known.record.trades + " past trades, " + (known.record.trades ? Math.round(known.record.winRate * 100) + "% won" : "none yet");
   }
 
+  // Big 3 Market Scorecard: index/sector strength, strict A+ squeezes, day bias.
+  // Desk closed-bar math only — not a third-party or trademarked scorecard product.
+  const SCORECARD_INDEXES = ["SPY", "QQQ", "IWM", "DIA", "ES", "NQ"];
+  const SCORECARD_SECTORS = ["XLK", "SMH", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB"];
+
+  function strengthRead(bars) {
+    const list = closedBars(bars || [], false);
+    if (list.length < 50) return null;
+    const closes = list.map((bar) => bar.close);
+    const close = closes[closes.length - 1];
+    const e21 = ema(closes, 21);
+    const e50 = ema(closes, 50);
+    const last21 = e21[e21.length - 1];
+    const last50 = e50[e50.length - 1];
+    if (!(last21 > 0) || !(last50 > 0)) return null;
+    const prior = closes[Math.max(0, closes.length - 6)];
+    const ret5 = prior > 0 ? close / prior - 1 : 0;
+    let score = 0;
+    if (close > last21) score += 35;
+    if (last21 > last50) score += 25;
+    if (close > last50) score += 15;
+    score += Math.max(0, Math.min(25, Math.round(ret5 * 500)));
+    return {
+      ready: true,
+      score: Math.min(100, score),
+      close,
+      ema21: last21,
+      ema50: last50,
+      ret5,
+      stacked: close > last21 && last21 > last50,
+      asOf: list[list.length - 1].date,
+    };
+  }
+
+  function isAPlusSqueeze(row, scored) {
+    if (!row || !row.ready) return false;
+    if (row.direction !== "bull") return false;
+    const score = scored && scored.score != null ? scored.score : 0;
+    if (score < 80) return false;
+    if (!row.rising) return false;
+    if (row.stack !== "positive") return false;
+    if (!(row.level >= 2 || row.dots >= 5)) return false;
+    return !!(row.clean || score >= 90 || (scored && scored.triple));
+  }
+
+  function dayBias(internalsResult, indexRanks) {
+    const ranks = indexRanks || [];
+    const stacked = ranks.filter((row) => row.stacked).length;
+    const share = ranks.length ? stacked / ranks.length : 0;
+    const top = ranks[0];
+    const int = internalsResult || {};
+    if (!int.ready || int.label === "Defensive" || int.score < 40) {
+      return {
+        bias: "Stay flat",
+        why:
+          !int.ready
+            ? "Internals not ready — stand aside until gauges read."
+            : "Defensive / weak market gauges (" + (int.label || "Unknown") + " " + (int.score || 0) + "). Size down or stand aside.",
+      };
+    }
+    if (int.label === "Supportive" && int.score >= 65 && share >= 0.5) {
+      return {
+        bias: "Swing trades",
+        why:
+          "Supportive internals " +
+          int.score +
+          " and " +
+          stacked +
+          " of " +
+          ranks.length +
+          " indexes stacked up" +
+          (top ? " (leader " + top.symbol + ")" : "") +
+          ". Favor multi-day holds on A+ squeezes in strong sectors.",
+      };
+    }
+    return {
+      bias: "Day trades",
+      why:
+        "Market is " +
+        int.label +
+        " " +
+        int.score +
+        " with " +
+        stacked +
+        " of " +
+        ranks.length +
+        " indexes stacked. Prefer shorter holds; wait for A+ squeezes in the strongest indexes/sectors.",
+    };
+  }
+
+  function marketScorecard(input) {
+    const source = input || {};
+    const rankGroup = (symbols, barsMap) =>
+      (symbols || [])
+        .map((symbol) => {
+          const read = strengthRead((barsMap || {})[symbol]);
+          if (!read) return null;
+          return Object.assign({ symbol }, read);
+        })
+        .filter(Boolean)
+        .sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol));
+    const indexes = rankGroup(source.indexSymbols || SCORECARD_INDEXES, source.bars || {});
+    const sectors = rankGroup(source.sectorSymbols || SCORECARD_SECTORS, source.bars || {});
+    const aPlus = (source.squeezes || [])
+      .filter((row) => row && isAPlusSqueeze(row.read || row, row.scored || row))
+      .map((row) => ({
+        symbol: row.symbol,
+        score: (row.scored || row).score,
+        state: (row.read || row).state,
+        dots: (row.read || row).dots,
+        level: (row.read || row).level,
+        triple: !!(row.scored || row).triple,
+        sector: row.sector || "",
+        index: row.index || "",
+      }))
+      .sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol));
+    const day = dayBias(source.internals, indexes);
+    return {
+      ready: indexes.length > 0 || sectors.length > 0 || aPlus.length > 0 || !!(source.internals && source.internals.ready),
+      indexes,
+      sectors,
+      aPlus,
+      day,
+      asOf: (indexes[0] && indexes[0].asOf) || (sectors[0] && sectors[0].asOf) || "",
+    };
+  }
+
   root.PaperFrames = {
     edge,
     drawEdgeCalls,
@@ -6235,6 +6456,12 @@ plot Sell = close crosses below baseline;</textarea>
     INTERNAL_SYMBOLS,
     squeezeRead,
     squeezeScore,
+    strengthRead,
+    isAPlusSqueeze,
+    dayBias,
+    marketScorecard,
+    SCORECARD_INDEXES,
+    SCORECARD_SECTORS,
     strategies,
     STRATEGY_INFO,
     STRATEGY_IDS,
@@ -6369,7 +6596,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.78";
+const VERSION = "1.9.79";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -10515,6 +10742,242 @@ function renderSqueeze() {
 }
 
 
+state.sc = { busy: false, stop: false, result: null, at: 0, error: "", progress: "" };
+
+function scorecardBiasClass(bias) {
+  const text = String(bias || "").toLowerCase();
+  if (text.indexOf("swing") >= 0) return "swing";
+  if (text.indexOf("day") >= 0) return "day";
+  if (text.indexOf("flat") >= 0) return "flat";
+  return "";
+}
+
+function renderScorecardCard() {
+  const bias = $("scorecard-bias");
+  const blurb = $("scorecard-blurb");
+  if (!bias) return;
+  const result = state.sc && state.sc.result;
+  if (!result || !result.day) {
+    bias.className = "scorecard-bias";
+    bias.textContent = state.sc && state.sc.busy
+      ? (state.sc.progress || "Reading scorecard…")
+      : "Press Run scorecard for rankings, A+ squeezes, and day bias.";
+    if (blurb) {
+      blurb.textContent =
+        "Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.";
+    }
+    return;
+  }
+  const day = result.day;
+  bias.className = "scorecard-bias " + scorecardBiasClass(day.bias);
+  bias.textContent = "Day bias · " + day.bias;
+  if (blurb) {
+    const topIndex = result.indexes && result.indexes[0] ? result.indexes[0].symbol : "—";
+    const topSector = result.sectors && result.sectors[0] ? result.sectors[0].symbol : "—";
+    const aPlus = (result.aPlus || []).length;
+    blurb.textContent =
+      day.why +
+      " Leader index " +
+      topIndex +
+      ", leader sector " +
+      topSector +
+      ", " +
+      aPlus +
+      " A+ squeeze" +
+      (aPlus === 1 ? "" : "s") +
+      ". Closed bars only.";
+  }
+}
+
+function fillScorecardRankBody(bodyId, rows) {
+  const body = $(bodyId);
+  if (!body) return;
+  body.replaceChildren();
+  if (!(rows && rows.length)) {
+    const empty = document.createElement("tr");
+    addCells(empty, ["", "No closed-bar ranking yet.", "", "", ""]);
+    body.appendChild(empty);
+    return;
+  }
+  rows.forEach((row, index) => {
+    const tr = document.createElement("tr");
+    const ret = row.ret5 != null ? (row.ret5 * 100).toFixed(1) + "%" : "—";
+    addCells(tr, [
+      String(index + 1),
+      row.symbol,
+      String(row.score),
+      { text: ret, cls: row.ret5 > 0 ? "up" : row.ret5 < 0 ? "down" : "" },
+      row.stacked ? "Up" : "Off",
+    ]);
+    tr.addEventListener("click", () => chooseSymbol(row.symbol));
+    body.appendChild(tr);
+  });
+}
+
+function renderScorecard() {
+  renderScorecardCard();
+  const result = state.sc && state.sc.result;
+  const note = $("sc-note");
+  const dayBias = $("sc-day-bias");
+  const dayWhy = $("sc-day-why");
+  if (dayBias) {
+    if (result && result.day) {
+      dayBias.className = "scorecard-bias " + scorecardBiasClass(result.day.bias);
+      dayBias.textContent = "Day bias · " + result.day.bias;
+      if (dayWhy) dayWhy.textContent = result.day.why;
+    } else {
+      dayBias.className = "scorecard-bias";
+      dayBias.textContent = state.sc && state.sc.busy ? "Day bias · reading…" : "Day bias · waiting";
+      if (dayWhy) dayWhy.textContent = "";
+    }
+  }
+  if (result) {
+    fillScorecardRankBody("sc-indexes", result.indexes);
+    fillScorecardRankBody("sc-sectors", result.sectors);
+  }
+  const aBody = $("sc-aplus");
+  if (aBody) {
+    aBody.replaceChildren();
+    const rows = (result && result.aPlus) || [];
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      addCells(tr, ["", "No A+ squeezes right now. A quiet list is a normal answer.", "", "", "", "", "", ""]);
+      aBody.appendChild(tr);
+    } else {
+      rows.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        const open = document.createElement("button");
+        open.type = "button";
+        open.textContent = "Open";
+        open.addEventListener("click", (event) => {
+          event.stopPropagation();
+          chooseSymbol(row.symbol);
+        });
+        addCells(tr, [
+          String(index + 1),
+          row.symbol,
+          row.state || "—",
+          String(row.dots != null ? row.dots : "—"),
+          PaperFrames.squeezeName(row.level || 0),
+          row.triple ? "Yes" : "—",
+          String(row.score != null ? row.score : "—"),
+          open,
+        ]);
+        aBody.appendChild(tr);
+      });
+    }
+  }
+  const aNote = $("sc-aplus-note");
+  if (aNote) {
+    aNote.textContent = result
+      ? (result.aPlus || []).length +
+        " A+ squeeze" +
+        ((result.aPlus || []).length === 1 ? "" : "s") +
+        " after the strict desk filter (score 80+, rising bullish momentum, stacked averages, mid/high compression or five+ dots)."
+      : "Strict desk filter on the starter squeeze list. Empty is a normal answer.";
+  }
+  if (note) {
+    if (state.sc && state.sc.busy) note.textContent = state.sc.progress || "Reading scorecard…";
+    else if (state.sc && state.sc.error) note.textContent = state.sc.error;
+    else if (result) {
+      const when = state.sc.at
+        ? new Date(state.sc.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
+        : "";
+      note.textContent =
+        "Scorecard ready" +
+        (result.asOf ? " as of " + result.asOf : "") +
+        (when ? " · read " + when + " Denver" : "") +
+        ". Closed bars only. Not a forecast.";
+    }
+  }
+}
+
+async function runScorecard() {
+  const box = state.sc;
+  if (box.busy) return;
+  box.busy = true;
+  box.stop = false;
+  box.error = "";
+  box.progress = "Loading internals and daily bars…";
+  renderScorecard();
+  try {
+    await loadInternals(false);
+    if (box.stop) return;
+    const indexes = PaperFrames.SCORECARD_INDEXES.slice();
+    const sectors = PaperFrames.SCORECARD_SECTORS.slice();
+    const squeezeList = SQ_LISTS.starter.slice();
+    const need = [];
+    const seen = new Set();
+    indexes.concat(sectors).concat(squeezeList).forEach((symbol) => {
+      if (!seen.has(symbol)) {
+        seen.add(symbol);
+        need.push(symbol);
+      }
+    });
+    const bars = {};
+    let done = 0;
+    for (let index = 0; index < need.length; index += 1) {
+      if (box.stop) break;
+      const symbol = need[index];
+      box.progress = "Reading daily bars: " + done + " of " + need.length + "…";
+      renderScorecardCard();
+      if ($("sc-note")) $("sc-note").textContent = box.progress;
+      try {
+        bars[symbol] = await sqDaily(symbol);
+      } catch (error) {
+        /* Missing quote stays out of the ranking. */
+      }
+      done += 1;
+      if (done % 3 === 0) await afterSqueeze();
+    }
+    if (box.stop) {
+      box.progress = "Scorecard stopped.";
+      return;
+    }
+    const squeezes = [];
+    squeezeList.forEach((symbol) => {
+      const list = bars[symbol];
+      if (!list || !list.length) return;
+      const read = PaperFrames.squeezeRead(list, {
+        live: PaperFrames.liveBar(list, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol))),
+      });
+      if (!read || !read.ready || read.state === "OFF") return;
+      const sector = SQ_SECTOR[symbol];
+      const indexSym = sqIndexOf(symbol);
+      const sectorOn = !!(sector && bars[sector] && (() => {
+        const parent = PaperFrames.squeezeRead(bars[sector]);
+        return parent && parent.ready && parent.state === "ON";
+      })());
+      const indexOn = !!(indexSym && bars[indexSym] && (() => {
+        const parent = PaperFrames.squeezeRead(bars[indexSym]);
+        return parent && parent.ready && parent.state === "ON";
+      })());
+      const scored = PaperFrames.squeezeScore(read, { sector: sectorOn, index: indexOn });
+      squeezes.push({
+        symbol,
+        read,
+        scored,
+        sector: sector || "",
+        index: indexSym || "",
+      });
+    });
+    box.result = PaperFrames.marketScorecard({
+      bars,
+      internals: state.int.result,
+      squeezes,
+      indexSymbols: indexes,
+      sectorSymbols: sectors,
+    });
+    box.at = Date.now();
+    box.progress = "";
+  } catch (error) {
+    box.error = error.message || String(error);
+  } finally {
+    box.busy = false;
+    renderScorecard();
+  }
+}
+
 const INT_KEY = "paper_trader_internals_v1";
 const INT_GAUGES = ["^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP"];
 
@@ -12286,6 +12749,15 @@ $("int-gate").addEventListener("change", () => {
   renderInternals();
 });
 $("sq-scan").addEventListener("click", scanSqueeze);
+if ($("sc-run")) $("sc-run").addEventListener("click", runScorecard);
+if ($("sc-stop")) {
+  $("sc-stop").addEventListener("click", () => {
+    if (state.sc) state.sc.stop = true;
+  });
+}
+if ($("scorecard-open")) {
+  $("scorecard-open").addEventListener("click", () => showDock("scorecard"));
+}
 $("sq-stop").addEventListener("click", () => {
   state.sq.stop = true;
   $("sq-note").textContent = "Stopping after the markets already being read.";
@@ -12639,6 +13111,10 @@ function restoreStudies() {
 
 function showDock(name) {
   if (name === "internals") loadInternals(false);
+  if (name === "scorecard") {
+    renderScorecard();
+    if (!(state.sc && state.sc.result) && !(state.sc && state.sc.busy)) runScorecard();
+  }
   if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
     state.orbBusy = true;
     loadOrb().finally(() => {

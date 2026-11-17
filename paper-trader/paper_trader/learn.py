@@ -59,6 +59,7 @@ _DESK_PAGES: list[tuple[str, str]] = [
     ("study", "Study · process / lesson score"),
     ("strategies", "Strategies · classic board"),
     ("squeeze", "Squeeze scan · catalog walk"),
+    ("scorecard", "Big 3 Market Scorecard · indexes, A+ squeezes, day bias"),
     ("internals", "Internals · market gauges"),
     ("frames", "Timeframes · multi-TF Edge"),
     ("readings", "big4indicator · tape proxies"),
@@ -140,6 +141,12 @@ def page_snapshot(
         base.update(
             {
                 "note": "Market gauges plus desk Squeeze · TMO · big4indicator · stack · MTF refresh while the desk is open; bot-on keeps watched markets scored.",
+            }
+        )
+    elif page == "scorecard":
+        base.update(
+            {
+                "note": "Big 3 Market Scorecard: index/sector strength, A+ squeezes, and swing/day/flat day bias from closed bars.",
             }
         )
     else:

@@ -2761,6 +2761,133 @@
     return "Edge " + known.call + " · " + (known.score == null ? "—" : known.score + " of " + EDGE_SCORE) + stop + " · " + known.record.trades + " past trades, " + (known.record.trades ? Math.round(known.record.winRate * 100) + "% won" : "none yet");
   }
 
+  // Big 3 Market Scorecard: index/sector strength, strict A+ squeezes, day bias.
+  // Desk closed-bar math only — not a third-party or trademarked scorecard product.
+  const SCORECARD_INDEXES = ["SPY", "QQQ", "IWM", "DIA", "ES", "NQ"];
+  const SCORECARD_SECTORS = ["XLK", "SMH", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB"];
+
+  function strengthRead(bars) {
+    const list = closedBars(bars || [], false);
+    if (list.length < 50) return null;
+    const closes = list.map((bar) => bar.close);
+    const close = closes[closes.length - 1];
+    const e21 = ema(closes, 21);
+    const e50 = ema(closes, 50);
+    const last21 = e21[e21.length - 1];
+    const last50 = e50[e50.length - 1];
+    if (!(last21 > 0) || !(last50 > 0)) return null;
+    const prior = closes[Math.max(0, closes.length - 6)];
+    const ret5 = prior > 0 ? close / prior - 1 : 0;
+    let score = 0;
+    if (close > last21) score += 35;
+    if (last21 > last50) score += 25;
+    if (close > last50) score += 15;
+    score += Math.max(0, Math.min(25, Math.round(ret5 * 500)));
+    return {
+      ready: true,
+      score: Math.min(100, score),
+      close,
+      ema21: last21,
+      ema50: last50,
+      ret5,
+      stacked: close > last21 && last21 > last50,
+      asOf: list[list.length - 1].date,
+    };
+  }
+
+  function isAPlusSqueeze(row, scored) {
+    if (!row || !row.ready) return false;
+    if (row.direction !== "bull") return false;
+    const score = scored && scored.score != null ? scored.score : 0;
+    if (score < 80) return false;
+    if (!row.rising) return false;
+    if (row.stack !== "positive") return false;
+    if (!(row.level >= 2 || row.dots >= 5)) return false;
+    return !!(row.clean || score >= 90 || (scored && scored.triple));
+  }
+
+  function dayBias(internalsResult, indexRanks) {
+    const ranks = indexRanks || [];
+    const stacked = ranks.filter((row) => row.stacked).length;
+    const share = ranks.length ? stacked / ranks.length : 0;
+    const top = ranks[0];
+    const int = internalsResult || {};
+    if (!int.ready || int.label === "Defensive" || int.score < 40) {
+      return {
+        bias: "Stay flat",
+        why:
+          !int.ready
+            ? "Internals not ready — stand aside until gauges read."
+            : "Defensive / weak market gauges (" + (int.label || "Unknown") + " " + (int.score || 0) + "). Size down or stand aside.",
+      };
+    }
+    if (int.label === "Supportive" && int.score >= 65 && share >= 0.5) {
+      return {
+        bias: "Swing trades",
+        why:
+          "Supportive internals " +
+          int.score +
+          " and " +
+          stacked +
+          " of " +
+          ranks.length +
+          " indexes stacked up" +
+          (top ? " (leader " + top.symbol + ")" : "") +
+          ". Favor multi-day holds on A+ squeezes in strong sectors.",
+      };
+    }
+    return {
+      bias: "Day trades",
+      why:
+        "Market is " +
+        int.label +
+        " " +
+        int.score +
+        " with " +
+        stacked +
+        " of " +
+        ranks.length +
+        " indexes stacked. Prefer shorter holds; wait for A+ squeezes in the strongest indexes/sectors.",
+    };
+  }
+
+  function marketScorecard(input) {
+    const source = input || {};
+    const rankGroup = (symbols, barsMap) =>
+      (symbols || [])
+        .map((symbol) => {
+          const read = strengthRead((barsMap || {})[symbol]);
+          if (!read) return null;
+          return Object.assign({ symbol }, read);
+        })
+        .filter(Boolean)
+        .sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol));
+    const indexes = rankGroup(source.indexSymbols || SCORECARD_INDEXES, source.bars || {});
+    const sectors = rankGroup(source.sectorSymbols || SCORECARD_SECTORS, source.bars || {});
+    const aPlus = (source.squeezes || [])
+      .filter((row) => row && isAPlusSqueeze(row.read || row, row.scored || row))
+      .map((row) => ({
+        symbol: row.symbol,
+        score: (row.scored || row).score,
+        state: (row.read || row).state,
+        dots: (row.read || row).dots,
+        level: (row.read || row).level,
+        triple: !!(row.scored || row).triple,
+        sector: row.sector || "",
+        index: row.index || "",
+      }))
+      .sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol));
+    const day = dayBias(source.internals, indexes);
+    return {
+      ready: indexes.length > 0 || sectors.length > 0 || aPlus.length > 0 || !!(source.internals && source.internals.ready),
+      indexes,
+      sectors,
+      aPlus,
+      day,
+      asOf: (indexes[0] && indexes[0].asOf) || (sectors[0] && sectors[0].asOf) || "",
+    };
+  }
+
   root.PaperFrames = {
     edge,
     drawEdgeCalls,
@@ -2776,6 +2903,12 @@
     INTERNAL_SYMBOLS,
     squeezeRead,
     squeezeScore,
+    strengthRead,
+    isAPlusSqueeze,
+    dayBias,
+    marketScorecard,
+    SCORECARD_INDEXES,
+    SCORECARD_SECTORS,
     strategies,
     STRATEGY_INFO,
     STRATEGY_IDS,

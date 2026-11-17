@@ -95,10 +95,19 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
-## Bot-on Learning (1.9.78 · QPT-11+)
+## Big 3 Market Scorecard (1.9.79)
+
+On the computer desk (Markets card + **Big 3 Scorecard** dock):
+
+- Ranks the strongest indexes and sector funds from closed daily bars.
+- Lists A+ squeezes that meet this desk’s strict rules (score 80+, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product).
+- Says whether the day favors **swing trades**, **day trades**, or **staying flat** from internals + index stack.
+- Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.
+
+## Bot-on Learning (1.9.79 · QPT-11+)
 
 - **Bot on** = the Paper Trader Learn score process (starts when you open the desk; tick **Start the score** under Windows extras for sign-in).
-- While bot on: **every** desk section keeps learning on closed bars even when scrolled away — Markets, Chart, Trade, Study, Strategies, Squeeze scan, Internals, Timeframes, big4indicator, Journal, Backtest, Signals.
+- While bot on: **every** desk section keeps learning on closed bars even when scrolled away — Markets, Chart, Trade, Study, Strategies, Squeeze scan, Big 3 Scorecard, Internals, Timeframes, big4indicator, Journal, Backtest, Signals.
 - **Auto-include:** new dock pages register via `register_desk_page`; new classic strategies via `register_strategy` — the learner picks them up after the next ship without a separate hook.
 - **Page open** still refreshes live UI faster.
 - Phone/browser alone cannot keep the bot process alive. Paper only. Not a forecast. Not a broker.

@@ -43,6 +43,14 @@
       <h2>Markets</h2>
       <div id="pins" class="pins" aria-label="Pinned markets"></div>
       <button id="pin-toggle" type="button" class="quiet">Pin this market</button>
+      <div id="scorecard-card" class="scorecard-card" aria-label="Big 3 Market Scorecard">
+        <div class="scorecard-card-head">
+          <h3>Big 3 Market Scorecard</h3>
+          <button id="scorecard-open" type="button" class="quiet">Open scorecard</button>
+        </div>
+        <p id="scorecard-bias" class="scorecard-bias">Press Run scorecard for rankings, A+ squeezes, and day bias.</p>
+        <p id="scorecard-blurb" class="muted">Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.</p>
+      </div>
       <div class="scan-block">
         <div class="scan-head">
           <h3>Daily scan</h3>
@@ -105,6 +113,7 @@
         <div id="study-pages" class="study-pages" aria-label="Open Study pages">
           <button type="button" data-open-dock="strategies">Strategies</button>
           <button type="button" data-open-dock="internals">Internals</button>
+          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
           <button type="button" data-open-dock="squeeze">Squeeze scan</button>
           <button type="button" data-open-dock="readings">big4indicator</button>
@@ -209,7 +218,7 @@
           <h4>Windows extras</h4>
           <label><input id="win-startup" type="checkbox"> Start the score when I sign in to Windows</label>
           <label><input id="win-desktop" type="checkbox"> Put Paper Trader.bat on my Desktop</label>
-          <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process. While it runs, every desk section keeps learning on closed bars even when scrolled away (Markets, Chart, Trade, Study, Strategies, Squeeze scan, Internals, Timeframes, big4indicator, Journal, Backtest, Signals). New shipped pages and strategies auto-join the learner. Open the desk to start it; tick Start the score for Windows sign-in. Phone/browser alone cannot keep the bot process alive. Not a broker. Not a forecast.</p>
+          <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process. While it runs, every desk section keeps learning on closed bars even when scrolled away (Markets, Chart, Trade, Study, Strategies, Squeeze scan, Big 3 Scorecard, Internals, Timeframes, big4indicator, Journal, Backtest, Signals). New shipped pages and strategies auto-join the learner. Open the desk to start it; tick Start the score for Windows sign-in. Phone/browser alone cannot keep the bot process alive. Not a broker. Not a forecast.</p>
         </div>
       </div>
       <section id="ticket" class="ticket-box" aria-label="Order ticket">
@@ -275,6 +284,7 @@
         <button type="button" class="dock-tab on" data-dock="study">Study</button>
         <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
+        <button type="button" class="dock-tab" data-dock="scorecard">Big 3 Scorecard</button>
         <button type="button" class="dock-tab" data-dock="internals">Internals</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">big4indicator</button>
@@ -442,6 +452,50 @@ plot Sell = close crosses below baseline;</textarea>
         </div>
         <p id="sq-why" class="muted"></p>
         <p id="sq-skip" class="muted"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="scorecard">
+        <h2>Big 3 Market Scorecard</h2>
+        <p class="muted">Three closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), and (3) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <button id="sc-run" type="button">Run scorecard</button>
+          <button id="sc-stop" type="button" class="quiet">Stop</button>
+        </div>
+        <p id="sc-note" class="muted">Press Run scorecard. Reads real daily bars for indexes, sectors, and the starter squeeze list.</p>
+        <div id="sc-day" class="scorecard-day" aria-live="polite">
+          <p id="sc-day-bias" class="scorecard-bias">Day bias · waiting</p>
+          <p id="sc-day-why" class="muted"></p>
+        </div>
+        <div class="scorecard-grid">
+          <section class="scorecard-panel" aria-label="Index rankings">
+            <h3>Strongest indexes</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Index</th><th>Score</th><th>5d</th><th>Stack</th></tr></thead>
+                <tbody id="sc-indexes"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="scorecard-panel" aria-label="Sector rankings">
+            <h3>Strongest sectors</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Sector</th><th>Score</th><th>5d</th><th>Stack</th></tr></thead>
+                <tbody id="sc-sectors"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <section class="scorecard-panel" aria-label="A plus squeezes">
+          <h3>A+ squeezes</h3>
+          <p id="sc-aplus-note" class="muted">Strict desk filter on the starter squeeze list. Empty is a normal answer.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Market</th><th>State</th><th>Dots</th><th>Level</th><th>Triple</th><th>Score</th><th></th></tr></thead>
+              <tbody id="sc-aplus"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
       <div class="dock-page" data-dock-page="internals">
