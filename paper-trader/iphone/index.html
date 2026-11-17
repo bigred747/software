@@ -203,9 +203,6 @@ h2 { font-size: 15px; }
   display: grid;
   gap: 6px;
   margin: 0 0 8px;
-  padding: 8px 0 10px;
-  border-bottom: 1px solid var(--line);
-  background: #0c1014;
 }
 .chart-below {
   display: grid;
@@ -214,7 +211,6 @@ h2 { font-size: 15px; }
   padding: 10px 0 0;
   border-top: 1px solid var(--line);
 }
-.chart-tools-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .chart-tools-label {
   margin: 2px 0 0;
   font-size: 11px;
@@ -259,17 +255,6 @@ h2 { font-size: 15px; }
   }
   .study-pages { grid-template-columns: repeat(9, minmax(0, 1fr)); }
   .study-pages button { min-height: 36px; }
-  /* Keep the computer desk familiar: boxes/pages above the chart panes. */
-  .chart-panel > .chart-tools { order: 1; }
-  .chart-panel > .chart-below { order: 2; margin-top: 0; padding-top: 0; border-top: 0; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 8px; }
-  .chart-panel > .legend { order: 3; }
-  .chart-panel > .desk-status { order: 4; }
-  .chart-panel > .chart-read { order: 5; }
-  .chart-panel > .signal-sum { order: 6; }
-  .chart-panel > .signal-strip { order: 7; }
-  .chart-panel > .study-toolbar { order: 8; }
-  .chart-panel > .study-stack { order: 9; }
-  .chart-panel > .chart-fold { order: 10; }
 }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
 .dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
@@ -862,16 +847,15 @@ footer { display: none; }
   .signal-sum::before { content: ""; flex: 0 0 8px; height: 8px; border-radius: 50%; background: var(--slow); }
   .signal-sum.ok { color: var(--up); border-color: #1d4d3a; }
   .signal-sum.ok::before { background: var(--up); }
+  /* No sticky chrome — sticky tools were covering the panes when scrolling. */
   body[data-tab="chart"] .chart-tools {
-    position: sticky;
-    top: 0;
-    z-index: 4;
+    position: static;
+    z-index: auto;
     margin: 0 0 10px;
-    padding: 8px 0 10px;
-    background: #0c1014;
+    padding: 0 0 10px;
+    background: transparent;
     border-bottom: 1px solid var(--line);
   }
-  body[data-tab="chart"] .chart-tools-head { margin-bottom: 4px; }
   body[data-tab="chart"] .chart-tools-label { font-size: 12px; color: #c5d0db; }
   body[data-tab="chart"] .study-pages { margin-top: 2px; }
   body[data-tab="chart"] .study-pages button { min-height: 42px; font-size: 13px; }
@@ -930,9 +914,10 @@ footer { display: none; }
   }
   body[data-tab="chart"] .desk-status,
   body[data-tab="chart"] .signal-sum,
-  body[data-tab="chart"] .study-toolbar,
   body[data-tab="chart"] .chart-fold { display: none; }
   body[data-tab="chart"] .chart-read { margin: 2px 0 6px; font-size: 12px; }
+  body[data-tab="chart"] .study-toolbar { margin: 8px 0; gap: 6px; }
+  body[data-tab="chart"] .study-toolbar button { min-height: 36px; padding: 6px 10px; font-size: 12px; }
   body[data-tab="chart"] .chart-below {
     margin: 8px 0 24px;
     padding-top: 12px;
@@ -1277,6 +1262,8 @@ body.ready #mood-clock { width: 88px; height: 88px; }
     background: var(--panel);
   }
   body[data-tab="chart"] .desk-status {
+    position: static;
+    z-index: auto;
     background: var(--panel);
   }
   body.ready #mood-clock { width: 48px; height: 48px; }
@@ -1356,11 +1343,32 @@ body.ready #mood-clock { width: 88px; height: 88px; }
     </section>
 
     <section id="view-chart" class="panel chart-panel" aria-label="Chart">
+      <div class="chart-head">
+        <button id="chart-back" type="button" class="quiet chart-back">Back</button>
+        <h2 id="chart-title">Chart</h2>
+        <span id="position-chip" class="position-chip" hidden></span>
+        <p id="legend" class="legend"></p>
+      </div>
+      <p id="desk-status" class="desk-status" role="status"></p>
+      <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
+      <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
+      <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div class="chart-tools" id="chart-tools">
-        <div class="chart-head chart-tools-head">
-          <button id="chart-back" type="button" class="quiet chart-back">Back</button>
-          <h2 id="chart-title">Chart</h2>
-          <span id="position-chip" class="position-chip" hidden></span>
+        <p class="chart-tools-label">Chart boxes</p>
+        <div id="chart-boxes" class="desk-clear chart-boxes" aria-label="Market breadth boxes">
+          <div class="desk-clear-chip breadth"><span class="k">TICK</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">ADD</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">TRIN</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">VOLD</span><span class="v">No feed</span></div>
+        </div>
+        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
+        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read">
+          <div class="desk-clear-chip vwap"><span class="k">VWAP D</span><span class="v">—</span></div>
+          <div class="desk-clear-chip vwap"><span class="k">VWAP W</span><span class="v">—</span></div>
+          <div class="desk-clear-chip vwap"><span class="k">VWAP M</span><span class="v">—</span></div>
+          <div class="desk-clear-chip mixed"><span class="k">big4indicator</span><span class="v">Waiting</span></div>
+          <div class="desk-clear-chip"><span class="k">Bol %B 20</span><span class="v">—</span></div>
+          <div class="desk-clear-chip stage"><span class="k">Stage</span><span class="v">Waiting</span></div>
         </div>
         <p class="chart-tools-label">Timeframes</p>
         <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
@@ -1373,11 +1381,6 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
         <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
       </div>
-      <p id="legend" class="legend"></p>
-      <p id="desk-status" class="desk-status" role="status"></p>
-      <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
-      <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
-      <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div class="study-toolbar" role="toolbar" aria-label="Study panes">
         <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
         <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>
@@ -1415,23 +1418,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <canvas id="cci-chart" width="800" height="160" aria-label="CCI"></canvas>
         </section>
       </div>
-      <div class="chart-below" aria-label="Chart boxes and pages">
-        <p class="chart-tools-label">Chart boxes</p>
-        <div id="chart-boxes" class="desk-clear chart-boxes" aria-label="Market breadth boxes">
-          <div class="desk-clear-chip breadth"><span class="k">TICK</span><span class="v">No feed</span></div>
-          <div class="desk-clear-chip breadth"><span class="k">ADD</span><span class="v">No feed</span></div>
-          <div class="desk-clear-chip breadth"><span class="k">TRIN</span><span class="v">No feed</span></div>
-          <div class="desk-clear-chip breadth"><span class="k">VOLD</span><span class="v">No feed</span></div>
-        </div>
-        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
-        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read">
-          <div class="desk-clear-chip vwap"><span class="k">VWAP D</span><span class="v">—</span></div>
-          <div class="desk-clear-chip vwap"><span class="k">VWAP W</span><span class="v">—</span></div>
-          <div class="desk-clear-chip vwap"><span class="k">VWAP M</span><span class="v">—</span></div>
-          <div class="desk-clear-chip mixed"><span class="k">big4indicator</span><span class="v">Waiting</span></div>
-          <div class="desk-clear-chip"><span class="k">Bol %B 20</span><span class="v">—</span></div>
-          <div class="desk-clear-chip stage"><span class="k">Stage</span><span class="v">Waiting</span></div>
-        </div>
+      <div class="chart-below" aria-label="Second page">
         <p class="chart-tools-label">Second page</p>
         <div id="study-pages" class="study-pages" aria-label="Open Study pages">
           <button type="button" data-open-dock="strategies">Strategies</button>
@@ -6675,7 +6662,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.83";
+const VERSION = "1.9.84";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";

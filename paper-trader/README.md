@@ -95,10 +95,15 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Restore Chart layout (1.9.84)
+
+- Brings back the earlier phone Chart order: boxes → timeframes → price / TMO / Squeeze / CCI.
+- Removes sticky chrome that covered the panes when scrolling.
+- Second page (Journal, Big 3, Fire 5 docks, etc.) stays below the charts — added without burying them.
+
 ## Charts above chrome (1.9.83)
 
-- On **Chart**, price and study panes (TMO / Squeeze / CCI) sit under a slim timeframe + zoom strip so the candles are on screen without scrolling past boxes.
-- Chart boxes, Desk boxes, and Second page stay below the charts — scroll down for those.
+- Earlier attempt moved boxes below charts; superseded by 1.9.84 restore.
 
 ## Journal daily check (1.9.82)
 
