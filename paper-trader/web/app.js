@@ -82,7 +82,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.73";
+const VERSION = "1.9.74";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -4798,7 +4798,7 @@ function drawCandles(retry) {
     });
   }
   paintChartFlags(history, bars, squeeze[last] || 0, lastMomentum, priorMomentum);
-  paintDeskClear(history);
+  paintChartToolBoxes(history);
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
   // Paper fills only — small arrows. Edge clear BUY/SELL arrows are the main signals and do not repaint.
   (state.paper.markers || []).forEach((marker) => {
@@ -5125,11 +5125,37 @@ function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBott
   ctx.restore();
 }
 
+function paintChipRow(node, chips) {
+  if (!node) return;
+  node.replaceChildren();
+  chips.forEach((chip) => {
+    const box = document.createElement("div");
+    box.className = "desk-clear-chip" + (chip.kind ? " " + chip.kind : "");
+    const key = document.createElement("span");
+    key.className = "k";
+    key.textContent = chip.k;
+    const value = document.createElement("span");
+    value.className = "v";
+    value.textContent = chip.v;
+    box.append(key, value);
+    node.appendChild(box);
+  });
+}
+
+function paintChartBoxes() {
+  // Honest empty boxes: free feeds do not carry NYSE breadth. Never invent numbers.
+  paintChipRow($("chart-boxes"), [
+    { k: "TICK", v: "No feed", kind: "breadth" },
+    { k: "ADD", v: "No feed", kind: "breadth" },
+    { k: "TRIN", v: "No feed", kind: "breadth" },
+    { k: "VOLD", v: "No feed", kind: "breadth" },
+  ]);
+}
+
 function paintDeskClear(history) {
   const node = $("desk-clear");
   if (!node) return;
   const read = typeof PaperFrames !== "undefined" && PaperFrames.deskClearRead ? PaperFrames.deskClearRead(history || []) : null;
-  node.replaceChildren();
   // Always paint the desk boxes so phone users can see them; values stay "—" until bars are ready.
   const chips = read
     ? [
@@ -5148,18 +5174,12 @@ function paintDeskClear(history) {
         { k: "Bol %B 20", v: "—", kind: "" },
         { k: "Stage", v: "Waiting", kind: "stage" },
       ];
-  chips.forEach((chip) => {
-    const box = document.createElement("div");
-    box.className = "desk-clear-chip" + (chip.kind ? " " + chip.kind : "");
-    const key = document.createElement("span");
-    key.className = "k";
-    key.textContent = chip.k;
-    const value = document.createElement("span");
-    value.className = "v";
-    value.textContent = chip.v;
-    box.append(key, value);
-    node.appendChild(box);
-  });
+  paintChipRow(node, chips);
+}
+
+function paintChartToolBoxes(history) {
+  paintChartBoxes();
+  paintDeskClear(history);
 }
 
 function studyLayout(width, count, preferPad, preferRight) {
@@ -6425,6 +6445,7 @@ $("brief-window").addEventListener("click", () => openBrief());
 function showPhoneTab(name) {
   document.body.dataset.tab = name;
   document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
+  if (name === "chart") paintChartToolBoxes(state.market && state.market.history);
   if (state.market && state.paper && (name === "chart" || name === "study")) redrawStudies();
   nudgeLearn(name === "study" ? (document.querySelector(".dock-tab.on") || {}).dataset.dock || "study" : name);
 }
@@ -6639,9 +6660,11 @@ if (studiesExpandBtn) {
 }
 
 paintStudyPanes();
+paintChartToolBoxes([]);
 
 boot().then(() => {
   document.body.classList.add("ready");
+  paintChartToolBoxes(state.market && state.market.history);
   restoreDock();
   runSafe(false);
   loadInternals(false);

@@ -187,6 +187,13 @@ h2 { font-size: 15px; }
   color: var(--muted, #9aa7b5);
 }
 .chart-tools-label.desk-clear-label { margin-top: 4px; }
+.chart-boxes { margin: 0; }
+.desk-clear-chip.breadth {
+  background: #182028;
+  border-color: #4a5a6a;
+  min-width: 78px;
+}
+.desk-clear-chip.breadth .v { color: #c9d4de; font-size: 12px; font-weight: 650; }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
 .dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -776,9 +783,21 @@ footer { display: none; }
   body[data-tab="chart"] .chart-flags { margin-top: 2px; gap: 6px; }
   body[data-tab="chart"] .chart-flag { font-size: 11px; padding: 5px 9px; }
   body[data-tab="chart"] .desk-clear { gap: 8px; margin: 2px 0 0; }
+  body[data-tab="chart"] .chart-boxes {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+  body[data-tab="chart"] .chart-boxes .desk-clear-chip { min-width: 0; width: 100%; padding: 8px 6px; }
   body[data-tab="chart"] .desk-clear-chip { min-width: 92px; padding: 8px 10px; }
   body[data-tab="chart"] .desk-clear-chip .k { font-size: 11px; }
   body[data-tab="chart"] .desk-clear-chip .v { font-size: 14px; }
+  body[data-tab="chart"] #desk-clear {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  body[data-tab="chart"] #desk-clear .desk-clear-chip { min-width: 0; width: 100%; }
   body[data-tab="study"] .dock-tabs {
     flex-wrap: wrap;
     overflow: visible;
@@ -1174,6 +1193,22 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
       <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
       <div class="chart-tools" id="chart-tools">
+        <p class="chart-tools-label">Chart boxes</p>
+        <div id="chart-boxes" class="desk-clear chart-boxes" aria-label="Market breadth boxes">
+          <div class="desk-clear-chip breadth"><span class="k">TICK</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">ADD</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">TRIN</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">VOLD</span><span class="v">No feed</span></div>
+        </div>
+        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
+        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read">
+          <div class="desk-clear-chip vwap"><span class="k">VWAP D</span><span class="v">—</span></div>
+          <div class="desk-clear-chip vwap"><span class="k">VWAP W</span><span class="v">—</span></div>
+          <div class="desk-clear-chip vwap"><span class="k">VWAP M</span><span class="v">—</span></div>
+          <div class="desk-clear-chip mixed"><span class="k">big4indicator</span><span class="v">Waiting</span></div>
+          <div class="desk-clear-chip"><span class="k">Bol %B 20</span><span class="v">—</span></div>
+          <div class="desk-clear-chip stage"><span class="k">Stage</span><span class="v">Waiting</span></div>
+        </div>
         <p class="chart-tools-label">Timeframes</p>
         <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
         <div class="zoom-bar" aria-label="Chart zoom">
@@ -1184,8 +1219,6 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         </div>
         <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
         <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
-        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
-        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read"></div>
       </div>
       <div class="study-toolbar" role="toolbar" aria-label="Study panes">
         <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
@@ -6260,7 +6293,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.73";
+const VERSION = "1.9.74";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -10976,7 +11009,7 @@ function drawCandles(retry) {
     });
   }
   paintChartFlags(history, bars, squeeze[last] || 0, lastMomentum, priorMomentum);
-  paintDeskClear(history);
+  paintChartToolBoxes(history);
   const byDate = new Map(bars.map((bar, index) => [bar.date, index]));
   // Paper fills only — small arrows. Edge clear BUY/SELL arrows are the main signals and do not repaint.
   (state.paper.markers || []).forEach((marker) => {
@@ -11303,11 +11336,37 @@ function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBott
   ctx.restore();
 }
 
+function paintChipRow(node, chips) {
+  if (!node) return;
+  node.replaceChildren();
+  chips.forEach((chip) => {
+    const box = document.createElement("div");
+    box.className = "desk-clear-chip" + (chip.kind ? " " + chip.kind : "");
+    const key = document.createElement("span");
+    key.className = "k";
+    key.textContent = chip.k;
+    const value = document.createElement("span");
+    value.className = "v";
+    value.textContent = chip.v;
+    box.append(key, value);
+    node.appendChild(box);
+  });
+}
+
+function paintChartBoxes() {
+  // Honest empty boxes: free feeds do not carry NYSE breadth. Never invent numbers.
+  paintChipRow($("chart-boxes"), [
+    { k: "TICK", v: "No feed", kind: "breadth" },
+    { k: "ADD", v: "No feed", kind: "breadth" },
+    { k: "TRIN", v: "No feed", kind: "breadth" },
+    { k: "VOLD", v: "No feed", kind: "breadth" },
+  ]);
+}
+
 function paintDeskClear(history) {
   const node = $("desk-clear");
   if (!node) return;
   const read = typeof PaperFrames !== "undefined" && PaperFrames.deskClearRead ? PaperFrames.deskClearRead(history || []) : null;
-  node.replaceChildren();
   // Always paint the desk boxes so phone users can see them; values stay "—" until bars are ready.
   const chips = read
     ? [
@@ -11326,18 +11385,12 @@ function paintDeskClear(history) {
         { k: "Bol %B 20", v: "—", kind: "" },
         { k: "Stage", v: "Waiting", kind: "stage" },
       ];
-  chips.forEach((chip) => {
-    const box = document.createElement("div");
-    box.className = "desk-clear-chip" + (chip.kind ? " " + chip.kind : "");
-    const key = document.createElement("span");
-    key.className = "k";
-    key.textContent = chip.k;
-    const value = document.createElement("span");
-    value.className = "v";
-    value.textContent = chip.v;
-    box.append(key, value);
-    node.appendChild(box);
-  });
+  paintChipRow(node, chips);
+}
+
+function paintChartToolBoxes(history) {
+  paintChartBoxes();
+  paintDeskClear(history);
 }
 
 function studyLayout(width, count, preferPad, preferRight) {
@@ -12603,6 +12656,7 @@ $("brief-window").addEventListener("click", () => openBrief());
 function showPhoneTab(name) {
   document.body.dataset.tab = name;
   document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
+  if (name === "chart") paintChartToolBoxes(state.market && state.market.history);
   if (state.market && state.paper && (name === "chart" || name === "study")) redrawStudies();
   nudgeLearn(name === "study" ? (document.querySelector(".dock-tab.on") || {}).dataset.dock || "study" : name);
 }
@@ -12817,9 +12871,11 @@ if (studiesExpandBtn) {
 }
 
 paintStudyPanes();
+paintChartToolBoxes([]);
 
 boot().then(() => {
   document.body.classList.add("ready");
+  paintChartToolBoxes(state.market && state.market.history);
   restoreDock();
   runSafe(false);
   loadInternals(false);

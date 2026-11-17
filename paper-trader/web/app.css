@@ -173,6 +173,13 @@ h2 { font-size: 15px; }
   color: var(--muted, #9aa7b5);
 }
 .chart-tools-label.desk-clear-label { margin-top: 4px; }
+.chart-boxes { margin: 0; }
+.desk-clear-chip.breadth {
+  background: #182028;
+  border-color: #4a5a6a;
+  min-width: 78px;
+}
+.desk-clear-chip.breadth .v { color: #c9d4de; font-size: 12px; font-weight: 650; }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
 .dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -762,9 +769,21 @@ footer { display: none; }
   body[data-tab="chart"] .chart-flags { margin-top: 2px; gap: 6px; }
   body[data-tab="chart"] .chart-flag { font-size: 11px; padding: 5px 9px; }
   body[data-tab="chart"] .desk-clear { gap: 8px; margin: 2px 0 0; }
+  body[data-tab="chart"] .chart-boxes {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+  body[data-tab="chart"] .chart-boxes .desk-clear-chip { min-width: 0; width: 100%; padding: 8px 6px; }
   body[data-tab="chart"] .desk-clear-chip { min-width: 92px; padding: 8px 10px; }
   body[data-tab="chart"] .desk-clear-chip .k { font-size: 11px; }
   body[data-tab="chart"] .desk-clear-chip .v { font-size: 14px; }
+  body[data-tab="chart"] #desk-clear {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  body[data-tab="chart"] #desk-clear .desk-clear-chip { min-width: 0; width: 100%; }
   body[data-tab="study"] .dock-tabs {
     flex-wrap: wrap;
     overflow: visible;
