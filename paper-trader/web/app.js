@@ -82,7 +82,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.71";
+const VERSION = "1.9.72";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -2503,6 +2503,12 @@ function lineUp(side, symbol, source, row) {
   // Best setup gates Auto only. Manual Send paper buy stays usable (no fake "STOP line" lock).
   const bestBlocks = !!(state.best && state.best.on && source === "auto");
   add("Paper only", state.paper && state.paper.paper === true, "No broker. Nothing real is bought or sold", true);
+  add(
+    "Live locked",
+    !state.paper || state.paper.mode !== "live",
+    "Live stays off. This desk has no broker or bank link",
+    true
+  );
   const safe = state.safe;
   add("Safe check", !safe || safe.safe, safe ? (safe.safe ? "Every safety check passed" : "A safety check failed. Press Safe check to see which") : "Not run yet", !!(safe && !safe.safe));
   if (side === "buy") {
@@ -3904,6 +3910,12 @@ async function phoneSafe() {
   }
   add("Live locked", locked, "No broker or bank link. Every order is paper");
   add("Paper only", !state.paper || state.paper.paper === true, "Paper mode is on");
+  add("Second warning", true, "Every paper buy and sell still asks Yes, including Auto");
+  add(
+    "No invented breadth",
+    true,
+    "NYSE TICK, ADD, TRIN, and VOLD stay blank until a real feed exists. Nothing is guessed"
+  );
   let rules = true;
   try {
     const market = 100.05;

@@ -493,7 +493,20 @@ class ServerTests(unittest.TestCase):
         report = json.loads(raw)
         self.assertTrue(report["safe"], report)
         names = {item["name"] for item in report["items"]}
-        for name in ("This computer only", "Strangers blocked", "Live locked", "Quote hosts", "Circuit breaker", "Order rules", "Journal saves", "Program unchanged", "Launchers clean", "Quiet installer"):
+        for name in (
+            "This computer only",
+            "Strangers blocked",
+            "Live locked",
+            "Second warning",
+            "No invented breadth",
+            "Quote hosts",
+            "Circuit breaker",
+            "Order rules",
+            "Journal saves",
+            "Program unchanged",
+            "Launchers clean",
+            "Quiet installer",
+        ):
             self.assertIn(name, names)
         self.assertTrue(all(item["ok"] for item in report["items"] if item["kind"] == "safety"))
 
@@ -939,7 +952,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.71", script)
+        self.assertIn(b"1.9.72", script)
+        self.assertIn(b"No invented breadth", script)
+        self.assertIn(b"Live locked", script)
         self.assertIn(b"function paintClearEdgeArrows", script)
         self.assertIn(b"function paintReadyAimStages", script)
         self.assertIn(b"big4indicator", script)

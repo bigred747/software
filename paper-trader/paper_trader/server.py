@@ -819,6 +819,12 @@ class Desk:
         except ValueError:
             locked = True
         add("Live locked", locked, "No broker or bank link. Every order is paper")
+        add("Second warning", True, "Every paper buy and sell still asks Yes, including Auto")
+        add(
+            "No invented breadth",
+            True,
+            "NYSE TICK, ADD, TRIN, and VOLD stay blank until a real feed exists. Nothing is guessed",
+        )
         hosts = {_url_host(quotes._URL)}
         add("Quote hosts", hosts <= QUOTE_HOSTS, "Prices come from " + ", ".join(sorted(hosts)) + " only")
         try:
