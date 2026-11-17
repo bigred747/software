@@ -182,6 +182,7 @@ h2 { font-size: 15px; }
 .chart-panel > .signal-strip,
 .chart-panel > .chart-tools,
 .chart-panel > .study-toolbar,
+.chart-panel > .chart-below,
 .chart-panel > .chart-fold { flex: 0 0 auto; }
 .chart-panel > .study-stack { flex: 0 0 auto; }
 .chart-tools {
@@ -191,6 +192,13 @@ h2 { font-size: 15px; }
   padding: 8px 0 10px;
   border-bottom: 1px solid var(--line);
   background: #0c1014;
+}
+.chart-below {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 8px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
 }
 .chart-tools-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .chart-tools-label {
@@ -237,6 +245,17 @@ h2 { font-size: 15px; }
   }
   .study-pages { grid-template-columns: repeat(9, minmax(0, 1fr)); }
   .study-pages button { min-height: 36px; }
+  /* Keep the computer desk familiar: boxes/pages above the chart panes. */
+  .chart-panel > .chart-tools { order: 1; }
+  .chart-panel > .chart-below { order: 2; margin-top: 0; padding-top: 0; border-top: 0; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 8px; }
+  .chart-panel > .legend { order: 3; }
+  .chart-panel > .desk-status { order: 4; }
+  .chart-panel > .chart-read { order: 5; }
+  .chart-panel > .signal-sum { order: 6; }
+  .chart-panel > .signal-strip { order: 7; }
+  .chart-panel > .study-toolbar { order: 8; }
+  .chart-panel > .study-stack { order: 9; }
+  .chart-panel > .chart-fold { order: 10; }
 }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
 .dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
@@ -897,14 +916,17 @@ footer { display: none; }
   }
   body[data-tab="chart"] .desk-status,
   body[data-tab="chart"] .signal-sum,
+  body[data-tab="chart"] .study-toolbar,
   body[data-tab="chart"] .chart-fold { display: none; }
   body[data-tab="chart"] .chart-read { margin: 2px 0 6px; font-size: 12px; }
-  body[data-tab="chart"] .study-toolbar { margin: 10px 0 8px; gap: 6px; }
-  body[data-tab="chart"] .study-toolbar button { min-height: 36px; padding: 6px 10px; font-size: 12px; }
+  body[data-tab="chart"] .chart-below {
+    margin: 8px 0 24px;
+    padding-top: 12px;
+  }
   body[data-tab="chart"] .study-stack {
     display: block;
     margin: 0;
-    padding-bottom: 36px;
+    padding-bottom: 12px;
     overflow: visible;
   }
   body[data-tab="chart"] .study-pane {

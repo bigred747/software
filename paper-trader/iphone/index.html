@@ -196,6 +196,7 @@ h2 { font-size: 15px; }
 .chart-panel > .signal-strip,
 .chart-panel > .chart-tools,
 .chart-panel > .study-toolbar,
+.chart-panel > .chart-below,
 .chart-panel > .chart-fold { flex: 0 0 auto; }
 .chart-panel > .study-stack { flex: 0 0 auto; }
 .chart-tools {
@@ -205,6 +206,13 @@ h2 { font-size: 15px; }
   padding: 8px 0 10px;
   border-bottom: 1px solid var(--line);
   background: #0c1014;
+}
+.chart-below {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 8px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
 }
 .chart-tools-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .chart-tools-label {
@@ -251,6 +259,17 @@ h2 { font-size: 15px; }
   }
   .study-pages { grid-template-columns: repeat(9, minmax(0, 1fr)); }
   .study-pages button { min-height: 36px; }
+  /* Keep the computer desk familiar: boxes/pages above the chart panes. */
+  .chart-panel > .chart-tools { order: 1; }
+  .chart-panel > .chart-below { order: 2; margin-top: 0; padding-top: 0; border-top: 0; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 8px; }
+  .chart-panel > .legend { order: 3; }
+  .chart-panel > .desk-status { order: 4; }
+  .chart-panel > .chart-read { order: 5; }
+  .chart-panel > .signal-sum { order: 6; }
+  .chart-panel > .signal-strip { order: 7; }
+  .chart-panel > .study-toolbar { order: 8; }
+  .chart-panel > .study-stack { order: 9; }
+  .chart-panel > .chart-fold { order: 10; }
 }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
 .dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
@@ -911,14 +930,17 @@ footer { display: none; }
   }
   body[data-tab="chart"] .desk-status,
   body[data-tab="chart"] .signal-sum,
+  body[data-tab="chart"] .study-toolbar,
   body[data-tab="chart"] .chart-fold { display: none; }
   body[data-tab="chart"] .chart-read { margin: 2px 0 6px; font-size: 12px; }
-  body[data-tab="chart"] .study-toolbar { margin: 10px 0 8px; gap: 6px; }
-  body[data-tab="chart"] .study-toolbar button { min-height: 36px; padding: 6px 10px; font-size: 12px; }
+  body[data-tab="chart"] .chart-below {
+    margin: 8px 0 24px;
+    padding-top: 12px;
+  }
   body[data-tab="chart"] .study-stack {
     display: block;
     margin: 0;
-    padding-bottom: 36px;
+    padding-bottom: 12px;
     overflow: visible;
   }
   body[data-tab="chart"] .study-pane {
@@ -1340,22 +1362,6 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <h2 id="chart-title">Chart</h2>
           <span id="position-chip" class="position-chip" hidden></span>
         </div>
-        <p class="chart-tools-label">Chart boxes</p>
-        <div id="chart-boxes" class="desk-clear chart-boxes" aria-label="Market breadth boxes">
-          <div class="desk-clear-chip breadth"><span class="k">TICK</span><span class="v">No feed</span></div>
-          <div class="desk-clear-chip breadth"><span class="k">ADD</span><span class="v">No feed</span></div>
-          <div class="desk-clear-chip breadth"><span class="k">TRIN</span><span class="v">No feed</span></div>
-          <div class="desk-clear-chip breadth"><span class="k">VOLD</span><span class="v">No feed</span></div>
-        </div>
-        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
-        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read">
-          <div class="desk-clear-chip vwap"><span class="k">VWAP D</span><span class="v">—</span></div>
-          <div class="desk-clear-chip vwap"><span class="k">VWAP W</span><span class="v">—</span></div>
-          <div class="desk-clear-chip vwap"><span class="k">VWAP M</span><span class="v">—</span></div>
-          <div class="desk-clear-chip mixed"><span class="k">big4indicator</span><span class="v">Waiting</span></div>
-          <div class="desk-clear-chip"><span class="k">Bol %B 20</span><span class="v">—</span></div>
-          <div class="desk-clear-chip stage"><span class="k">Stage</span><span class="v">Waiting</span></div>
-        </div>
         <p class="chart-tools-label">Timeframes</p>
         <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
         <div class="zoom-bar" aria-label="Chart zoom">
@@ -1366,19 +1372,6 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         </div>
         <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
         <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
-        <p class="chart-tools-label">Second page</p>
-        <div id="study-pages" class="study-pages" aria-label="Open Study pages">
-          <button type="button" data-open-dock="strategies">Strategies</button>
-          <button type="button" data-open-dock="internals">Internals</button>
-          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
-          <button type="button" data-open-dock="frames">Timeframes</button>
-          <button type="button" data-open-dock="squeeze">Squeeze scan</button>
-          <button type="button" data-open-dock="readings">big4indicator</button>
-          <button type="button" data-open-dock="journal">Journal</button>
-          <button type="button" data-open-dock="signals">Signals</button>
-          <button type="button" data-open-dock="backtest">Backtest</button>
-          <button type="button" data-open-dock="study">Study code</button>
-        </div>
       </div>
       <p id="legend" class="legend"></p>
       <p id="desk-status" class="desk-status" role="status"></p>
@@ -1421,6 +1414,37 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           </div>
           <canvas id="cci-chart" width="800" height="160" aria-label="CCI"></canvas>
         </section>
+      </div>
+      <div class="chart-below" aria-label="Chart boxes and pages">
+        <p class="chart-tools-label">Chart boxes</p>
+        <div id="chart-boxes" class="desk-clear chart-boxes" aria-label="Market breadth boxes">
+          <div class="desk-clear-chip breadth"><span class="k">TICK</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">ADD</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">TRIN</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">VOLD</span><span class="v">No feed</span></div>
+        </div>
+        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
+        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read">
+          <div class="desk-clear-chip vwap"><span class="k">VWAP D</span><span class="v">—</span></div>
+          <div class="desk-clear-chip vwap"><span class="k">VWAP W</span><span class="v">—</span></div>
+          <div class="desk-clear-chip vwap"><span class="k">VWAP M</span><span class="v">—</span></div>
+          <div class="desk-clear-chip mixed"><span class="k">big4indicator</span><span class="v">Waiting</span></div>
+          <div class="desk-clear-chip"><span class="k">Bol %B 20</span><span class="v">—</span></div>
+          <div class="desk-clear-chip stage"><span class="k">Stage</span><span class="v">Waiting</span></div>
+        </div>
+        <p class="chart-tools-label">Second page</p>
+        <div id="study-pages" class="study-pages" aria-label="Open Study pages">
+          <button type="button" data-open-dock="strategies">Strategies</button>
+          <button type="button" data-open-dock="internals">Internals</button>
+          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
+          <button type="button" data-open-dock="frames">Timeframes</button>
+          <button type="button" data-open-dock="squeeze">Squeeze scan</button>
+          <button type="button" data-open-dock="readings">big4indicator</button>
+          <button type="button" data-open-dock="journal">Journal</button>
+          <button type="button" data-open-dock="signals">Signals</button>
+          <button type="button" data-open-dock="backtest">Backtest</button>
+          <button type="button" data-open-dock="study">Study code</button>
+        </div>
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
@@ -6651,7 +6675,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.82";
+const VERSION = "1.9.83";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
