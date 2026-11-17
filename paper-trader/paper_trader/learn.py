@@ -137,7 +137,11 @@ def page_snapshot(
     elif page == "frames":
         base.update({"note": "Multi-TF Edge uses each timeframe's own closed bars when the page is open; bot-on keeps the daily lesson warm."})
     elif page == "internals":
-        base.update({"note": "Internals refresh while the desk is open; bot-on keeps watched markets scored."})
+        base.update(
+            {
+                "note": "Market gauges plus desk Squeeze · TMO · big4indicator · stack · MTF refresh while the desk is open; bot-on keeps watched markets scored.",
+            }
+        )
     else:
         # New registered pages still get a warm pass from the closed-bar lesson.
         base.update({"rule": lesson.get("rule") or "", "setup": lesson.get("setup") or "", "auto": True})

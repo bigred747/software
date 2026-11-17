@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -470,6 +470,24 @@ test("internals roll real gauges into a label and never guess a missing one", ()
   assert.equal(partial.label, "Unknown");
   assert.ok(partial.missing.includes("Fear gauge (VIX)"));
   assert.equal(internals({}).ready, false);
+});
+
+test("deskInternals folds Squeeze · TMO · big4 · stack · MTF into the internals path", () => {
+  const short = deskInternals(walk(40, 12, 0.001), { live: false });
+  assert.equal(short.ready, false);
+  assert.ok(short.missing.includes("Squeeze"));
+  const desk = JSON.parse(JSON.stringify(deskInternals(walk(320, 18, 0.0012), { live: false })));
+  assert.equal(desk.ready, true);
+  assert.deepEqual(
+    desk.parts.map((part) => part.id),
+    ["squeeze", "tmo", "big4", "stack", "week", "month"]
+  );
+  assert.equal(typeof desk.squeezeOk, "boolean");
+  assert.equal(typeof desk.tmoOk, "boolean");
+  assert.equal(typeof desk.big4Ok, "boolean");
+  assert.equal(typeof desk.stackOk, "boolean");
+  assert.equal(typeof desk.mtfOk, "boolean");
+  assert.ok(desk.score >= 0 && desk.score <= 100);
 });
 
 function intraday(count, seed, minutes) {

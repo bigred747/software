@@ -340,7 +340,7 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="best-setup-box">
           <button id="best-setup" type="button" class="best-setup-btn" aria-pressed="false">Best setup Auto</button>
           <ul id="best-setup-gates" class="best-setup-gates" aria-label="Best setup gates"></ul>
-          <p id="best-setup-note" class="muted">Off. Turns on only the strictest paper buys: Edge all five green, most timeframes lined up, internals mostly supportive, today’s green scan list, and at most three new buys a Denver day. Still asks Yes. Not a forecast.</p>
+          <p id="best-setup-note" class="muted">Off. Turns on only the strictest paper buys: Edge all five green, most timeframes lined up, market internals supportive, desk Squeeze · TMO · big4indicator · stack · MTF, today’s green scan list, and at most three new buys a Denver day. Still asks Yes. Not a forecast.</p>
         </div>
         <p id="strat-auto-note" class="muted">Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.</p>
         <h3>Desk triggers</h3>
@@ -416,7 +416,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="internals">
         <h2>Market internals</h2>
-        <p id="int-lead" class="muted">Reads the fear gauges, index trend, how many sectors take part, small against large, offense against defense, credit, rates, and the dollar from real daily bars, then rolls them into one label: Supportive, Mixed, or Defensive. It reads closed bars only and looks backward. It is not a forecast.</p>
+        <p id="int-lead" class="muted">Reads the fear gauges, index trend, how many sectors take part, small against large, offense against defense, credit, rates, and the dollar from real daily bars, then rolls them into one market label: Supportive, Mixed, or Defensive. For the open market it also folds in desk studies — Squeeze, TMO, big4indicator, SMA stack, and weekly/monthly MTF — using the same closed-bar math as Strategies / Best setup / Edge. Looks backward only. Not a forecast.</p>
         <div class="strat-orb-inputs">
           <button id="int-refresh" type="button">Refresh internals</button>
           <label class="strat-switch"><input id="int-gate" type="checkbox" checked> Respect internals: Auto skips buys in stocks, ETFs, and futures while internals are Defensive</label>

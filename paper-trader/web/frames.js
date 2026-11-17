@@ -2493,6 +2493,135 @@
     return { ready: total >= 60, label, score, coverage: total, parts, missing, asOf: dated ? dated[dated.length - 1].date : "" };
   }
 
+  // Open-market desk studies for the Internals path (Best setup / Edge / scan). Same closed-bar math as Strategies.
+  function deskInternals(bars, options) {
+    const list = bars || [];
+    const live = !!(options && options.live) && list.length > 0;
+    const end = live ? list.length - 1 : list.length;
+    const parts = [];
+    const add = (id, name, weight, says, text) => {
+      parts.push({
+        id,
+        name,
+        weight,
+        says,
+        points: says === "good" ? weight : says === "neutral" ? weight / 2 : 0,
+        text,
+        desk: true,
+      });
+    };
+    if (end < 60) {
+      return {
+        ready: false,
+        parts: [],
+        missing: ["Squeeze", "TMO", "big4indicator", "SMA stack", "Weekly MTF", "Monthly MTF"],
+        squeezeOk: false,
+        tmoOk: false,
+        big4Ok: false,
+        stackOk: false,
+        weekOk: false,
+        monthOk: false,
+        mtfOk: false,
+        asOf: "",
+      };
+    }
+    const closes = list.map((bar) => bar.close);
+    const study = compression(list, 20);
+    const mom = study.momentum;
+    const on = study.level.map((value) => value >= 2);
+    const last = end - 1;
+    const rising = mom[last] != null && mom[last - 1] != null && mom[last] > 0 && mom[last] > mom[last - 1];
+    const fired = last > 0 && !on[last] && on[last - 1];
+    let dots = 0;
+    for (let index = last; index >= 0 && on[index]; index -= 1) dots += 1;
+    const squeezeOk = !!(fired && rising);
+    const bearish = !!(fired && mom[last] != null && mom[last] < 0 && mom[last - 1] != null && mom[last] < mom[last - 1]);
+    const squeezeSays = squeezeOk ? "good" : bearish ? "bad" : dots > 0 ? "neutral" : "neutral";
+    add(
+      "squeeze",
+      "Squeeze (desk)",
+      20,
+      squeezeSays,
+      squeezeOk
+        ? "Squeeze just fired with momentum above zero and rising."
+        : bearish
+          ? "Bearish squeeze fire. This long-only desk stands aside."
+          : dots > 0
+            ? "Squeeze on, " + dots + " compression dot" + (dots === 1 ? "" : "s") + " building."
+            : "No squeeze fire on the last closed bar."
+    );
+
+    const tmo = trueMomentum(list, 14, 5, 3);
+    const tmoOk = !!(tmo.main[last] != null && tmo.signal[last] != null && tmo.main[last] > tmo.signal[last]);
+    add(
+      "tmo",
+      "TMO 14/5/3",
+      20,
+      tmoOk ? "good" : tmo.main[last] != null && tmo.signal[last] != null ? "bad" : "neutral",
+      tmo.main[last] != null && tmo.signal[last] != null
+        ? "True momentum " + tmo.main[last].toFixed(2) + (tmoOk ? " above" : " below") + " signal " + tmo.signal[last].toFixed(2) + "."
+        : "True momentum needs more bars."
+    );
+
+    const big4 = big4Indicator(list);
+    const big4Ok = !!big4.ok[last];
+    add(
+      "big4",
+      "big4indicator",
+      20,
+      big4Ok ? "good" : big4.bias[last] === "bear" ? "bad" : "neutral",
+      "big4indicator " + (big4.label || big4.bias[last] || "Waiting") + (big4Ok ? " (agrees)" : " (waiting).")
+    );
+
+    const stack = stackAverages(list);
+    const s5 = stack[0].values;
+    const s9 = stack[1].values;
+    const s21 = stack[2].values;
+    const s50 = stack[3].values;
+    const stackOk =
+      s5[last] != null &&
+      s9[last] != null &&
+      s21[last] != null &&
+      s50[last] != null &&
+      s5[last] > s9[last] &&
+      s9[last] > s21[last] &&
+      s21[last] > s50[last];
+    add(
+      "stack",
+      "SMA stack 5·9·21·50",
+      20,
+      stackOk ? "good" : "bad",
+      stackOk ? "SMA stack lined up 5 over 9 over 21 over 50." : "SMA stack is not lined up on the last closed bar."
+    );
+
+    const snap = end >= 260 ? multiFrameSnapshot(list, end) : { weekOk: false, monthOk: false, mtfOk: false };
+    if (end < 260) {
+      add("week", "Weekly MTF", 10, "neutral", "Needs at least 260 daily bars for weekly multi-TF.");
+      add("month", "Monthly MTF", 10, "neutral", "Needs at least 260 daily bars for monthly multi-TF.");
+    } else {
+      add("week", "Weekly MTF", 10, snap.weekOk ? "good" : "bad", snap.weekOk ? "Completed weekly bars agree (TMO above signal, close above 20-EMA)." : "Completed weekly bars do not agree yet.");
+      add("month", "Monthly MTF", 10, snap.monthOk ? "good" : "bad", snap.monthOk ? "Completed monthly bars agree (TMO above signal, close above 20-EMA)." : "Completed monthly bars do not agree yet.");
+    }
+
+    const total = parts.reduce((sum, item) => sum + item.weight, 0);
+    const earned = parts.reduce((sum, item) => sum + item.points, 0);
+    const score = total > 0 ? Math.round((earned / total) * 100) : 0;
+    return {
+      ready: true,
+      parts,
+      missing: [],
+      score,
+      squeezeOk,
+      tmoOk,
+      big4Ok,
+      stackOk,
+      weekOk: !!snap.weekOk,
+      monthOk: !!snap.monthOk,
+      mtfOk: !!snap.mtfOk,
+      asOf: list[last] ? list[last].date : "",
+    };
+  }
+
   const EDGE_NAMES = { dots: "exactly 5 squeeze dots", above: "squeeze momentum above 0", rising: "squeeze momentum rising", tmo: "true momentum above signal", band: "under the upper Bollinger band" };
 
   function plainPrice(value) {
@@ -2643,6 +2772,7 @@
     edgeLine,
     plainPrice,
     internals,
+    deskInternals,
     INTERNAL_SYMBOLS,
     squeezeRead,
     squeezeScore,

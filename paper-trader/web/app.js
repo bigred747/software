@@ -82,7 +82,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.70";
+const VERSION = "1.9.71";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -1278,7 +1278,9 @@ function render(paper) {
   renderQuote(paper);
   paintPositionChip(paper);
   paintTicketPreview();
+  syncDeskInternals();
   syncDeskStatus();
+  if ($("int-body") && (state.int.result || state.int.desk)) renderInternals();
   $("next").disabled = state.auto || paper.finished;
   $("run").disabled = state.auto || paper.finished;
   $("trade").disabled = false;
@@ -2482,10 +2484,11 @@ function confirmOrder(plan) {
     if (!check.ok) item.className = check.block ? "stop" : "warn";
     list.appendChild(item);
   });
-  const blocked = plan.checks.some((check) => check.block && !check.ok);
+  const blockers = plan.checks.filter((check) => check.block && !check.ok);
+  const blocked = blockers.length > 0;
   $("cm-yes").disabled = blocked;
   $("cm-warn").textContent = blocked
-    ? "This cannot go ahead until the STOP line is fixed. Nothing was traded."
+    ? "This cannot go ahead until these are fixed: " + blockers.map((check) => check.label).join(", ") + ". Nothing was traded."
     : "Do you really want to do this? It is paper money only and nothing goes to a broker.";
   box.hidden = false;
   $("cm-no").focus();
@@ -2497,6 +2500,8 @@ function confirmOrder(plan) {
 function lineUp(side, symbol, source, row) {
   const checks = [];
   const add = (label, ok, detail, block) => checks.push({ label, ok: !!ok, detail, block: !!block });
+  // Best setup gates Auto only. Manual Send paper buy stays usable (no fake "STOP line" lock).
+  const bestBlocks = !!(state.best && state.best.on && source === "auto");
   add("Paper only", state.paper && state.paper.paper === true, "No broker. Nothing real is bought or sold", true);
   const safe = state.safe;
   add("Safe check", !safe || safe.safe, safe ? (safe.safe ? "Every safety check passed" : "A safety check failed. Press Safe check to see which") : "Not run yet", !!(safe && !safe.safe));
@@ -2505,18 +2510,18 @@ function lineUp(side, symbol, source, row) {
     add("Circuit breaker", !tripped, tripped ? "Tripped. Buys stop until tomorrow" : "Armed, buys allowed", true);
     const held = internalsGate(symbol);
     const read = state.int && state.int.result;
-    add("Internals", !held, held || (read && read.ready ? read.label + " (" + read.score + ")" : "Not read yet"), !!(state.best && state.best.on && held));
+    add("Internals", !held, held || (read && read.ready ? read.label + " (" + read.score + ")" : "Not read yet"), !!(bestBlocks && held));
   }
   const agree = edgeFramesSummary();
   if (agree.total) {
     const want = side === "buy" ? agree.long : agree.short;
     const need = state.best && state.best.on ? Math.ceil((agree.total * 2) / 3) : Math.ceil(agree.total / 2);
-    add("Timeframes", want >= need, "Edge: " + agree.text, !!(state.best && state.best.on && want < need));
+    add("Timeframes", want >= need, "Edge: " + agree.text, !!(bestBlocks && want < need));
   }
   if (state.best && state.best.on && side === "buy") {
     const status = bestSetupStatus();
-    add("Best setup", status.ready, status.detail, true);
-    add("Daily buys", status.roomOk, status.day.count + " of " + BEST_MAX_BUYS + " used today", true);
+    add("Best setup", status.ready, status.detail, bestBlocks);
+    add("Daily buys", status.roomOk, status.day.count + " of " + BEST_MAX_BUYS + " used today", bestBlocks);
   }
   const board = state.board;
   const picked = row || (board && board.rows.find((item) => item.id === state.strat.pick)) || null;
@@ -2708,10 +2713,23 @@ function bestSetupStatus() {
     internals && internals.ready ? "Internals " + internals.label + " " + internals.score : "Internals not ready"
   );
 
+  const desk =
+    bars.length && typeof PaperFrames !== "undefined" && PaperFrames.deskInternals
+      ? PaperFrames.deskInternals(bars, { live: chartCrypto() })
+      : state.int && state.int.desk
+        ? state.int.desk
+        : null;
   const board = bars.length >= 2 ? currentBoard(bars) : null;
   const quad = board && board.rows ? board.rows.find((row) => row.id === "quad") : null;
-  const stackOk = !!(quad && quad.ready && quad.stackOk);
-  const htfOk = !!(quad && quad.ready && quad.weekOk && quad.monthOk);
+  const squeezeOk = !!(desk && desk.ready && desk.squeezeOk) || !!(quad && quad.ready && quad.squeezeOk);
+  const tmoOk = !!(desk && desk.ready && desk.tmoOk) || !!(quad && quad.ready && quad.tmoOk);
+  const big4Ok = !!(desk && desk.ready && desk.big4Ok) || !!(quad && quad.ready && (quad.big4Ok || quad.b4Ok));
+  const stackOk = !!(desk && desk.ready && desk.stackOk) || !!(quad && quad.ready && quad.stackOk);
+  const htfOk =
+    !!(desk && desk.ready && desk.weekOk && desk.monthOk) || !!(quad && quad.ready && quad.weekOk && quad.monthOk);
+  addGate("Squeeze (desk)", squeezeOk, squeezeOk ? "Squeeze fire on" : "Squeeze fire off");
+  addGate("TMO", tmoOk, tmoOk ? "True momentum above signal" : "TMO not above signal");
+  addGate("big4indicator", big4Ok, big4Ok ? "big4indicator agrees" : "big4indicator waiting");
   addGate("SMA stack", stackOk, stackOk ? "SMA stack lined up" : "SMA stack not lined up");
   addGate("Weekly + monthly MTF", htfOk, htfOk ? "Weekly and monthly agree" : "Weekly/monthly multi-TF not both on");
 
@@ -2740,19 +2758,34 @@ function bestSetupStatus() {
   const held = !!(state.paper && state.paper.shares > 0);
   if (held) waiting.unshift("Already in a paper long — Best setup buys wait; Edge SELL can still exit");
 
-  const ready = !!(state.best && state.best.on) && edgeOk && mtfOk && intOk && stackOk && htfOk && roomOk && scanOk && quoteOk && moodOk && !held;
+  const deskOk = squeezeOk && tmoOk && big4Ok && stackOk && htfOk;
+  const ready =
+    !!(state.best && state.best.on) &&
+    edgeOk &&
+    mtfOk &&
+    intOk &&
+    deskOk &&
+    roomOk &&
+    scanOk &&
+    quoteOk &&
+    moodOk &&
+    !held;
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
-      ? "Ready · Edge 5/5 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
+      ? "Ready · Edge 5/5 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
       : "Armed · waiting: " + waiting.slice(0, 3).join("; ");
   return {
     ready,
     edgeOk,
     mtfOk,
     intOk,
+    squeezeOk,
+    tmoOk,
+    big4Ok,
     stackOk,
     htfOk,
+    deskOk,
     roomOk,
     scanOk,
     quoteOk,
@@ -2763,6 +2796,7 @@ function bestSetupStatus() {
     detail,
     frames,
     internals,
+    desk,
     day,
   };
 }
@@ -2790,7 +2824,7 @@ function renderBestSetup() {
   button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
   note.textContent = on
     ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Strictest paper buys only: Edge all five, multi-TF majority, supportive internals, SMA stack + weekly/monthly MTF, green scan list, fresh quote, not extreme greed, max three buys a Denver day. Still asks Yes. Not a forecast.";
+    : "Off. Strictest paper buys only: Edge all five, multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, max three buys a Denver day. Still asks Yes. Not a forecast.";
   if (list) {
     list.replaceChildren();
     list.hidden = !on;
@@ -4193,16 +4227,35 @@ function loadIntGate() {
   }
 }
 
-state.int = { gate: loadIntGate(), result: null, at: 0, busy: false, error: "" };
+state.int = { gate: loadIntGate(), result: null, desk: null, at: 0, busy: false, error: "" };
 
 async function internalBars(symbol) {
   if (state.offline && INT_GAUGES.includes(symbol)) return PaperLive.gauge(symbol);
   return sqDaily(symbol);
 }
 
+function syncDeskInternals() {
+  const box = state.int;
+  if (!box || typeof PaperFrames === "undefined" || !PaperFrames.deskInternals) {
+    if (box) box.desk = null;
+    return null;
+  }
+  const bars = seenBars();
+  if (!bars || bars.length < 60) {
+    box.desk = null;
+    return null;
+  }
+  box.desk = PaperFrames.deskInternals(bars, { live: chartCrypto() });
+  return box.desk;
+}
+
 async function loadInternals(force) {
   const box = state.int;
-  if (box.busy || (!force && box.at && Date.now() - box.at < 600000)) return;
+  if (box.busy || (!force && box.at && Date.now() - box.at < 600000)) {
+    syncDeskInternals();
+    renderInternals();
+    return;
+  }
   box.busy = true;
   const symbols = PaperFrames.INTERNAL_SYMBOLS;
   const data = {};
@@ -4229,40 +4282,82 @@ async function loadInternals(force) {
   } finally {
     box.busy = false;
   }
+  syncDeskInternals();
   renderInternals();
   runSafe(false);
 }
 
 function internalsLine() {
   const result = state.int.result;
-  if (!result) return "Internals not read yet.";
-  if (!result.ready) return "Internals unknown: only " + result.coverage + " of 100 points could be read.";
-  return "Internals " + result.label + " " + result.score + " as of the " + result.asOf + " close.";
+  const desk = state.int.desk || syncDeskInternals();
+  if (!result && !desk) return "Internals not read yet.";
+  const market = !result
+    ? "Market gauges not read yet"
+    : !result.ready
+      ? "Market gauges unknown: only " + result.coverage + " of 100 points could be read"
+      : "Market " + result.label + " " + result.score + (result.asOf ? " as of the " + result.asOf + " close" : "");
+  if (!desk || !desk.ready) return market + ".";
+  const legs = [
+    desk.squeezeOk ? "Squeeze on" : "Squeeze off",
+    desk.tmoOk ? "TMO on" : "TMO off",
+    desk.big4Ok ? "big4 on" : "big4 off",
+    desk.stackOk ? "stack on" : "stack off",
+    desk.mtfOk ? "MTF on" : "MTF off",
+  ].join(" · ");
+  return market + ". Desk " + legs + " (" + desk.score + ").";
 }
 
 function renderInternals() {
   const pill = $("internals-pill");
   if (!pill) return;
   const result = state.int.result;
+  const desk = syncDeskInternals();
   pill.className = "internals-pill " + (result && result.ready ? result.label.toLowerCase() : "");
-  pill.textContent = result ? (result.ready ? "Internals · " + result.label + " " + result.score : "Internals · unknown") : state.int.error ? "Internals · could not read" : "Internals · reading…";
+  pill.textContent = result
+    ? result.ready
+      ? "Internals · " + result.label + " " + result.score + (desk && desk.ready ? " · desk " + desk.score : "")
+      : "Internals · unknown"
+    : state.int.error
+      ? "Internals · could not read"
+      : "Internals · reading…";
   const body = $("int-body");
   if (!body) return;
   body.replaceChildren();
   $("int-gate").checked = state.int.gate;
-  if (!result) {
+  if (!result && !(desk && desk.ready)) {
     $("int-head").textContent = state.int.error || "Press Refresh internals.";
     return;
   }
-  result.parts.forEach((part) => {
-    const row = document.createElement("tr");
-    addCells(row, [part.name, { text: part.says === "good" ? "Good" : part.says === "bad" ? "Bad" : "Neutral", cls: part.says === "good" ? "up" : part.says === "bad" ? "down" : "" }, part.points + " of " + part.weight, part.text]);
-    body.appendChild(row);
-  });
-  const when = new Date(state.int.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
-  $("int-head").textContent = internalsLine() + " Read at " + when + " Denver." + (result.ready && result.label === "Defensive" ? " Auto skips new stock, ETF, and futures buys while this holds." : "");
-  $("int-miss").textContent = result.missing.length ? "Not read: " + result.missing.join(", ") + ". The score uses only what was read." : "";
+  if (result) {
+    result.parts.forEach((part) => {
+      const row = document.createElement("tr");
+      addCells(row, [part.name, { text: part.says === "good" ? "Good" : part.says === "bad" ? "Bad" : "Neutral", cls: part.says === "good" ? "up" : part.says === "bad" ? "down" : "" }, part.points + " of " + part.weight, part.text]);
+      body.appendChild(row);
+    });
+  }
+  if (desk && desk.ready) {
+    desk.parts.forEach((part) => {
+      const row = document.createElement("tr");
+      addCells(row, [
+        part.name,
+        { text: part.says === "good" ? "Good" : part.says === "bad" ? "Bad" : "Neutral", cls: part.says === "good" ? "up" : part.says === "bad" ? "down" : "" },
+        part.points + " of " + part.weight,
+        part.text,
+      ]);
+      body.appendChild(row);
+    });
+  }
+  const when = state.int.at ? new Date(state.int.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" }) : "";
+  $("int-head").textContent =
+    internalsLine() +
+    (when ? " Read at " + when + " Denver." : "") +
+    (result && result.ready && result.label === "Defensive" ? " Auto skips new stock, ETF, and futures buys while this holds." : "");
+  const missing = []
+    .concat(result && result.missing ? result.missing : [])
+    .concat(desk && desk.missing ? desk.missing : []);
+  $("int-miss").textContent = missing.length ? "Not read: " + missing.join(", ") + ". The score uses only what was read." : "";
   renderAutoNote();
+  renderBestSetup();
 }
 
 function internalsGate(symbol) {
@@ -5790,12 +5885,14 @@ $("send").addEventListener("click", () => withBusy(async () => {
     $("status").textContent = "Check Confirm and Send, then send the paper order.";
     return;
   }
+  const kind = $("kind").value;
   const ticket = {
     side: state.side,
-    kind: $("kind").value,
+    kind,
     tif: $("tif").value,
-    stop: Number($("stop-price").value) || 0,
-    limit: Number($("limit-price").value) || 0,
+    // Market buys do not require a stop price. Stop/limit fields only apply to those order types.
+    stop: kind === "stop" || kind === "stop_limit" ? Number($("stop-price").value) || 0 : 0,
+    limit: kind === "limit" || kind === "stop_limit" ? Number($("limit-price").value) || 0 : 0,
   };
   if (!(await askFirst(ticket.side, (state.paper && state.paper.symbol) || selectedSymbol(), "you", { ticket }))) return;
   const paper = await paperCall("/api/paper/ticket", { ...ticket, confirmed: true });
