@@ -1418,8 +1418,10 @@
     const study = compression(list, 20);
     const squeeze = study.momentum;
     const tmo = trueMomentum(list, 14, 5, 3);
+    const cciSlow = cci(list, 50);
+    const cciMid = cci(list, 14);
+    const cciFast = cci(list, 5);
     const range = edgeAtr(list, 14);
-    const bands = bollinger(list, 20, 2);
     const big4 = big4Indicator(list);
     const dots = new Array(count).fill(0);
     let run = 0;
@@ -1433,14 +1435,34 @@
     const stages = new Array(count).fill(null);
     for (let index = EDGE_WARM; index < end; index += 1) {
       const now = squeeze[index];
-      const prior = squeeze[index - 1];
+      const main = tmo.main[index];
+      const signal = tmo.signal[index];
+      // TMO −10: main cleared above the −10 OS line on this closed bar (best Fire expectancy on the desk scan).
+      const tmoOs = main != null && main > tmo.os;
+      const allCci =
+        cciSlow[index] != null &&
+        cciMid[index] != null &&
+        cciFast[index] != null &&
+        cciSlow[index] > 100 &&
+        cciMid[index] > 100 &&
+        cciFast[index] > 100;
+      // Into zone: all three above +100 and a closed-bar cross into +100 on at least one CCI line.
+      const cciCross =
+        index > 0 &&
+        allCci &&
+        ((cciSlow[index - 1] != null && cciSlow[index - 1] <= 100 && cciSlow[index] > 100) ||
+          (cciMid[index - 1] != null && cciMid[index - 1] <= 100 && cciMid[index] > 100) ||
+          (cciFast[index - 1] != null && cciFast[index - 1] <= 100 && cciFast[index] > 100));
       const checks = {
-        // First closed bar that reaches exactly five squeeze dots — not every later day still in the squeeze.
-        dots: dots[index] === EDGE_DOTS,
+        // Chart stack: TMO · Squeeze · CCI (closed bars only). Optimized Fire gates for Squeeze scan / Fire 5.
+        tmoOs,
+        // TMO turns green: main above signal (bullish green paint / cloud on the closed bar).
+        tmo: main != null && signal != null && main > signal,
+        // Five red squeeze dots, or currently in a squeeze (any compression level).
+        dots: dots[index] >= EDGE_DOTS || study.level[index] > 0,
         above: now != null && now > 0,
-        rising: now != null && prior != null && now >= prior,
-        tmo: tmo.main[index] != null && tmo.signal[index] != null && tmo.main[index] > tmo.signal[index],
-        band: bands.upper[index] != null && closes[index] < bands.upper[index],
+        // CCI 50 · 14 · 5 all into +100 with a closed-bar cross into the zone.
+        cci: cciCross,
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
@@ -1937,7 +1959,7 @@
   }
 
   const STRATEGY_INFO = {
-    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready when three Edge checks are on, Aim at four, Fire when all five turn on together on a closed bar. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
+    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready when three Edge checks are on, Aim at four, Fire when all five turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), 5 squeeze dots or in a squeeze, squeeze momentum above zero, and CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross. Same gates drive Squeeze scan, Fire 5, and desk scanners. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
       name: "Squeeze · TMO · big4indicator · stack · MTF",
@@ -2346,7 +2368,7 @@
   }
 
   function squeezeScore(row, parents) {
-    if (!row || !row.ready || row.state === "OFF") return { score: 0, parts: [], triple: false };
+    if (!row || !row.ready || row.state === "OFF") return { score: 0, parts: [], triple: false, edgeFire: false };
     const parts = [];
     const add = (name, points) => {
       if (points > 0) parts.push([name, points]);
@@ -2362,8 +2384,11 @@
     const flags = parents || {};
     const triple = !!(row.state === "ON" && flags.sector && flags.index);
     add("Triple squeeze: stock, sector, index", triple ? 10 : 0);
+    // Same optimized Edge Fire gates as Trade / Fire 5 (TMO · Squeeze · CCI).
+    const edgeFire = !!(flags.edgeFire);
+    add("Edge Fire (TMO · Squeeze · CCI)", edgeFire ? 25 : 0);
     const total = parts.reduce((sum, item) => sum + item[1], 0);
-    return { score: Math.min(100, total), parts, triple };
+    return { score: Math.min(100, total), parts, triple, edgeFire };
   }
 
 
@@ -2622,7 +2647,13 @@
     };
   }
 
-  const EDGE_NAMES = { dots: "exactly 5 squeeze dots", above: "squeeze momentum above 0", rising: "squeeze momentum rising", tmo: "true momentum above signal", band: "under the upper Bollinger band" };
+  const EDGE_NAMES = {
+    tmoOs: "TMO above −10",
+    tmo: "TMO turns green",
+    dots: "5 squeeze dots or in a squeeze",
+    above: "squeeze momentum above 0",
+    cci: "CCI 50 · 14 · 5 into zone +100",
+  };
 
   function plainPrice(value) {
     if (value == null || !Number.isFinite(Number(value))) return "—";
@@ -2873,10 +2904,11 @@
         dots: (row.read || row).dots,
         level: (row.read || row).level,
         triple: !!(row.scored || row).triple,
+        edgeFire: !!(row.edgeFire || (row.scored && row.scored.edgeFire) || (row.read && row.read.edgeFire)),
         sector: row.sector || "",
         index: row.index || "",
       }))
-      .sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol));
+      .sort((left, right) => Number(!!right.edgeFire) - Number(!!left.edgeFire) || right.score - left.score || left.symbol.localeCompare(right.symbol));
     const day = dayBias(source.internals, indexes);
     return {
       ready: indexes.length > 0 || sectors.length > 0 || aPlus.length > 0 || !!(source.internals && source.internals.ready),

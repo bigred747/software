@@ -190,6 +190,11 @@ test("edge fills at the next open and later bars do not move closed trades", () 
   const sameInFull = full.trades.slice(0, closedBefore.length);
   assert.deepEqual(JSON.parse(JSON.stringify(sameInFull)), JSON.parse(JSON.stringify(closedBefore)));
   assert.equal(full.checks, 5);
+  const sampleParts = full.allParts.find((row) => row);
+  assert.ok(sampleParts);
+  assert.deepEqual(Object.keys(sampleParts).sort(), ["above", "cci", "dots", "tmo", "tmoOs"]);
+  assert.equal("band" in sampleParts, false);
+  assert.equal("rising" in sampleParts, false);
   const again = edge(bars);
   full.marks.filter((mark) => mark.side === "buy").forEach((mark) => {
     const signal = edge(bars.slice(0, mark.index));
@@ -198,6 +203,8 @@ test("edge fills at the next open and later bars do not move closed trades", () 
     assert.equal(signal.stage, "fire");
     assert.ok(signal.big4);
     assert.ok(Object.values(signal.parts).every(Boolean));
+    assert.equal(signal.parts.cci, true);
+    assert.equal(signal.parts.tmo, true);
   });
   assert.equal(again.trades.length, full.trades.length);
   const short = edge(bars.slice(0, 30));
