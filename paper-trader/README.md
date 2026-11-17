@@ -95,6 +95,11 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Charts above chrome (1.9.83)
+
+- On **Chart**, price and study panes (TMO / Squeeze / CCI) sit under a slim timeframe + zoom strip so the candles are on screen without scrolling past boxes.
+- Chart boxes, Desk boxes, and Second page stay below the charts — scroll down for those.
+
 ## Journal daily check (1.9.82)
 
 - Open **Journal** each day for **Today's check**: buy signals (Fire 5 / today's best), sell / exit signals on open paper longs (Edge exit), and products already filled today.
