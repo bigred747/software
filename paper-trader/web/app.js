@@ -26,6 +26,9 @@ const state = {
   fireNote: "",
   fireAuto: false,
   fireCursor: 0,
+  journalSells: [],
+  journalSellNote: "",
+  journalSellGen: 0,
   leaders: [],
   scanNote: "",
   scanDone: false,
@@ -86,7 +89,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.81";
+const VERSION = "1.9.82";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -1618,6 +1621,215 @@ function renderFireFive() {
         : "Fire 5 Auto · waiting for Fire"
       : "Fire 5 Auto";
   }
+  paintJournalCheckSync();
+}
+
+function currentBook(paper) {
+  if (state.offline) return phoneBook();
+  return (paper && paper.book) || (state.paper && state.paper.book) || null;
+}
+
+function todayFillRows(book) {
+  const day = denverDay();
+  return ((book && book.fills) || []).filter((item) => {
+    if (!(item && item.at > 0)) return false;
+    return denverDay(new Date(item.at * 1000)) === day;
+  });
+}
+
+function journalBuyRows(book) {
+  const held = new Set((((book && book.positions) || []).map((item) => item.symbol)));
+  const bought = dayBuySymbols().names;
+  const filled = new Set(
+    todayFillRows(book)
+      .filter((item) => item.side === "buy")
+      .map((item) => item.symbol)
+  );
+  const rows = [];
+  const seen = new Set();
+  []
+    .concat(state.fires || [])
+    .concat(state.picks || [])
+    .forEach((row) => {
+      if (!row || !row.symbol || seen.has(row.symbol)) return;
+      seen.add(row.symbol);
+      const fire = !!(row.fire || row.edge === "BUY");
+      let status = "best";
+      if (held.has(row.symbol)) status = "held";
+      else if (bought.has(row.symbol) || filled.has(row.symbol)) status = "bought";
+      else if (fire) status = "fire";
+      rows.push(
+        Object.assign({}, row, {
+          edge: row.edge || (fire ? "BUY" : row.edge),
+          setup: row.setup || (fire ? "buy" : row.setup),
+          fire,
+          journalStatus: status,
+        })
+      );
+    });
+  return rows;
+}
+
+function paintJournalPins(bar, rows, mode) {
+  if (!bar) return;
+  const current = (state.paper && state.paper.symbol) || "";
+  const emptyNote =
+    mode === "buys"
+      ? "No buy signals yet. Fire 5 and today's best light here when Ready · Aim · Fire turns Fire on a strong name."
+      : mode === "sells"
+        ? state.journalSellNote || "No Edge exit signals on open paper longs right now."
+        : "No paper fills yet today (Denver).";
+  const stamp =
+    mode +
+    "|" +
+    current +
+    "|" +
+    ((rows || []).length ? "" : emptyNote + "|") +
+    (rows || [])
+      .map((row) => row.symbol + ":" + (row.journalStatus || "") + ":" + (row.rate || "") + ":" + (row.side || "") + ":" + (row.reason || ""))
+      .join(",");
+  if (sameStamp(bar, stamp)) return;
+  bar.replaceChildren();
+  if (!(rows || []).length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = emptyNote;
+    bar.appendChild(empty);
+    return;
+  }
+  (rows || []).forEach((row) => {
+    if (!row || !row.symbol) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    const label = pinLabel(row.symbol);
+    if (mode === "filled") {
+      const verb = row.side === "buy" ? "Bought" : "Sold";
+      button.textContent = label + " · " + verb + (row.price > 0 ? " " + formatPrice(row.price) : "");
+      button.className = "done";
+      button.title = verb + " today on the paper book. Tap to open the chart. Not a forecast.";
+    } else if (mode === "sells") {
+      button.textContent = label + " · EXIT" + (row.reason ? " · " + row.reason : "");
+      button.className = "exit";
+      button.title = "Edge exit on " + row.symbol + (row.reason ? ": " + row.reason : "") + ". Tap to review. Auto still asks Yes before a paper sell. Not a forecast.";
+    } else {
+      const status = row.journalStatus || "best";
+      const tag = status === "fire" ? " · FIRE" : status === "held" ? " · held" : status === "bought" ? " · bought" : " · best";
+      button.textContent = label + (row.rate != null ? " " + row.rate + "%" : "") + tag;
+      if (status === "fire" || status === "best") button.classList.add("go");
+      else button.classList.add("done");
+      button.title =
+        (status === "fire" ? "Fire buy signal. " : status === "best" ? "Today's best buy candidate. " : status === "held" ? "Already in a paper long. " : "Already bought today. ") +
+        "Tap to review the chart. Auto asks Yes before any paper buy. Not a forecast.";
+    }
+    if (row.symbol === current) {
+      button.classList.add("on");
+      button.setAttribute("aria-pressed", "true");
+    }
+    button.addEventListener("click", () => chooseSymbol(row.symbol));
+    bar.appendChild(button);
+  });
+}
+
+function renderJournalBuys(book) {
+  paintJournalPins($("journal-buys"), journalBuyRows(book || currentBook(state.paper)), "buys");
+}
+
+function renderJournalSells() {
+  paintJournalPins($("journal-sells"), state.journalSells || [], "sells");
+}
+
+function renderJournalFilled(book) {
+  const fills = todayFillRows(book || currentBook(state.paper)).map((item) => ({
+    symbol: item.symbol,
+    side: item.side,
+    price: item.price,
+    journalStatus: "filled",
+  }));
+  paintJournalPins($("journal-filled"), fills, "filled");
+}
+
+function journalCheckNoteText(book) {
+  const buys = journalBuyRows(book);
+  const actionable = buys.filter((row) => row.journalStatus === "fire" || row.journalStatus === "best").length;
+  const sells = (state.journalSells || []).length;
+  const filled = todayFillRows(book).length;
+  const open = ((book && book.positions) || []).length;
+  const parts = [];
+  parts.push(actionable ? actionable + " buy signal" + (actionable === 1 ? "" : "s") + " to review" : "No open buy signals");
+  parts.push(sells ? sells + " sell / exit" + (sells === 1 ? "" : "s") : open ? open + " open · no Edge exit yet" : "No sell signals");
+  parts.push(filled ? filled + " fill" + (filled === 1 ? "" : "s") + " today" : "No fills today");
+  return parts.join(" · ") + ". Tap a product name to open the chart. Paper Yes still required. Not a forecast.";
+}
+
+function paintJournalCheckSync(paper) {
+  const book = currentBook(paper || state.paper);
+  const note = $("journal-check-note");
+  if (note) note.textContent = journalCheckNoteText(book);
+  renderJournalBuys(book);
+  renderJournalSells();
+  renderJournalFilled(book);
+}
+
+function renderJournalCheck(paper) {
+  const book = currentBook(paper || state.paper);
+  paintJournalCheckSync(paper);
+  refreshJournalSells(book);
+}
+
+async function refreshJournalSells(book) {
+  const positions = ((book || currentBook(state.paper) || {}).positions || []).slice();
+  const gen = (state.journalSellGen || 0) + 1;
+  state.journalSellGen = gen;
+  if (!positions.length) {
+    state.journalSells = [];
+    state.journalSellNote = "No open paper longs. Buy fills appear under Open positions.";
+    if (state.journalSellGen === gen) {
+      renderJournalSells();
+      const note = $("journal-check-note");
+      if (note) note.textContent = journalCheckNoteText(book || currentBook(state.paper));
+    }
+    return state.journalSells;
+  }
+  state.journalSellNote = "Checking Edge exits on " + positions.length + " open paper long" + (positions.length === 1 ? "" : "s") + "…";
+  renderJournalSells();
+  const sells = [];
+  for (let index = 0; index < positions.length; index += 1) {
+    if (state.journalSellGen !== gen) return state.journalSells;
+    const item = positions[index];
+    const symbol = item && item.symbol;
+    if (!symbol) continue;
+    try {
+      const row = state.catalog.find((entry) => entry.symbol === symbol);
+      const bars =
+        state.paper && state.paper.symbol === symbol && seenBars().length
+          ? seenBars()
+          : state.offline
+            ? await sqDaily(symbol)
+            : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
+      if (!bars || !bars.length || !PaperFrames.edge) continue;
+      const crypto = phoneCrypto(symbol, row);
+      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+      if (timing && timing.ready && timing.call === "SELL") {
+        sells.push({
+          symbol,
+          reason: timing.reason || "Edge exit",
+          journalStatus: "exit",
+          rate: timing.score != null ? timing.score : "",
+        });
+      }
+    } catch (error) {
+      // Keep honesty: skip inventing an exit when bars or Edge are unavailable.
+    }
+  }
+  if (state.journalSellGen !== gen) return state.journalSells;
+  state.journalSells = sells;
+  state.journalSellNote = sells.length
+    ? sells.length + " open long" + (sells.length === 1 ? "" : "s") + " due for Edge exit. Tap to review; Auto asks Yes before a paper sell."
+    : positions.length + " open long" + (positions.length === 1 ? "" : "s") + " · no Edge exit on the last closed bar.";
+  renderJournalSells();
+  const note = $("journal-check-note");
+  if (note) note.textContent = journalCheckNoteText(book || currentBook(state.paper));
+  return state.journalSells;
 }
 
 function renderResult(paper) {
@@ -2670,6 +2882,7 @@ function renderBook(paper) {
       : "This device keeps its own paper book. Tap Share paper book, then on the phone open Journal and Load paper book. Load here to bring a phone book back to this computer.";
   }
   paintDayStrip(book);
+  renderJournalCheck(paper);
 }
 
 
@@ -6902,7 +7115,12 @@ function showDock(name) {
   if (name === "journal") {
     const box = $("positions-body");
     if (box) delete box.dataset.stamp;
+    ["journal-buys", "journal-sells", "journal-filled"].forEach((id) => {
+      const node = $(id);
+      if (node) delete node.dataset.stamp;
+    });
     renderBook(state.paper);
+    renderJournalCheck(state.paper);
   }
   nudgeLearn(name);
   if (window.matchMedia("(max-width: 980px)").matches) {

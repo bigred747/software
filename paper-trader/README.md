@@ -95,6 +95,11 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
+## Journal daily check (1.9.82)
+
+- Open **Journal** each day for **Today's check**: buy signals (Fire 5 / today's best), sell / exit signals on open paper longs (Edge exit), and products already filled today.
+- Tap a product name to open the chart. No separate sell button — Auto / Trade still ask **Yes** before any paper fill. Paper only. Not a forecast.
+
 ## Fire 5 · best trades (1.9.81)
 
 - Daily scan lights up to **five green Fire signals** when Ready · Aim · Fire turns **Fire** on a strong scan name.

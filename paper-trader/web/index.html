@@ -563,8 +563,16 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="journal">
-        <h2>Open positions</h2>
+        <h2>Today's check</h2>
+        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best. Sell names are open paper longs with an Edge exit. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
+        <h3 class="journal-check-head">Buy signals</h3>
+        <div id="journal-buys" class="pins" aria-label="Today buy signals"></div>
+        <h3 class="journal-check-head">Sell signals</h3>
+        <div id="journal-sells" class="pins" aria-label="Today sell signals"></div>
+        <h3 class="journal-check-head">Filled today</h3>
+        <div id="journal-filled" class="pins" aria-label="Filled today"></div>
         <div id="day-strip" class="day-strip" aria-label="Today on this desk"></div>
+        <h2>Open positions</h2>
         <p id="book-device" class="muted">This device keeps its own paper book. Share or load below to move open trades and limit orders between the computer and the phone.</p>
         <div class="strat-orb-inputs">
           <button id="book-share" type="button">Share paper book</button>

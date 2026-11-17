@@ -294,6 +294,19 @@ textarea {
 .pins button.on { border-color: var(--accent); color: var(--text); background: #1c242c; }
 .pins button.go { border-color: var(--up); color: var(--up); background: #1d4d3a; animation: signal-in 280ms ease; }
 .pins button.go::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--up); vertical-align: middle; }
+.pins button.exit { border-color: var(--down); color: #ffb3bc; background: #3a1520; }
+.pins button.exit::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--down); vertical-align: middle; }
+.pins button.done { border-color: var(--line); color: var(--muted); background: #121820; }
+.journal-check-head {
+  margin: 10px 0 2px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 650;
+}
+#journal-check-note { margin: 0 0 6px; }
+#journal-buys, #journal-sells, #journal-filled { margin: 4px 0 8px; }
 .fire-head { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
 .fire-auto-btn {
   font-weight: 700;
