@@ -89,7 +89,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.85";
+const VERSION = "1.9.86";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -712,10 +712,10 @@ function bestFires(rows) {
 function fireNoteText(fires, scanning) {
   const rows = fires || [];
   if (scanning && !rows.length) {
-    return "Scanning for Fire. When Ready · Aim · Fire turns Fire on a strong name, it lights green here (up to five). Tap to review, then buy if you want.";
+    return "Scanning for Fire. When the optimized Edge gates turn Fire (TMO above −10, TMO green, squeeze, CCI 50 · 14 · 5 into +100) on a strong name, it lights green here (up to five). Tap to review, then buy if you want.";
   }
   if (!rows.length) {
-    return "No Fire 5 signals right now. Waiting for Ready · Aim · Fire to turn Fire on a strong scan name. Paper only. Not a forecast.";
+    return "No Fire 5 signals right now. Waiting for Edge Fire on the TMO · Squeeze · CCI gates on a strong scan name. Paper only. Not a forecast.";
   }
   return (
     rows.length +
@@ -2494,11 +2494,11 @@ function fillTrades(body, trades) {
 }
 
 const EDGE_CHECKS = [
-  ["tmoOs", "TMO at or from −10"],
-  ["tmo", "TMO main above signal"],
+  ["tmoOs", "TMO above −10"],
+  ["tmo", "TMO turns green"],
   ["dots", "5 squeeze dots or in a squeeze"],
   ["above", "Squeeze momentum above 0"],
-  ["cci", "CCI into zone +100"],
+  ["cci", "CCI 50 · 14 · 5 into zone +100"],
 ];
 
 function currentPro(bars) {
@@ -4574,9 +4574,19 @@ async function scanSqueeze() {
       }
       try {
         const bars = await sqDaily(symbol);
-        const read = PaperFrames.squeezeRead(bars, { live: PaperFrames.liveBar(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol))) });
-        if (read.ready) reads[symbol] = read;
-        else skipped.push(symbol + " (" + read.reason + ")");
+        const crypto = phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol));
+        const live = PaperFrames.liveBar(bars, crypto);
+        const read = PaperFrames.squeezeRead(bars, { live });
+        if (read.ready) {
+          const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live }) : null;
+          const edgeFire = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
+          reads[symbol] = Object.assign({}, read, {
+            edgeFire,
+            edgeCall: timing && timing.ready ? timing.call : "",
+            edgeScore: timing && timing.ready ? timing.score : null,
+            edgeStage: timing && timing.stage ? timing.stage : "",
+          });
+        } else skipped.push(symbol + " (" + read.reason + ")");
       } catch (error) {
         skipped.push(symbol + " (" + error.message + ")");
       }
@@ -4611,10 +4621,19 @@ function publishSqueeze(reads, skipped, listed, done, finished) {
       sector: !!(sector && reads[sector] && reads[sector].state === "ON"),
       index: !!(index && reads[index] && reads[index].state === "ON"),
     };
-    const scored = PaperFrames.squeezeScore(read, flags);
-    rows.push({ symbol, read, ...scored });
+    const scored = PaperFrames.squeezeScore(read, Object.assign({}, flags, { edgeFire: !!read.edgeFire }));
+    rows.push({
+      symbol,
+      read,
+      ...scored,
+      edgeFire: !!read.edgeFire,
+      edgeCall: read.edgeCall || "",
+      edgeScore: read.edgeScore,
+      edgeStage: read.edgeStage || "",
+    });
   });
-  rows.sort((a, b) => b.score - a.score || b.read.dots - a.read.dots);
+  // Edge Fire first (same optimized gates as Fire 5), then squeeze score.
+  rows.sort((a, b) => Number(!!b.edgeFire) - Number(!!a.edgeFire) || b.score - a.score || b.read.dots - a.read.dots);
   sq.rows = rows;
   sq.skipped = skipped;
   sq.scanned = Object.keys(reads).length;
@@ -4640,6 +4659,11 @@ function renderSqueeze() {
     open.className = "quiet";
     open.textContent = "Open";
     open.addEventListener("click", () => chooseSymbol(row.symbol));
+    const edgeLabel = row.edgeFire
+      ? "FIRE"
+      : row.edgeStage
+        ? String(row.edgeStage).toUpperCase()
+        : row.edgeCall || "—";
     addCells(tr, [
       String(index + 1),
       row.symbol,
@@ -4650,21 +4674,24 @@ function renderSqueeze() {
       (read.direction === "bull" ? "Above zero" : "Below zero") + (read.clean ? ", clean" : "") + (read.rising ? ", building" : ""),
       read.weekly ? "Yes" : "No",
       row.triple ? "Yes" : "—",
-      { text: String(row.score), cls: row.score >= 70 ? "up" : "" },
+      { text: edgeLabel, cls: row.edgeFire ? "up" : "" },
+      { text: String(row.score), cls: row.score >= 70 || row.edgeFire ? "up" : "" },
       "",
     ]);
+    if (row.edgeFire) tr.classList.add("go");
     tr.lastChild.appendChild(open);
     body.appendChild(tr);
   });
   if (!shown.length && !sq.progress) {
     const tr = document.createElement("tr");
-    addCells(tr, ["", "No squeezes on this side right now. A quiet list is a normal answer.", "", "", "", "", "", "", "", "", ""]);
+    addCells(tr, ["", "No squeezes on this side right now. A quiet list is a normal answer.", "", "", "", "", "", "", "", "", "", ""]);
     body.appendChild(tr);
   }
   const when = new Date(sq.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
-  $("sq-note").textContent = sq.progress || ("Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired. Closed daily bars only. " + internalsLine());
+  const fireCount = sq.rows.filter((row) => row.edgeFire).length;
+  $("sq-note").textContent = sq.progress || ("Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired" + (fireCount ? ", " + fireCount + " Edge Fire" : "") + ". Same TMO · Squeeze · CCI Fire gates as Fire 5. Closed daily bars only. " + internalsLine());
   const top = shown[0];
-  $("sq-why").textContent = top ? "Top score " + top.score + " for " + top.symbol + ": " + top.parts.map((item) => item[0] + " +" + item[1]).join(", ") + "." : "";
+  $("sq-why").textContent = top ? "Top score " + top.score + " for " + top.symbol + (top.edgeFire ? " · Edge Fire" : "") + ": " + top.parts.map((item) => item[0] + " +" + item[1]).join(", ") + "." : "";
   $("sq-skip").textContent = sq.skipped.length ? "Not read: " + sq.skipped.join("; ") + "." : "";
 }
 
@@ -4768,7 +4795,7 @@ function renderScorecard() {
     const rows = (result && result.aPlus) || [];
     if (!rows.length) {
       const tr = document.createElement("tr");
-      addCells(tr, ["", "No A+ squeezes right now. A quiet list is a normal answer.", "", "", "", "", "", ""]);
+      addCells(tr, ["", "No A+ squeezes right now. A quiet list is a normal answer.", "", "", "", "", "", "", ""]);
       aBody.appendChild(tr);
     } else {
       rows.forEach((row, index) => {
@@ -4787,20 +4814,25 @@ function renderScorecard() {
           String(row.dots != null ? row.dots : "—"),
           PaperFrames.squeezeName(row.level || 0),
           row.triple ? "Yes" : "—",
+          { text: row.edgeFire ? "FIRE" : "—", cls: row.edgeFire ? "up" : "" },
           String(row.score != null ? row.score : "—"),
           open,
         ]);
+        if (row.edgeFire) tr.classList.add("go");
         aBody.appendChild(tr);
       });
     }
   }
   const aNote = $("sc-aplus-note");
   if (aNote) {
+    const fireN = ((result && result.aPlus) || []).filter((row) => row.edgeFire).length;
     aNote.textContent = result
       ? (result.aPlus || []).length +
         " A+ squeeze" +
         ((result.aPlus || []).length === 1 ? "" : "s") +
-        " after the strict desk filter (score 80+, rising bullish momentum, stacked averages, mid/high compression or five+ dots)."
+        " after the strict desk filter (score 80+, rising bullish momentum, stacked averages, mid/high compression or five+ dots)" +
+        (fireN ? "; " + fireN + " also Edge Fire on the same TMO · Squeeze · CCI gates" : "") +
+        "."
       : "Strict desk filter on the starter squeeze list. Empty is a normal answer.";
   }
   if (note) {
@@ -4897,9 +4929,9 @@ async function runScorecard() {
     squeezeList.forEach((symbol) => {
       const list = bars[symbol];
       if (!list || !list.length) return;
-      const read = PaperFrames.squeezeRead(list, {
-        live: PaperFrames.liveBar(list, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol))),
-      });
+      const crypto = phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol));
+      const live = PaperFrames.liveBar(list, crypto);
+      const read = PaperFrames.squeezeRead(list, { live });
       if (!read || !read.ready || read.state === "OFF") return;
       const sector = SQ_SECTOR[symbol];
       const indexSym = sqIndexOf(symbol);
@@ -4911,11 +4943,14 @@ async function runScorecard() {
         const parent = PaperFrames.squeezeRead(bars[indexSym]);
         return parent && parent.ready && parent.state === "ON";
       })());
-      const scored = PaperFrames.squeezeScore(read, { sector: sectorOn, index: indexOn });
+      const timing = PaperFrames.edge ? PaperFrames.edge(list, { live }) : null;
+      const edgeFire = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
+      const scored = PaperFrames.squeezeScore(read, { sector: sectorOn, index: indexOn, edgeFire });
       squeezes.push({
         symbol,
-        read,
+        read: Object.assign({}, read, { edgeFire }),
         scored,
+        edgeFire,
         sector: sector || "",
         index: indexSym || "",
       });

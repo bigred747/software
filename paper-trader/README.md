@@ -42,7 +42,7 @@ The desk is a wide layout on a computer: markets on the left, the daily chart in
 
 ## Edge
 
-Edge is the desk's buy and sell indicator. It matches the Open TMO · Squeeze · CCI chart stack. Edge buys at the next bar's open when five checks turn on together on a closed bar: TMO at or from −10 (true momentum 14/5/3 OS, with green / red-green main-vs-signal cross arrows on closed bars), TMO main above signal, five squeeze dots or currently in a squeeze, squeeze momentum above zero, and CCI(50) into zone +100 (CCI 50 / 14 / 5 with ±100 lines). The starting stop is 2.5 average ranges under that open. While it holds, the stop trails 2.5 average ranges under the best close and never moves down. A close under that stop, or squeeze momentum dropping below zero, sells at the next open.
+Edge is the desk's buy and sell indicator. It matches the Open TMO · Squeeze · CCI chart stack. Edge buys at the next bar's open when five checks turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, and CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross. Squeeze scan, Fire 5, and Big 3 A+ use the same Fire gates. The starting stop is 2.5 average ranges under that open. While it holds, the stop trails 2.5 average ranges under the best close and never moves down. A close under that stop, or squeeze momentum dropping below zero, sells at the next open.
 
 Earlier Edge settings (5-dot first bar, momentum rising, and an upper Bollinger filter) were tested on two years of real daily bars with 10 basis points each way for the fee and slippage. On BTC, ETH, XRP, XLM, SOL, SPY, QQQ, AAPL, NVDA, MSFT, TSLA, and ES, that older Edge averaged +14.3% while buy-and-hold averaged −2.2%, and it was positive on 10 of those 12. On 20 other markets that were not used to pick the settings, it averaged +28.1% while buy-and-hold averaged +19.3%, and it was positive on 17 of those 20. About one trade in three made money, so most of the gain came from a few large wins. The worst drop averaged about 22% to 25%. That is the past on the prior rule set. The live Edge buy gates now follow TMO · Squeeze · CCI. It is not a forecast.
 
@@ -104,7 +104,6 @@ The desk only answers programs on this computer. It refuses any client that is n
 ## Edge TMO · Squeeze · CCI buys (1.9.86)
 
 Edge five checks now follow the Open TMO · Squeeze · CCI chart stack (closed bars only), tuned on a 40-name Squeeze/Fire-style scan:
-
 1. TMO above −10 (main cleared above the 14/5/3 OS line)
 2. TMO turns green (main above signal / bullish green paint on the closed bar)
 3. Five squeeze dots or currently in a squeeze
