@@ -7,11 +7,18 @@ import shutil
 from pathlib import Path
 
 from paper_trader import __version__
+from paper_trader.guard import assert_safe_install, path_looks_foreign
 
 LAUNCHER = "Start-Paper-Trader.bat"
 PACKAGE = Path("paper_trader") / "__init__.py"
 SKIP_DIRS = {"__pycache__", "tests", ".git"}
-SKIP_FILES = {"paper_state.json", "learn_state.json", "learn_watch.json"}
+SKIP_FILES = {
+    "paper_state.json",
+    "learn_state.json",
+    "learn_watch.json",
+    "breaker.json",
+    "paper_book.json",
+}
 
 
 def version_key(text: str) -> tuple[int, ...]:
@@ -36,6 +43,8 @@ def search_roots(home: Path) -> list[Path]:
 
 
 def is_install(folder: Path) -> bool:
+    if path_looks_foreign(folder):
+        return False
     return (folder / LAUNCHER).is_file() and (folder / PACKAGE).is_file()
 
 
@@ -65,12 +74,13 @@ def desk_folders(home: Path) -> list[Path]:
 
 def install_newest(source: Path, home: Path) -> tuple[Path, str]:
     source = source.resolve()
+    dest = canonical_folder(home).resolve()
+    assert_safe_install(source, dest)
     if not is_install(source):
         raise ValueError("This folder is not a Paper Trader install")
     from paper_trader.learn import ask_learners_to_close
 
     ask_learners_to_close(home, source)
-    dest = canonical_folder(home).resolve()
     dest_version = _installed_version(dest)
     source_version = version_key(__version__)
     try:

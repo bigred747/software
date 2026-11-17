@@ -136,6 +136,17 @@ class InstallTests(unittest.TestCase):
                     install_newest(source, home)
             self.assertIn("Opening the new copy instead.", str(caught.exception))
 
+    def test_artex_folders_cannot_install_or_count_as_paper_trader(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            foreign = home / "Documents" / "Artex" / "paper-trader"
+            make_install(foreign, "9.9.9")
+            (home / "Documents").mkdir(exist_ok=True)
+            self.assertFalse(is_install(foreign))
+            with self.assertRaises(ValueError) as blocked:
+                install_newest(foreign, home)
+            self.assertIn("artex", str(blocked.exception).lower())
+
 
 if __name__ == "__main__":
     unittest.main()
