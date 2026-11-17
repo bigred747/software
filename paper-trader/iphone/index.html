@@ -173,13 +173,20 @@ h2 { font-size: 15px; }
 .chart-panel > .chart-read,
 .chart-panel > .signal-sum,
 .chart-panel > .signal-strip,
-.chart-panel > .frame-bar,
-.chart-panel > .zoom-bar,
-.chart-panel > .layers,
-.chart-panel > .chart-flags,
+.chart-panel > .chart-tools,
 .chart-panel > .study-toolbar,
 .chart-panel > .chart-fold { flex: 0 0 auto; }
 .chart-panel > .study-stack { flex: 0 0 auto; }
+.chart-tools { display: grid; gap: 6px; margin: 0 0 8px; }
+.chart-tools-label {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #9aa7b5);
+}
+.chart-tools-label.desk-clear-label { margin-top: 4px; }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
 .dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -737,17 +744,54 @@ footer { display: none; }
   .signal-sum::before { content: ""; flex: 0 0 8px; height: 8px; border-radius: 50%; background: var(--slow); }
   .signal-sum.ok { color: var(--up); border-color: #1d4d3a; }
   .signal-sum.ok::before { background: var(--up); }
-  body[data-tab="chart"] .frame-bar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0; }
-  body[data-tab="chart"] .frame-bar button,
-  body[data-tab="chart"] .zoom-bar button { min-height: 32px; padding: 4px 8px; }
-  body[data-tab="chart"] .zoom-bar { margin-top: 4px; }
+  body[data-tab="chart"] .chart-tools {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    margin: 0 0 10px;
+    padding: 8px 0 10px;
+    background: linear-gradient(#0c1014 70%, rgba(12, 16, 20, 0.92));
+    border-bottom: 1px solid var(--line);
+  }
+  body[data-tab="chart"] .chart-tools-label { font-size: 12px; color: #c5d0db; }
+  body[data-tab="chart"] .frame-bar {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+  body[data-tab="chart"] .frame-bar button {
+    width: 100%;
+    min-height: 42px;
+    padding: 6px 4px;
+    font-size: 13px;
+    font-weight: 740;
+    background: #151c24;
+    border-color: #3a4656;
+  }
+  body[data-tab="chart"] .zoom-bar button { min-height: 40px; padding: 6px 10px; font-size: 13px; }
+  body[data-tab="chart"] .zoom-bar { margin-top: 2px; gap: 6px; }
   body[data-tab="chart"] .chart-fold { margin-top: 2px; }
-  body[data-tab="chart"] .chart-flags { margin-top: 4px; gap: 4px; }
-  body[data-tab="chart"] .chart-flag { font-size: 10px; padding: 2px 7px; }
-  body[data-tab="chart"] .desk-clear { gap: 6px; margin: 6px 0 4px; }
-  body[data-tab="chart"] .desk-clear-chip { min-width: 72px; padding: 5px 8px; }
-  body[data-tab="chart"] .desk-clear-chip .k { font-size: 9px; }
-  body[data-tab="chart"] .desk-clear-chip .v { font-size: 12px; }
+  body[data-tab="chart"] .chart-flags { margin-top: 2px; gap: 6px; }
+  body[data-tab="chart"] .chart-flag { font-size: 11px; padding: 5px 9px; }
+  body[data-tab="chart"] .desk-clear { gap: 8px; margin: 2px 0 0; }
+  body[data-tab="chart"] .desk-clear-chip { min-width: 92px; padding: 8px 10px; }
+  body[data-tab="chart"] .desk-clear-chip .k { font-size: 11px; }
+  body[data-tab="chart"] .desk-clear-chip .v { font-size: 14px; }
+  body[data-tab="study"] .dock-tabs {
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  body[data-tab="study"] .dock-tab {
+    min-height: 42px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 650;
+    background: #151c24;
+  }
   body[data-tab="chart"] .desk-status,
   body[data-tab="chart"] .signal-sum,
   body[data-tab="chart"] .chart-fold { display: none; }
@@ -1129,16 +1173,20 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
       <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
       <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
-      <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
-      <div class="zoom-bar" aria-label="Chart zoom">
-        <button id="zoom-in" type="button">Zoom in</button>
-        <button id="zoom-out" type="button">Zoom out</button>
-        <span id="zoom-label" class="muted">180 bars</span>
-        <button id="layers-toggle" type="button" class="layers-toggle" aria-expanded="false" aria-controls="layers">Layers</button>
+      <div class="chart-tools" id="chart-tools">
+        <p class="chart-tools-label">Timeframes</p>
+        <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
+        <div class="zoom-bar" aria-label="Chart zoom">
+          <button id="zoom-in" type="button">Zoom in</button>
+          <button id="zoom-out" type="button">Zoom out</button>
+          <span id="zoom-label" class="muted">180 bars</span>
+          <button id="layers-toggle" type="button" class="layers-toggle" aria-expanded="false" aria-controls="layers">Layers</button>
+        </div>
+        <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
+        <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
+        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
+        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read"></div>
       </div>
-      <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
-      <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
-      <div id="desk-clear" class="desk-clear" aria-label="Desk clear read"></div>
       <div class="study-toolbar" role="toolbar" aria-label="Study panes">
         <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
         <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>
@@ -6212,7 +6260,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.72";
+const VERSION = "1.9.73";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -11257,18 +11305,27 @@ function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBott
 
 function paintDeskClear(history) {
   const node = $("desk-clear");
-  if (!node || !PaperFrames.deskClearRead) return;
-  const read = PaperFrames.deskClearRead(history || []);
+  if (!node) return;
+  const read = typeof PaperFrames !== "undefined" && PaperFrames.deskClearRead ? PaperFrames.deskClearRead(history || []) : null;
   node.replaceChildren();
-  if (!read) return;
-  const chips = [
-    { k: "VWAP D", v: read.vwapD == null ? "—" : formatPrice(read.vwapD), kind: "vwap" },
-    { k: "VWAP W", v: read.vwapW == null ? "—" : formatPrice(read.vwapW), kind: "vwap" },
-    { k: "VWAP M", v: read.vwapM == null ? "—" : formatPrice(read.vwapM), kind: "vwap" },
-    { k: "big4indicator", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
-    { k: "Bol %B 20", v: read.pctB == null ? "—" : read.pctB.toFixed(1), kind: "" },
-    { k: "Stage", v: read.stage, kind: "stage" },
-  ];
+  // Always paint the desk boxes so phone users can see them; values stay "—" until bars are ready.
+  const chips = read
+    ? [
+        { k: "VWAP D", v: read.vwapD == null ? "—" : formatPrice(read.vwapD), kind: "vwap" },
+        { k: "VWAP W", v: read.vwapW == null ? "—" : formatPrice(read.vwapW), kind: "vwap" },
+        { k: "VWAP M", v: read.vwapM == null ? "—" : formatPrice(read.vwapM), kind: "vwap" },
+        { k: "big4indicator", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
+        { k: "Bol %B 20", v: read.pctB == null ? "—" : read.pctB.toFixed(1), kind: "" },
+        { k: "Stage", v: read.stage, kind: "stage" },
+      ]
+    : [
+        { k: "VWAP D", v: "—", kind: "vwap" },
+        { k: "VWAP W", v: "—", kind: "vwap" },
+        { k: "VWAP M", v: "—", kind: "vwap" },
+        { k: "big4indicator", v: "Waiting", kind: "mixed" },
+        { k: "Bol %B 20", v: "—", kind: "" },
+        { k: "Stage", v: "Waiting", kind: "stage" },
+      ];
   chips.forEach((chip) => {
     const box = document.createElement("div");
     box.className = "desk-clear-chip" + (chip.kind ? " " + chip.kind : "");

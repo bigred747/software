@@ -79,16 +79,20 @@
       <p id="chart-read" class="chart-read">Click a ticker or a candle.</p>
       <button id="signal-sum" type="button" class="signal-sum">Checking the desk…</button>
       <ul id="signal-strip" class="signal-strip" aria-label="Signals"></ul>
-      <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
-      <div class="zoom-bar" aria-label="Chart zoom">
-        <button id="zoom-in" type="button">Zoom in</button>
-        <button id="zoom-out" type="button">Zoom out</button>
-        <span id="zoom-label" class="muted">180 bars</span>
-        <button id="layers-toggle" type="button" class="layers-toggle" aria-expanded="false" aria-controls="layers">Layers</button>
+      <div class="chart-tools" id="chart-tools">
+        <p class="chart-tools-label">Timeframes</p>
+        <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
+        <div class="zoom-bar" aria-label="Chart zoom">
+          <button id="zoom-in" type="button">Zoom in</button>
+          <button id="zoom-out" type="button">Zoom out</button>
+          <span id="zoom-label" class="muted">180 bars</span>
+          <button id="layers-toggle" type="button" class="layers-toggle" aria-expanded="false" aria-controls="layers">Layers</button>
+        </div>
+        <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
+        <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
+        <p class="chart-tools-label desk-clear-label">Desk boxes</p>
+        <div id="desk-clear" class="desk-clear" aria-label="Desk clear read"></div>
       </div>
-      <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
-      <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
-      <div id="desk-clear" class="desk-clear" aria-label="Desk clear read"></div>
       <div class="study-toolbar" role="toolbar" aria-label="Study panes">
         <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
         <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>

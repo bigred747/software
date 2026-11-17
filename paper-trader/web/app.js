@@ -82,7 +82,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.72";
+const VERSION = "1.9.73";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -5127,18 +5127,27 @@ function paintClearEdgeArrows(ctx, marks, dropped, bars, y, pad, slot, priceBott
 
 function paintDeskClear(history) {
   const node = $("desk-clear");
-  if (!node || !PaperFrames.deskClearRead) return;
-  const read = PaperFrames.deskClearRead(history || []);
+  if (!node) return;
+  const read = typeof PaperFrames !== "undefined" && PaperFrames.deskClearRead ? PaperFrames.deskClearRead(history || []) : null;
   node.replaceChildren();
-  if (!read) return;
-  const chips = [
-    { k: "VWAP D", v: read.vwapD == null ? "—" : formatPrice(read.vwapD), kind: "vwap" },
-    { k: "VWAP W", v: read.vwapW == null ? "—" : formatPrice(read.vwapW), kind: "vwap" },
-    { k: "VWAP M", v: read.vwapM == null ? "—" : formatPrice(read.vwapM), kind: "vwap" },
-    { k: "big4indicator", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
-    { k: "Bol %B 20", v: read.pctB == null ? "—" : read.pctB.toFixed(1), kind: "" },
-    { k: "Stage", v: read.stage, kind: "stage" },
-  ];
+  // Always paint the desk boxes so phone users can see them; values stay "—" until bars are ready.
+  const chips = read
+    ? [
+        { k: "VWAP D", v: read.vwapD == null ? "—" : formatPrice(read.vwapD), kind: "vwap" },
+        { k: "VWAP W", v: read.vwapW == null ? "—" : formatPrice(read.vwapW), kind: "vwap" },
+        { k: "VWAP M", v: read.vwapM == null ? "—" : formatPrice(read.vwapM), kind: "vwap" },
+        { k: "big4indicator", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
+        { k: "Bol %B 20", v: read.pctB == null ? "—" : read.pctB.toFixed(1), kind: "" },
+        { k: "Stage", v: read.stage, kind: "stage" },
+      ]
+    : [
+        { k: "VWAP D", v: "—", kind: "vwap" },
+        { k: "VWAP W", v: "—", kind: "vwap" },
+        { k: "VWAP M", v: "—", kind: "vwap" },
+        { k: "big4indicator", v: "Waiting", kind: "mixed" },
+        { k: "Bol %B 20", v: "—", kind: "" },
+        { k: "Stage", v: "Waiting", kind: "stage" },
+      ];
   chips.forEach((chip) => {
     const box = document.createElement("div");
     box.className = "desk-clear-chip" + (chip.kind ? " " + chip.kind : "");
