@@ -82,7 +82,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.79";
+const VERSION = "1.9.80";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -4378,44 +4378,76 @@ function renderScorecard() {
   }
 }
 
+function scorecardPublish(box, indexes, sectors, bars, squeezes, progress) {
+  box.progress = progress || "";
+  box.result = PaperFrames.marketScorecard({
+    bars,
+    internals: state.int.result,
+    squeezes: squeezes || [],
+    indexSymbols: indexes,
+    sectorSymbols: sectors,
+  });
+  box.at = Date.now();
+  renderScorecard();
+}
+
 async function runScorecard() {
   const box = state.sc;
   if (box.busy) return;
   box.busy = true;
   box.stop = false;
   box.error = "";
-  box.progress = "Loading internals and daily bars…";
+  box.progress = "Reading indexes and sectors first…";
   renderScorecard();
+  // Internals can refresh in the background; don't block the scorecard on a full gauge walk.
+  loadInternals(false).catch(() => {});
+  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(5000);
   try {
-    await loadInternals(false);
-    if (box.stop) return;
     const indexes = PaperFrames.SCORECARD_INDEXES.slice();
     const sectors = PaperFrames.SCORECARD_SECTORS.slice();
-    const squeezeList = SQ_LISTS.starter.slice();
-    const need = [];
+    // Phone/computer: rank boards first, then A+ from the shorter sectors/starter overlap.
+    const squeezeList = SQ_LISTS.sectors.slice();
+    const primary = [];
+    const rest = [];
     const seen = new Set();
-    indexes.concat(sectors).concat(squeezeList).forEach((symbol) => {
+    indexes.concat(sectors).forEach((symbol) => {
       if (!seen.has(symbol)) {
         seen.add(symbol);
-        need.push(symbol);
+        primary.push(symbol);
       }
     });
-    const bars = {};
-    let done = 0;
-    for (let index = 0; index < need.length; index += 1) {
-      if (box.stop) break;
-      const symbol = need[index];
-      box.progress = "Reading daily bars: " + done + " of " + need.length + "…";
-      renderScorecardCard();
-      if ($("sc-note")) $("sc-note").textContent = box.progress;
-      try {
-        bars[symbol] = await sqDaily(symbol);
-      } catch (error) {
-        /* Missing quote stays out of the ranking. */
+    squeezeList.forEach((symbol) => {
+      if (!seen.has(symbol)) {
+        seen.add(symbol);
+        rest.push(symbol);
       }
-      done += 1;
-      if (done % 3 === 0) await afterSqueeze();
-    }
+    });
+    const need = primary.concat(rest);
+    const bars = {};
+    let next = 0;
+    let done = 0;
+    const workers = Math.min(state.offline ? 2 : 3, Math.max(1, need.length));
+    const worker = async () => {
+      while (!box.stop && next < need.length) {
+        const symbol = need[next];
+        next += 1;
+        try {
+          bars[symbol] = await sqDaily(symbol);
+        } catch (error) {
+          /* Missing quote stays out of the ranking. */
+        }
+        done += 1;
+        box.progress = "Reading daily bars: " + done + " of " + need.length + "…";
+        if (done === primary.length || done % 4 === 0 || done === need.length) {
+          scorecardPublish(box, indexes, sectors, bars, [], box.progress);
+        } else {
+          renderScorecardCard();
+          if ($("sc-note")) $("sc-note").textContent = box.progress;
+        }
+        await new Promise((resolve) => setTimeout(resolve, state.offline ? 120 : 40));
+      }
+    };
+    await Promise.all(Array.from({ length: workers }, () => worker()));
     if (box.stop) {
       box.progress = "Scorecard stopped.";
       return;
@@ -4447,19 +4479,13 @@ async function runScorecard() {
         index: indexSym || "",
       });
     });
-    box.result = PaperFrames.marketScorecard({
-      bars,
-      internals: state.int.result,
-      squeezes,
-      indexSymbols: indexes,
-      sectorSymbols: sectors,
-    });
-    box.at = Date.now();
+    scorecardPublish(box, indexes, sectors, bars, squeezes, "");
     box.progress = "";
   } catch (error) {
     box.error = error.message || String(error);
   } finally {
     box.busy = false;
+    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
     renderScorecard();
   }
 }

@@ -95,11 +95,11 @@ The ticket buys on your own call. The Trade button still follows the scanner's g
 
 The desk only answers programs on this computer. It refuses any client that is not 127.0.0.1, any Host that is not 127.0.0.1 or localhost, and any Origin or Referer from another site, so a web page you visit cannot place orders. The launcher files do not run PowerShell, VBS, or Temp installers.
 
-## Big 3 Market Scorecard (1.9.79)
+## Big 3 Market Scorecard (1.9.80)
 
 On the computer desk (Markets card + **Big 3 Scorecard** dock):
 
-- Ranks the strongest indexes and sector funds from closed daily bars.
+- Ranks the strongest indexes and sector funds from closed daily bars (shows ranks as soon as those boards finish).
 - Lists A+ squeezes that meet this desk’s strict rules (score 80+, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product).
 - Says whether the day favors **swing trades**, **day trades**, or **staying flat** from internals + index stack.
 - Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.
