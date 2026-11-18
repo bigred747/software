@@ -1,15 +1,15 @@
-# CFP Re-Rank Board — latest only
+# CFP Re-Rank Board (latest)
 
-## Easiest install (recommended)
-1. Download **INSTALL-CFP-Re-Rank.bat**
-2. Double-click it
-3. Desktop icon name: **CFP Re-Rank Board**
+Only this Windows package is current. Older install helpers were removed.
 
-## Full zip
-1. Download **CFP-Re-Rank-Board-Windows11.zip**
-2. Right-click → **Extract All** (do not open files from inside the zip window)
+## Install
+1. Download `CFP-Re-Rank-Board-Windows11.zip`
+2. Right-click → **Extract All**
 3. Open the extracted folder
-4. Double-click **Put Logo on Desktop.bat**
+4. Double-click `Put Logo on Desktop.bat`
+5. Desktop name: **CFP Re-Rank Board**
 
-Desktop name: **CFP Re-Rank Board**  
-Install folder: `Documents\CFP Re-Rank Board`
+## Bitdefender
+Older download/run install scripts could trip Bitdefender. Those are gone.
+This zip does not download software. See `BITDEFENDER.txt` inside the zip.
+If an old file is still quarantined, delete it from Quarantine and use this zip only.
