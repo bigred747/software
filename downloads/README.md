@@ -1,9 +1,14 @@
-# CFP Re-Rank Board (Windows 11)
+# CFP Re-Rank Board
 
-1. Download `CFP-Re-Rank-Board-Windows11.zip`
-2. Extract to `Documents\CFP Re-Rank Board` (not an Artex folder, not a temp zip fold)
-3. Double-click `Start CFP Re-Rank.bat`
+## Windows 11
+1. Download `CFP-Re-Rank-Board-Windows11.zip` (or open `Download-CFP-Windows11.html` and tap the button)
+2. Extract to `Documents\CFP Re-Rank Board`
+3. Run `Put Logo on Desktop.bat` once
+4. Click the **CFP Re-Rank** logo on your Desktop anytime
 
-Artex-safe local desk. Leave the black window open while you use the board.
+## iPhone
+1. Open the board in **Safari**
+2. Tap **Share** → **Add to Home Screen**
+3. Tap the CFP logo on your Home Screen anytime
 
-If the zip link is awkward on your phone, open `Download-CFP-Windows11.html` on your PC browser and tap **Download Windows zip now**.
+Artex-safe. Ranking buttons live on the main sheet.
