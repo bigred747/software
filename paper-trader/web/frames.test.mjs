@@ -584,7 +584,7 @@ test("Big 3 Market Scorecard ranks strength and day bias", () => {
   assert.equal(isAPlusSqueeze({ ready: true, direction: "bull", rising: true, stack: "positive", level: 3, dots: 6, clean: true }, { score: 90 }), true);
 });
 
-test("Tide Alert drains soft sectors and Fade 5 ranks pressure names", () => {
+test("Tide Alert drains soft sectors and Go Long 5 ranks pressure names", () => {
   const soft = [];
   for (let index = 0; index < 80; index += 1) {
     const close = 160 - index * 0.6;

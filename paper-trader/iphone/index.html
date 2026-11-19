@@ -345,12 +345,12 @@ textarea {
 #journal-check-note { margin: 0 0 6px; }
 #journal-buys, #journal-sells, #journal-filled { margin: 4px 0 8px; }
 .fire-head { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
-.pins button.fade {
+.pins button.go-long {
   border-color: #8a4a55;
   color: #ffb3bc;
   background: #2a151c;
 }
-.pins button.fade::before {
+.pins button.go-long::before {
   content: "";
   display: inline-block;
   width: 8px;
@@ -1311,7 +1311,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.91</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.92</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -1362,11 +1362,11 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         <p id="fire-note" class="muted">When Ready · Aim · Fire turns Fire on a strong scan name, it lights green here (up to five). Tap one to review the chart, then buy if you want. Fire 5 Auto asks Yes before each paper buy. Paper only. Not a forecast.</p>
         <div id="fire-five" class="pins" aria-label="Fire five green signals"></div>
         <div class="scan-head fire-head">
-          <h3>Tide · Fade 5</h3>
+          <h3>Tide · Go Long 5</h3>
           <button id="tide-run" type="button" class="quiet">Refresh Tide</button>
         </div>
-        <p id="tide-note" class="muted">Tide Alert watches Sector Drain (no green sector rotation) plus Weekly Tide or Index Soft on closed bars. When Tide is on, new Edge longs wait and Fade 5 lists pressure names for chart review. Long-only desk — no short fills. Same Edge TMO · Squeeze · CCI · VIX gates. Paper only. Not a forecast.</p>
-        <div id="fade-five" class="pins" aria-label="Fade five pressure names"></div>
+        <p id="tide-note" class="muted">Tide Alert watches Sector Drain (no green sector rotation) plus Weekly Tide or Index Soft on closed bars. When Tide is on, new Edge longs wait and Go Long 5 lists pressure names for chart review (not Fire 5 — Fire 5 is Edge fires only). Long-only desk — no short fills. Same Edge TMO · Squeeze · CCI · VIX gates. Paper only. Not a forecast.</p>
+        <div id="go-long-five" class="pins" aria-label="Go Long five pressure names"></div>
       </div>
       <label for="search">Find a market</label>
       <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
@@ -1872,7 +1872,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="journal">
         <h2>Today's check</h2>
-        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Sell names are open paper longs with an Edge exit. Fade 5 on Markets is review-only pressure under Tide — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
+        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
         <h3 class="journal-check-head">Buy signals</h3>
         <div id="journal-buys" class="pins" aria-label="Today buy signals"></div>
         <h3 class="journal-check-head">Sell signals</h3>
@@ -6578,9 +6578,9 @@ plot Sell = close crosses below baseline;</textarea>
     };
   }
 
-  // Tide Alert · Fade 5 — original Paper Trader desk process (closed bars only).
+  // Tide Alert · Go Long 5 — original Paper Trader desk process (closed bars only).
   // Detects broad risk-exit (no sector rotation) + weekly index soft squeeze.
-  // Fade 5 ranks pressure names for review. Long-only desk: no short fills.
+  // Go Long 5 ranks pressure names for review under Tide (not Fire 5). Long-only desk: no short fills.
   // Own names/copy — not a third-party product, catchphrase, or indicator brand.
   const TIDE_SECTOR_MIN = 6;
   const TIDE_INDEX_MIN = 3;
@@ -6644,7 +6644,7 @@ plot Sell = close crosses below baseline;</textarea>
         ")" +
         (week.on ? " · Weekly Tide" : "") +
         (indexSoft ? " · Index Soft " + softIndexes.length + "/" + indexes.length : "") +
-        ". Prefer Stay flat; review Fade 5. No new Edge longs.";
+        ". Prefer Stay flat; review Go Long 5. No new Edge longs.";
     } else why = "Sector Drain on, but Weekly Tide and Index Soft are both off.";
     return {
       ready: sectorReady && (week.ready || indexReady),
@@ -6937,7 +6937,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.91";
+const VERSION = "1.9.92";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -7575,7 +7575,7 @@ function fireNoteText(fires, scanning) {
 
 function tideBuyReason() {
   const tide = state.tide && state.tide.result;
-  if (tide && tide.on) return "Tide Alert is on — new Edge longs wait. Review Fade 5. Edge SELL can still exit.";
+  if (tide && tide.on) return "Tide Alert is on — new Edge longs wait. Review Go Long 5. Edge SELL can still exit.";
   return "";
 }
 
@@ -8490,15 +8490,15 @@ function renderFireFive() {
 function fadeNoteText(tide, fades) {
   const rows = fades || [];
   if (!(tide && tide.ready)) {
-    return "Run scorecard or Refresh Tide. Tide Alert needs Sector Drain plus Weekly Tide or Index Soft on closed bars. Fail closed when the board is unread. Long-only — Fade 5 is review only.";
+    return "Run scorecard or Refresh Tide. Tide Alert needs Sector Drain plus Weekly Tide or Index Soft on closed bars. Fail closed when the board is unread. Long-only — Go Long 5 is review only (not Fire 5).";
   }
   if (tide.on) {
     return (
       "Tide Alert on. " +
       (tide.why || "") +
       (rows.length
-        ? " Fade 5: " + rows.length + " pressure name" + (rows.length === 1 ? "" : "s") + " for chart review."
-        : " Fade 5 is quiet — no pressure names cleared the fade score yet.") +
+        ? " Go Long 5: " + rows.length + " pressure name" + (rows.length === 1 ? "" : "s") + " for chart review."
+        : " Go Long 5 is quiet — no pressure names cleared the score yet.") +
       " New Edge longs wait. Not a forecast."
     );
   }
@@ -8507,7 +8507,7 @@ function fadeNoteText(tide, fades) {
 
 function renderTideFade() {
   const line = $("tide-note");
-  const bar = $("fade-five");
+  const bar = $("go-long-five");
   const tide = state.tide && state.tide.result;
   const fades = (state.tide && state.tide.fades) || [];
   if (line) line.textContent = state.tide && state.tide.note ? state.tide.note : fadeNoteText(tide, fades);
@@ -8526,10 +8526,10 @@ function renderTideFade() {
     if (!row || !row.symbol) return;
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "fade";
+    button.className = "go-long";
     button.textContent = pinLabel(row.symbol) + " " + row.score;
     button.title =
-      "Fade score " +
+      "Go Long score " +
       row.score +
       " on closed bars" +
       (row.squeeze ? " · squeeze " + row.squeeze : "") +
@@ -8591,14 +8591,14 @@ async function applyTideFromScorecard(result, barsMap) {
               rate: read.score,
               matched: read.score,
               seen: 1,
-              setup: "fade",
+              setup: "go-long",
               edge: read.edge || "",
               fire: false,
             })
           );
         }
       } catch (error) {
-        /* Missing quote stays out of Fade 5. */
+        /* Missing quote stays out of Go Long 5. */
       }
     }
     state.tide.fades = PaperFrames.bestFades(scored);
@@ -10208,7 +10208,7 @@ function bestSetupStatus() {
   addGate(
     "Tide Alert clear",
     tideOk,
-    tide && tide.on ? "Tide Alert on — Stay flat, review Fade 5" : tide && tide.ready ? "Tide Alert off" : "Tide unread (run scorecard)"
+    tide && tide.on ? "Tide Alert on — Stay flat, review Go Long 5" : tide && tide.ready ? "Tide Alert off" : "Tide unread (run scorecard)"
   );
 
   const held = !!(state.paper && state.paper.shares > 0);
@@ -14181,11 +14181,11 @@ const tideRunBtn = $("tide-run");
 if (tideRunBtn) {
   renderTideFade();
   tideRunBtn.addEventListener("click", () => {
-    $("status").textContent = "Refreshing Tide Alert and Fade 5…";
+    $("status").textContent = "Refreshing Tide Alert and Go Long 5…";
     refreshTideFade()
       .then(() => {
         const tide = state.tide && state.tide.result;
-        $("status").textContent = tide && tide.on ? "Tide Alert on — Fade 5 ready for review." : "Tide Alert off.";
+        $("status").textContent = tide && tide.on ? "Tide Alert on — Go Long 5 ready for review." : "Tide Alert off.";
       })
       .catch((error) => {
         $("status").textContent = error.message || String(error);

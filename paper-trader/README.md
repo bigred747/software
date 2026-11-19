@@ -101,14 +101,14 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
-## Tide Alert · Fade 5 (1.9.91)
+## Tide Alert · Go Long 5 (1.9.92)
 
 Original Paper Trader desk process (own names/copy — not a third-party signal brand):
 
 - **Tide Alert** turns on when **Sector Drain** (no green sector rotation on the Big 3 board) meets **Weekly Tide** (SPY weekly compression with soft structure) or **Index Soft** (majority of indexes not stacked). Closed bars only; **fail closed** when the sector/weekly board is unread.
 - Under Tide Alert, day bias becomes **Stay flat · Tide Alert**. Best setup Auto and Fire 5 Auto **hold new Edge longs** (Edge SELL can still exit). Same Edge TMO · Squeeze · CCI · VIX gates stay required for any Fire buy.
-- **Fade 5** ranks up to five pressure names for chart review only. This desk stays **long-only** — no short fills.
-- Surfaces in Markets (Tide · Fade 5) and Big 3 Scorecard. Paper only. Live locked. Artex isolation unchanged.
+- **Go Long 5** ranks up to five pressure names for chart review only when Tide is on (not Fire 5 — Fire 5 is Edge fires). This desk stays **long-only** — no short fills.
+- Surfaces in Markets (Tide · Go Long 5) and Big 3 Scorecard. Paper only. Live locked. Artex isolation unchanged.
 
 ## Edge VIX gate (1.9.90)
 

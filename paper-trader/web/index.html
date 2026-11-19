@@ -16,7 +16,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.91</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.92</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -67,11 +67,11 @@
         <p id="fire-note" class="muted">When Ready · Aim · Fire turns Fire on a strong scan name, it lights green here (up to five). Tap one to review the chart, then buy if you want. Fire 5 Auto asks Yes before each paper buy. Paper only. Not a forecast.</p>
         <div id="fire-five" class="pins" aria-label="Fire five green signals"></div>
         <div class="scan-head fire-head">
-          <h3>Tide · Fade 5</h3>
+          <h3>Tide · Go Long 5</h3>
           <button id="tide-run" type="button" class="quiet">Refresh Tide</button>
         </div>
-        <p id="tide-note" class="muted">Tide Alert watches Sector Drain (no green sector rotation) plus Weekly Tide or Index Soft on closed bars. When Tide is on, new Edge longs wait and Fade 5 lists pressure names for chart review. Long-only desk — no short fills. Same Edge TMO · Squeeze · CCI · VIX gates. Paper only. Not a forecast.</p>
-        <div id="fade-five" class="pins" aria-label="Fade five pressure names"></div>
+        <p id="tide-note" class="muted">Tide Alert watches Sector Drain (no green sector rotation) plus Weekly Tide or Index Soft on closed bars. When Tide is on, new Edge longs wait and Go Long 5 lists pressure names for chart review (not Fire 5 — Fire 5 is Edge fires only). Long-only desk — no short fills. Same Edge TMO · Squeeze · CCI · VIX gates. Paper only. Not a forecast.</p>
+        <div id="go-long-five" class="pins" aria-label="Go Long five pressure names"></div>
       </div>
       <label for="search">Find a market</label>
       <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
@@ -577,7 +577,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="journal">
         <h2>Today's check</h2>
-        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Sell names are open paper longs with an Edge exit. Fade 5 on Markets is review-only pressure under Tide — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
+        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
         <h3 class="journal-check-head">Buy signals</h3>
         <div id="journal-buys" class="pins" aria-label="Today buy signals"></div>
         <h3 class="journal-check-head">Sell signals</h3>

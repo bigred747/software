@@ -2920,9 +2920,9 @@
     };
   }
 
-  // Tide Alert · Fade 5 — original Paper Trader desk process (closed bars only).
+  // Tide Alert · Go Long 5 — original Paper Trader desk process (closed bars only).
   // Detects broad risk-exit (no sector rotation) + weekly index soft squeeze.
-  // Fade 5 ranks pressure names for review. Long-only desk: no short fills.
+  // Go Long 5 ranks pressure names for review under Tide (not Fire 5). Long-only desk: no short fills.
   // Own names/copy — not a third-party product, catchphrase, or indicator brand.
   const TIDE_SECTOR_MIN = 6;
   const TIDE_INDEX_MIN = 3;
@@ -2986,7 +2986,7 @@
         ")" +
         (week.on ? " · Weekly Tide" : "") +
         (indexSoft ? " · Index Soft " + softIndexes.length + "/" + indexes.length : "") +
-        ". Prefer Stay flat; review Fade 5. No new Edge longs.";
+        ". Prefer Stay flat; review Go Long 5. No new Edge longs.";
     } else why = "Sector Drain on, but Weekly Tide and Index Soft are both off.";
     return {
       ready: sectorReady && (week.ready || indexReady),

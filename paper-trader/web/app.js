@@ -91,7 +91,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.91";
+const VERSION = "1.9.92";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -729,7 +729,7 @@ function fireNoteText(fires, scanning) {
 
 function tideBuyReason() {
   const tide = state.tide && state.tide.result;
-  if (tide && tide.on) return "Tide Alert is on — new Edge longs wait. Review Fade 5. Edge SELL can still exit.";
+  if (tide && tide.on) return "Tide Alert is on — new Edge longs wait. Review Go Long 5. Edge SELL can still exit.";
   return "";
 }
 
@@ -1644,15 +1644,15 @@ function renderFireFive() {
 function fadeNoteText(tide, fades) {
   const rows = fades || [];
   if (!(tide && tide.ready)) {
-    return "Run scorecard or Refresh Tide. Tide Alert needs Sector Drain plus Weekly Tide or Index Soft on closed bars. Fail closed when the board is unread. Long-only — Fade 5 is review only.";
+    return "Run scorecard or Refresh Tide. Tide Alert needs Sector Drain plus Weekly Tide or Index Soft on closed bars. Fail closed when the board is unread. Long-only — Go Long 5 is review only (not Fire 5).";
   }
   if (tide.on) {
     return (
       "Tide Alert on. " +
       (tide.why || "") +
       (rows.length
-        ? " Fade 5: " + rows.length + " pressure name" + (rows.length === 1 ? "" : "s") + " for chart review."
-        : " Fade 5 is quiet — no pressure names cleared the fade score yet.") +
+        ? " Go Long 5: " + rows.length + " pressure name" + (rows.length === 1 ? "" : "s") + " for chart review."
+        : " Go Long 5 is quiet — no pressure names cleared the score yet.") +
       " New Edge longs wait. Not a forecast."
     );
   }
@@ -1661,7 +1661,7 @@ function fadeNoteText(tide, fades) {
 
 function renderTideFade() {
   const line = $("tide-note");
-  const bar = $("fade-five");
+  const bar = $("go-long-five");
   const tide = state.tide && state.tide.result;
   const fades = (state.tide && state.tide.fades) || [];
   if (line) line.textContent = state.tide && state.tide.note ? state.tide.note : fadeNoteText(tide, fades);
@@ -1680,10 +1680,10 @@ function renderTideFade() {
     if (!row || !row.symbol) return;
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "fade";
+    button.className = "go-long";
     button.textContent = pinLabel(row.symbol) + " " + row.score;
     button.title =
-      "Fade score " +
+      "Go Long score " +
       row.score +
       " on closed bars" +
       (row.squeeze ? " · squeeze " + row.squeeze : "") +
@@ -1745,14 +1745,14 @@ async function applyTideFromScorecard(result, barsMap) {
               rate: read.score,
               matched: read.score,
               seen: 1,
-              setup: "fade",
+              setup: "go-long",
               edge: read.edge || "",
               fire: false,
             })
           );
         }
       } catch (error) {
-        /* Missing quote stays out of Fade 5. */
+        /* Missing quote stays out of Go Long 5. */
       }
     }
     state.tide.fades = PaperFrames.bestFades(scored);
@@ -3362,7 +3362,7 @@ function bestSetupStatus() {
   addGate(
     "Tide Alert clear",
     tideOk,
-    tide && tide.on ? "Tide Alert on — Stay flat, review Fade 5" : tide && tide.ready ? "Tide Alert off" : "Tide unread (run scorecard)"
+    tide && tide.on ? "Tide Alert on — Stay flat, review Go Long 5" : tide && tide.ready ? "Tide Alert off" : "Tide unread (run scorecard)"
   );
 
   const held = !!(state.paper && state.paper.shares > 0);
@@ -7335,11 +7335,11 @@ const tideRunBtn = $("tide-run");
 if (tideRunBtn) {
   renderTideFade();
   tideRunBtn.addEventListener("click", () => {
-    $("status").textContent = "Refreshing Tide Alert and Fade 5…";
+    $("status").textContent = "Refreshing Tide Alert and Go Long 5…";
     refreshTideFade()
       .then(() => {
         const tide = state.tide && state.tide.result;
-        $("status").textContent = tide && tide.on ? "Tide Alert on — Fade 5 ready for review." : "Tide Alert off.";
+        $("status").textContent = tide && tide.on ? "Tide Alert on — Go Long 5 ready for review." : "Tide Alert off.";
       })
       .catch((error) => {
         $("status").textContent = error.message || String(error);

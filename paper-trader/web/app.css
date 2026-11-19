@@ -331,12 +331,12 @@ textarea {
 #journal-check-note { margin: 0 0 6px; }
 #journal-buys, #journal-sells, #journal-filled { margin: 4px 0 8px; }
 .fire-head { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
-.pins button.fade {
+.pins button.go-long {
   border-color: #8a4a55;
   color: #ffb3bc;
   background: #2a151c;
 }
-.pins button.fade::before {
+.pins button.go-long::before {
   content: "";
   display: inline-block;
   width: 8px;
