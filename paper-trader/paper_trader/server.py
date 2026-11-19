@@ -829,7 +829,7 @@ class Desk:
         add(
             "No invented breadth",
             True,
-            "NYSE TICK, ADD, TRIN, and VOLD stay No feed — no Yahoo/CNBC internals, no TradingView scrape. Nothing is guessed",
+            "TICK/ADD/TRIN/VOLD stay No feed (will not invent). VIX only from a real quote. No TradingView scrape",
         )
         hosts = {_url_host(quotes._URL)}
         add("Quote hosts", hosts <= QUOTE_HOSTS, "Prices come from " + ", ".join(sorted(hosts)) + " only")

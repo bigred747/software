@@ -101,9 +101,13 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
+## Chart breadth boxes (1.9.89)
+
+Chart-top **TICK / ADD / TRIN / VOLD** stay **No feed** — this desk **will not paint fake numbers**. Yahoo and CNBC do not carry those NYSE internals; Yahoo `TRIN` is Trinity Capital equity and is never used as Arms Index. TradingView’s Market Internals Pine script ([liquid-trader](https://www.tradingview.com/script/aNrCpO4C-Market-Internals-TICK-ADD-VOLD-TRIN-VIX/)) is not wired (no scrape; Pine cannot run here). **VIX** paints from a real Yahoo `^VIX` (computer) or CNBC `.VIX` (phone) quote when the feed answers, with green/red boxes like the rest (green when VIX falls vs yesterday, red when it rises). When a future broker feed supplies real TICK/ADD/TRIN/VOLD, the same green/red tone rules apply (positive TICK/ADD/VOLD = green; TRIN under 1 = green). Best real next path for NYSE boxes: Interactive Brokers market indicators (`TICK-NYSE`, `AD-NYSE`, `TRIN-NYSE`, `VOL-NYSE`) or a paid breadth vendor. Paper only. Live locked. Artex isolation and Edge Fire TMO/Squeeze/CCI unchanged.
+
 ## Chart breadth boxes (1.9.88)
 
-Chart-top **TICK / ADD / TRIN / VOLD** stay **No feed** when no real source answers. Probed Yahoo and CNBC (the desk’s existing quote paths): no real NYSE internals symbols; Yahoo `TRIN` is Trinity Capital equity and is never used as Arms Index. TradingView’s Market Internals Pine script ([liquid-trader](https://www.tradingview.com/script/aNrCpO4C-Market-Internals-TICK-ADD-VOLD-TRIN-VIX/)) uses USI/INDEX internals — Pine cannot run inside this Private web app, and TradingView is not scraped. `/api/breadth` fails closed with null values until a broker or paid feed is wired. Best real next path: Interactive Brokers market indicators (`TICK-NYSE`, `AD-NYSE`, `TRIN-NYSE`, `VOL-NYSE`) or a paid breadth vendor; Schwab Developer `$TICK` / `$ADD` / `$TRIN` / `$VOLD` only after OAuth entitlement is verified. Paper only. Live locked. Artex isolation and Edge Fire TMO/Squeeze/CCI unchanged.
+Fail-closed `/api/breadth` for TICK/ADD/TRIN/VOLD; TradingView path rejected. Superseded for VIX paint by 1.9.89.
 
 ## Edge TMO · Squeeze · CCI buys (1.9.87)
 

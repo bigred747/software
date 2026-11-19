@@ -16,7 +16,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.88</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.89</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -100,6 +100,7 @@
           <div class="desk-clear-chip breadth"><span class="k">ADD</span><span class="v">No feed</span></div>
           <div class="desk-clear-chip breadth"><span class="k">TRIN</span><span class="v">No feed</span></div>
           <div class="desk-clear-chip breadth"><span class="k">VOLD</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">VIX</span><span class="v">No feed</span></div>
         </div>
         <p class="chart-tools-label desk-clear-label">Desk boxes</p>
         <div id="desk-clear" class="desk-clear" aria-label="Desk clear read">
@@ -523,7 +524,7 @@ plot Sell = close crosses below baseline;</textarea>
           </table>
         </div>
         <p id="int-miss" class="muted"></p>
-        <p class="muted">NYSE TICK, ADD, TRIN, and VOLD stay <strong>No feed</strong>. Yahoo and CNBC do not carry real NYSE internals (Yahoo “TRIN” is an equity ticker, not Arms Index). TradingView’s Market Internals Pine script (USI symbols) is not wired — Pine cannot run here and TradingView is not scraped. Next real path: Interactive Brokers market indicators or a paid/broker breadth entitlement. Nothing is guessed. Sells are never blocked by internals. Crypto is not gated. Live stays locked. Paper only.</p>
+        <p class="muted">Chart boxes: <strong>TICK / ADD / TRIN / VOLD stay No feed</strong> — this desk will not paint fake numbers. Yahoo and CNBC do not carry those NYSE internals (Yahoo “TRIN” is an equity ticker, not Arms Index). TradingView’s Market Internals Pine script is not wired (no scrape; Pine cannot run here). <strong>VIX</strong> paints only from a real ^VIX / .VIX quote, green when it falls vs yesterday and red when it rises. Next path for NYSE boxes: Interactive Brokers market indicators or a paid/broker breadth entitlement. Sells are never blocked by internals. Crypto is not gated. Live stays locked. Paper only.</p>
       </div>
 
       <div class="dock-page" data-dock-page="frames">

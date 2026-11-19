@@ -90,7 +90,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.88";
+const VERSION = "1.9.89";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -4356,7 +4356,7 @@ async function phoneSafe() {
   add(
     "No invented breadth",
     true,
-    "NYSE TICK, ADD, TRIN, and VOLD stay No feed — no Yahoo/CNBC internals, no TradingView scrape. Nothing is guessed"
+    "TICK/ADD/TRIN/VOLD stay No feed (will not invent). VIX only from a real quote. No TradingView scrape"
   );
   let rules = true;
   try {
@@ -5881,15 +5881,55 @@ function paintChipRow(node, chips) {
   });
 }
 
+function breadthTone(key, number, change) {
+  if (key === "VIX") {
+    if (!Number.isFinite(change)) return "mixed";
+    if (change < 0) return "bull";
+    if (change > 0) return "bear";
+    return "mixed";
+  }
+  if (key === "TRIN") {
+    if (number < 1) return "bull";
+    if (number > 1) return "bear";
+    return "mixed";
+  }
+  if (number > 0) return "bull";
+  if (number < 0) return "bear";
+  return "mixed";
+}
+
+function formatBreadthNumber(key, number) {
+  if (key === "VIX") return number.toFixed(2);
+  if (key === "TRIN") return number.toFixed(3);
+  if (Math.abs(number) >= 1000) return Math.round(number).toLocaleString("en-US");
+  return String(number);
+}
+
 function breadthChip(key) {
   const values = (state.breadth && state.breadth.values) || {};
+  const changes = (state.breadth && state.breadth.changes) || {};
+  const tones = (state.breadth && state.breadth.tones) || {};
   const raw = values[key];
   const number = Number(raw);
-  // Fail closed: only finite real readings paint. Yahoo "TRIN" equity and TV scrape are never used.
+  // Fail closed: only finite real readings paint. Never invent NYSE internals or scrape TradingView.
   if (raw == null || raw === "" || !Number.isFinite(number)) {
     return { k: key, v: "No feed", kind: "breadth" };
   }
-  return { k: key, v: String(number), kind: "breadth" };
+  const change = Number(changes[key]);
+  const tone = tones[key] || breadthTone(key, number, change);
+  return { k: key, v: formatBreadthNumber(key, number), kind: "breadth " + tone };
+}
+
+function emptyBreadth(note) {
+  return {
+    ready: false,
+    source: null,
+    values: { TICK: null, ADD: null, TRIN: null, VOLD: null, VIX: null },
+    changes: { TICK: null, ADD: null, TRIN: null, VOLD: null, VIX: null },
+    tones: { TICK: null, ADD: null, TRIN: null, VOLD: null, VIX: null },
+    note: note,
+    will_not_invent: true,
+  };
 }
 
 function paintChartBoxes() {
@@ -5898,30 +5938,48 @@ function paintChartBoxes() {
     breadthChip("ADD"),
     breadthChip("TRIN"),
     breadthChip("VOLD"),
+    breadthChip("VIX"),
   ]);
+}
+
+async function phoneVixBreadth() {
+  const empty = emptyBreadth(
+    "TICK/ADD/TRIN/VOLD stay No feed on phone (no invent). VIX paints only from a real .VIX quote."
+  );
+  if (typeof PaperLive === "undefined" || !PaperLive.gauge) return empty;
+  try {
+    const bars = await PaperLive.gauge("^VIX");
+    if (!bars || !bars.length) return empty;
+    const last = bars[bars.length - 1];
+    const price = Number(last && last.close);
+    if (!(price > 0)) return empty;
+    let change = null;
+    if (bars.length >= 2) {
+      const prior = Number(bars[bars.length - 2].close);
+      if (prior > 0) change = price - prior;
+    }
+    empty.values.VIX = price;
+    empty.changes.VIX = change;
+    empty.tones.VIX = breadthTone("VIX", price, change);
+    empty.ready = true;
+    empty.source = "cnbc:.VIX";
+    return empty;
+  } catch (error) {
+    return empty;
+  }
 }
 
 async function loadBreadth() {
   if (state.offline) {
-    state.breadth = {
-      ready: false,
-      source: null,
-      values: { TICK: null, ADD: null, TRIN: null, VOLD: null },
-      note: "No broker breadth feed on the phone page. Chart boxes stay No feed.",
-    };
+    state.breadth = await phoneVixBreadth();
     paintChartBoxes();
     return;
   }
   try {
     const payload = await getJSON("/api/breadth");
-    state.breadth = payload && typeof payload === "object" ? payload : null;
+    state.breadth = payload && typeof payload === "object" ? payload : emptyBreadth("Breadth feed empty. No fake numbers.");
   } catch (error) {
-    state.breadth = {
-      ready: false,
-      source: null,
-      values: { TICK: null, ADD: null, TRIN: null, VOLD: null },
-      note: "Breadth feed did not answer. Chart boxes stay No feed.",
-    };
+    state.breadth = emptyBreadth("Breadth feed did not answer. TICK/ADD/TRIN/VOLD stay No feed — will not invent.");
   }
   paintChartBoxes();
 }

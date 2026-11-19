@@ -65,14 +65,25 @@ class ServerTests(unittest.TestCase):
             return exc.code, payload
 
     def test_breadth_endpoint_fails_closed(self) -> None:
-        status, raw = self.open("/api/breadth")
+        from unittest.mock import patch
+
+        fake = {
+            "price": 22.1,
+            "bars": [
+                {"date": "2026-11-17", "open": 21, "high": 23, "low": 20, "close": 21.0, "volume": 0},
+                {"date": "2026-11-18", "open": 21.5, "high": 22.5, "low": 21, "close": 22.1, "volume": 0},
+            ],
+        }
+        with patch("paper_trader.breadth.quotes.fetch_frame", return_value=fake):
+            status, raw = self.open("/api/breadth")
         self.assertEqual(status, 200)
         payload = json.loads(raw)
-        self.assertFalse(payload["ready"])
-        self.assertIsNone(payload["source"])
+        self.assertTrue(payload["ready"])
+        self.assertTrue(payload["will_not_invent"])
         for key in ("TICK", "ADD", "TRIN", "VOLD"):
             self.assertIsNone(payload["values"][key])
-        self.assertIn("TradingView", payload["note"])
+        self.assertEqual(payload["values"]["VIX"], 22.1)
+        self.assertIn("will not paint fake numbers", payload["note"])
 
     def test_server_is_local_and_pages_load(self) -> None:
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
@@ -971,10 +982,12 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.88", script)
+        self.assertIn(b"1.9.89", script)
         self.assertIn(b"/api/breadth", script)
         self.assertIn(b"loadBreadth", script)
-        self.assertIn(b"TradingView scrape", script)
+        self.assertIn(b"will not invent", script)
+        self.assertIn(b"breadthTone", script)
+        self.assertIn(b'"VIX"', script)
         self.assertIn(b"function runScorecard", script)
         self.assertIn(b"function scorecardPublish", script)
         self.assertIn(b"function bestFires", script)
@@ -996,10 +1009,12 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"studies-head", script)
         self.assertIn(b'id="chart-tools"', page)
         self.assertIn(b'id="chart-boxes"', page)
+        self.assertIn(b">VIX<", page)
         self.assertIn(b'id="study-pages"', page)
         self.assertIn(b"Second page", page)
         self.assertIn(b"paintChartBoxes", script)
         self.assertIn(b"No feed", page)
+        self.assertIn(b"will not paint fake numbers", page)
         self.assertIn(b'class="seal"', page)
         self.assertNotIn(b"LuxeTrendsetters", page)
         self.assertNotIn(b"logo.png", page)
