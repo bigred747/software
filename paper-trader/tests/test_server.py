@@ -64,6 +64,16 @@ class ServerTests(unittest.TestCase):
                 return exc.code, payload, exc.headers
             return exc.code, payload
 
+    def test_breadth_endpoint_fails_closed(self) -> None:
+        status, raw = self.open("/api/breadth")
+        self.assertEqual(status, 200)
+        payload = json.loads(raw)
+        self.assertFalse(payload["ready"])
+        self.assertIsNone(payload["source"])
+        for key in ("TICK", "ADD", "TRIN", "VOLD"):
+            self.assertIsNone(payload["values"][key])
+        self.assertIn("TradingView", payload["note"])
+
     def test_server_is_local_and_pages_load(self) -> None:
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
         status, health, headers = self.open("/api/health", headers=True)
@@ -961,7 +971,10 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.87", script)
+        self.assertIn(b"1.9.88", script)
+        self.assertIn(b"/api/breadth", script)
+        self.assertIn(b"loadBreadth", script)
+        self.assertIn(b"TradingView scrape", script)
         self.assertIn(b"function runScorecard", script)
         self.assertIn(b"function scorecardPublish", script)
         self.assertIn(b"function bestFires", script)

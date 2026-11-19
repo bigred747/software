@@ -16,7 +16,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.87</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.88</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -523,7 +523,7 @@ plot Sell = close crosses below baseline;</textarea>
           </table>
         </div>
         <p id="int-miss" class="muted"></p>
-        <p class="muted">NYSE TICK, ADD, TRIN, and VOLD are not shown. The free quote feeds this desk uses do not carry them, and nothing here is guessed in their place — chart-top boxes stay blank until a real breadth feed exists. Sells are never blocked by internals. Crypto is not gated, because these are US market internals. Live stays locked. Paper only.</p>
+        <p class="muted">NYSE TICK, ADD, TRIN, and VOLD stay <strong>No feed</strong>. Yahoo and CNBC do not carry real NYSE internals (Yahoo “TRIN” is an equity ticker, not Arms Index). TradingView’s Market Internals Pine script (USI symbols) is not wired — Pine cannot run here and TradingView is not scraped. Next real path: Interactive Brokers market indicators or a paid/broker breadth entitlement. Nothing is guessed. Sells are never blocked by internals. Crypto is not gated. Live stays locked. Paper only.</p>
       </div>
 
       <div class="dock-page" data-dock-page="frames">

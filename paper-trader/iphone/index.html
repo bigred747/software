@@ -1276,7 +1276,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.87</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.88</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -1783,7 +1783,7 @@ plot Sell = close crosses below baseline;</textarea>
           </table>
         </div>
         <p id="int-miss" class="muted"></p>
-        <p class="muted">NYSE TICK, ADD, TRIN, and VOLD are not shown. The free quote feeds this desk uses do not carry them, and nothing here is guessed in their place — chart-top boxes stay blank until a real breadth feed exists. Sells are never blocked by internals. Crypto is not gated, because these are US market internals. Live stays locked. Paper only.</p>
+        <p class="muted">NYSE TICK, ADD, TRIN, and VOLD stay <strong>No feed</strong>. Yahoo and CNBC do not carry real NYSE internals (Yahoo “TRIN” is an equity ticker, not Arms Index). TradingView’s Market Internals Pine script (USI symbols) is not wired — Pine cannot run here and TradingView is not scraped. Next real path: Interactive Brokers market indicators or a paid/broker breadth entitlement. Nothing is guessed. Sells are never blocked by internals. Crypto is not gated. Live stays locked. Paper only.</p>
       </div>
 
       <div class="dock-page" data-dock-page="frames">
@@ -6639,6 +6639,7 @@ const state = {
   scanDone: false,
   scanLearn: { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 },
   stratLearn: { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 },
+  breadth: null,
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -6694,7 +6695,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.87";
+const VERSION = "1.9.88";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -10960,7 +10961,7 @@ async function phoneSafe() {
   add(
     "No invented breadth",
     true,
-    "NYSE TICK, ADD, TRIN, and VOLD stay blank until a real feed exists. Nothing is guessed"
+    "NYSE TICK, ADD, TRIN, and VOLD stay No feed — no Yahoo/CNBC internals, no TradingView scrape. Nothing is guessed"
   );
   let rules = true;
   try {
@@ -12485,14 +12486,49 @@ function paintChipRow(node, chips) {
   });
 }
 
+function breadthChip(key) {
+  const values = (state.breadth && state.breadth.values) || {};
+  const raw = values[key];
+  const number = Number(raw);
+  // Fail closed: only finite real readings paint. Yahoo "TRIN" equity and TV scrape are never used.
+  if (raw == null || raw === "" || !Number.isFinite(number)) {
+    return { k: key, v: "No feed", kind: "breadth" };
+  }
+  return { k: key, v: String(number), kind: "breadth" };
+}
+
 function paintChartBoxes() {
-  // Honest empty boxes: free feeds do not carry NYSE breadth. Never invent numbers.
   paintChipRow($("chart-boxes"), [
-    { k: "TICK", v: "No feed", kind: "breadth" },
-    { k: "ADD", v: "No feed", kind: "breadth" },
-    { k: "TRIN", v: "No feed", kind: "breadth" },
-    { k: "VOLD", v: "No feed", kind: "breadth" },
+    breadthChip("TICK"),
+    breadthChip("ADD"),
+    breadthChip("TRIN"),
+    breadthChip("VOLD"),
   ]);
+}
+
+async function loadBreadth() {
+  if (state.offline) {
+    state.breadth = {
+      ready: false,
+      source: null,
+      values: { TICK: null, ADD: null, TRIN: null, VOLD: null },
+      note: "No broker breadth feed on the phone page. Chart boxes stay No feed.",
+    };
+    paintChartBoxes();
+    return;
+  }
+  try {
+    const payload = await getJSON("/api/breadth");
+    state.breadth = payload && typeof payload === "object" ? payload : null;
+  } catch (error) {
+    state.breadth = {
+      ready: false,
+      source: null,
+      values: { TICK: null, ADD: null, TRIN: null, VOLD: null },
+      note: "Breadth feed did not answer. Chart boxes stay No feed.",
+    };
+  }
+  paintChartBoxes();
 }
 
 function paintDeskClear(history) {
@@ -14073,6 +14109,8 @@ paintChartToolBoxes([]);
 boot().then(() => {
   document.body.classList.add("ready");
   paintChartToolBoxes(state.market && state.market.history);
+  loadBreadth();
+  setInterval(loadBreadth, 60000);
   restoreDock();
   runSafe(false);
   loadInternals(false);
