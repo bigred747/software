@@ -16,7 +16,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.90</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.92</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -48,8 +48,8 @@
           <h3>Big 3 Market Scorecard</h3>
           <button id="scorecard-open" type="button" class="quiet">Open scorecard</button>
         </div>
-        <p id="scorecard-bias" class="scorecard-bias">Press Run scorecard for rankings, A+ squeezes, and day bias.</p>
-        <p id="scorecard-blurb" class="muted">Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.</p>
+        <p id="scorecard-bias" class="scorecard-bias">Press Run scorecard for rankings, A+ squeezes, Tide Alert, and day bias.</p>
+        <p id="scorecard-blurb" class="muted">Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, flags Tide Alert when sectors drain with no rotation, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.</p>
       </div>
       <div class="scan-block">
         <div class="scan-head">
@@ -66,6 +66,12 @@
         </div>
         <p id="fire-note" class="muted">When Ready · Aim · Fire turns Fire on a strong scan name, it lights green here (up to five). Tap one to review the chart, then buy if you want. Fire 5 Auto asks Yes before each paper buy. Paper only. Not a forecast.</p>
         <div id="fire-five" class="pins" aria-label="Fire five green signals"></div>
+        <div class="scan-head fire-head">
+          <h3>Tide · Go Long 5</h3>
+          <button id="tide-run" type="button" class="quiet">Refresh Tide</button>
+        </div>
+        <p id="tide-note" class="muted">Tide Alert watches Sector Drain (no green sector rotation) plus Weekly Tide or Index Soft on closed bars. When Tide is on, new Edge longs wait and Go Long 5 lists pressure names for chart review (not Fire 5 — Fire 5 is Edge fires only). Long-only desk — no short fills. Same Edge TMO · Squeeze · CCI · VIX gates. Paper only. Not a forecast.</p>
+        <div id="go-long-five" class="pins" aria-label="Go Long five pressure names"></div>
       </div>
       <label for="search">Find a market</label>
       <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
@@ -465,7 +471,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="scorecard">
         <h2>Big 3 Market Scorecard</h2>
-        <p class="muted">Three closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), and (3) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
+        <p class="muted">Four closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), (3) Tide Alert when Sector Drain meets Weekly Tide or Index Soft, and (4) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
         <div class="strat-orb-inputs">
           <button id="sc-run" type="button">Run scorecard</button>
           <button id="sc-stop" type="button" class="quiet">Stop</button>
@@ -474,6 +480,10 @@ plot Sell = close crosses below baseline;</textarea>
         <div id="sc-day" class="scorecard-day" aria-live="polite">
           <p id="sc-day-bias" class="scorecard-bias">Day bias · waiting</p>
           <p id="sc-day-why" class="muted"></p>
+        </div>
+        <div id="sc-tide" class="scorecard-day" aria-live="polite">
+          <p id="sc-tide-bias" class="scorecard-bias">Tide Alert · waiting</p>
+          <p id="sc-tide-why" class="muted"></p>
         </div>
         <div class="scorecard-grid">
           <section class="scorecard-panel" aria-label="Index rankings">
@@ -567,7 +577,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="journal">
         <h2>Today's check</h2>
-        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best. Sell names are open paper longs with an Edge exit. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
+        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
         <h3 class="journal-check-head">Buy signals</h3>
         <div id="journal-buys" class="pins" aria-label="Today buy signals"></div>
         <h3 class="journal-check-head">Sell signals</h3>

@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, marketScorecard, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -582,4 +582,47 @@ test("Big 3 Market Scorecard ranks strength and day bias", () => {
   assert.equal(card.day.bias, "Swing trades");
   assert.equal(isAPlusSqueeze({ ready: true, direction: "bear", rising: true, stack: "positive", level: 3, dots: 6, clean: true }, { score: 90 }), false);
   assert.equal(isAPlusSqueeze({ ready: true, direction: "bull", rising: true, stack: "positive", level: 3, dots: 6, clean: true }, { score: 90 }), true);
+});
+
+test("Tide Alert drains soft sectors and Go Long 5 ranks pressure names", () => {
+  const soft = [];
+  for (let index = 0; index < 80; index += 1) {
+    const close = 160 - index * 0.6;
+    soft.push(day("2024-04-" + String((index % 28) + 1).padStart(2, "0"), close + 1, close + 2, close - 1, close));
+  }
+  const indexes = ["SPY", "QQQ", "IWM"].map((symbol) => Object.assign({ symbol }, strengthRead(soft)));
+  const sectors = ["XLK", "SMH", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB"].map((symbol) =>
+    Object.assign({ symbol }, strengthRead(soft))
+  );
+  const unread = tideRead({ indexes: [], sectors: [], spyBars: soft });
+  assert.equal(unread.on, false);
+  assert.match(unread.why, /fail closed|not ready/i);
+  const tide = tideRead({ indexes, sectors, spyBars: soft });
+  assert.equal(tide.ready, true);
+  assert.equal(tide.drain, true);
+  assert.equal(tide.indexSoft, true);
+  assert.equal(tide.on, true);
+  assert.match(tide.bias, /Tide Alert/);
+  const card = marketScorecard({
+    bars: Object.fromEntries(indexes.concat(sectors).map((row) => [row.symbol, soft])),
+    internals: { ready: true, label: "Defensive", score: 20 },
+    squeezes: [],
+    indexSymbols: indexes.map((row) => row.symbol),
+    sectorSymbols: sectors.map((row) => row.symbol),
+  });
+  assert.equal(card.tide.on, true);
+  assert.match(card.day.bias, /Tide Alert/);
+  const fade = fadeRead(soft, { live: false, vixBars: [] });
+  assert.equal(fade.ready, true);
+  assert.ok(fade.score >= 45);
+  const ranked = bestFades([
+    { symbol: "AAA", ready: true, score: 70, edgeFire: false },
+    { symbol: "BBB", ready: true, score: 40, edgeFire: false },
+    { symbol: "CCC", ready: true, score: 90, edgeFire: true },
+    { symbol: "DDD", ready: true, score: 80, edgeFire: false },
+  ]);
+  assert.deepEqual(
+    ranked.map((row) => row.symbol),
+    ["DDD", "AAA"]
+  );
 });

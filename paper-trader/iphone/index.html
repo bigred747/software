@@ -345,6 +345,22 @@ textarea {
 #journal-check-note { margin: 0 0 6px; }
 #journal-buys, #journal-sells, #journal-filled { margin: 4px 0 8px; }
 .fire-head { margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+.pins button.go-long {
+  border-color: #8a4a55;
+  color: #ffb3bc;
+  background: #2a151c;
+}
+.pins button.go-long::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--down);
+  vertical-align: middle;
+}
+.scorecard-bias.tide { color: #ffb3bc; }
 .fire-auto-btn {
   font-weight: 700;
   border: 1px solid #3a4656;
@@ -1295,7 +1311,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.90</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.92</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -1327,8 +1343,8 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <h3>Big 3 Market Scorecard</h3>
           <button id="scorecard-open" type="button" class="quiet">Open scorecard</button>
         </div>
-        <p id="scorecard-bias" class="scorecard-bias">Press Run scorecard for rankings, A+ squeezes, and day bias.</p>
-        <p id="scorecard-blurb" class="muted">Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.</p>
+        <p id="scorecard-bias" class="scorecard-bias">Press Run scorecard for rankings, A+ squeezes, Tide Alert, and day bias.</p>
+        <p id="scorecard-blurb" class="muted">Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, flags Tide Alert when sectors drain with no rotation, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.</p>
       </div>
       <div class="scan-block">
         <div class="scan-head">
@@ -1345,6 +1361,12 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         </div>
         <p id="fire-note" class="muted">When Ready · Aim · Fire turns Fire on a strong scan name, it lights green here (up to five). Tap one to review the chart, then buy if you want. Fire 5 Auto asks Yes before each paper buy. Paper only. Not a forecast.</p>
         <div id="fire-five" class="pins" aria-label="Fire five green signals"></div>
+        <div class="scan-head fire-head">
+          <h3>Tide · Go Long 5</h3>
+          <button id="tide-run" type="button" class="quiet">Refresh Tide</button>
+        </div>
+        <p id="tide-note" class="muted">Tide Alert watches Sector Drain (no green sector rotation) plus Weekly Tide or Index Soft on closed bars. When Tide is on, new Edge longs wait and Go Long 5 lists pressure names for chart review (not Fire 5 — Fire 5 is Edge fires only). Long-only desk — no short fills. Same Edge TMO · Squeeze · CCI · VIX gates. Paper only. Not a forecast.</p>
+        <div id="go-long-five" class="pins" aria-label="Go Long five pressure names"></div>
       </div>
       <label for="search">Find a market</label>
       <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
@@ -1744,7 +1766,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="scorecard">
         <h2>Big 3 Market Scorecard</h2>
-        <p class="muted">Three closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), and (3) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
+        <p class="muted">Four closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), (3) Tide Alert when Sector Drain meets Weekly Tide or Index Soft, and (4) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
         <div class="strat-orb-inputs">
           <button id="sc-run" type="button">Run scorecard</button>
           <button id="sc-stop" type="button" class="quiet">Stop</button>
@@ -1753,6 +1775,10 @@ plot Sell = close crosses below baseline;</textarea>
         <div id="sc-day" class="scorecard-day" aria-live="polite">
           <p id="sc-day-bias" class="scorecard-bias">Day bias · waiting</p>
           <p id="sc-day-why" class="muted"></p>
+        </div>
+        <div id="sc-tide" class="scorecard-day" aria-live="polite">
+          <p id="sc-tide-bias" class="scorecard-bias">Tide Alert · waiting</p>
+          <p id="sc-tide-why" class="muted"></p>
         </div>
         <div class="scorecard-grid">
           <section class="scorecard-panel" aria-label="Index rankings">
@@ -1846,7 +1872,7 @@ plot Sell = close crosses below baseline;</textarea>
 
       <div class="dock-page" data-dock-page="journal">
         <h2>Today's check</h2>
-        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best. Sell names are open paper longs with an Edge exit. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
+        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
         <h3 class="journal-check-head">Buy signals</h3>
         <div id="journal-buys" class="pins" aria-label="Today buy signals"></div>
         <h3 class="journal-check-head">Sell signals</h3>
@@ -6552,6 +6578,144 @@ plot Sell = close crosses below baseline;</textarea>
     };
   }
 
+  // Tide Alert · Go Long 5 — original Paper Trader desk process (closed bars only).
+  // Detects broad risk-exit (no sector rotation) + weekly index soft squeeze.
+  // Go Long 5 ranks pressure names for review under Tide (not Fire 5). Long-only desk: no short fills.
+  // Own names/copy — not a third-party product, catchphrase, or indicator brand.
+  const TIDE_SECTOR_MIN = 6;
+  const TIDE_INDEX_MIN = 3;
+  const TIDE_GREEN_SCORE = 55;
+  const FADE_FIVE_LIMIT = 5;
+
+  function weeklyTideOn(dailyBars) {
+    const list = closedBars(dailyBars || [], false);
+    if (list.length < 120) return { ready: false, on: false, why: "Need more daily bars for weekly Tide." };
+    const weeks = barsFor(list, frameById("1W"));
+    if (!weeks || weeks.length < 30) return { ready: false, on: false, why: "Weekly bars not ready." };
+    const read = squeezeRead(weeks, { live: false });
+    if (!read || !read.ready) return { ready: false, on: false, why: "Weekly squeeze unread — Tide fails closed." };
+    const closes = weeks.map((bar) => bar.close);
+    const e21 = ema(closes, 21);
+    const last21 = e21[e21.length - 1];
+    const close = closes[closes.length - 1];
+    const soft =
+      read.direction === "bear" ||
+      (read.momentum != null && read.momentum < 0) ||
+      (last21 > 0 && close < last21);
+    const compressed = read.state === "ON" || read.state === "FIRED" || read.dots >= 5 || (read.level || 0) >= 1;
+    const on = !!(compressed && soft);
+    return {
+      ready: true,
+      on,
+      state: read.state,
+      dots: read.dots,
+      level: read.level,
+      direction: read.direction,
+      momentum: read.momentum,
+      why: on
+        ? "Weekly Tide on: compression with soft structure on closed weekly bars."
+        : compressed
+          ? "Weekly compression present but structure not soft."
+          : "No weekly compression on closed bars.",
+    };
+  }
+
+  function tideRead(input) {
+    const source = input || {};
+    const indexes = source.indexes || [];
+    const sectors = source.sectors || [];
+    const greenSectors = sectors.filter((row) => row && row.stacked && row.score >= TIDE_GREEN_SCORE);
+    const sectorReady = sectors.length >= TIDE_SECTOR_MIN;
+    const drain = sectorReady && greenSectors.length === 0;
+    const softIndexes = indexes.filter((row) => row && (!row.stacked || row.score < 50));
+    const indexReady = indexes.length >= TIDE_INDEX_MIN;
+    const indexSoft = indexReady && softIndexes.length >= Math.ceil(indexes.length / 2);
+    const week = weeklyTideOn(source.spyBars || source.bars || []);
+    // Fail closed: missing sector board or unread weekly keeps Tide off.
+    const on = !!(drain && (week.on || indexSoft) && sectorReady && (week.ready || indexReady));
+    let why;
+    if (!sectorReady) why = "Sector board not ready (" + sectors.length + " of " + TIDE_SECTOR_MIN + ") — Tide fails closed.";
+    else if (!drain) why = greenSectors.length + " sector" + (greenSectors.length === 1 ? "" : "s") + " still green — rotation possible, Tide off.";
+    else if (!week.ready && !indexReady) why = "Weekly Tide and index board unread — Tide fails closed.";
+    else if (on) {
+      why =
+        "Tide Alert on: Sector Drain (0 green of " +
+        sectors.length +
+        ")" +
+        (week.on ? " · Weekly Tide" : "") +
+        (indexSoft ? " · Index Soft " + softIndexes.length + "/" + indexes.length : "") +
+        ". Prefer Stay flat; review Go Long 5. No new Edge longs.";
+    } else why = "Sector Drain on, but Weekly Tide and Index Soft are both off.";
+    return {
+      ready: sectorReady && (week.ready || indexReady),
+      on,
+      drain,
+      indexSoft,
+      week,
+      greenSectors: greenSectors.length,
+      sectorCount: sectors.length,
+      softIndexes: softIndexes.length,
+      indexCount: indexes.length,
+      bias: on ? "Stay flat · Tide Alert" : "",
+      why,
+    };
+  }
+
+  function fadeRead(bars, options) {
+    const opts = options || {};
+    const list = closedBars(bars || [], !!(opts.crypto), opts.now);
+    if (list.length < 50) return null;
+    const closes = list.map((bar) => bar.close);
+    const close = closes[closes.length - 1];
+    const e21 = ema(closes, 21);
+    const e50 = ema(closes, 50);
+    const last21 = e21[e21.length - 1];
+    const last50 = e50[e50.length - 1];
+    if (!(last21 > 0) || !(last50 > 0)) return null;
+    const prior = closes[Math.max(0, closes.length - 6)];
+    const ret5 = prior > 0 ? close / prior - 1 : 0;
+    const sq = squeezeRead(list, { live: !!opts.live });
+    const timing = edge(list, { live: !!opts.live, vixBars: opts.vixBars || [] });
+    const edgeFire = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
+    let score = 0;
+    const parts = [];
+    const add = (label, points) => {
+      if (!(points > 0)) return;
+      score += points;
+      parts.push([label, points]);
+    };
+    if (close < last21) add("Under 21 EMA", 20);
+    if (close < last50) add("Under 50 EMA", 20);
+    if (last21 < last50) add("21 under 50", 10);
+    if (ret5 < 0) add("5d soft", Math.min(20, Math.round(Math.abs(ret5) * 400)));
+    if (sq && sq.ready && (sq.state === "ON" || sq.dots >= 5 || (sq.level || 0) >= 1)) add("Squeeze compress", 15);
+    if (sq && sq.ready && sq.momentum != null && sq.momentum <= 0) add("Mom ≤ 0", 15);
+    if (sq && sq.ready && sq.direction === "bear") add("Bear squeeze", 10);
+    if (sq && sq.ready && !sq.rising && sq.momentum != null && sq.momentum > 0) add("Mom fading", 5);
+    if (edgeFire) score = Math.max(0, score - 40);
+    const ready = score >= 45 && !edgeFire && (close < last21 || ret5 < 0);
+    return {
+      ready,
+      score: Math.min(100, score),
+      parts,
+      ret5,
+      under21: close < last21,
+      under50: close < last50,
+      squeeze: sq && sq.ready ? sq.state : "—",
+      dots: sq && sq.ready ? sq.dots : 0,
+      edgeFire,
+      edge: timing && timing.ready ? timing.call : "",
+      asOf: list[list.length - 1].date,
+    };
+  }
+
+  function bestFades(rows) {
+    return (rows || [])
+      .filter((row) => row && row.symbol && row.ready && row.score >= 45 && !row.edgeFire)
+      .sort((a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol))
+      .slice(0, FADE_FIVE_LIMIT);
+  }
+
   function marketScorecard(input) {
     const source = input || {};
     const rankGroup = (symbols, barsMap) =>
@@ -6579,12 +6743,22 @@ plot Sell = close crosses below baseline;</textarea>
         index: row.index || "",
       }))
       .sort((left, right) => Number(!!right.edgeFire) - Number(!!left.edgeFire) || right.score - left.score || left.symbol.localeCompare(right.symbol));
-    const day = dayBias(source.internals, indexes);
+    const barsMap = source.bars || {};
+    const spyBars = source.spyBars || barsMap.SPY || barsMap.QQQ || [];
+    const tide = tideRead({ indexes, sectors, spyBars });
+    let day = dayBias(source.internals, indexes);
+    if (tide.on) {
+      day = {
+        bias: "Stay flat · Tide Alert",
+        why: tide.why,
+      };
+    }
     return {
       ready: indexes.length > 0 || sectors.length > 0 || aPlus.length > 0 || !!(source.internals && source.internals.ready),
       indexes,
       sectors,
       aPlus,
+      tide,
       day,
       asOf: (indexes[0] && indexes[0].asOf) || (sectors[0] && sectors[0].asOf) || "",
     };
@@ -6612,6 +6786,11 @@ plot Sell = close crosses below baseline;</textarea>
     strengthRead,
     isAPlusSqueeze,
     dayBias,
+    tideRead,
+    weeklyTideOn,
+    fadeRead,
+    bestFades,
+    FADE_FIVE_LIMIT,
     marketScorecard,
     SCORECARD_INDEXES,
     SCORECARD_SECTORS,
@@ -6758,7 +6937,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.90";
+const VERSION = "1.9.92";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -7394,8 +7573,16 @@ function fireNoteText(fires, scanning) {
   );
 }
 
+function tideBuyReason() {
+  const tide = state.tide && state.tide.result;
+  if (tide && tide.on) return "Tide Alert is on — new Edge longs wait. Review Go Long 5. Edge SELL can still exit.";
+  return "";
+}
+
 function phoneBuyReason(symbol) {
   if (breakerState().tripped) return BREAKER_STOP;
+  const tideBlock = tideBuyReason();
+  if (tideBlock) return tideBlock;
   if (!state.scanOn && !state.scanDone) return "Turn the scanner on to fill today's best.";
   if (!state.scanDone) return "The scan is still walking. Green signals come on when it finishes.";
   const day = dayBuySymbols();
@@ -8192,6 +8379,12 @@ async function fireAutoTrade() {
   if (!state.fireAuto || !state.paper || state.paper.paper !== true) return "";
   if (breakerState().tripped) return "";
   if (confirmWait) return "Waiting for your answer on the open warning.";
+  const tideHold = tideBuyReason();
+  if (tideHold) {
+    state.fireNote = "Fire 5 Auto paused: " + tideHold;
+    renderFireFive();
+    return state.fireNote;
+  }
   let fires = state.fires || [];
   if (!fires.length) {
     await refreshFireFive();
@@ -8290,7 +8483,144 @@ function renderFireFive() {
         : "Fire 5 Auto · waiting for Fire"
       : "Fire 5 Auto";
   }
+  renderTideFade();
   paintJournalCheckSync();
+}
+
+function fadeNoteText(tide, fades) {
+  const rows = fades || [];
+  if (!(tide && tide.ready)) {
+    return "Run scorecard or Refresh Tide. Tide Alert needs Sector Drain plus Weekly Tide or Index Soft on closed bars. Fail closed when the board is unread. Long-only — Go Long 5 is review only (not Fire 5).";
+  }
+  if (tide.on) {
+    return (
+      "Tide Alert on. " +
+      (tide.why || "") +
+      (rows.length
+        ? " Go Long 5: " + rows.length + " pressure name" + (rows.length === 1 ? "" : "s") + " for chart review."
+        : " Go Long 5 is quiet — no pressure names cleared the score yet.") +
+      " New Edge longs wait. Not a forecast."
+    );
+  }
+  return (tide.why || "Tide Alert off.") + " Fire 5 / Best setup can still buy when Edge 6/6 is on. Not a forecast.";
+}
+
+function renderTideFade() {
+  const line = $("tide-note");
+  const bar = $("go-long-five");
+  const tide = state.tide && state.tide.result;
+  const fades = (state.tide && state.tide.fades) || [];
+  if (line) line.textContent = state.tide && state.tide.note ? state.tide.note : fadeNoteText(tide, fades);
+  if (!bar) return;
+  const current = (state.paper && state.paper.symbol) || "";
+  const stamp =
+    "fade|" +
+    current +
+    "|" +
+    (tide && tide.on ? "on" : "off") +
+    "|" +
+    fades.map((row) => row.symbol + ":" + row.score).join(",");
+  if (sameStamp(bar, stamp)) return;
+  bar.replaceChildren();
+  fades.forEach((row) => {
+    if (!row || !row.symbol) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "go-long";
+    button.textContent = pinLabel(row.symbol) + " " + row.score;
+    button.title =
+      "Go Long score " +
+      row.score +
+      " on closed bars" +
+      (row.squeeze ? " · squeeze " + row.squeeze : "") +
+      ". Review only — this desk does not short. Not a forecast.";
+    if (row.symbol === current) {
+      button.classList.add("on");
+      button.setAttribute("aria-pressed", "true");
+    }
+    button.addEventListener("click", () => chooseSymbol(row.symbol));
+    bar.appendChild(button);
+  });
+}
+
+async function applyTideFromScorecard(result, barsMap) {
+  state.tide = state.tide || { result: null, fades: [], note: "", busy: false, at: 0 };
+  const tide = result && result.tide ? result.tide : null;
+  state.tide.result = tide;
+  if (!(tide && tide.on)) {
+    state.tide.fades = [];
+    state.tide.note = fadeNoteText(tide, []);
+    state.tide.at = Date.now();
+    renderTideFade();
+    renderBestSetup();
+    return state.tide;
+  }
+  if (state.tide.busy) return state.tide;
+  state.tide.busy = true;
+  try {
+    const pool = [];
+    const seen = new Set();
+    []
+      .concat(((result && result.aPlus) || []).map((row) => ({ symbol: row.symbol })))
+      .concat(state.leaders || [])
+      .concat(state.picks || [])
+      .concat((SQ_LISTS.sectors || []).map((symbol) => ({ symbol })))
+      .forEach((row) => {
+        const symbol = row && (row.symbol || row);
+        if (!symbol || seen.has(symbol)) return;
+        seen.add(symbol);
+        pool.push(symbol);
+      });
+    const scored = [];
+    const limit = Math.min(24, pool.length);
+    const cache = barsMap || {};
+    for (let index = 0; index < limit; index += 1) {
+      const symbol = pool[index];
+      try {
+        const entry = state.catalog.find((item) => item.symbol === symbol);
+        const bars = cache[symbol] && cache[symbol].length ? cache[symbol] : await sqDaily(symbol);
+        const crypto = phoneCrypto(symbol, entry);
+        const read = PaperFrames.fadeRead(bars, {
+          live: PaperFrames.liveBar(bars, crypto),
+          crypto,
+          vixBars: state.vixBars || [],
+        });
+        if (read && read.ready) {
+          scored.push(
+            Object.assign({ symbol }, read, {
+              rate: read.score,
+              matched: read.score,
+              seen: 1,
+              setup: "go-long",
+              edge: read.edge || "",
+              fire: false,
+            })
+          );
+        }
+      } catch (error) {
+        /* Missing quote stays out of Go Long 5. */
+      }
+    }
+    state.tide.fades = PaperFrames.bestFades(scored);
+    state.tide.note = fadeNoteText(tide, state.tide.fades);
+    state.tide.at = Date.now();
+  } finally {
+    state.tide.busy = false;
+    renderTideFade();
+    renderBestSetup();
+  }
+  return state.tide;
+}
+
+async function refreshTideFade() {
+  state.tide = state.tide || { result: null, fades: [], note: "", busy: false, at: 0 };
+  if (state.tide.busy || (state.sc && state.sc.busy)) {
+    state.tide.note = "Tide is already reading…";
+    renderTideFade();
+    return state.tide;
+  }
+  await runScorecard();
+  return state.tide;
 }
 
 function currentBook(paper) {
@@ -9873,6 +10203,14 @@ function bestSetupStatus() {
   const moodOk = !(tone && tone.score != null && tone.score >= 85);
   addGate("Not extreme greed", moodOk, tone && tone.score != null ? tone.label + " " + tone.score : "Mood waiting");
 
+  const tide = state.tide && state.tide.result;
+  const tideOk = !(tide && tide.on);
+  addGate(
+    "Tide Alert clear",
+    tideOk,
+    tide && tide.on ? "Tide Alert on — Stay flat, review Go Long 5" : tide && tide.ready ? "Tide Alert off" : "Tide unread (run scorecard)"
+  );
+
   const held = !!(state.paper && state.paper.shares > 0);
   if (held) waiting.unshift("Already in a paper long — Best setup buys wait; Edge SELL can still exit");
 
@@ -9887,11 +10225,12 @@ function bestSetupStatus() {
     scanOk &&
     quoteOk &&
     moodOk &&
+    tideOk &&
     !held;
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
-      ? "Ready · Edge 6/6 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
+      ? "Ready · Edge 6/6 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · Tide clear · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
       : "Armed · waiting: " + waiting.slice(0, 3).join("; ");
   return {
     ready,
@@ -9908,6 +10247,7 @@ function bestSetupStatus() {
     scanOk,
     quoteOk,
     moodOk,
+    tideOk,
     held,
     waiting,
     gates,
@@ -11373,6 +11713,7 @@ function renderSqueeze() {
 
 
 state.sc = { busy: false, stop: false, result: null, at: 0, error: "", progress: "" };
+state.tide = { result: null, fades: [], note: "", busy: false, at: 0 };
 
 function scorecardBiasClass(bias) {
   const text = String(bias || "").toLowerCase();
@@ -11391,21 +11732,23 @@ function renderScorecardCard() {
     bias.className = "scorecard-bias";
     bias.textContent = state.sc && state.sc.busy
       ? (state.sc.progress || "Reading scorecard…")
-      : "Press Run scorecard for rankings, A+ squeezes, and day bias.";
+      : "Press Run scorecard for rankings, A+ squeezes, Tide Alert, and day bias.";
     if (blurb) {
       blurb.textContent =
-        "Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.";
+        "Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, flags Tide Alert when sectors drain with no rotation, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.";
     }
     return;
   }
   const day = result.day;
-  bias.className = "scorecard-bias " + scorecardBiasClass(day.bias);
-  bias.textContent = "Day bias · " + day.bias;
+  const tide = result.tide;
+  bias.className = "scorecard-bias " + (tide && tide.on ? "tide" : scorecardBiasClass(day.bias));
+  bias.textContent = tide && tide.on ? "Tide Alert · on · " + day.bias : "Day bias · " + day.bias;
   if (blurb) {
     const topIndex = result.indexes && result.indexes[0] ? result.indexes[0].symbol : "—";
     const topSector = result.sectors && result.sectors[0] ? result.sectors[0].symbol : "—";
     const aPlus = (result.aPlus || []).length;
     blurb.textContent =
+      (tide && tide.on ? tide.why + " " : "") +
       day.why +
       " Leader index " +
       topIndex +
@@ -11450,6 +11793,8 @@ function renderScorecard() {
   const note = $("sc-note");
   const dayBias = $("sc-day-bias");
   const dayWhy = $("sc-day-why");
+  const tideBias = $("sc-tide-bias");
+  const tideWhy = $("sc-tide-why");
   if (dayBias) {
     if (result && result.day) {
       dayBias.className = "scorecard-bias " + scorecardBiasClass(result.day.bias);
@@ -11459,6 +11804,29 @@ function renderScorecard() {
       dayBias.className = "scorecard-bias";
       dayBias.textContent = state.sc && state.sc.busy ? "Day bias · reading…" : "Day bias · waiting";
       if (dayWhy) dayWhy.textContent = "";
+    }
+  }
+  if (tideBias) {
+    const tide = result && result.tide;
+    if (tide && tide.ready) {
+      tideBias.className = "scorecard-bias " + (tide.on ? "tide flat" : "");
+      tideBias.textContent =
+        "Tide Alert · " +
+        (tide.on ? "ON" : "off") +
+        " · Drain " +
+        (tide.drain ? "yes" : "no") +
+        " · Weekly " +
+        (tide.week && tide.week.on ? "on" : tide.week && tide.week.ready ? "off" : "—") +
+        " · Index Soft " +
+        (tide.indexSoft ? "yes" : "no");
+      if (tideWhy) tideWhy.textContent = tide.why || "";
+    } else {
+      tideBias.className = "scorecard-bias";
+      tideBias.textContent = state.sc && state.sc.busy ? "Tide Alert · reading…" : "Tide Alert · waiting";
+      if (tideWhy) {
+        tideWhy.textContent =
+          "Sector Drain (no green rotation) plus Weekly Tide or Index Soft on closed bars. Fail closed when unread. Own desk process — not a third-party signal brand.";
+      }
     }
   }
   if (result) {
@@ -11633,12 +12001,16 @@ async function runScorecard() {
     });
     scorecardPublish(box, indexes, sectors, bars, squeezes, "");
     box.progress = "";
+    box._tideBars = bars;
   } catch (error) {
     box.error = error.message || String(error);
   } finally {
     box.busy = false;
     if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
     renderScorecard();
+    const tideBars = box._tideBars || {};
+    box._tideBars = null;
+    applyTideFromScorecard(box.result, tideBars).catch(() => {});
   }
 }
 
@@ -13802,6 +14174,22 @@ if (fireAutoBtn) {
     } else {
       $("status").textContent = "Fire 5 Auto is off. Green Fire signals still show for review.";
     }
+  });
+}
+
+const tideRunBtn = $("tide-run");
+if (tideRunBtn) {
+  renderTideFade();
+  tideRunBtn.addEventListener("click", () => {
+    $("status").textContent = "Refreshing Tide Alert and Go Long 5…";
+    refreshTideFade()
+      .then(() => {
+        const tide = state.tide && state.tide.result;
+        $("status").textContent = tide && tide.on ? "Tide Alert on — Go Long 5 ready for review." : "Tide Alert off.";
+      })
+      .catch((error) => {
+        $("status").textContent = error.message || String(error);
+      });
   });
 }
 
