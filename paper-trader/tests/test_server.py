@@ -64,6 +64,27 @@ class ServerTests(unittest.TestCase):
                 return exc.code, payload, exc.headers
             return exc.code, payload
 
+    def test_breadth_endpoint_fails_closed(self) -> None:
+        from unittest.mock import patch
+
+        fake = {
+            "price": 22.1,
+            "bars": [
+                {"date": "2026-11-17", "open": 21, "high": 23, "low": 20, "close": 21.0, "volume": 0},
+                {"date": "2026-11-18", "open": 21.5, "high": 22.5, "low": 21, "close": 22.1, "volume": 0},
+            ],
+        }
+        with patch("paper_trader.breadth.quotes.fetch_frame", return_value=fake):
+            status, raw = self.open("/api/breadth")
+        self.assertEqual(status, 200)
+        payload = json.loads(raw)
+        self.assertTrue(payload["ready"])
+        self.assertTrue(payload["will_not_invent"])
+        for key in ("TICK", "ADD", "TRIN", "VOLD"):
+            self.assertIsNone(payload["values"][key])
+        self.assertEqual(payload["values"]["VIX"], 22.1)
+        self.assertIn("will not paint fake numbers", payload["note"])
+
     def test_server_is_local_and_pages_load(self) -> None:
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
         status, health, headers = self.open("/api/health", headers=True)
@@ -961,7 +982,14 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.87", script)
+        self.assertIn(b"1.9.90", script)
+        self.assertIn(b"/api/breadth", script)
+        self.assertIn(b"loadBreadth", script)
+        self.assertIn(b"will not invent", script)
+        self.assertIn(b"breadthTone", script)
+        self.assertIn(b'"VIX"', script)
+        self.assertIn(b"vixBars", script)
+        self.assertIn(b"VIX falling", script)
         self.assertIn(b"function runScorecard", script)
         self.assertIn(b"function scorecardPublish", script)
         self.assertIn(b"function bestFires", script)
@@ -983,10 +1011,12 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"studies-head", script)
         self.assertIn(b'id="chart-tools"', page)
         self.assertIn(b'id="chart-boxes"', page)
+        self.assertIn(b">VIX<", page)
         self.assertIn(b'id="study-pages"', page)
         self.assertIn(b"Second page", page)
         self.assertIn(b"paintChartBoxes", script)
         self.assertIn(b"No feed", page)
+        self.assertIn(b"will not paint fake numbers", page)
         self.assertIn(b'class="seal"', page)
         self.assertNotIn(b"LuxeTrendsetters", page)
         self.assertNotIn(b"logo.png", page)
@@ -1019,6 +1049,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Fresh quote", script)
         self.assertIn(b"TMO above", script)
         self.assertIn(b"TMO turns green", script)
+        self.assertIn(b"VIX falling (closed daily vs prior)", script)
         self.assertIn(b"CCI 50 \xc2\xb7 14 \xc2\xb7 5 into zone +100", script)
         self.assertIn(b"5 squeeze dots or in a squeeze", script)
         self.assertNotIn(b"Under the upper Bollinger band", script)
@@ -1027,7 +1058,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"dots[index] >= EDGE_DOTS || study.level[index] > 0", framesEdge)
         self.assertIn(b"cci(list, 14)", framesEdge)
         self.assertIn(b"main > tmo.os", framesEdge)
-        self.assertIn(b"Edge Fire (TMO \xc2\xb7 Squeeze \xc2\xb7 CCI)", framesEdge)
+        self.assertIn(b"Edge Fire (TMO \xc2\xb7 Squeeze \xc2\xb7 CCI \xc2\xb7 VIX)", framesEdge)
         self.assertIn(b"TMO turns green", framesEdge)
         self.assertNotIn(b"under the upper Bollinger band", framesEdge)
         frames = Path(__file__).resolve().parents[1].joinpath("web", "frames.js").read_bytes()

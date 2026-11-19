@@ -34,6 +34,8 @@ const state = {
   scanDone: false,
   scanLearn: { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 },
   stratLearn: { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 },
+  breadth: null,
+  vixBars: [],
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -89,7 +91,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.87";
+const VERSION = "1.9.90";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -712,10 +714,10 @@ function bestFires(rows) {
 function fireNoteText(fires, scanning) {
   const rows = fires || [];
   if (scanning && !rows.length) {
-    return "Scanning for Fire. When the optimized Edge gates turn Fire (TMO above −10, TMO green, squeeze, CCI 50 · 14 · 5 into +100) on a strong name, it lights green here (up to five). Tap to review, then buy if you want.";
+    return "Scanning for Fire. When Edge turns Fire (TMO · Squeeze · CCI · VIX falling on closed bars) on a strong name, it lights green here (up to five). Tap to review, then buy if you want.";
   }
   if (!rows.length) {
-    return "No Fire 5 signals right now. Waiting for Edge Fire on the TMO · Squeeze · CCI gates on a strong scan name. Paper only. Not a forecast.";
+    return "No Fire 5 signals right now. Waiting for Edge Fire on the TMO · Squeeze · CCI · VIX gates on a strong scan name. Paper only. Not a forecast.";
   }
   return (
     rows.length +
@@ -1056,7 +1058,7 @@ async function scanPhone() {
         const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(settled) : { kind: "", side: "" };
         const seen = Number(lesson && lesson.seen) || 0;
         const matched = Number(lesson && lesson.matched) || 0;
-        const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) }) : null;
+        const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] }) : null;
         const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
         scored.push({
           symbol,
@@ -1496,7 +1498,7 @@ async function refreshFireFive() {
         ? await sqDaily(symbol)
         : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
       const crypto = phoneCrypto(symbol, row);
-      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] });
       const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
       scored.push({
         symbol,
@@ -1808,7 +1810,7 @@ async function refreshJournalSells(book) {
             : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
       if (!bars || !bars.length || !PaperFrames.edge) continue;
       const crypto = phoneCrypto(symbol, row);
-      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] });
       if (timing && timing.ready && timing.call === "SELL") {
         sells.push({
           symbol,
@@ -2499,6 +2501,7 @@ const EDGE_CHECKS = [
   ["dots", "5 squeeze dots or in a squeeze"],
   ["above", "Squeeze momentum above 0"],
   ["cci", "CCI 50 · 14 · 5 into zone +100"],
+  ["vix", "VIX falling (closed daily vs prior)"],
 ];
 
 function currentPro(bars) {
@@ -2583,13 +2586,19 @@ function chartCrypto() {
   return phoneCrypto(symbol, row);
 }
 
+function edgeOptions(bars, extra) {
+  const live = PaperFrames.liveBar(bars, chartCrypto());
+  return Object.assign({ live, vixBars: state.vixBars || [] }, extra || {});
+}
+
 function currentEdge(bars) {
   if (!PaperFrames.edge) return null;
   const last = bars.length ? bars[bars.length - 1] : null;
-  const live = PaperFrames.liveBar(bars, chartCrypto());
-  const key = bars.length + ":" + live + ":" + (last ? last.date + ":" + last.open + ":" + last.close : "");
+  const opts = edgeOptions(bars);
+  const vixStamp = (state.vixBars && state.vixBars.length ? state.vixBars[state.vixBars.length - 1].date + ":" + state.vixBars[state.vixBars.length - 1].close : "novix");
+  const key = bars.length + ":" + opts.live + ":" + (last ? last.date + ":" + last.open + ":" + last.close : "") + ":" + vixStamp;
   if (state.edgeKey === key && state.edge) return state.edge;
-  state.edge = PaperFrames.edge(bars, { live });
+  state.edge = PaperFrames.edge(bars, opts);
   state.edgeKey = key;
   return state.edge;
 }
@@ -2616,7 +2625,7 @@ function edgePlan(result) {
   if (result.call === "BUY") return "Fire buy on the " + result.signalDate + " close (Edge + big4indicator). A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + stage + big4 + today;
   if (result.call === "SELL") return "Fire sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
-  return "No Fire yet. Ready at 3 checks, Aim at 4, Fire when all five turn on with big4indicator." + stage + big4 + today;
+  return "No Fire yet. Ready at 4 of 6, Aim at 5, Fire when all six turn on (incl. VIX falling) with big4indicator." + stage + big4 + today;
 }
 
 
@@ -3123,9 +3132,9 @@ function bestSetupStatus() {
   };
   const bars = seenBars();
   const edge = bars.length ? currentEdge(bars) : null;
-  const edgeOk = !!(edge && edge.ready && edge.score === 5 && edge.call === "BUY");
+  const edgeOk = !!(edge && edge.ready && edge.score === (edge.checks || 6) && edge.call === "BUY");
   addGate(
-    "Edge 5/5 BUY",
+    "Edge 6/6 BUY",
     edgeOk,
     edge && edge.ready ? "Edge " + (edge.call || "WAIT") + " · " + (edge.score == null ? "—" : edge.score + "/5") : "Edge not ready"
   );
@@ -3215,7 +3224,7 @@ function bestSetupStatus() {
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
-      ? "Ready · Edge 5/5 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
+      ? "Ready · Edge 6/6 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
       : "Armed · waiting: " + waiting.slice(0, 3).join("; ");
   return {
     ready,
@@ -3245,7 +3254,7 @@ function bestSetupStatus() {
 
 function bestBuyReason(symbol) {
   if (!(state.best && state.best.on)) return "";
-  if (state.strat.pick !== "edge") return "Best setup Auto only buys from Edge · five checks.";
+  if (state.strat.pick !== "edge") return "Best setup Auto only buys from Edge · six checks.";
   const status = bestSetupStatus();
   if (status.ready && state.paper && state.paper.symbol === symbol) return "";
   if (!status.ready) return status.waiting[0] || "Best setup filters are not all green.";
@@ -3266,7 +3275,7 @@ function renderBestSetup() {
   button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
   note.textContent = on
     ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Strictest paper buys only: Edge all five, multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, max three buys a Denver day. Still asks Yes. Not a forecast.";
+    : "Off. Strictest paper buys only: Edge all six (incl. VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, max three buys a Denver day. Still asks Yes. Not a forecast.";
   if (list) {
     list.replaceChildren();
     list.hidden = !on;
@@ -4355,7 +4364,7 @@ async function phoneSafe() {
   add(
     "No invented breadth",
     true,
-    "NYSE TICK, ADD, TRIN, and VOLD stay blank until a real feed exists. Nothing is guessed"
+    "TICK/ADD/TRIN/VOLD stay No feed (will not invent). VIX only from a real quote. No TradingView scrape"
   );
   let rules = true;
   try {
@@ -4578,7 +4587,7 @@ async function scanSqueeze() {
         const live = PaperFrames.liveBar(bars, crypto);
         const read = PaperFrames.squeezeRead(bars, { live });
         if (read.ready) {
-          const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live }) : null;
+          const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live, vixBars: state.vixBars || [] }) : null;
           const edgeFire = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
           reads[symbol] = Object.assign({}, read, {
             edgeFire,
@@ -4943,7 +4952,7 @@ async function runScorecard() {
         const parent = PaperFrames.squeezeRead(bars[indexSym]);
         return parent && parent.ready && parent.state === "ON";
       })());
-      const timing = PaperFrames.edge ? PaperFrames.edge(list, { live }) : null;
+      const timing = PaperFrames.edge ? PaperFrames.edge(list, { live, vixBars: state.vixBars || [] }) : null;
       const edgeFire = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
       const scored = PaperFrames.squeezeScore(read, { sector: sectorOn, index: indexOn, edgeFire });
       squeezes.push({
@@ -5150,7 +5159,7 @@ async function loadEdgeFrames(force) {
       next += 1;
       try {
         const bars = await fetchFrameBars(symbol, frame.id);
-        const read = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+        const read = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] });
         ef.bars[frame.id] = bars;
         const last = bars.length ? bars[bars.length - 1].close : null;
         ef.rows[frame.id] = read && read.ready
@@ -5196,7 +5205,7 @@ function renderEdgeFrames() {
     button.type = "button";
     button.className = row && row.ready ? row.call.toLowerCase() : "wait";
     button.textContent = frame.short + " " + (row ? (row.ready ? row.call : "—") : "…");
-    button.title = row ? (row.ready ? frame.label + ": Edge " + row.call + ", " + row.score + " of 5" : frame.label + ": " + row.why) : frame.label + ": reading";
+    button.title = row ? (row.ready ? frame.label + ": Edge " + row.call + ", " + row.score + " of " + (row.checks || 6) : frame.label + ": " + row.why) : frame.label + ": reading";
     button.addEventListener("click", () => {
       state.frameId = frame.id;
       renderFrames();
@@ -5209,7 +5218,7 @@ function renderEdgeFrames() {
     tr.setAttribute("role", "button");
     tr.setAttribute("aria-label", "Show " + frame.label + " in the preview");
     if (row && row.ready) {
-      addCells(tr, [frame.label, "", row.score + " of 5", row.stop != null ? formatPrice(row.stop) : "—", String(row.record.trades), row.record.trades ? Math.round(row.record.winRate * 100) + "%" : "—", { text: signedPercent(row.record.total), cls: row.record.total > 0 ? "up" : row.record.total < 0 ? "down" : "" }]);
+      addCells(tr, [frame.label, "", row.score + " of " + (row.checks || 6), row.stop != null ? formatPrice(row.stop) : "—", String(row.record.trades), row.record.trades ? Math.round(row.record.winRate * 100) + "%" : "—", { text: signedPercent(row.record.total), cls: row.record.total > 0 ? "up" : row.record.total < 0 ? "down" : "" }]);
       const pill = document.createElement("span");
       pill.className = "call-pill " + row.call.toLowerCase();
       pill.textContent = row.call;
@@ -5262,7 +5271,7 @@ function renderEdge() {
   if (sameStamp(box, stamp)) return;
   box.className = "edge " + call.toLowerCase();
   $("edge-call").textContent = call;
-  $("edge-score").textContent = result.score == null ? "—" : result.score + " of " + (result.checks || 4);
+  $("edge-score").textContent = result.score == null ? "—" : result.score + " of " + (result.checks || 6);
   const checks = $("edge-checks");
   checks.replaceChildren();
   EDGE_CHECKS.forEach(([id, name]) => {
@@ -5880,14 +5889,119 @@ function paintChipRow(node, chips) {
   });
 }
 
+function breadthTone(key, number, change) {
+  if (key === "VIX") {
+    if (!Number.isFinite(change)) return "mixed";
+    if (change < 0) return "bull";
+    if (change > 0) return "bear";
+    return "mixed";
+  }
+  if (key === "TRIN") {
+    if (number < 1) return "bull";
+    if (number > 1) return "bear";
+    return "mixed";
+  }
+  if (number > 0) return "bull";
+  if (number < 0) return "bear";
+  return "mixed";
+}
+
+function formatBreadthNumber(key, number) {
+  if (key === "VIX") return number.toFixed(2);
+  if (key === "TRIN") return number.toFixed(3);
+  if (Math.abs(number) >= 1000) return Math.round(number).toLocaleString("en-US");
+  return String(number);
+}
+
+function breadthChip(key) {
+  const values = (state.breadth && state.breadth.values) || {};
+  const changes = (state.breadth && state.breadth.changes) || {};
+  const tones = (state.breadth && state.breadth.tones) || {};
+  const raw = values[key];
+  const number = Number(raw);
+  // Fail closed: only finite real readings paint. Never invent NYSE internals or scrape TradingView.
+  if (raw == null || raw === "" || !Number.isFinite(number)) {
+    return { k: key, v: "No feed", kind: "breadth" };
+  }
+  const change = Number(changes[key]);
+  const tone = tones[key] || breadthTone(key, number, change);
+  return { k: key, v: formatBreadthNumber(key, number), kind: "breadth " + tone };
+}
+
+function emptyBreadth(note) {
+  return {
+    ready: false,
+    source: null,
+    values: { TICK: null, ADD: null, TRIN: null, VOLD: null, VIX: null },
+    changes: { TICK: null, ADD: null, TRIN: null, VOLD: null, VIX: null },
+    tones: { TICK: null, ADD: null, TRIN: null, VOLD: null, VIX: null },
+    vixBars: [],
+    note: note,
+    will_not_invent: true,
+  };
+}
+
+function applyBreadthPayload(payload) {
+  state.breadth = payload && typeof payload === "object" ? payload : emptyBreadth("Breadth feed empty. No fake numbers.");
+  const bars = state.breadth && Array.isArray(state.breadth.vixBars) ? state.breadth.vixBars : [];
+  state.vixBars = bars
+    .map((bar) => ({ date: String((bar && bar.date) || "").slice(0, 10), close: Number(bar && bar.close) }))
+    .filter((bar) => bar.date && bar.close > 0);
+  state.edgeKey = "";
+  state.edge = null;
+}
+
 function paintChartBoxes() {
-  // Honest empty boxes: free feeds do not carry NYSE breadth. Never invent numbers.
   paintChipRow($("chart-boxes"), [
-    { k: "TICK", v: "No feed", kind: "breadth" },
-    { k: "ADD", v: "No feed", kind: "breadth" },
-    { k: "TRIN", v: "No feed", kind: "breadth" },
-    { k: "VOLD", v: "No feed", kind: "breadth" },
+    breadthChip("TICK"),
+    breadthChip("ADD"),
+    breadthChip("TRIN"),
+    breadthChip("VOLD"),
+    breadthChip("VIX"),
   ]);
+}
+
+async function phoneVixBreadth() {
+  const empty = emptyBreadth(
+    "TICK/ADD/TRIN/VOLD stay No feed on phone (no invent). VIX paints and gates Edge only from a real .VIX quote."
+  );
+  if (typeof PaperLive === "undefined" || !PaperLive.gauge) return empty;
+  try {
+    const bars = await PaperLive.gauge("^VIX");
+    if (!bars || !bars.length) return empty;
+    const vixBars = bars
+      .map((bar) => ({ date: String((bar && bar.date) || "").slice(0, 10), close: Number(bar && bar.close) }))
+      .filter((bar) => bar.date && bar.close > 0);
+    if (!vixBars.length) return empty;
+    const price = vixBars[vixBars.length - 1].close;
+    let change = null;
+    if (vixBars.length >= 2) change = price - vixBars[vixBars.length - 2].close;
+    empty.values.VIX = price;
+    empty.changes.VIX = change;
+    empty.tones.VIX = breadthTone("VIX", price, change);
+    empty.vixBars = vixBars;
+    empty.ready = true;
+    empty.source = "cnbc:.VIX";
+    return empty;
+  } catch (error) {
+    return empty;
+  }
+}
+
+async function loadBreadth() {
+  if (state.offline) {
+    applyBreadthPayload(await phoneVixBreadth());
+    paintChartBoxes();
+    if (state.market) renderEdge();
+    return;
+  }
+  try {
+    applyBreadthPayload(await getJSON("/api/breadth"));
+  } catch (error) {
+    applyBreadthPayload(emptyBreadth("Breadth feed did not answer. TICK/ADD/TRIN/VOLD stay No feed — will not invent."));
+  }
+  paintChartBoxes();
+  if (state.market) renderEdge();
 }
 
 function paintDeskClear(history) {
@@ -6352,14 +6466,14 @@ async function warnDesk() {
           }
         }
         if (triggers.edge && PaperFrames.edge) {
-          const timing = PaperFrames.edge(bars, { live: false });
+          const timing = PaperFrames.edge(bars, { live: false, vixBars: state.vixBars || [] });
           if (timing && timing.ready && timing.call === "BUY") {
             speakWarning({
               symbol,
               date: timing.signalDate || closed,
               kind: "edge",
               side: "buy",
-              detail: "Buy warning. " + name + ". Edge five checks on the daily.",
+              detail: "Buy warning. " + name + ". Edge six checks on the daily.",
             });
           }
         }
@@ -6400,14 +6514,14 @@ async function warnDesk() {
       const name = pinLabel(current);
       const closed = closedDate(bars) || "";
       if (triggers.edge && PaperFrames.edge) {
-        const timing = PaperFrames.edge(bars, { live: false });
+        const timing = PaperFrames.edge(bars, { live: false, vixBars: state.vixBars || [] });
         if (timing && timing.ready && timing.call === "BUY") {
           speakWarning({
             symbol: current,
             date: timing.signalDate || closed,
             kind: "edge",
             side: "buy",
-            detail: "Buy warning. " + name + ". Edge five checks on the daily.",
+            detail: "Buy warning. " + name + ". Edge six checks on the daily.",
           });
         }
       }
@@ -7468,6 +7582,8 @@ paintChartToolBoxes([]);
 boot().then(() => {
   document.body.classList.add("ready");
   paintChartToolBoxes(state.market && state.market.history);
+  loadBreadth();
+  setInterval(loadBreadth, 60000);
   restoreDock();
   runSafe(false);
   loadInternals(false);

@@ -42,7 +42,7 @@ The desk is a wide layout on a computer: markets on the left, the daily chart in
 
 ## Edge
 
-Edge is the desk's buy and sell indicator. It matches the Open TMO · Squeeze · CCI chart stack. Edge buys at the next bar's open when five checks turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, and CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross. Squeeze scan, Fire 5, and Big 3 A+ use the same Fire gates. The starting stop is 2.5 average ranges under that open. While it holds, the stop trails 2.5 average ranges under the best close and never moves down. A close under that stop, or squeeze momentum dropping below zero, sells at the next open.
+Edge is the desk's buy and sell indicator. It matches the Open TMO · Squeeze · CCI chart stack plus a real VIX closed-bar gate. Edge buys at the next bar's open when six checks turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, and VIX falling vs its prior daily close (real ^VIX / .VIX only; fail closed if missing). Ready at 4 of 6, Aim at 5, Fire at 6. Squeeze scan, Fire 5, and Big 3 A+ use the same Fire gates. The starting stop is 2.5 average ranges under that open. While it holds, the stop trails 2.5 average ranges under the best close and never moves down. A close under that stop, or squeeze momentum dropping below zero, sells at the next open.
 
 Earlier Edge settings (5-dot first bar, momentum rising, and an upper Bollinger filter) were tested on two years of real daily bars with 10 basis points each way for the fee and slippage. On BTC, ETH, XRP, XLM, SOL, SPY, QQQ, AAPL, NVDA, MSFT, TSLA, and ES, that older Edge averaged +14.3% while buy-and-hold averaged −2.2%, and it was positive on 10 of those 12. On 20 other markets that were not used to pick the settings, it averaged +28.1% while buy-and-hold averaged +19.3%, and it was positive on 17 of those 20. About one trade in three made money, so most of the gain came from a few large wins. The worst drop averaged about 22% to 25%. That is the past on the prior rule set. The live Edge buy gates now follow TMO · Squeeze · CCI. It is not a forecast.
 
@@ -100,6 +100,27 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Will not start or install from an **Artex** folder (or other foreign-bot path), or from a temporary zip fold.
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
+
+## Edge VIX gate (1.9.90)
+
+Edge Ready · Aim · Fire is now **six** closed-bar checks. Fire needs all six:
+
+1. TMO above −10  
+2. TMO turns green  
+3. 5 squeeze dots or in a squeeze  
+4. Squeeze momentum above 0  
+5. CCI 50 · 14 · 5 into zone +100 (closed-bar cross)  
+6. **VIX falling** — latest closed daily VIX close on/before the signal bar is **strictly lower** than the prior daily VIX close (real Yahoo `^VIX` / CNBC `.VIX` only). **Fail closed** if the VIX series is missing.
+
+Ready at **4 of 6**, Aim at **5**, Fire at **6**. Same gates in Squeeze scan, Fire 5, Big 3 A+, Best setup Auto (Edge 6/6 BUY). Chart boxes still paint VIX green/red from the real quote. **TICK / ADD / TRIN / VOLD stay No feed** — will not invent; no TradingView scrape. Paper only. Live locked. Artex isolation unchanged.
+
+## Chart breadth boxes (1.9.89)
+
+Chart-top **TICK / ADD / TRIN / VOLD** stay **No feed**. **VIX** paints from a real Yahoo `^VIX` / CNBC `.VIX` quote. Superseded for Edge gating by 1.9.90.
+
+## Chart breadth boxes (1.9.88)
+
+Fail-closed `/api/breadth` for TICK/ADD/TRIN/VOLD; TradingView path rejected. Superseded for VIX paint by 1.9.89.
 
 ## Edge TMO · Squeeze · CCI buys (1.9.87)
 
@@ -287,7 +308,7 @@ Security programs watch for programs that end other programs, delete folders the
 
 **Squeeze scan tab.** Reads real daily bars for a list (starter list, sector funds and big holdings, crypto, futures, or your own) and ranks the squeezes. Points go to a squeeze that is on or just fired, more bars of built-up energy, a tight squeeze, moving averages (8, 21, 50) stacked with momentum, a clean squeeze where momentum never crossed zero, momentum building, a weekly squeeze too, and the same squeeze in a stock, its sector fund, and its index fund. Names that are not in this bot's market list are skipped and listed, never guessed. Each row opens that market.
 
-**Internals tab.** Reads the fear gauges (VIX, 9-day VIX, VXN), SPY and QQQ trend, how many of the ten sector funds sit above their 21-day average, equal weight against cap weight, small against large, offense against defense, credit (HYG against IEF), the 10-year yield, and the dollar, all from real closed daily bars, and rolls them into Supportive, Mixed, or Defensive with the reason for every point. A pill under the Trade buttons shows it everywhere. **Respect internals** (on by default) makes Auto skip new buys in stocks, ETFs, and futures while internals are Defensive. Sells are never blocked, crypto is not gated, and a gauge that does not answer is listed as not read, never guessed. NYSE TICK, ADD, TRIN, and VOLD are not included because the free feeds do not carry them. The Safe check lists internals as a health item.
+**Internals tab.** Reads the fear gauges (VIX, 9-day VIX, VXN), SPY and QQQ trend, how many of the ten sector funds sit above their 21-day average, equal weight against cap weight, small against large, offense against defense, credit (HYG against IEF), the 10-year yield, and the dollar, all from real closed daily bars, and rolls them into Supportive, Mixed, or Defensive with the reason for every point. A pill under the Trade buttons shows it everywhere. **Respect internals** (on by default) makes Auto skip new buys in stocks, ETFs, and futures while internals are Defensive. Sells are never blocked, crypto is not gated, and a gauge that does not answer is listed as not read, never guessed. NYSE TICK, ADD, TRIN, and VOLD stay No feed (see Chart breadth boxes 1.9.88). The Safe check lists internals as a health item.
 
 **Where this comes from.** All code and wording here is original. The math is general and public: Bollinger Bands, Keltner Channels, moving averages, RSI, price ranges, and opening ranges. No vendor's indicator code, scripts, scoring, text, logos, or product names were copied or used, and this project has no affiliation with any trading education company or broker. The point values in the scan are this project's own choices, not anyone else's formula.
 

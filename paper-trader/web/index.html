@@ -16,7 +16,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.87</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.90</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -100,6 +100,7 @@
           <div class="desk-clear-chip breadth"><span class="k">ADD</span><span class="v">No feed</span></div>
           <div class="desk-clear-chip breadth"><span class="k">TRIN</span><span class="v">No feed</span></div>
           <div class="desk-clear-chip breadth"><span class="k">VOLD</span><span class="v">No feed</span></div>
+          <div class="desk-clear-chip breadth"><span class="k">VIX</span><span class="v">No feed</span></div>
         </div>
         <p class="chart-tools-label desk-clear-label">Desk boxes</p>
         <div id="desk-clear" class="desk-clear" aria-label="Desk clear read">
@@ -196,7 +197,7 @@
           <div id="edge-frames" class="edge-chips" aria-label="Edge on every timeframe"></div>
           <p id="edge-frames-line" class="muted"></p>
         </div>
-        <p class="muted edge-note-line">Edge buys when five checks turn on together on closed bars, matching the Open TMO · Squeeze · CCI stack: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, and CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross. The same Fire gates drive Squeeze scan, Fire 5, and other desk scanners. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop 2.5 average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
+        <p class="muted edge-note-line">Edge buys when six checks turn on together on closed bars: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, and <strong>VIX falling</strong> on its latest closed daily bar vs the prior close (real ^VIX / .VIX only — fail closed if missing; TICK/ADD/TRIN/VOLD stay No feed and are never invented). Ready at 4 of 6, Aim at 5, Fire at 6. The same Fire gates drive Squeeze scan, Fire 5, and other desk scanners. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop 2.5 average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
       </section>
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>
@@ -369,7 +370,7 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="strat-auto">
           <label for="strat-pick">Auto follows</label>
           <select id="strat-pick">
-            <option value="edge">Edge · five checks</option>
+            <option value="edge">Edge · six checks</option>
             <option value="squeeze">Squeeze release</option>
             <option value="quad">Squeeze · TMO · big4indicator · stack · MTF</option>
             <option value="ccizoom">CCI zoom zone</option>
@@ -388,7 +389,7 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="best-setup-box">
           <button id="best-setup" type="button" class="best-setup-btn" aria-pressed="false">Best setup Auto</button>
           <ul id="best-setup-gates" class="best-setup-gates" aria-label="Best setup gates"></ul>
-          <p id="best-setup-note" class="muted">Off. Turns on only the strictest paper buys: Edge all five green, most timeframes lined up, market internals supportive, desk Squeeze · TMO · big4indicator · stack · MTF, today’s green scan list, and at most three new buys a Denver day. Still asks Yes. Not a forecast.</p>
+          <p id="best-setup-note" class="muted">Off. Turns on only the strictest paper buys: Edge all six green (incl. VIX falling), most timeframes lined up, market internals supportive, desk Squeeze · TMO · big4indicator · stack · MTF, today’s green scan list, and at most three new buys a Denver day. Still asks Yes. Not a forecast.</p>
         </div>
         <p id="strat-auto-note" class="muted">Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.</p>
         <h3>Desk triggers</h3>
@@ -523,7 +524,7 @@ plot Sell = close crosses below baseline;</textarea>
           </table>
         </div>
         <p id="int-miss" class="muted"></p>
-        <p class="muted">NYSE TICK, ADD, TRIN, and VOLD are not shown. The free quote feeds this desk uses do not carry them, and nothing here is guessed in their place — chart-top boxes stay blank until a real breadth feed exists. Sells are never blocked by internals. Crypto is not gated, because these are US market internals. Live stays locked. Paper only.</p>
+        <p class="muted">Chart boxes: <strong>TICK / ADD / TRIN / VOLD stay No feed</strong> — this desk will not paint fake numbers. Yahoo and CNBC do not carry those NYSE internals (Yahoo “TRIN” is an equity ticker, not Arms Index). TradingView’s Market Internals Pine script is not wired (no scrape; Pine cannot run here). <strong>VIX</strong> paints only from a real ^VIX / .VIX quote, green when it falls vs yesterday and red when it rises. Next path for NYSE boxes: Interactive Brokers market indicators or a paid/broker breadth entitlement. Sells are never blocked by internals. Crypto is not gated. Live stays locked. Paper only.</p>
       </div>
 
       <div class="dock-page" data-dock-page="frames">

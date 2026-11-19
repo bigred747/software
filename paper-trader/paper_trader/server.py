@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from paper_trader import __version__
+from paper_trader.breadth import snapshot as breadth_snapshot
 from paper_trader.backtest import present, run_backtest
 from paper_trader.guard import isolation_status
 from paper_trader.install import (
@@ -828,7 +829,7 @@ class Desk:
         add(
             "No invented breadth",
             True,
-            "NYSE TICK, ADD, TRIN, and VOLD stay blank until a real feed exists. Nothing is guessed",
+            "TICK/ADD/TRIN/VOLD stay No feed (will not invent). VIX only from a real quote. No TradingView scrape",
         )
         hosts = {_url_host(quotes._URL)}
         add("Quote hosts", hosts <= QUOTE_HOSTS, "Prices come from " + ", ".join(sorted(hosts)) + " only")
@@ -1385,6 +1386,9 @@ class DeskHandler(BaseHTTPRequestHandler):
         if method == "GET" and path == "/api/bars":
             symbol = query.get("symbol") or self.desk.journal.symbol
             self._json(self.desk.bars(symbol, query.get("frame") or "1D"))
+            return
+        if method == "GET" and path == "/api/breadth":
+            self._json(breadth_snapshot())
             return
         if method == "GET" and path == "/api/backtest":
             raw = {**self.desk.journal.params.to_dict(), **query, "symbol": query.get("symbol", self.desk.journal.symbol)}
