@@ -101,6 +101,15 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
+## Lane Align · Range Seat · Week Board (1.9.93)
+
+Original Paper Trader desk processes (own names/copy — not a third-party signal brand). Extends Edge / Fire 5 / Best setup / Journal — **no duplicate scanners**.
+
+- **Lane Align** — top-down index → sector → name confirmation from the Big 3 board. States: Open / Soft / Closed / Unread / Skip. Best setup Auto needs **Lane Open** (or Skip for unmapped/crypto). Fire 5 Auto allows Open or Soft; Unread/Closed fail closed. Desk box + Journal tags.
+- **Range Seat** — closed-bar ~52-week seat (High / Mid / Low). Lifts Fire 5 ranking when Seat High. Desk box + Journal tags.
+- **Week Board** — Journal strip of this Denver week’s Fire names with Lane · Seat · Tide context. Review only — not a second Fire 5 list.
+- Same Edge TMO · Squeeze · CCI · VIX gates. Tide Alert · Go Long 5 · Fire 5 · Big 3 unchanged. Paper only. Live locked. Artex isolation unchanged.
+
 ## Tide Alert · Go Long 5 (1.9.92)
 
 Original Paper Trader desk process (own names/copy — not a third-party signal brand):

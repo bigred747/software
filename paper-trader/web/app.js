@@ -91,7 +91,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.92";
+const VERSION = "1.9.93";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -697,8 +697,24 @@ function saveFireAuto(on) {
   state.fireAuto = !!on;
 }
 
+function laneRank(row) {
+  const lane = row && row.lane;
+  if (lane === "open") return 3;
+  if (lane === "soft") return 2;
+  if (lane === "skip") return 1;
+  return 0;
+}
+
+function seatRank(row) {
+  const seat = row && row.seat;
+  if (seat === "high") return 2;
+  if (seat === "mid") return 1;
+  return 0;
+}
+
 function bestFires(rows) {
   // Top Fire BUY setups from the scan: Edge Fire (Ready · Aim · Fire) on strong closed-bar scores.
+  // Lane Align open + Range Seat high lift rank; still the same Fire 5 list (no duplicate scanner).
   return (rows || [])
     .filter((row) => row && row.symbol && (row.fire === true || row.edge === "BUY") && row.seen >= 20 && row.rate >= 60)
     .sort((a, b) => {
@@ -706,7 +722,15 @@ function bestFires(rows) {
       const bPlus = b.setup === "buy" ? 1 : 0;
       const aBull = a.big4 === "bull" ? 1 : 0;
       const bBull = b.big4 === "bull" ? 1 : 0;
-      return b.rate - a.rate || bPlus - aPlus || bBull - aBull || b.seen - a.seen || a.symbol.localeCompare(b.symbol);
+      return (
+        laneRank(b) - laneRank(a) ||
+        seatRank(b) - seatRank(a) ||
+        b.rate - a.rate ||
+        bPlus - aPlus ||
+        bBull - aBull ||
+        b.seen - a.seen ||
+        a.symbol.localeCompare(b.symbol)
+      );
     })
     .slice(0, FIRE_FIVE_LIMIT);
 }
@@ -733,10 +757,49 @@ function tideBuyReason() {
   return "";
 }
 
+function scorecardBoards() {
+  const result = state.sc && state.sc.result;
+  return {
+    sectors: (result && result.sectors) || [],
+    indexes: (result && result.indexes) || [],
+  };
+}
+
+function readLaneAlign(symbol, bars) {
+  if (!symbol || typeof PaperFrames === "undefined" || !PaperFrames.laneAlign) {
+    return { ready: false, lane: "unread", why: "Lane Align unread.", sector: "", index: "", seat: null, symbol: symbol || "" };
+  }
+  const sector = SQ_SECTOR[symbol] || "";
+  const indexSym = sqIndexOf(symbol);
+  const boards = scorecardBoards();
+  const seat = bars && bars.length && PaperFrames.rangeSeat ? PaperFrames.rangeSeat(bars) : null;
+  return PaperFrames.laneAlign({
+    symbol,
+    sector,
+    index: indexSym,
+    sectors: boards.sectors,
+    indexes: boards.indexes,
+    seat,
+  });
+}
+
+function laneBuyReason(symbol, mode) {
+  const tide = state.tide && state.tide.result;
+  if (tide && tide.on) return "";
+  const lane = readLaneAlign(symbol, symbol === (state.paper && state.paper.symbol) ? seenBars() : null);
+  if (PaperFrames.laneAllowsAuto(lane.lane, mode || "fire")) return "";
+  if (lane.lane === "unread") return lane.why || "Lane Align unread — run scorecard. Fail closed.";
+  if (lane.lane === "closed") return lane.why || "Lane Align closed — Auto waits for the lead lane.";
+  if (lane.lane === "soft" && mode === "best") return "Lane Align soft — Best setup waits for Lane Open.";
+  return lane.why || "Lane Align not open.";
+}
+
 function phoneBuyReason(symbol) {
   if (breakerState().tripped) return BREAKER_STOP;
   const tideBlock = tideBuyReason();
   if (tideBlock) return tideBlock;
+  const laneBlock = laneBuyReason(symbol, state.best && state.best.on ? "best" : "fire");
+  if (laneBlock) return laneBlock;
   if (!state.scanOn && !state.scanDone) return "Turn the scanner on to fill today's best.";
   if (!state.scanDone) return "The scan is still walking. Green signals come on when it finishes.";
   const day = dayBuySymbols();
@@ -1508,6 +1571,8 @@ async function refreshFireFive() {
       const crypto = phoneCrypto(symbol, row);
       const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] });
       const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
+      const seat = PaperFrames.rangeSeat ? PaperFrames.rangeSeat(bars) : null;
+      const lane = readLaneAlign(symbol, bars);
       scored.push({
         symbol,
         seen: Number(base.seen) || 0,
@@ -1518,12 +1583,18 @@ async function refreshFireFive() {
         fire: fireOn,
         stage: timing && timing.stage ? timing.stage : "",
         big4: timing && timing.big4 && timing.big4.bias ? timing.big4.bias : "",
+        lane: lane.lane || "",
+        laneWhy: lane.why || "",
+        seat: seat && seat.seat ? seat.seat : "",
+        seatPct: seat && seat.pct != null ? seat.pct : null,
+        seatLabel: seat && seat.label ? seat.label : "",
       });
     } catch (error) {
       scored.push(Object.assign({}, base, { fire: false }));
     }
   }
   state.fires = bestFires(scored);
+  state.fires.forEach((row) => rememberWeekBoard(row));
   state.fireNote = fireNoteText(state.fires, !state.scanDone);
   renderFireFive();
   return state.fires;
@@ -1550,10 +1621,17 @@ async function fireAutoTrade() {
     return state.fireNote;
   }
   const open = state.paper.symbol;
-  let row = fires.find((item) => item.symbol === open);
+  const laneOkFire = (item) => !laneBuyReason(item.symbol, "fire");
+  let row = fires.find((item) => item.symbol === open && laneOkFire(item));
   if (!row) {
-    const next = fires[state.fireCursor % fires.length];
-    state.fireCursor = (state.fireCursor + 1) % fires.length;
+    const pool = fires.filter(laneOkFire);
+    if (!pool.length) {
+      state.fireNote = "Fire 5 Auto paused: Lane Align not open on green names. Run scorecard or wait for Lane Open.";
+      renderFireFive();
+      return state.fireNote;
+    }
+    const next = pool[state.fireCursor % pool.length];
+    state.fireCursor = (state.fireCursor + 1) % pool.length;
     if (next && next.symbol) {
       await chooseSymbol(next.symbol);
       return "Fire 5 Auto opened " + next.symbol + " for review.";
@@ -1811,12 +1889,17 @@ function journalBuyRows(book) {
       if (held.has(row.symbol)) status = "held";
       else if (bought.has(row.symbol) || filled.has(row.symbol)) status = "bought";
       else if (fire) status = "fire";
+      const lane = row.lane ? row : Object.assign({}, row, readLaneAlign(row.symbol, null));
       rows.push(
         Object.assign({}, row, {
           edge: row.edge || (fire ? "BUY" : row.edge),
           setup: row.setup || (fire ? "buy" : row.setup),
           fire,
           journalStatus: status,
+          lane: row.lane || lane.lane || "",
+          laneWhy: row.laneWhy || lane.why || "",
+          seat: row.seat || (lane.seat && lane.seat.seat) || "",
+          seatLabel: row.seatLabel || (lane.seat && lane.seat.label) || "",
         })
       );
     });
@@ -1867,11 +1950,16 @@ function paintJournalPins(bar, rows, mode) {
     } else {
       const status = row.journalStatus || "best";
       const tag = status === "fire" ? " · FIRE" : status === "held" ? " · held" : status === "bought" ? " · bought" : " · best";
-      button.textContent = label + (row.rate != null ? " " + row.rate + "%" : "") + tag;
+      const laneTag =
+        row.lane === "open" ? " · Lane Open" : row.lane === "soft" ? " · Lane Soft" : row.lane === "closed" ? " · Lane Closed" : "";
+      const seatTag = row.seatLabel ? " · " + row.seatLabel : row.seat === "high" ? " · Seat High" : "";
+      button.textContent = label + (row.rate != null ? " " + row.rate + "%" : "") + tag + laneTag + seatTag;
       if (status === "fire" || status === "best") button.classList.add("go");
       else button.classList.add("done");
       button.title =
         (status === "fire" ? "Fire buy signal. " : status === "best" ? "Today's best buy candidate. " : status === "held" ? "Already in a paper long. " : "Already bought today. ") +
+        (row.laneWhy ? row.laneWhy + " " : "") +
+        (row.seatLabel ? row.seatLabel + ". " : "") +
         "Tap to review the chart. Auto asks Yes before any paper buy. Not a forecast.";
     }
     if (row.symbol === current) {
@@ -1914,10 +2002,138 @@ function journalCheckNoteText(book) {
   return parts.join(" · ") + ". Tap a product name to open the chart. Paper Yes still required. Not a forecast.";
 }
 
+const WEEK_BOARD_KEY = "paperTraderWeekBoard";
+
+function denverWeekKey(when) {
+  const stamp = when || new Date();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Denver",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).formatToParts(stamp);
+  const pick = (type) => (parts.find((part) => part.type === type) || {}).value || "";
+  const year = Number(pick("year"));
+  const month = Number(pick("month"));
+  const day = Number(pick("day"));
+  const weekday = pick("weekday");
+  const utc = Date.UTC(year, month - 1, day);
+  const dow = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[weekday];
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(utc + mondayOffset * 86400000);
+  const iso = monday.toISOString().slice(0, 10);
+  return iso;
+}
+
+function loadWeekBoard() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(WEEK_BOARD_KEY) || "{}");
+    if (!raw || raw.week !== denverWeekKey()) return { week: denverWeekKey(), rows: [] };
+    return { week: raw.week, rows: Array.isArray(raw.rows) ? raw.rows : [] };
+  } catch (error) {
+    return { week: denverWeekKey(), rows: [] };
+  }
+}
+
+function saveWeekBoard(board) {
+  try {
+    localStorage.setItem(WEEK_BOARD_KEY, JSON.stringify(board));
+  } catch (error) {
+    /* Week Board still holds for this page. */
+  }
+  state.weekBoard = board;
+}
+
+function rememberWeekBoard(row) {
+  if (!(row && row.symbol && (row.fire || row.edge === "BUY"))) return;
+  const board = loadWeekBoard();
+  const next = {
+    symbol: row.symbol,
+    lane: row.lane || "",
+    seat: row.seat || "",
+    seatLabel: row.seatLabel || "",
+    rate: row.rate != null ? row.rate : null,
+    at: denverDay(),
+  };
+  const rows = board.rows.filter((item) => item && item.symbol !== row.symbol);
+  rows.unshift(next);
+  board.rows = rows.slice(0, 12);
+  board.week = denverWeekKey();
+  saveWeekBoard(board);
+}
+
+function weekBoardNoteText(board) {
+  const tide = state.tide && state.tide.result;
+  const tideBit =
+    tide && tide.on ? "Tide Alert on" : tide && tide.ready ? "Tide Alert off" : "Tide unread";
+  const rows = (board && board.rows) || [];
+  if (!rows.length) {
+    return tideBit + ". Week Board is empty until Fire 5 lights a name this Denver week. Review only — not a second Fire list.";
+  }
+  return (
+    tideBit +
+    " · " +
+    rows.length +
+    " Fire name" +
+    (rows.length === 1 ? "" : "s") +
+    " on the Week Board. Lane Align · Range Seat tags stay with each pin. Not a forecast."
+  );
+}
+
+function renderWeekBoard() {
+  const bar = $("week-board");
+  const note = $("week-board-note");
+  const board = state.weekBoard && state.weekBoard.week === denverWeekKey() ? state.weekBoard : loadWeekBoard();
+  state.weekBoard = board;
+  if (note) note.textContent = weekBoardNoteText(board);
+  if (!bar) return;
+  const current = (state.paper && state.paper.symbol) || "";
+  const rows = board.rows || [];
+  const stamp =
+    "week|" +
+    current +
+    "|" +
+    (board.week || "") +
+    "|" +
+    rows.map((row) => row.symbol + ":" + (row.lane || "") + ":" + (row.seat || "")).join(",");
+  if (sameStamp(bar, stamp)) return;
+  bar.replaceChildren();
+  if (!rows.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "No Fire names yet this Denver week.";
+    bar.appendChild(empty);
+    return;
+  }
+  rows.forEach((row) => {
+    if (!row || !row.symbol) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    const laneTag = row.lane === "open" ? " · Lane Open" : row.lane === "soft" ? " · Lane Soft" : row.lane === "closed" ? " · Lane Closed" : "";
+    const seatTag = row.seatLabel ? " · " + row.seatLabel : row.seat === "high" ? " · Seat High" : "";
+    button.textContent = pinLabel(row.symbol) + (row.rate != null ? " " + row.rate + "%" : "") + laneTag + seatTag;
+    button.className = row.lane === "open" || row.seat === "high" ? "go" : "";
+    button.title =
+      "Week Board review for " +
+      row.symbol +
+      (row.lane ? " · Lane " + row.lane : "") +
+      (row.seatLabel ? " · " + row.seatLabel : "") +
+      ". Not a second Fire 5 list. Not a forecast.";
+    if (row.symbol === current) {
+      button.classList.add("on");
+      button.setAttribute("aria-pressed", "true");
+    }
+    button.addEventListener("click", () => chooseSymbol(row.symbol));
+    bar.appendChild(button);
+  });
+}
+
 function paintJournalCheckSync(paper) {
   const book = currentBook(paper || state.paper);
   const note = $("journal-check-note");
   if (note) note.textContent = journalCheckNoteText(book);
+  renderWeekBoard();
   renderJournalBuys(book);
   renderJournalSells();
   renderJournalFilled(book);
@@ -3287,7 +3503,9 @@ function bestSetupStatus() {
   addGate(
     "Edge 6/6 BUY",
     edgeOk,
-    edge && edge.ready ? "Edge " + (edge.call || "WAIT") + " · " + (edge.score == null ? "—" : edge.score + "/5") : "Edge not ready"
+    edge && edge.ready
+      ? "Edge " + (edge.call || "WAIT") + " · " + (edge.score == null ? "—" : edge.score + "/" + (PaperFrames.EDGE_SCORE || 6))
+      : "Edge not ready"
   );
 
   const frames = edgeFramesSummary();
@@ -3365,6 +3583,16 @@ function bestSetupStatus() {
     tide && tide.on ? "Tide Alert on — Stay flat, review Go Long 5" : tide && tide.ready ? "Tide Alert off" : "Tide unread (run scorecard)"
   );
 
+  const lane = symbol ? readLaneAlign(symbol, bars) : { lane: "unread", why: "Open a market for Lane Align", ready: false };
+  const laneOk = !!(lane && PaperFrames.laneAllowsAuto(lane.lane, "best"));
+  addGate(
+    "Lane Align",
+    laneOk,
+    lane && lane.why
+      ? lane.why
+      : "Lane Align unread — run scorecard"
+  );
+
   const held = !!(state.paper && state.paper.shares > 0);
   if (held) waiting.unshift("Already in a paper long — Best setup buys wait; Edge SELL can still exit");
 
@@ -3380,11 +3608,12 @@ function bestSetupStatus() {
     quoteOk &&
     moodOk &&
     tideOk &&
+    laneOk &&
     !held;
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
-      ? "Ready · Edge 6/6 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · Tide clear · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
+      ? "Ready · Edge 6/6 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · Tide clear · Lane Open · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
       : "Armed · waiting: " + waiting.slice(0, 3).join("; ");
   return {
     ready,
@@ -3402,6 +3631,7 @@ function bestSetupStatus() {
     quoteOk,
     moodOk,
     tideOk,
+    laneOk,
     held,
     waiting,
     gates,
@@ -3436,7 +3666,7 @@ function renderBestSetup() {
   button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
   note.textContent = on
     ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Strictest paper buys only: Edge all six (incl. VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, max three buys a Denver day. Still asks Yes. Not a forecast.";
+    : "Off. Strictest paper buys only: Edge all six (incl. VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Still asks Yes. Not a forecast.";
   if (list) {
     list.replaceChildren();
     list.hidden = !on;
@@ -6201,6 +6431,30 @@ function paintDeskClear(history) {
   const node = $("desk-clear");
   if (!node) return;
   const read = typeof PaperFrames !== "undefined" && PaperFrames.deskClearRead ? PaperFrames.deskClearRead(history || []) : null;
+  const symbol = (state.paper && state.paper.symbol) || "";
+  const lane = symbol ? readLaneAlign(symbol, history || seenBars()) : null;
+  const seat =
+    history && history.length && typeof PaperFrames !== "undefined" && PaperFrames.rangeSeat
+      ? PaperFrames.rangeSeat(history)
+      : lane && lane.seat
+        ? lane.seat
+        : null;
+  const laneLabel =
+    !lane
+      ? "—"
+      : lane.lane === "open"
+        ? "Open"
+        : lane.lane === "soft"
+          ? "Soft"
+          : lane.lane === "closed"
+            ? "Closed"
+            : lane.lane === "skip"
+              ? "Skip"
+              : "Unread";
+  const laneKind =
+    lane && lane.lane === "open" ? "bull" : lane && lane.lane === "closed" ? "bear" : lane && lane.lane === "soft" ? "mixed" : "stage";
+  const seatLabel = seat && seat.label ? seat.label.replace("Seat ", "") : seat && seat.seat ? seat.seat : "—";
+  const seatKind = seat && seat.seat === "high" ? "bull" : seat && seat.seat === "low" ? "bear" : "mixed";
   // Always paint the desk boxes so phone users can see them; values stay "—" until bars are ready.
   const chips = read
     ? [
@@ -6210,6 +6464,8 @@ function paintDeskClear(history) {
         { k: "big4indicator", v: read.bias, kind: read.bias === "Bullish" ? "bull" : read.bias === "Bearish" ? "bear" : "mixed" },
         { k: "Bol %B 20", v: read.pctB == null ? "—" : read.pctB.toFixed(1), kind: "" },
         { k: "Stage", v: read.stage, kind: "stage" },
+        { k: "Lane Align", v: laneLabel, kind: laneKind },
+        { k: "Range Seat", v: seatLabel, kind: seatKind },
       ]
     : [
         { k: "VWAP D", v: "—", kind: "vwap" },
@@ -6218,6 +6474,8 @@ function paintDeskClear(history) {
         { k: "big4indicator", v: "Waiting", kind: "mixed" },
         { k: "Bol %B 20", v: "—", kind: "" },
         { k: "Stage", v: "Waiting", kind: "stage" },
+        { k: "Lane Align", v: laneLabel, kind: laneKind },
+        { k: "Range Seat", v: seatLabel, kind: seatKind },
       ];
   paintChipRow(node, chips);
 }
