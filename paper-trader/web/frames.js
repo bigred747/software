@@ -2920,6 +2920,144 @@
     };
   }
 
+  // Tide Alert · Fade 5 — original Paper Trader desk process (closed bars only).
+  // Detects broad risk-exit (no sector rotation) + weekly index soft squeeze.
+  // Fade 5 ranks pressure names for review. Long-only desk: no short fills.
+  // Own names/copy — not a third-party product, catchphrase, or indicator brand.
+  const TIDE_SECTOR_MIN = 6;
+  const TIDE_INDEX_MIN = 3;
+  const TIDE_GREEN_SCORE = 55;
+  const FADE_FIVE_LIMIT = 5;
+
+  function weeklyTideOn(dailyBars) {
+    const list = closedBars(dailyBars || [], false);
+    if (list.length < 120) return { ready: false, on: false, why: "Need more daily bars for weekly Tide." };
+    const weeks = barsFor(list, frameById("1W"));
+    if (!weeks || weeks.length < 30) return { ready: false, on: false, why: "Weekly bars not ready." };
+    const read = squeezeRead(weeks, { live: false });
+    if (!read || !read.ready) return { ready: false, on: false, why: "Weekly squeeze unread — Tide fails closed." };
+    const closes = weeks.map((bar) => bar.close);
+    const e21 = ema(closes, 21);
+    const last21 = e21[e21.length - 1];
+    const close = closes[closes.length - 1];
+    const soft =
+      read.direction === "bear" ||
+      (read.momentum != null && read.momentum < 0) ||
+      (last21 > 0 && close < last21);
+    const compressed = read.state === "ON" || read.state === "FIRED" || read.dots >= 5 || (read.level || 0) >= 1;
+    const on = !!(compressed && soft);
+    return {
+      ready: true,
+      on,
+      state: read.state,
+      dots: read.dots,
+      level: read.level,
+      direction: read.direction,
+      momentum: read.momentum,
+      why: on
+        ? "Weekly Tide on: compression with soft structure on closed weekly bars."
+        : compressed
+          ? "Weekly compression present but structure not soft."
+          : "No weekly compression on closed bars.",
+    };
+  }
+
+  function tideRead(input) {
+    const source = input || {};
+    const indexes = source.indexes || [];
+    const sectors = source.sectors || [];
+    const greenSectors = sectors.filter((row) => row && row.stacked && row.score >= TIDE_GREEN_SCORE);
+    const sectorReady = sectors.length >= TIDE_SECTOR_MIN;
+    const drain = sectorReady && greenSectors.length === 0;
+    const softIndexes = indexes.filter((row) => row && (!row.stacked || row.score < 50));
+    const indexReady = indexes.length >= TIDE_INDEX_MIN;
+    const indexSoft = indexReady && softIndexes.length >= Math.ceil(indexes.length / 2);
+    const week = weeklyTideOn(source.spyBars || source.bars || []);
+    // Fail closed: missing sector board or unread weekly keeps Tide off.
+    const on = !!(drain && (week.on || indexSoft) && sectorReady && (week.ready || indexReady));
+    let why;
+    if (!sectorReady) why = "Sector board not ready (" + sectors.length + " of " + TIDE_SECTOR_MIN + ") — Tide fails closed.";
+    else if (!drain) why = greenSectors.length + " sector" + (greenSectors.length === 1 ? "" : "s") + " still green — rotation possible, Tide off.";
+    else if (!week.ready && !indexReady) why = "Weekly Tide and index board unread — Tide fails closed.";
+    else if (on) {
+      why =
+        "Tide Alert on: Sector Drain (0 green of " +
+        sectors.length +
+        ")" +
+        (week.on ? " · Weekly Tide" : "") +
+        (indexSoft ? " · Index Soft " + softIndexes.length + "/" + indexes.length : "") +
+        ". Prefer Stay flat; review Fade 5. No new Edge longs.";
+    } else why = "Sector Drain on, but Weekly Tide and Index Soft are both off.";
+    return {
+      ready: sectorReady && (week.ready || indexReady),
+      on,
+      drain,
+      indexSoft,
+      week,
+      greenSectors: greenSectors.length,
+      sectorCount: sectors.length,
+      softIndexes: softIndexes.length,
+      indexCount: indexes.length,
+      bias: on ? "Stay flat · Tide Alert" : "",
+      why,
+    };
+  }
+
+  function fadeRead(bars, options) {
+    const opts = options || {};
+    const list = closedBars(bars || [], !!(opts.crypto), opts.now);
+    if (list.length < 50) return null;
+    const closes = list.map((bar) => bar.close);
+    const close = closes[closes.length - 1];
+    const e21 = ema(closes, 21);
+    const e50 = ema(closes, 50);
+    const last21 = e21[e21.length - 1];
+    const last50 = e50[e50.length - 1];
+    if (!(last21 > 0) || !(last50 > 0)) return null;
+    const prior = closes[Math.max(0, closes.length - 6)];
+    const ret5 = prior > 0 ? close / prior - 1 : 0;
+    const sq = squeezeRead(list, { live: !!opts.live });
+    const timing = edge(list, { live: !!opts.live, vixBars: opts.vixBars || [] });
+    const edgeFire = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
+    let score = 0;
+    const parts = [];
+    const add = (label, points) => {
+      if (!(points > 0)) return;
+      score += points;
+      parts.push([label, points]);
+    };
+    if (close < last21) add("Under 21 EMA", 20);
+    if (close < last50) add("Under 50 EMA", 20);
+    if (last21 < last50) add("21 under 50", 10);
+    if (ret5 < 0) add("5d soft", Math.min(20, Math.round(Math.abs(ret5) * 400)));
+    if (sq && sq.ready && (sq.state === "ON" || sq.dots >= 5 || (sq.level || 0) >= 1)) add("Squeeze compress", 15);
+    if (sq && sq.ready && sq.momentum != null && sq.momentum <= 0) add("Mom ≤ 0", 15);
+    if (sq && sq.ready && sq.direction === "bear") add("Bear squeeze", 10);
+    if (sq && sq.ready && !sq.rising && sq.momentum != null && sq.momentum > 0) add("Mom fading", 5);
+    if (edgeFire) score = Math.max(0, score - 40);
+    const ready = score >= 45 && !edgeFire && (close < last21 || ret5 < 0);
+    return {
+      ready,
+      score: Math.min(100, score),
+      parts,
+      ret5,
+      under21: close < last21,
+      under50: close < last50,
+      squeeze: sq && sq.ready ? sq.state : "—",
+      dots: sq && sq.ready ? sq.dots : 0,
+      edgeFire,
+      edge: timing && timing.ready ? timing.call : "",
+      asOf: list[list.length - 1].date,
+    };
+  }
+
+  function bestFades(rows) {
+    return (rows || [])
+      .filter((row) => row && row.symbol && row.ready && row.score >= 45 && !row.edgeFire)
+      .sort((a, b) => b.score - a.score || a.symbol.localeCompare(b.symbol))
+      .slice(0, FADE_FIVE_LIMIT);
+  }
+
   function marketScorecard(input) {
     const source = input || {};
     const rankGroup = (symbols, barsMap) =>
@@ -2947,12 +3085,22 @@
         index: row.index || "",
       }))
       .sort((left, right) => Number(!!right.edgeFire) - Number(!!left.edgeFire) || right.score - left.score || left.symbol.localeCompare(right.symbol));
-    const day = dayBias(source.internals, indexes);
+    const barsMap = source.bars || {};
+    const spyBars = source.spyBars || barsMap.SPY || barsMap.QQQ || [];
+    const tide = tideRead({ indexes, sectors, spyBars });
+    let day = dayBias(source.internals, indexes);
+    if (tide.on) {
+      day = {
+        bias: "Stay flat · Tide Alert",
+        why: tide.why,
+      };
+    }
     return {
       ready: indexes.length > 0 || sectors.length > 0 || aPlus.length > 0 || !!(source.internals && source.internals.ready),
       indexes,
       sectors,
       aPlus,
+      tide,
       day,
       asOf: (indexes[0] && indexes[0].asOf) || (sectors[0] && sectors[0].asOf) || "",
     };
@@ -2980,6 +3128,11 @@
     strengthRead,
     isAPlusSqueeze,
     dayBias,
+    tideRead,
+    weeklyTideOn,
+    fadeRead,
+    bestFades,
+    FADE_FIVE_LIMIT,
     marketScorecard,
     SCORECARD_INDEXES,
     SCORECARD_SECTORS,

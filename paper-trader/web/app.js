@@ -91,7 +91,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.90";
+const VERSION = "1.9.91";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -727,8 +727,16 @@ function fireNoteText(fires, scanning) {
   );
 }
 
+function tideBuyReason() {
+  const tide = state.tide && state.tide.result;
+  if (tide && tide.on) return "Tide Alert is on — new Edge longs wait. Review Fade 5. Edge SELL can still exit.";
+  return "";
+}
+
 function phoneBuyReason(symbol) {
   if (breakerState().tripped) return BREAKER_STOP;
+  const tideBlock = tideBuyReason();
+  if (tideBlock) return tideBlock;
   if (!state.scanOn && !state.scanDone) return "Turn the scanner on to fill today's best.";
   if (!state.scanDone) return "The scan is still walking. Green signals come on when it finishes.";
   const day = dayBuySymbols();
@@ -1525,6 +1533,12 @@ async function fireAutoTrade() {
   if (!state.fireAuto || !state.paper || state.paper.paper !== true) return "";
   if (breakerState().tripped) return "";
   if (confirmWait) return "Waiting for your answer on the open warning.";
+  const tideHold = tideBuyReason();
+  if (tideHold) {
+    state.fireNote = "Fire 5 Auto paused: " + tideHold;
+    renderFireFive();
+    return state.fireNote;
+  }
   let fires = state.fires || [];
   if (!fires.length) {
     await refreshFireFive();
@@ -1623,7 +1637,144 @@ function renderFireFive() {
         : "Fire 5 Auto · waiting for Fire"
       : "Fire 5 Auto";
   }
+  renderTideFade();
   paintJournalCheckSync();
+}
+
+function fadeNoteText(tide, fades) {
+  const rows = fades || [];
+  if (!(tide && tide.ready)) {
+    return "Run scorecard or Refresh Tide. Tide Alert needs Sector Drain plus Weekly Tide or Index Soft on closed bars. Fail closed when the board is unread. Long-only — Fade 5 is review only.";
+  }
+  if (tide.on) {
+    return (
+      "Tide Alert on. " +
+      (tide.why || "") +
+      (rows.length
+        ? " Fade 5: " + rows.length + " pressure name" + (rows.length === 1 ? "" : "s") + " for chart review."
+        : " Fade 5 is quiet — no pressure names cleared the fade score yet.") +
+      " New Edge longs wait. Not a forecast."
+    );
+  }
+  return (tide.why || "Tide Alert off.") + " Fire 5 / Best setup can still buy when Edge 6/6 is on. Not a forecast.";
+}
+
+function renderTideFade() {
+  const line = $("tide-note");
+  const bar = $("fade-five");
+  const tide = state.tide && state.tide.result;
+  const fades = (state.tide && state.tide.fades) || [];
+  if (line) line.textContent = state.tide && state.tide.note ? state.tide.note : fadeNoteText(tide, fades);
+  if (!bar) return;
+  const current = (state.paper && state.paper.symbol) || "";
+  const stamp =
+    "fade|" +
+    current +
+    "|" +
+    (tide && tide.on ? "on" : "off") +
+    "|" +
+    fades.map((row) => row.symbol + ":" + row.score).join(",");
+  if (sameStamp(bar, stamp)) return;
+  bar.replaceChildren();
+  fades.forEach((row) => {
+    if (!row || !row.symbol) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "fade";
+    button.textContent = pinLabel(row.symbol) + " " + row.score;
+    button.title =
+      "Fade score " +
+      row.score +
+      " on closed bars" +
+      (row.squeeze ? " · squeeze " + row.squeeze : "") +
+      ". Review only — this desk does not short. Not a forecast.";
+    if (row.symbol === current) {
+      button.classList.add("on");
+      button.setAttribute("aria-pressed", "true");
+    }
+    button.addEventListener("click", () => chooseSymbol(row.symbol));
+    bar.appendChild(button);
+  });
+}
+
+async function applyTideFromScorecard(result, barsMap) {
+  state.tide = state.tide || { result: null, fades: [], note: "", busy: false, at: 0 };
+  const tide = result && result.tide ? result.tide : null;
+  state.tide.result = tide;
+  if (!(tide && tide.on)) {
+    state.tide.fades = [];
+    state.tide.note = fadeNoteText(tide, []);
+    state.tide.at = Date.now();
+    renderTideFade();
+    renderBestSetup();
+    return state.tide;
+  }
+  if (state.tide.busy) return state.tide;
+  state.tide.busy = true;
+  try {
+    const pool = [];
+    const seen = new Set();
+    []
+      .concat(((result && result.aPlus) || []).map((row) => ({ symbol: row.symbol })))
+      .concat(state.leaders || [])
+      .concat(state.picks || [])
+      .concat((SQ_LISTS.sectors || []).map((symbol) => ({ symbol })))
+      .forEach((row) => {
+        const symbol = row && (row.symbol || row);
+        if (!symbol || seen.has(symbol)) return;
+        seen.add(symbol);
+        pool.push(symbol);
+      });
+    const scored = [];
+    const limit = Math.min(24, pool.length);
+    const cache = barsMap || {};
+    for (let index = 0; index < limit; index += 1) {
+      const symbol = pool[index];
+      try {
+        const entry = state.catalog.find((item) => item.symbol === symbol);
+        const bars = cache[symbol] && cache[symbol].length ? cache[symbol] : await sqDaily(symbol);
+        const crypto = phoneCrypto(symbol, entry);
+        const read = PaperFrames.fadeRead(bars, {
+          live: PaperFrames.liveBar(bars, crypto),
+          crypto,
+          vixBars: state.vixBars || [],
+        });
+        if (read && read.ready) {
+          scored.push(
+            Object.assign({ symbol }, read, {
+              rate: read.score,
+              matched: read.score,
+              seen: 1,
+              setup: "fade",
+              edge: read.edge || "",
+              fire: false,
+            })
+          );
+        }
+      } catch (error) {
+        /* Missing quote stays out of Fade 5. */
+      }
+    }
+    state.tide.fades = PaperFrames.bestFades(scored);
+    state.tide.note = fadeNoteText(tide, state.tide.fades);
+    state.tide.at = Date.now();
+  } finally {
+    state.tide.busy = false;
+    renderTideFade();
+    renderBestSetup();
+  }
+  return state.tide;
+}
+
+async function refreshTideFade() {
+  state.tide = state.tide || { result: null, fades: [], note: "", busy: false, at: 0 };
+  if (state.tide.busy || (state.sc && state.sc.busy)) {
+    state.tide.note = "Tide is already reading…";
+    renderTideFade();
+    return state.tide;
+  }
+  await runScorecard();
+  return state.tide;
 }
 
 function currentBook(paper) {
@@ -3206,6 +3357,14 @@ function bestSetupStatus() {
   const moodOk = !(tone && tone.score != null && tone.score >= 85);
   addGate("Not extreme greed", moodOk, tone && tone.score != null ? tone.label + " " + tone.score : "Mood waiting");
 
+  const tide = state.tide && state.tide.result;
+  const tideOk = !(tide && tide.on);
+  addGate(
+    "Tide Alert clear",
+    tideOk,
+    tide && tide.on ? "Tide Alert on — Stay flat, review Fade 5" : tide && tide.ready ? "Tide Alert off" : "Tide unread (run scorecard)"
+  );
+
   const held = !!(state.paper && state.paper.shares > 0);
   if (held) waiting.unshift("Already in a paper long — Best setup buys wait; Edge SELL can still exit");
 
@@ -3220,11 +3379,12 @@ function bestSetupStatus() {
     scanOk &&
     quoteOk &&
     moodOk &&
+    tideOk &&
     !held;
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
-      ? "Ready · Edge 6/6 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
+      ? "Ready · Edge 6/6 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · Tide clear · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
       : "Armed · waiting: " + waiting.slice(0, 3).join("; ");
   return {
     ready,
@@ -3241,6 +3401,7 @@ function bestSetupStatus() {
     scanOk,
     quoteOk,
     moodOk,
+    tideOk,
     held,
     waiting,
     gates,
@@ -4706,6 +4867,7 @@ function renderSqueeze() {
 
 
 state.sc = { busy: false, stop: false, result: null, at: 0, error: "", progress: "" };
+state.tide = { result: null, fades: [], note: "", busy: false, at: 0 };
 
 function scorecardBiasClass(bias) {
   const text = String(bias || "").toLowerCase();
@@ -4724,21 +4886,23 @@ function renderScorecardCard() {
     bias.className = "scorecard-bias";
     bias.textContent = state.sc && state.sc.busy
       ? (state.sc.progress || "Reading scorecard…")
-      : "Press Run scorecard for rankings, A+ squeezes, and day bias.";
+      : "Press Run scorecard for rankings, A+ squeezes, Tide Alert, and day bias.";
     if (blurb) {
       blurb.textContent =
-        "Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.";
+        "Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, flags Tide Alert when sectors drain with no rotation, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.";
     }
     return;
   }
   const day = result.day;
-  bias.className = "scorecard-bias " + scorecardBiasClass(day.bias);
-  bias.textContent = "Day bias · " + day.bias;
+  const tide = result.tide;
+  bias.className = "scorecard-bias " + (tide && tide.on ? "tide" : scorecardBiasClass(day.bias));
+  bias.textContent = tide && tide.on ? "Tide Alert · on · " + day.bias : "Day bias · " + day.bias;
   if (blurb) {
     const topIndex = result.indexes && result.indexes[0] ? result.indexes[0].symbol : "—";
     const topSector = result.sectors && result.sectors[0] ? result.sectors[0].symbol : "—";
     const aPlus = (result.aPlus || []).length;
     blurb.textContent =
+      (tide && tide.on ? tide.why + " " : "") +
       day.why +
       " Leader index " +
       topIndex +
@@ -4783,6 +4947,8 @@ function renderScorecard() {
   const note = $("sc-note");
   const dayBias = $("sc-day-bias");
   const dayWhy = $("sc-day-why");
+  const tideBias = $("sc-tide-bias");
+  const tideWhy = $("sc-tide-why");
   if (dayBias) {
     if (result && result.day) {
       dayBias.className = "scorecard-bias " + scorecardBiasClass(result.day.bias);
@@ -4792,6 +4958,29 @@ function renderScorecard() {
       dayBias.className = "scorecard-bias";
       dayBias.textContent = state.sc && state.sc.busy ? "Day bias · reading…" : "Day bias · waiting";
       if (dayWhy) dayWhy.textContent = "";
+    }
+  }
+  if (tideBias) {
+    const tide = result && result.tide;
+    if (tide && tide.ready) {
+      tideBias.className = "scorecard-bias " + (tide.on ? "tide flat" : "");
+      tideBias.textContent =
+        "Tide Alert · " +
+        (tide.on ? "ON" : "off") +
+        " · Drain " +
+        (tide.drain ? "yes" : "no") +
+        " · Weekly " +
+        (tide.week && tide.week.on ? "on" : tide.week && tide.week.ready ? "off" : "—") +
+        " · Index Soft " +
+        (tide.indexSoft ? "yes" : "no");
+      if (tideWhy) tideWhy.textContent = tide.why || "";
+    } else {
+      tideBias.className = "scorecard-bias";
+      tideBias.textContent = state.sc && state.sc.busy ? "Tide Alert · reading…" : "Tide Alert · waiting";
+      if (tideWhy) {
+        tideWhy.textContent =
+          "Sector Drain (no green rotation) plus Weekly Tide or Index Soft on closed bars. Fail closed when unread. Own desk process — not a third-party signal brand.";
+      }
     }
   }
   if (result) {
@@ -4966,12 +5155,16 @@ async function runScorecard() {
     });
     scorecardPublish(box, indexes, sectors, bars, squeezes, "");
     box.progress = "";
+    box._tideBars = bars;
   } catch (error) {
     box.error = error.message || String(error);
   } finally {
     box.busy = false;
     if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
     renderScorecard();
+    const tideBars = box._tideBars || {};
+    box._tideBars = null;
+    applyTideFromScorecard(box.result, tideBars).catch(() => {});
   }
 }
 
@@ -7135,6 +7328,22 @@ if (fireAutoBtn) {
     } else {
       $("status").textContent = "Fire 5 Auto is off. Green Fire signals still show for review.";
     }
+  });
+}
+
+const tideRunBtn = $("tide-run");
+if (tideRunBtn) {
+  renderTideFade();
+  tideRunBtn.addEventListener("click", () => {
+    $("status").textContent = "Refreshing Tide Alert and Fade 5…";
+    refreshTideFade()
+      .then(() => {
+        const tide = state.tide && state.tide.result;
+        $("status").textContent = tide && tide.on ? "Tide Alert on — Fade 5 ready for review." : "Tide Alert off.";
+      })
+      .catch((error) => {
+        $("status").textContent = error.message || String(error);
+      });
   });
 }
 
