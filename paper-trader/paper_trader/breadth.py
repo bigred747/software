@@ -1,4 +1,4 @@
-"""NYSE market breadth + VIX for Chart boxes. Never invent TICK / ADD / TRIN / VOLD."""
+"""NYSE market breadth + VIX for Chart boxes and Edge. Never invent TICK / ADD / TRIN / VOLD."""
 
 from __future__ import annotations
 
@@ -11,21 +11,17 @@ KEYS = NYSE_KEYS + ("VIX",)
 # - Yahoo Finance chart API: ^TICK, $TICK, ^ADD, ^VOLD, ^TRIN, and close cousins → 404.
 #   Plain "TRIN" resolves to Trinity Capital Inc. equity — never treat that as Arms Index.
 # - CNBC quote webservice (phone path): .TICK / $TICK / ADD / VOLD / TRIN internals → code 1 / none.
-# - Stooq: same symbols unavailable.
-# - VIX is real on Yahoo (^VIX) and CNBC (.VIX) — safe to paint when the feed answers.
+# - VIX is real on Yahoo (^VIX) and CNBC (.VIX) — safe to paint and gate Edge when the feed answers.
 #
 # TradingView script https://www.tradingview.com/script/aNrCpO4C-Market-Internals-TICK-ADD-VOLD-TRIN-VIX/
-# uses USI: / INDEX: internals (TICK, ADD, VOLD, TRIN, VIX, ABVD, TKCD). Pine cannot run in this
-# Private web app the way TradingView runs it, and scraping TradingView is not allowed.
+# uses USI: / INDEX: internals. Pine cannot run here; scraping TradingView is not allowed.
 #
-# Best real next step for NYSE boxes (not wired here — needs broker OAuth / paid entitlement):
-# - Interactive Brokers market indicators: TICK-NYSE, AD-NYSE, TRIN-NYSE, VOL-NYSE
-# - Or Schwab Developer quotes for $TICK / $ADD / $TRIN / $VOLD after entitlement is verified
-# - Or a paid breadth vendor with a documented API
+# Edge VIX closed-bar gate (1.9.90): ON when the latest daily VIX close on/before the signal
+# bar date is strictly lower than the prior daily VIX close. Fail closed without a real series.
 
 NOTE = (
     "NYSE TICK, ADD, TRIN, and VOLD stay No feed — no Yahoo/CNBC internals, no TradingView scrape, "
-    "and this desk will not paint fake numbers. VIX paints only from a real ^VIX / .VIX quote."
+    "and this desk will not paint fake numbers. VIX paints and gates Edge only from a real ^VIX / .VIX quote."
 )
 
 NEXT = (
@@ -84,27 +80,26 @@ def tone_for(key: str, value, change) -> str | None:
     return "mixed"
 
 
-def _vix_from_yahoo(refresh: bool = False) -> tuple[float | None, float | None, str | None]:
+def _vix_payload(refresh: bool = False) -> dict | None:
     try:
-        payload = quotes.fetch_frame("^VIX", "1D", refresh=refresh)
+        return quotes.fetch_frame("^VIX", "1D", refresh=refresh)
     except ValueError:
-        return None, None, None
-    try:
-        price = float(payload.get("price") or 0)
-    except (TypeError, ValueError):
-        return None, None, None
-    if price <= 0:
-        return None, None, None
-    change = None
-    bars = payload.get("bars") or []
-    if len(bars) >= 2:
+        return None
+
+
+def _vix_bars(payload: dict | None) -> list[dict]:
+    if not payload:
+        return []
+    out: list[dict] = []
+    for bar in payload.get("bars") or []:
         try:
-            prior = float(bars[-2]["close"])
-        except (TypeError, ValueError, KeyError):
-            prior = 0.0
-        if prior > 0:
-            change = price - prior
-    return price, change, "yahoo:^VIX"
+            date = str(bar.get("date") or "")[:10]
+            close = float(bar.get("close") or 0)
+        except (TypeError, ValueError):
+            continue
+        if date and close > 0:
+            out.append({"date": date, "close": close})
+    return out
 
 
 def snapshot(refresh: bool = False) -> dict:
@@ -113,14 +108,27 @@ def snapshot(refresh: bool = False) -> dict:
     changes = {key: None for key in KEYS}
     tones = {key: None for key in KEYS}
     sources: list[str] = []
+    vix_bars: list[dict] = []
 
-    price, change, source = _vix_from_yahoo(refresh=refresh)
-    if price is not None:
-        values["VIX"] = price
-        changes["VIX"] = change
-        tones["VIX"] = tone_for("VIX", price, change)
-        if source:
-            sources.append(source)
+    payload = _vix_payload(refresh=refresh)
+    vix_bars = _vix_bars(payload)
+    if payload:
+        try:
+            price = float(payload.get("price") or 0)
+        except (TypeError, ValueError):
+            price = 0.0
+        if price <= 0 and vix_bars:
+            price = float(vix_bars[-1]["close"])
+        if price > 0:
+            values["VIX"] = price
+            change = None
+            if len(vix_bars) >= 2:
+                prior = float(vix_bars[-2]["close"])
+                if prior > 0:
+                    change = price - prior
+            changes["VIX"] = change
+            tones["VIX"] = tone_for("VIX", price, change)
+            sources.append("yahoo:^VIX")
 
     return {
         "ready": values["VIX"] is not None,
@@ -128,7 +136,12 @@ def snapshot(refresh: bool = False) -> dict:
         "values": values,
         "changes": changes,
         "tones": tones,
+        "vixBars": vix_bars,
         "note": NOTE,
         "next": NEXT,
         "will_not_invent": True,
+        "edge_vix_rule": (
+            "VIX gate ON when the latest closed daily VIX close on/before the signal bar "
+            "is strictly lower than the prior daily VIX close. Fail closed without a real series."
+        ),
     }

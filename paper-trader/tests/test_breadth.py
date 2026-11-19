@@ -29,6 +29,8 @@ class BreadthFailClosedTests(unittest.TestCase):
         self.assertEqual(payload["values"]["VIX"], 18.5)
         self.assertAlmostEqual(payload["changes"]["VIX"], 1.3)
         self.assertEqual(payload["tones"]["VIX"], "bear")
+        self.assertEqual(len(payload["vixBars"]), 2)
+        self.assertIn("strictly lower", payload["edge_vix_rule"])
         for key in NYSE_KEYS:
             self.assertIsNone(payload["values"][key])
             self.assertIsNone(payload["tones"][key])

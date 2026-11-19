@@ -1088,8 +1088,41 @@
   const EDGE_WARM = 50;
   const EDGE_DOTS = 5;
   const EDGE_TRAIL = 2.5;
-  const EDGE_SCORE = 5;
+  // Six Fire checks: five chart-stack gates + closed-bar VIX falling (real ^VIX / .VIX only).
+  const EDGE_SCORE = 6;
   const PRO_RISK = 0.01;
+
+  function dayKey(label) {
+    return String(label || "").slice(0, 10);
+  }
+
+  function vixSeries(vixBars) {
+    const rows = [];
+    (vixBars || []).forEach((bar) => {
+      if (!bar) return;
+      const date = dayKey(bar.date);
+      const close = Number(bar.close);
+      if (!date || !(close > 0)) return;
+      rows.push({ date, close });
+    });
+    rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    return rows;
+  }
+
+  function vixFallingOn(series, label) {
+    // Closed-bar VIX gate: latest VIX daily close on/before this bar is strictly below the prior VIX close.
+    // Fail closed when the real series is missing — never invent TICK/ADD/TRIN/VOLD or VIX.
+    if (!series || series.length < 2) return false;
+    const day = dayKey(label);
+    if (!day) return false;
+    let at = -1;
+    for (let index = 0; index < series.length; index += 1) {
+      if (series[index].date <= day) at = index;
+      else break;
+    }
+    if (at < 1) return false;
+    return series[at].close < series[at - 1].close;
+  }
 
   function edgeAtr(bars, period) {
     const out = new Array(bars.length).fill(null);
@@ -1423,6 +1456,7 @@
     const cciFast = cci(list, 5);
     const range = edgeAtr(list, 14);
     const big4 = big4Indicator(list);
+    const vix = vixSeries(options && options.vixBars);
     const dots = new Array(count).fill(0);
     let run = 0;
     for (let index = 0; index < count; index += 1) {
@@ -1463,13 +1497,15 @@
         above: now != null && now > 0,
         // CCI 50 · 14 · 5 all into +100 with a closed-bar cross into the zone.
         cci: cciCross,
+        // Real VIX only: closed daily VIX falling vs prior close. Fail closed without a feed.
+        vix: vixFallingOn(vix, list[index].date),
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
-      // Desk Ready · Aim · Fire staging for Edge (closed bars only). Fire is the five-check Edge moment.
+      // Desk Ready · Aim · Fire staging (closed bars). Ready 4/6 · Aim 5/6 · Fire 6/6.
       if (score[index] >= EDGE_SCORE) stages[index] = "fire";
       else if (score[index] >= EDGE_SCORE - 1) stages[index] = "aim";
-      else if (score[index] >= 3) stages[index] = "ready";
+      else if (score[index] >= 4) stages[index] = "ready";
     }
     const trades = [];
     const marks = [];
@@ -1517,7 +1553,7 @@
       } else {
         if (equity > peak) peak = equity;
         const prior = index > EDGE_WARM ? score[index - 1] : 0;
-        // Fire: first closed bar where all five Edge checks turn on. big4indicator tags the most precise fires.
+        // Fire: first closed bar where all six Edge checks turn on. big4indicator tags the most precise fires.
         if (score[index] === EDGE_SCORE && prior < EDGE_SCORE) pending = "buy";
       }
     }
@@ -1566,6 +1602,7 @@
         bars: Math.max(0, end - EDGE_WARM),
       },
       ready: end > EDGE_WARM + 1,
+      vixReady: vix.length >= 2,
     };
   }
 
@@ -1959,7 +1996,7 @@
   }
 
   const STRATEGY_INFO = {
-    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready when three Edge checks are on, Aim at four, Fire when all five turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), 5 squeeze dots or in a squeeze, squeeze momentum above zero, and CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross. Same gates drive Squeeze scan, Fire 5, and desk scanners. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
+    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready at 4 of 6, Aim at 5, Fire when all six turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), 5 squeeze dots or in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, and VIX falling on its latest closed daily bar vs the prior close (real ^VIX / .VIX only; fail closed if missing). Same gates drive Squeeze scan, Fire 5, and desk scanners. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
       name: "Squeeze · TMO · big4indicator · stack · MTF",
@@ -2386,7 +2423,7 @@
     add("Triple squeeze: stock, sector, index", triple ? 10 : 0);
     // Same optimized Edge Fire gates as Trade / Fire 5 (TMO · Squeeze · CCI).
     const edgeFire = !!(flags.edgeFire);
-    add("Edge Fire (TMO · Squeeze · CCI)", edgeFire ? 25 : 0);
+    add("Edge Fire (TMO · Squeeze · CCI · VIX)", edgeFire ? 25 : 0);
     const total = parts.reduce((sum, item) => sum + item[1], 0);
     return { score: Math.min(100, total), parts, triple, edgeFire };
   }
@@ -2653,6 +2690,7 @@
     dots: "5 squeeze dots or in a squeeze",
     above: "squeeze momentum above 0",
     cci: "CCI 50 · 14 · 5 into zone +100",
+    vix: "VIX falling (closed daily vs prior)",
   };
 
   function plainPrice(value) {
@@ -2922,6 +2960,10 @@
 
   root.PaperFrames = {
     edge,
+    vixFallingOn,
+    vixSeries,
+    EDGE_SCORE,
+    EDGE_NAMES,
     drawEdgeCalls,
     describeBar,
     showTip,

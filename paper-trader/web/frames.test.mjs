@@ -13,6 +13,15 @@ function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
 }
 
+function fallingVix(bars) {
+  // Synthetic always-falling VIX so chart-stack Fire tests stay focused on TMO/Squeeze/CCI.
+  return (bars || []).map((bar, index) => ({ date: String(bar.date).slice(0, 10), close: 40 - index * 0.01 }));
+}
+
+function edgeWithVix(bars, options) {
+  return edge(bars, Object.assign({ vixBars: fallingVix(bars) }, options || {}));
+}
+
 test("ten timeframes and a brief", () => {
   const daily = [];
   for (let index = 0; index < 40; index += 1) {
@@ -169,14 +178,14 @@ test("edge fills at the next open and later bars do not move closed trades", () 
     const date = new Date(Date.UTC(2023, 0, 1) + index * 86400000).toISOString().slice(0, 10);
     bars.push(day(date, open, Math.max(open, close) + 1.5, Math.min(open, close) - 1.5, close));
   }
-  const full = edge(bars);
+  const full = edgeWithVix(bars);
   assert.ok(full.ready);
   assert.ok(full.stages);
   assert.ok(full.big4);
   assert.equal(big4Indicator(bars).name, "big4indicator");
   assert.ok(full.trades.length > 0);
   assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(full.call));
-  assert.ok(full.score >= 0 && full.score <= 5);
+  assert.ok(full.score >= 0 && full.score <= 6);
   full.marks.forEach((mark) => {
     assert.equal(mark.price, bars[mark.index].open);
     assert.ok(mark.index >= 51);
@@ -185,31 +194,35 @@ test("edge fills at the next open and later bars do not move closed trades", () 
   full.trades.forEach((trade) => assert.ok(trade.exitDate > trade.entryDate));
   assert.ok(full.record.worst <= 0);
   assert.ok(full.record.winRate >= 0 && full.record.winRate <= 1);
-  const cut = edge(bars.slice(0, 240));
+  const cut = edgeWithVix(bars.slice(0, 240));
   const closedBefore = cut.trades.filter((trade) => trade.exitDate < bars[239].date);
   const sameInFull = full.trades.slice(0, closedBefore.length);
   assert.deepEqual(JSON.parse(JSON.stringify(sameInFull)), JSON.parse(JSON.stringify(closedBefore)));
-  assert.equal(full.checks, 5);
+  assert.equal(full.checks, 6);
   const sampleParts = full.allParts.find((row) => row);
   assert.ok(sampleParts);
-  assert.deepEqual(Object.keys(sampleParts).sort(), ["above", "cci", "dots", "tmo", "tmoOs"]);
+  assert.deepEqual(Object.keys(sampleParts).sort(), ["above", "cci", "dots", "tmo", "tmoOs", "vix"]);
   assert.equal("band" in sampleParts, false);
   assert.equal("rising" in sampleParts, false);
-  const again = edge(bars);
+  const again = edgeWithVix(bars);
   full.marks.filter((mark) => mark.side === "buy").forEach((mark) => {
-    const signal = edge(bars.slice(0, mark.index));
+    const signal = edgeWithVix(bars.slice(0, mark.index));
     assert.equal(signal.call, "BUY");
-    assert.equal(signal.score, 5);
+    assert.equal(signal.score, 6);
     assert.equal(signal.stage, "fire");
     assert.ok(signal.big4);
     assert.ok(Object.values(signal.parts).every(Boolean));
     assert.equal(signal.parts.cci, true);
     assert.equal(signal.parts.tmo, true);
+    assert.equal(signal.parts.vix, true);
   });
   assert.equal(again.trades.length, full.trades.length);
-  const short = edge(bars.slice(0, 30));
+  const short = edgeWithVix(bars.slice(0, 30));
   assert.equal(short.ready, false);
   assert.equal(short.trades.length, 0);
+  const noVix = edge(bars);
+  assert.equal(noVix.vixReady, false);
+  assert.ok((noVix.allParts.find((row) => row) || {}).vix === false);
 });
 
 test("zoom keeps the latest bar and fear or greed follows the range", () => {
@@ -300,20 +313,20 @@ test("today's forming bar never makes an Edge signal and old marks never move", 
     const date = new Date(Date.UTC(2023, 0, 1) + index * 86400000).toISOString().slice(0, 10);
     bars.push({ date, open, high: Math.max(open, close) + 1.2, low: Math.min(open, close) - 1.2, close, volume: 10 });
   }
-  const full = edge(bars, { live: true });
-  const closed = edge(bars.slice(0, -1));
+  const full = edgeWithVix(bars, { live: true });
+  const closed = edgeWithVix(bars.slice(0, -1));
   assert.equal(full.score, closed.score);
   assert.deepEqual(JSON.parse(JSON.stringify(full.parts)), JSON.parse(JSON.stringify(closed.parts)));
   assert.equal(full.signalDate, bars[bars.length - 2].date);
   for (const swing of [0.5, 1.5, 3]) {
     const moved = bars.map((bar, index) => (index === bars.length - 1 ? { ...bar, close: bar.open * swing, high: Math.max(bar.high, bar.open * swing), low: Math.min(bar.low, bar.open * swing) } : bar));
-    const again = edge(moved, { live: true });
+    const again = edgeWithVix(moved, { live: true });
     assert.equal(again.call, full.call);
     assert.equal(again.score, full.score);
     assert.deepEqual(again.marks, full.marks);
   }
   for (let cut = 120; cut <= bars.length; cut += 17) {
-    const early = edge(bars.slice(0, cut), { live: true });
+    const early = edgeWithVix(bars.slice(0, cut), { live: true });
     const later = full.marks.filter((mark) => mark.index < cut);
     assert.deepEqual(JSON.parse(JSON.stringify(early.marks)), JSON.parse(JSON.stringify(later)));
   }
@@ -509,7 +522,7 @@ function intraday(count, seed, minutes) {
 test("Edge reads every timeframe's own bars, daily or intraday", () => {
   ["1m", "5m", "15m", "30m", "1h", "4h"].forEach((id, index) => {
     const bars = intraday(400, 3 + index, [1, 5, 15, 30, 60, 240][index]);
-    const read = JSON.parse(JSON.stringify(edge(bars, { live: false })));
+    const read = JSON.parse(JSON.stringify(edgeWithVix(bars, { live: false })));
     assert.equal(read.ready, true, id);
     assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(read.call), id);
     assert.equal(read.scores.length, bars.length);
@@ -525,7 +538,7 @@ test("the price box lists open, high, low, close, change and the Edge checks for
   assert.equal(info.rows.slice(0, 4).map((row) => row[0]).join(","), "Open,High,Low,Close");
   assert.ok(info.rows.some((row) => row[0] === "Change"));
   assert.equal(info.title, bars[200].date);
-  assert.match(info.edgeNote, /^Edge on this bar: [0-5] of 5/);
+  assert.match(info.edgeNote, /^Edge on this bar: [0-6] of 6/);
   assert.equal(describeBar(bars, -1, {}), null);
   assert.equal(describeBar(bars, 300, {}), null);
   assert.equal(describeBar(bars, 0, { crypto: true }).rows.some((row) => row[0] === "Change"), false);

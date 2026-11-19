@@ -1295,7 +1295,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.89</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.90</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -1476,7 +1476,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <div id="edge-frames" class="edge-chips" aria-label="Edge on every timeframe"></div>
           <p id="edge-frames-line" class="muted"></p>
         </div>
-        <p class="muted edge-note-line">Edge buys when five checks turn on together on closed bars, matching the Open TMO · Squeeze · CCI stack: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, and CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross. The same Fire gates drive Squeeze scan, Fire 5, and other desk scanners. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop 2.5 average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
+        <p class="muted edge-note-line">Edge buys when six checks turn on together on closed bars: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, and <strong>VIX falling</strong> on its latest closed daily bar vs the prior close (real ^VIX / .VIX only — fail closed if missing; TICK/ADD/TRIN/VOLD stay No feed and are never invented). Ready at 4 of 6, Aim at 5, Fire at 6. The same Fire gates drive Squeeze scan, Fire 5, and other desk scanners. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop 2.5 average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
       </section>
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>
@@ -1649,7 +1649,7 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="strat-auto">
           <label for="strat-pick">Auto follows</label>
           <select id="strat-pick">
-            <option value="edge">Edge · five checks</option>
+            <option value="edge">Edge · six checks</option>
             <option value="squeeze">Squeeze release</option>
             <option value="quad">Squeeze · TMO · big4indicator · stack · MTF</option>
             <option value="ccizoom">CCI zoom zone</option>
@@ -1668,7 +1668,7 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="best-setup-box">
           <button id="best-setup" type="button" class="best-setup-btn" aria-pressed="false">Best setup Auto</button>
           <ul id="best-setup-gates" class="best-setup-gates" aria-label="Best setup gates"></ul>
-          <p id="best-setup-note" class="muted">Off. Turns on only the strictest paper buys: Edge all five green, most timeframes lined up, market internals supportive, desk Squeeze · TMO · big4indicator · stack · MTF, today’s green scan list, and at most three new buys a Denver day. Still asks Yes. Not a forecast.</p>
+          <p id="best-setup-note" class="muted">Off. Turns on only the strictest paper buys: Edge all six green (incl. VIX falling), most timeframes lined up, market internals supportive, desk Squeeze · TMO · big4indicator · stack · MTF, today’s green scan list, and at most three new buys a Denver day. Still asks Yes. Not a forecast.</p>
         </div>
         <p id="strat-auto-note" class="muted">Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.</p>
         <h3>Desk triggers</h3>
@@ -4720,8 +4720,41 @@ plot Sell = close crosses below baseline;</textarea>
   const EDGE_WARM = 50;
   const EDGE_DOTS = 5;
   const EDGE_TRAIL = 2.5;
-  const EDGE_SCORE = 5;
+  // Six Fire checks: five chart-stack gates + closed-bar VIX falling (real ^VIX / .VIX only).
+  const EDGE_SCORE = 6;
   const PRO_RISK = 0.01;
+
+  function dayKey(label) {
+    return String(label || "").slice(0, 10);
+  }
+
+  function vixSeries(vixBars) {
+    const rows = [];
+    (vixBars || []).forEach((bar) => {
+      if (!bar) return;
+      const date = dayKey(bar.date);
+      const close = Number(bar.close);
+      if (!date || !(close > 0)) return;
+      rows.push({ date, close });
+    });
+    rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    return rows;
+  }
+
+  function vixFallingOn(series, label) {
+    // Closed-bar VIX gate: latest VIX daily close on/before this bar is strictly below the prior VIX close.
+    // Fail closed when the real series is missing — never invent TICK/ADD/TRIN/VOLD or VIX.
+    if (!series || series.length < 2) return false;
+    const day = dayKey(label);
+    if (!day) return false;
+    let at = -1;
+    for (let index = 0; index < series.length; index += 1) {
+      if (series[index].date <= day) at = index;
+      else break;
+    }
+    if (at < 1) return false;
+    return series[at].close < series[at - 1].close;
+  }
 
   function edgeAtr(bars, period) {
     const out = new Array(bars.length).fill(null);
@@ -5055,6 +5088,7 @@ plot Sell = close crosses below baseline;</textarea>
     const cciFast = cci(list, 5);
     const range = edgeAtr(list, 14);
     const big4 = big4Indicator(list);
+    const vix = vixSeries(options && options.vixBars);
     const dots = new Array(count).fill(0);
     let run = 0;
     for (let index = 0; index < count; index += 1) {
@@ -5095,13 +5129,15 @@ plot Sell = close crosses below baseline;</textarea>
         above: now != null && now > 0,
         // CCI 50 · 14 · 5 all into +100 with a closed-bar cross into the zone.
         cci: cciCross,
+        // Real VIX only: closed daily VIX falling vs prior close. Fail closed without a feed.
+        vix: vixFallingOn(vix, list[index].date),
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
-      // Desk Ready · Aim · Fire staging for Edge (closed bars only). Fire is the five-check Edge moment.
+      // Desk Ready · Aim · Fire staging (closed bars). Ready 4/6 · Aim 5/6 · Fire 6/6.
       if (score[index] >= EDGE_SCORE) stages[index] = "fire";
       else if (score[index] >= EDGE_SCORE - 1) stages[index] = "aim";
-      else if (score[index] >= 3) stages[index] = "ready";
+      else if (score[index] >= 4) stages[index] = "ready";
     }
     const trades = [];
     const marks = [];
@@ -5149,7 +5185,7 @@ plot Sell = close crosses below baseline;</textarea>
       } else {
         if (equity > peak) peak = equity;
         const prior = index > EDGE_WARM ? score[index - 1] : 0;
-        // Fire: first closed bar where all five Edge checks turn on. big4indicator tags the most precise fires.
+        // Fire: first closed bar where all six Edge checks turn on. big4indicator tags the most precise fires.
         if (score[index] === EDGE_SCORE && prior < EDGE_SCORE) pending = "buy";
       }
     }
@@ -5198,6 +5234,7 @@ plot Sell = close crosses below baseline;</textarea>
         bars: Math.max(0, end - EDGE_WARM),
       },
       ready: end > EDGE_WARM + 1,
+      vixReady: vix.length >= 2,
     };
   }
 
@@ -5591,7 +5628,7 @@ plot Sell = close crosses below baseline;</textarea>
   }
 
   const STRATEGY_INFO = {
-    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready when three Edge checks are on, Aim at four, Fire when all five turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), 5 squeeze dots or in a squeeze, squeeze momentum above zero, and CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross. Same gates drive Squeeze scan, Fire 5, and desk scanners. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
+    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready at 4 of 6, Aim at 5, Fire when all six turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), 5 squeeze dots or in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, and VIX falling on its latest closed daily bar vs the prior close (real ^VIX / .VIX only; fail closed if missing). Same gates drive Squeeze scan, Fire 5, and desk scanners. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
       name: "Squeeze · TMO · big4indicator · stack · MTF",
@@ -6018,7 +6055,7 @@ plot Sell = close crosses below baseline;</textarea>
     add("Triple squeeze: stock, sector, index", triple ? 10 : 0);
     // Same optimized Edge Fire gates as Trade / Fire 5 (TMO · Squeeze · CCI).
     const edgeFire = !!(flags.edgeFire);
-    add("Edge Fire (TMO · Squeeze · CCI)", edgeFire ? 25 : 0);
+    add("Edge Fire (TMO · Squeeze · CCI · VIX)", edgeFire ? 25 : 0);
     const total = parts.reduce((sum, item) => sum + item[1], 0);
     return { score: Math.min(100, total), parts, triple, edgeFire };
   }
@@ -6285,6 +6322,7 @@ plot Sell = close crosses below baseline;</textarea>
     dots: "5 squeeze dots or in a squeeze",
     above: "squeeze momentum above 0",
     cci: "CCI 50 · 14 · 5 into zone +100",
+    vix: "VIX falling (closed daily vs prior)",
   };
 
   function plainPrice(value) {
@@ -6554,6 +6592,10 @@ plot Sell = close crosses below baseline;</textarea>
 
   root.PaperFrames = {
     edge,
+    vixFallingOn,
+    vixSeries,
+    EDGE_SCORE,
+    EDGE_NAMES,
     drawEdgeCalls,
     describeBar,
     showTip,
@@ -6660,6 +6702,7 @@ const state = {
   scanLearn: { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 },
   stratLearn: { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 },
   breadth: null,
+  vixBars: [],
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -6715,7 +6758,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.89";
+const VERSION = "1.9.90";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -7338,10 +7381,10 @@ function bestFires(rows) {
 function fireNoteText(fires, scanning) {
   const rows = fires || [];
   if (scanning && !rows.length) {
-    return "Scanning for Fire. When the optimized Edge gates turn Fire (TMO above −10, TMO green, squeeze, CCI 50 · 14 · 5 into +100) on a strong name, it lights green here (up to five). Tap to review, then buy if you want.";
+    return "Scanning for Fire. When Edge turns Fire (TMO · Squeeze · CCI · VIX falling on closed bars) on a strong name, it lights green here (up to five). Tap to review, then buy if you want.";
   }
   if (!rows.length) {
-    return "No Fire 5 signals right now. Waiting for Edge Fire on the TMO · Squeeze · CCI gates on a strong scan name. Paper only. Not a forecast.";
+    return "No Fire 5 signals right now. Waiting for Edge Fire on the TMO · Squeeze · CCI · VIX gates on a strong scan name. Paper only. Not a forecast.";
   }
   return (
     rows.length +
@@ -7682,7 +7725,7 @@ async function scanPhone() {
         const alert = PaperFrames.squeezeAlert ? PaperFrames.squeezeAlert(settled) : { kind: "", side: "" };
         const seen = Number(lesson && lesson.seen) || 0;
         const matched = Number(lesson && lesson.matched) || 0;
-        const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) }) : null;
+        const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] }) : null;
         const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
         scored.push({
           symbol,
@@ -8122,7 +8165,7 @@ async function refreshFireFive() {
         ? await sqDaily(symbol)
         : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
       const crypto = phoneCrypto(symbol, row);
-      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] });
       const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
       scored.push({
         symbol,
@@ -8434,7 +8477,7 @@ async function refreshJournalSells(book) {
             : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
       if (!bars || !bars.length || !PaperFrames.edge) continue;
       const crypto = phoneCrypto(symbol, row);
-      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] });
       if (timing && timing.ready && timing.call === "SELL") {
         sells.push({
           symbol,
@@ -9125,6 +9168,7 @@ const EDGE_CHECKS = [
   ["dots", "5 squeeze dots or in a squeeze"],
   ["above", "Squeeze momentum above 0"],
   ["cci", "CCI 50 · 14 · 5 into zone +100"],
+  ["vix", "VIX falling (closed daily vs prior)"],
 ];
 
 function currentPro(bars) {
@@ -9209,13 +9253,19 @@ function chartCrypto() {
   return phoneCrypto(symbol, row);
 }
 
+function edgeOptions(bars, extra) {
+  const live = PaperFrames.liveBar(bars, chartCrypto());
+  return Object.assign({ live, vixBars: state.vixBars || [] }, extra || {});
+}
+
 function currentEdge(bars) {
   if (!PaperFrames.edge) return null;
   const last = bars.length ? bars[bars.length - 1] : null;
-  const live = PaperFrames.liveBar(bars, chartCrypto());
-  const key = bars.length + ":" + live + ":" + (last ? last.date + ":" + last.open + ":" + last.close : "");
+  const opts = edgeOptions(bars);
+  const vixStamp = (state.vixBars && state.vixBars.length ? state.vixBars[state.vixBars.length - 1].date + ":" + state.vixBars[state.vixBars.length - 1].close : "novix");
+  const key = bars.length + ":" + opts.live + ":" + (last ? last.date + ":" + last.open + ":" + last.close : "") + ":" + vixStamp;
   if (state.edgeKey === key && state.edge) return state.edge;
-  state.edge = PaperFrames.edge(bars, { live });
+  state.edge = PaperFrames.edge(bars, opts);
   state.edgeKey = key;
   return state.edge;
 }
@@ -9242,7 +9292,7 @@ function edgePlan(result) {
   if (result.call === "BUY") return "Fire buy on the " + result.signalDate + " close (Edge + big4indicator). A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + stage + big4 + today;
   if (result.call === "SELL") return "Fire sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
-  return "No Fire yet. Ready at 3 checks, Aim at 4, Fire when all five turn on with big4indicator." + stage + big4 + today;
+  return "No Fire yet. Ready at 4 of 6, Aim at 5, Fire when all six turn on (incl. VIX falling) with big4indicator." + stage + big4 + today;
 }
 
 
@@ -9749,9 +9799,9 @@ function bestSetupStatus() {
   };
   const bars = seenBars();
   const edge = bars.length ? currentEdge(bars) : null;
-  const edgeOk = !!(edge && edge.ready && edge.score === 5 && edge.call === "BUY");
+  const edgeOk = !!(edge && edge.ready && edge.score === (edge.checks || 6) && edge.call === "BUY");
   addGate(
-    "Edge 5/5 BUY",
+    "Edge 6/6 BUY",
     edgeOk,
     edge && edge.ready ? "Edge " + (edge.call || "WAIT") + " · " + (edge.score == null ? "—" : edge.score + "/5") : "Edge not ready"
   );
@@ -9841,7 +9891,7 @@ function bestSetupStatus() {
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
-      ? "Ready · Edge 5/5 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
+      ? "Ready · Edge 6/6 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
       : "Armed · waiting: " + waiting.slice(0, 3).join("; ");
   return {
     ready,
@@ -9871,7 +9921,7 @@ function bestSetupStatus() {
 
 function bestBuyReason(symbol) {
   if (!(state.best && state.best.on)) return "";
-  if (state.strat.pick !== "edge") return "Best setup Auto only buys from Edge · five checks.";
+  if (state.strat.pick !== "edge") return "Best setup Auto only buys from Edge · six checks.";
   const status = bestSetupStatus();
   if (status.ready && state.paper && state.paper.symbol === symbol) return "";
   if (!status.ready) return status.waiting[0] || "Best setup filters are not all green.";
@@ -9892,7 +9942,7 @@ function renderBestSetup() {
   button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
   note.textContent = on
     ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Strictest paper buys only: Edge all five, multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, max three buys a Denver day. Still asks Yes. Not a forecast.";
+    : "Off. Strictest paper buys only: Edge all six (incl. VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, max three buys a Denver day. Still asks Yes. Not a forecast.";
   if (list) {
     list.replaceChildren();
     list.hidden = !on;
@@ -11204,7 +11254,7 @@ async function scanSqueeze() {
         const live = PaperFrames.liveBar(bars, crypto);
         const read = PaperFrames.squeezeRead(bars, { live });
         if (read.ready) {
-          const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live }) : null;
+          const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live, vixBars: state.vixBars || [] }) : null;
           const edgeFire = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
           reads[symbol] = Object.assign({}, read, {
             edgeFire,
@@ -11569,7 +11619,7 @@ async function runScorecard() {
         const parent = PaperFrames.squeezeRead(bars[indexSym]);
         return parent && parent.ready && parent.state === "ON";
       })());
-      const timing = PaperFrames.edge ? PaperFrames.edge(list, { live }) : null;
+      const timing = PaperFrames.edge ? PaperFrames.edge(list, { live, vixBars: state.vixBars || [] }) : null;
       const edgeFire = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
       const scored = PaperFrames.squeezeScore(read, { sector: sectorOn, index: indexOn, edgeFire });
       squeezes.push({
@@ -11776,7 +11826,7 @@ async function loadEdgeFrames(force) {
       next += 1;
       try {
         const bars = await fetchFrameBars(symbol, frame.id);
-        const read = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto) });
+        const read = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] });
         ef.bars[frame.id] = bars;
         const last = bars.length ? bars[bars.length - 1].close : null;
         ef.rows[frame.id] = read && read.ready
@@ -11822,7 +11872,7 @@ function renderEdgeFrames() {
     button.type = "button";
     button.className = row && row.ready ? row.call.toLowerCase() : "wait";
     button.textContent = frame.short + " " + (row ? (row.ready ? row.call : "—") : "…");
-    button.title = row ? (row.ready ? frame.label + ": Edge " + row.call + ", " + row.score + " of 5" : frame.label + ": " + row.why) : frame.label + ": reading";
+    button.title = row ? (row.ready ? frame.label + ": Edge " + row.call + ", " + row.score + " of " + (row.checks || 6) : frame.label + ": " + row.why) : frame.label + ": reading";
     button.addEventListener("click", () => {
       state.frameId = frame.id;
       renderFrames();
@@ -11835,7 +11885,7 @@ function renderEdgeFrames() {
     tr.setAttribute("role", "button");
     tr.setAttribute("aria-label", "Show " + frame.label + " in the preview");
     if (row && row.ready) {
-      addCells(tr, [frame.label, "", row.score + " of 5", row.stop != null ? formatPrice(row.stop) : "—", String(row.record.trades), row.record.trades ? Math.round(row.record.winRate * 100) + "%" : "—", { text: signedPercent(row.record.total), cls: row.record.total > 0 ? "up" : row.record.total < 0 ? "down" : "" }]);
+      addCells(tr, [frame.label, "", row.score + " of " + (row.checks || 6), row.stop != null ? formatPrice(row.stop) : "—", String(row.record.trades), row.record.trades ? Math.round(row.record.winRate * 100) + "%" : "—", { text: signedPercent(row.record.total), cls: row.record.total > 0 ? "up" : row.record.total < 0 ? "down" : "" }]);
       const pill = document.createElement("span");
       pill.className = "call-pill " + row.call.toLowerCase();
       pill.textContent = row.call;
@@ -11888,7 +11938,7 @@ function renderEdge() {
   if (sameStamp(box, stamp)) return;
   box.className = "edge " + call.toLowerCase();
   $("edge-call").textContent = call;
-  $("edge-score").textContent = result.score == null ? "—" : result.score + " of " + (result.checks || 4);
+  $("edge-score").textContent = result.score == null ? "—" : result.score + " of " + (result.checks || 6);
   const checks = $("edge-checks");
   checks.replaceChildren();
   EDGE_CHECKS.forEach(([id, name]) => {
@@ -12552,9 +12602,20 @@ function emptyBreadth(note) {
     values: { TICK: null, ADD: null, TRIN: null, VOLD: null, VIX: null },
     changes: { TICK: null, ADD: null, TRIN: null, VOLD: null, VIX: null },
     tones: { TICK: null, ADD: null, TRIN: null, VOLD: null, VIX: null },
+    vixBars: [],
     note: note,
     will_not_invent: true,
   };
+}
+
+function applyBreadthPayload(payload) {
+  state.breadth = payload && typeof payload === "object" ? payload : emptyBreadth("Breadth feed empty. No fake numbers.");
+  const bars = state.breadth && Array.isArray(state.breadth.vixBars) ? state.breadth.vixBars : [];
+  state.vixBars = bars
+    .map((bar) => ({ date: String((bar && bar.date) || "").slice(0, 10), close: Number(bar && bar.close) }))
+    .filter((bar) => bar.date && bar.close > 0);
+  state.edgeKey = "";
+  state.edge = null;
 }
 
 function paintChartBoxes() {
@@ -12569,23 +12630,23 @@ function paintChartBoxes() {
 
 async function phoneVixBreadth() {
   const empty = emptyBreadth(
-    "TICK/ADD/TRIN/VOLD stay No feed on phone (no invent). VIX paints only from a real .VIX quote."
+    "TICK/ADD/TRIN/VOLD stay No feed on phone (no invent). VIX paints and gates Edge only from a real .VIX quote."
   );
   if (typeof PaperLive === "undefined" || !PaperLive.gauge) return empty;
   try {
     const bars = await PaperLive.gauge("^VIX");
     if (!bars || !bars.length) return empty;
-    const last = bars[bars.length - 1];
-    const price = Number(last && last.close);
-    if (!(price > 0)) return empty;
+    const vixBars = bars
+      .map((bar) => ({ date: String((bar && bar.date) || "").slice(0, 10), close: Number(bar && bar.close) }))
+      .filter((bar) => bar.date && bar.close > 0);
+    if (!vixBars.length) return empty;
+    const price = vixBars[vixBars.length - 1].close;
     let change = null;
-    if (bars.length >= 2) {
-      const prior = Number(bars[bars.length - 2].close);
-      if (prior > 0) change = price - prior;
-    }
+    if (vixBars.length >= 2) change = price - vixBars[vixBars.length - 2].close;
     empty.values.VIX = price;
     empty.changes.VIX = change;
     empty.tones.VIX = breadthTone("VIX", price, change);
+    empty.vixBars = vixBars;
     empty.ready = true;
     empty.source = "cnbc:.VIX";
     return empty;
@@ -12596,17 +12657,18 @@ async function phoneVixBreadth() {
 
 async function loadBreadth() {
   if (state.offline) {
-    state.breadth = await phoneVixBreadth();
+    applyBreadthPayload(await phoneVixBreadth());
     paintChartBoxes();
+    if (state.market) renderEdge();
     return;
   }
   try {
-    const payload = await getJSON("/api/breadth");
-    state.breadth = payload && typeof payload === "object" ? payload : emptyBreadth("Breadth feed empty. No fake numbers.");
+    applyBreadthPayload(await getJSON("/api/breadth"));
   } catch (error) {
-    state.breadth = emptyBreadth("Breadth feed did not answer. TICK/ADD/TRIN/VOLD stay No feed — will not invent.");
+    applyBreadthPayload(emptyBreadth("Breadth feed did not answer. TICK/ADD/TRIN/VOLD stay No feed — will not invent."));
   }
   paintChartBoxes();
+  if (state.market) renderEdge();
 }
 
 function paintDeskClear(history) {
@@ -13071,14 +13133,14 @@ async function warnDesk() {
           }
         }
         if (triggers.edge && PaperFrames.edge) {
-          const timing = PaperFrames.edge(bars, { live: false });
+          const timing = PaperFrames.edge(bars, { live: false, vixBars: state.vixBars || [] });
           if (timing && timing.ready && timing.call === "BUY") {
             speakWarning({
               symbol,
               date: timing.signalDate || closed,
               kind: "edge",
               side: "buy",
-              detail: "Buy warning. " + name + ". Edge five checks on the daily.",
+              detail: "Buy warning. " + name + ". Edge six checks on the daily.",
             });
           }
         }
@@ -13119,14 +13181,14 @@ async function warnDesk() {
       const name = pinLabel(current);
       const closed = closedDate(bars) || "";
       if (triggers.edge && PaperFrames.edge) {
-        const timing = PaperFrames.edge(bars, { live: false });
+        const timing = PaperFrames.edge(bars, { live: false, vixBars: state.vixBars || [] });
         if (timing && timing.ready && timing.call === "BUY") {
           speakWarning({
             symbol: current,
             date: timing.signalDate || closed,
             kind: "edge",
             side: "buy",
-            detail: "Buy warning. " + name + ". Edge five checks on the daily.",
+            detail: "Buy warning. " + name + ". Edge six checks on the daily.",
           });
         }
       }
