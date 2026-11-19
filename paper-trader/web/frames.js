@@ -3058,6 +3058,151 @@
       .slice(0, FADE_FIVE_LIMIT);
   }
 
+  // Lane Align · Range Seat — original Paper Trader desk processes (closed bars only).
+  // Top-down index → sector → name confirmation, plus 52-week seat for Fire ranking / Journal.
+  // Own names and math only — not a third-party product, catchphrase, or indicator brand.
+  const LANE_SECTOR_MIN = 6;
+  const LANE_TOP_SHARE = 0.5;
+  const LANE_GREEN_SCORE = 55;
+  const SEAT_HIGH_PCT = 55;
+  const SEAT_MID_PCT = 30;
+
+  function rangeSeat(bars) {
+    const list = closedBars(bars || [], false);
+    if (list.length < 60) return null;
+    const window = list.slice(-252);
+    let hi = -Infinity;
+    let lo = Infinity;
+    window.forEach((bar) => {
+      if (bar.high > hi) hi = bar.high;
+      if (bar.low < lo) lo = bar.low;
+    });
+    const close = window[window.length - 1].close;
+    if (!(hi > lo) || !(close > 0)) return null;
+    const pct = Math.round(((close - lo) / (hi - lo)) * 100);
+    const seat = pct >= SEAT_HIGH_PCT ? "high" : pct >= SEAT_MID_PCT ? "mid" : "low";
+    return {
+      ready: true,
+      pct,
+      seat,
+      label: seat === "high" ? "Seat High" : seat === "mid" ? "Seat Mid" : "Seat Low",
+      asOf: window[window.length - 1].date,
+    };
+  }
+
+  function laneAlign(input) {
+    const source = input || {};
+    const symbol = source.symbol || "";
+    const sector = source.sector || "";
+    const indexSym = source.index || "";
+    const seat = source.seat || null;
+    if (!sector) {
+      return {
+        ready: true,
+        lane: "skip",
+        why: "No sector map — Lane Align skips (crypto or unmapped).",
+        sector: "",
+        index: indexSym,
+        seat,
+        symbol,
+      };
+    }
+    const sectors = source.sectors || [];
+    const indexes = source.indexes || [];
+    if (sectors.length < LANE_SECTOR_MIN) {
+      return {
+        ready: false,
+        lane: "unread",
+        why: "Sector board unread — Lane Align fails closed. Run scorecard.",
+        sector,
+        index: indexSym,
+        seat,
+        symbol,
+      };
+    }
+    const sectorRow = sectors.find((row) => row && row.symbol === sector);
+    if (!sectorRow) {
+      return {
+        ready: false,
+        lane: "unread",
+        why: "Sector " + sector + " not on the board — Lane Align fails closed.",
+        sector,
+        index: indexSym,
+        seat,
+        symbol,
+      };
+    }
+    const sectorRank = sectors.findIndex((row) => row && row.symbol === sector) + 1;
+    const topN = Math.max(1, Math.ceil(sectors.length * LANE_TOP_SHARE));
+    const sectorOpen = !!(sectorRow.stacked && sectorRow.score >= LANE_GREEN_SCORE && sectorRank > 0 && sectorRank <= topN);
+    const sectorSoft = !!(sectorRow.score >= 45 && sectorRank > 0 && sectorRank <= Math.ceil(sectors.length * 0.7));
+    let indexOpen = true;
+    let indexSoft = true;
+    if (indexSym) {
+      const indexRow = indexes.find((row) => row && row.symbol === indexSym);
+      if (!indexRow) {
+        return {
+          ready: false,
+          lane: "unread",
+          why: "Index " + indexSym + " unread — Lane Align fails closed.",
+          sector,
+          index: indexSym,
+          seat,
+          symbol,
+          sectorRank,
+          sectorScore: sectorRow.score,
+        };
+      }
+      indexOpen = !!(indexRow.stacked && indexRow.score >= 50);
+      indexSoft = indexRow.score >= 40;
+    }
+    let lane;
+    let why;
+    if (sectorOpen && indexOpen) {
+      lane = "open";
+      why =
+        "Lane Align open: " +
+        sector +
+        " rank " +
+        sectorRank +
+        "/" +
+        sectors.length +
+        (indexSym ? " · " + indexSym + " stacked" : "") +
+        ".";
+    } else if (sectorSoft && indexSoft) {
+      lane = "soft";
+      why =
+        "Lane Align soft: " +
+        sector +
+        " rank " +
+        sectorRank +
+        "/" +
+        sectors.length +
+        " — Best setup prefers Open.";
+    } else {
+      lane = "closed";
+      why = "Lane Align closed: sector/index not in the lead lane for " + (symbol || "this name") + ".";
+    }
+    return {
+      ready: true,
+      lane,
+      why,
+      sector,
+      index: indexSym,
+      seat,
+      symbol,
+      sectorRank,
+      sectorScore: sectorRow.score,
+    };
+  }
+
+  function laneAllowsAuto(lane, mode) {
+    const key = String(lane || "");
+    if (key === "skip" || key === "open") return true;
+    if (key === "soft") return mode !== "best";
+    return false;
+  }
+
   function marketScorecard(input) {
     const source = input || {};
     const rankGroup = (symbols, barsMap) =>
@@ -3133,6 +3278,11 @@
     fadeRead,
     bestFades,
     FADE_FIVE_LIMIT,
+    rangeSeat,
+    laneAlign,
+    laneAllowsAuto,
+    LANE_SECTOR_MIN,
+    SEAT_HIGH_PCT,
     marketScorecard,
     SCORECARD_INDEXES,
     SCORECARD_SECTORS,
