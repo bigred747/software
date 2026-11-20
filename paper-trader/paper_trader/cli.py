@@ -57,6 +57,9 @@ def main(argv: list[str] | None = None) -> int:
             install_root = Path(__file__).resolve().parents[1]
             os.chdir(install_root)
             assert_safe_launch([install_root])
+            from paper_trader.schwab_env import ensure_env_file
+
+            ensure_env_file(install_root)
             serve(STATE_PATH, args.port, open_browser=not args.no_browser)
             return 0
         if args.command == "learn":

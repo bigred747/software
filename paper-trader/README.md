@@ -341,14 +341,14 @@ Security programs watch for programs that end other programs, delete folders the
 
 Markets: all 7,510 from the catalog (crypto including XRP and Stellar, stocks, ETFs, and futures). Added in 1.9.38: VXUS, QQQM, SCHD, SCHG, VUG, and QUAL, so the core ETF list (VOO, VTI, VXUS, QQQM, SCHD) and the growth list (SMH, XLK, VGT, QQQ, IVW, SCHG, IWF, VUG, QUAL, IJH) are all searchable.
 
-## Schwab connect (1.9.95)
+## Schwab connect (1.9.96)
 
 Paper stays the default. The desk does not send broker orders. Quotes still use the existing feed until Schwab bars are wired; **Connect**, **Market Data**, and **Live Trading** prepare the Schwab session.
 
 When the Schwab Developer Portal app (`personal-market-data`, Market Data Production, callback `https://127.0.0.1`) is approved:
 
-1. In the install folder (`Documents\Paper Trader` on Windows, or the `paper-trader` checkout), copy `.env.example` to `.env`.
-2. Paste these lines (keep the callback and app name as registered):
+1. Open **`Documents\Paper Trader\.env`** (created automatically on install/launch from `SCHWAB-KEYS.txt` / `.env.example` if missing). You can also open `SCHWAB-KEYS.txt` in that folder — same placeholders.
+2. Paste your App Key and App Secret over the placeholders:
 
 ```
 SCHWAB_APP_KEY=paste-app-key-here
@@ -358,12 +358,9 @@ SCHWAB_APP_NAME=personal-market-data
 ```
 
 3. Never commit `.env` or `schwab_tokens.json`. Reinstalls keep both in place.
-4. On the Trade panel, under Paper / Auto / Live:
-   - **Connect to Schwab** — opens Schwab sign-in; paste the `https://127.0.0.1/?code=...` redirect URL into the desk to finish. Tokens stay in `schwab_tokens.json`.
-   - **Market Data** — only after Connect. Turns the Market Data preference on.
-   - **Live Trading** — only after Market Data; default off; asks for confirm. Paper remains the default; this desk still fills on paper and does not place broker orders.
-5. **Signals** (`#signal-strip` / Signals tab): **Schwab** is green when the OAuth session is valid, red when keys are missing, logged out, expired, or errored. Safe check still lists credential readiness as a health line.
-6. CLI: `python -m paper_trader schwab-status`.
+4. At the **top of the desk**, **Connect to Schwab** sits with a green/red light (CONNECTED / NOT CONNECTED). It opens Schwab sign-in; paste the `https://127.0.0.1/?code=...` redirect URL to finish. Tokens stay in `schwab_tokens.json`.
+5. On the Trade panel: **Market Data** (after Connect) and **Live Trading** (after Market Data; confirm; default off). Paper remains the default; no broker orders.
+6. **Signals** also show **Schwab** green/red. CLI: `python -m paper_trader schwab-status`.
 
 ## Check
 

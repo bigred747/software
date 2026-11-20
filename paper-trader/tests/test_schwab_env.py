@@ -81,17 +81,56 @@ class SchwabEnvTests(unittest.TestCase):
         self.assertEqual(code, 0)
 
     def test_example_env_lists_required_keys(self) -> None:
-        example = Path(__file__).resolve().parents[1] / ".env.example"
-        text = example.read_text(encoding="utf-8")
-        for key in schwab_env.KEYS:
-            self.assertIn(f"{key}=", text)
-        self.assertIn("https://127.0.0.1", text)
-        self.assertIn("personal-market-data", text)
-        self.assertIn("OAuth", text)
+        root = Path(__file__).resolve().parents[1]
+        for name in (".env.example", "SCHWAB-KEYS.txt"):
+            text = (root / name).read_text(encoding="utf-8")
+            for key in schwab_env.KEYS:
+                self.assertIn(f"{key}=", text)
+            self.assertIn("paste-app-key-here", text)
+            self.assertIn("paste-app-secret-here", text)
+            self.assertIn("https://127.0.0.1", text)
+            self.assertIn("personal-market-data", text)
+
+    def test_ensure_env_file_copies_template_once(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "SCHWAB-KEYS.txt").write_text(
+                "SCHWAB_APP_KEY=paste-app-key-here\nSCHWAB_APP_SECRET=paste-app-secret-here\n",
+                encoding="utf-8",
+            )
+            created = schwab_env.ensure_env_file(root)
+            self.assertEqual(created, root / ".env")
+            self.assertTrue(created.is_file())
+            self.assertIn("paste-app-key-here", created.read_text(encoding="utf-8"))
+            created.write_text("SCHWAB_APP_KEY=real\nSCHWAB_APP_SECRET=secret\n", encoding="utf-8")
+            again = schwab_env.ensure_env_file(root)
+            self.assertEqual(again.read_text(encoding="utf-8"), "SCHWAB_APP_KEY=real\nSCHWAB_APP_SECRET=secret\n")
+
+    def test_placeholders_are_not_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / ".env"
+            path.write_text(
+                "SCHWAB_APP_KEY=paste-app-key-here\nSCHWAB_APP_SECRET=paste-app-secret-here\n",
+                encoding="utf-8",
+            )
+            with patch.object(schwab_env, "ENV_PATH", path), patch.object(schwab_env, "INSTALL_ROOT", Path(folder)):
+                self.assertFalse(schwab_env.credentials_ready())
 
     def test_gitignore_covers_dotenv(self) -> None:
         ignore = (Path(__file__).resolve().parents[1] / ".gitignore").read_text(encoding="utf-8")
         self.assertIn(".env", ignore.splitlines())
+
+    def test_connect_button_is_in_the_page_header(self) -> None:
+        page = (Path(__file__).resolve().parents[1] / "web" / "index.html").read_text(encoding="utf-8")
+        header = page.split("<header", 1)[1].split("</header>", 1)[0]
+        self.assertIn('id="schwab-connect"', header)
+        self.assertIn('id="schwab-top-dot"', header)
+        self.assertIn("Paste keys into Documents\\Paper Trader\\.env", header)
+        self.assertIn('id="schwab-market"', page)
+        self.assertIn('id="schwab-live"', page)
+        # Connect belongs at the top, not only under Trade.
+        trade = page.split('id="schwab-box"', 1)[1]
+        self.assertNotIn('id="schwab-connect"', trade)
 
 
 if __name__ == "__main__":

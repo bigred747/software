@@ -92,7 +92,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.95";
+const VERSION = "1.9.96";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -1317,29 +1317,48 @@ function paintSchwabButtons(status) {
   const market = $("schwab-market");
   const live = $("schwab-live");
   const note = $("schwab-note");
-  if (!connect || !market || !live || !note) return;
+  const top = $("schwab-top");
+  const dot = $("schwab-top-dot");
+  const topStatus = $("schwab-top-status");
+  const topNote = $("schwab-top-note");
+  if (!connect || !market || !live) return;
   const linked = !!(status && status.connected);
   const creds = !!(status && status.credentials);
   connect.setAttribute("aria-pressed", linked ? "true" : "false");
   connect.textContent = linked ? "Schwab connected" : "Connect to Schwab";
+  if (top) top.classList.toggle("on", linked);
+  if (dot) {
+    dot.className = linked ? "schwab-top-dot on" : "schwab-top-dot bad";
+    dot.title = linked ? "Connected" : "Not connected";
+  }
+  if (topStatus) {
+    topStatus.className = linked ? "schwab-top-status on" : "schwab-top-status bad";
+    topStatus.textContent = linked ? "CONNECTED" : "NOT CONNECTED";
+  }
+  if (topNote) {
+    topNote.textContent = linked
+      ? "Schwab session is on. Market Data and Live Trading are under Trade."
+      : "Paste keys into Documents\\Paper Trader\\.env";
+  }
   market.disabled = !linked;
   market.setAttribute("aria-pressed", status && status.market_data ? "true" : "false");
   market.textContent = status && status.market_data ? "Market Data on" : "Market Data";
   live.disabled = !linked || !(status && status.market_data);
   live.setAttribute("aria-pressed", status && status.live_trading ? "true" : "false");
   live.textContent = status && status.live_trading ? "Live Trading on" : "Live Trading";
+  if (!note) return;
   if (!creds) {
-    note.textContent = "Paste SCHWAB_APP_KEY and SCHWAB_APP_SECRET into Documents\\Paper Trader\\.env first, then Connect.";
+    note.textContent = "Paste SCHWAB_APP_KEY and SCHWAB_APP_SECRET into Documents\\Paper Trader\\.env (created from SCHWAB-KEYS.txt), then use Connect at the top.";
   } else if (!linked) {
     note.textContent = status && status.detail
-      ? String(status.detail) + ". Connect opens Schwab sign-in. Paper stays the default."
-      : "Keys are ready. Connect opens Schwab sign-in. Paper stays the default.";
+      ? String(status.detail) + ". Use Connect at the top. Paper stays the default."
+      : "Keys are ready. Use Connect at the top. Paper stays the default.";
   } else if (status.live_trading) {
-    note.textContent = "Schwab connected. Market Data on. Live Trading preference is on — this desk still fills on paper and does not send broker orders.";
+    note.textContent = "Market Data on. Live Trading preference is on — this desk still fills on paper and does not send broker orders.";
   } else if (status.market_data) {
-    note.textContent = "Schwab connected. Market Data on. Live Trading stays off until you confirm. Paper remains the default.";
+    note.textContent = "Market Data on. Live Trading stays off until you confirm. Paper remains the default.";
   } else {
-    note.textContent = "Schwab connected. Turn Market Data on when you want that feed preferred. Live Trading stays off. Paper remains the default.";
+    note.textContent = "Turn Market Data on when you want that feed preferred. Live Trading stays off. Paper remains the default.";
   }
 }
 
