@@ -2,6 +2,20 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Theme Guard 1.4.5
+
+Flatsome auto-update + 24/7 process learning + Amazon AI. Fixes the Flatsome 3.14+ registration method (`purchaseCode` + UX Themes license id) so Status → Theme can go green and official 3.20.13+ packages can install.
+
+**Upload this file from Windows 11 into WordPress:**
+
+[Luxe-Theme-Guard-v1.4.5.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/theme-guard-registration-f4c7/dist/Luxe-Theme-Guard-v1.4.5.zip)
+
+SHA-256 `da6dbca51d2012307a16190c60a89393d284af2aec67476b3105fbd26fdb931d`
+
+Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate → **Luxe Theme** → paste ThemeForest purchase code → Save settings.
+
+If the code is already registered on another domain, remove it at [account.uxthemes.com](https://account.uxthemes.com) first.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.
