@@ -1,0 +1,187 @@
+.lah-wrap {
+	max-width: 1080px;
+	margin: 24px 20px 48px 0;
+	color: #0f172a;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.lah-hero {
+	padding: 28px 32px;
+	border-radius: 28px;
+	background:
+		radial-gradient(circle at 12% 20%, rgba(255, 216, 111, 0.28), transparent 32%),
+		radial-gradient(circle at 88% 0%, rgba(255, 153, 0, 0.22), transparent 34%),
+		linear-gradient(135deg, #050816, #111827 55%, #0f172a);
+	color: #fff;
+	box-shadow: 0 22px 60px rgba(15, 23, 42, 0.28);
+}
+.lah-kicker {
+	margin: 0 0 8px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	font-size: 11px;
+	font-weight: 800;
+	color: #ffe7a3;
+}
+.lah-kicker-dark {
+	color: #9a3412;
+}
+.lah-hero h1 {
+	margin: 0 0 10px;
+	font-size: 28px;
+	letter-spacing: -0.03em;
+	color: #fff;
+}
+.lah-lead {
+	margin: 0;
+	max-width: 720px;
+	color: #ffedd5;
+	font-size: 15px;
+	line-height: 1.55;
+}
+.lah-nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 18px 0;
+}
+.lah-nav a {
+	display: inline-block;
+	padding: 6px 12px;
+	border-radius: 999px;
+	background: #fff;
+	border: 1px solid #fed7aa;
+	color: #9a3412;
+	text-decoration: none;
+	font-size: 13px;
+	font-weight: 700;
+}
+.lah-scorebar {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 12px;
+	margin: 0 0 20px;
+	padding: 18px 20px;
+	border-radius: 22px;
+	background: #fff7ed;
+	border: 1px solid #fdba74;
+}
+.lah-big {
+	margin: 4px 0 0;
+	font-size: 26px;
+	font-weight: 800;
+	letter-spacing: -0.03em;
+	color: #7c2d12;
+}
+.lah-band {
+	font-size: 18px;
+	word-break: break-word;
+}
+.lah-when {
+	margin: 8px 0 0;
+	font-size: 13px;
+	color: #9a3412;
+}
+.lah-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 16px;
+	margin: 16px 0;
+}
+.lah-card {
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 20px;
+	padding: 20px 22px;
+	margin: 0 0 16px;
+	box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+.lah-card h2 {
+	margin: 0 0 10px;
+	font-size: 18px;
+}
+.lah-card ul {
+	margin: 0 0 12px;
+	padding-left: 18px;
+}
+.lah-card li {
+	margin: 0 0 6px;
+}
+.lah-note {
+	margin: 0 0 12px;
+	color: #475569;
+	font-size: 13px;
+	line-height: 1.5;
+}
+.lah-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0;
+}
+.lah-result {
+	margin-top: 16px;
+	padding-top: 12px;
+	border-top: 1px solid #e2e8f0;
+}
+.lah-table {
+	border-radius: 12px;
+	overflow: hidden;
+}
+.lah-signals {
+	list-style: none;
+	margin: 0 0 16px;
+	padding: 0;
+	display: grid;
+	gap: 8px;
+}
+.lah-signal {
+	display: flex;
+	gap: 12px;
+	align-items: flex-start;
+	padding: 12px 14px;
+	border-radius: 16px;
+	background: #ecfdf5;
+	border: 1px solid #6ee7b7;
+}
+.lah-signal-bad {
+	background: #fff7ed;
+	border-color: #fdba74;
+}
+.lah-dot {
+	width: 10px;
+	height: 10px;
+	margin-top: 6px;
+	border-radius: 50%;
+	background: #059669;
+	flex: 0 0 10px;
+}
+.lah-signal-bad .lah-dot {
+	background: #ea580c;
+}
+.lah-signal strong {
+	display: block;
+	color: #064e3b;
+}
+.lah-signal-bad strong {
+	color: #9a3412;
+}
+.lah-signal em {
+	display: block;
+	margin-top: 3px;
+	font-style: normal;
+	color: #047857;
+	font-size: 13px;
+	line-height: 1.45;
+}
+.lah-signal-bad em {
+	color: #9a3412;
+}
+@media (max-width: 782px) {
+	.lah-grid,
+	.lah-scorebar {
+		grid-template-columns: 1fr;
+	}
+	.lah-wrap {
+		margin-right: 12px;
+	}
+}
