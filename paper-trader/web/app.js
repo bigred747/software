@@ -47,6 +47,14 @@ const state = {
     at: 0,
     note: "",
   },
+  forecast: {
+    busy: false,
+    stop: false,
+    open: null,
+    board: null,
+    at: 0,
+    note: "",
+  },
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -102,7 +110,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.9";
+const VERSION = "1.10.10";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -411,9 +419,9 @@ function withHooks(items) {
   const learnDetail = learnTouchNote
     || fillTimingNote()
     || (botOn
-      ? "Bot on · all " + pageCount + " desk pages (incl. Cycle Desk · Outlook · Tools) learn on closed bars even when scrolled away; Windows score keeps going after the desk closes. Not a forecast."
+      ? "Bot on · all " + pageCount + " desk pages (incl. Cycle Desk · Market Forecaster · Outlook · Tools) learn on closed bars even when scrolled away; Windows score keeps going after the desk closes. Not a forecast."
       : state.offline
-        ? "Page-open bot · all " + pageCount + " desk pages cycle while this tab stays open (Cycle Desk included). Close the tab and phone learning pauses — use the Windows zip + Start the score for after-close. Not a forecast."
+        ? "Page-open bot · all " + pageCount + " desk pages cycle while this tab stays open (Cycle Desk · Market Forecaster included). Close the tab and phone learning pauses — use the Windows zip + Start the score for after-close. Not a forecast."
         : "Bot score off for after-close learning. Open the desk or tick Start the score under Windows extras. Page-open cycles still cover every Tools page here.");
   if (!next.some((item) => item.name === "Learning")) {
     setSignal(next, "Learning", true, learnDetail);
@@ -1278,6 +1286,7 @@ async function bootOffline() {
   refreshOutlook().catch(() => {});
   refreshIndexTape().catch(() => {});
   runCycleDesk().catch(() => {});
+  runForecast().catch(() => {});
   if (state.scanOn) scanPhone();
   else {
     state.scanNote = "Scanner is off.";
@@ -1318,6 +1327,7 @@ async function boot() {
   refreshOutlook().catch(() => {});
   refreshIndexTape().catch(() => {});
   runCycleDesk().catch(() => {});
+  runForecast().catch(() => {});
   if (paper.paper === true) {
     state.auto = true;
     render(paper);
@@ -4536,7 +4546,7 @@ function deskLearnPages() {
   const push = (id) => {
     if (id && pages.indexOf(id) < 0) pages.push(id);
   };
-  ["markets", "chart", "trade", "study", "outlook", "cycle", "home"].forEach(push);
+  ["markets", "chart", "trade", "study", "outlook", "cycle", "forecast", "home"].forEach(push);
   document.querySelectorAll(".dock-tab[data-dock]").forEach((button) => push(button.dataset.dock));
   document.querySelectorAll(".tabbar [data-tab]").forEach((button) => push(button.dataset.tab));
   document.querySelectorAll("[data-open-dock]").forEach((button) => push(button.dataset.openDock));
@@ -4577,6 +4587,23 @@ async function cycleDeskPageLearn() {
       }
     } catch (error) {
       /* Cycle warm pass is best-effort. */
+    }
+  }
+  if (batchPages.indexOf("forecast") >= 0) {
+    try {
+      if (typeof PaperFrames !== "undefined" && PaperFrames.marketForecastRead && seenBars().length) {
+        if (!state.forecast) {
+          state.forecast = { busy: false, stop: false, open: null, board: null, at: 0, note: "" };
+        }
+        const cash = state.paper && Number(state.paper.equity) > 0 ? Number(state.paper.equity) : 10000;
+        state.forecast.open = PaperFrames.marketForecastRead(seenBars(), {
+          symbol: (state.paper && state.paper.symbol) || "",
+          vixBars: state.vixBars || [],
+          cash,
+        });
+      }
+    } catch (error) {
+      /* Forecaster warm pass is best-effort. */
     }
   }
   learnTouchNote =
@@ -5031,7 +5058,7 @@ async function phoneSafe() {
     botOn
       ? "Bot on · all " +
         pageCount +
-        " desk sections (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) learn on closed bars even when scrolled away. New shipped pages auto-join. Windows score keeps going after close. Not a broker."
+        " desk sections (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Market Forecaster, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) learn on closed bars even when scrolled away. New shipped pages auto-join. Windows score keeps going after close. Not a broker."
       : state.offline
         ? "Page-open bot · all " +
           pageCount +
@@ -5876,6 +5903,229 @@ function renderCycleDesk() {
           : "Press Refresh Cycle or Run Cycle Desk. Own Paper Trader read — no third-party packs.");
   if (note) note.textContent = summary;
   if (boardNote) boardNote.textContent = summary;
+}
+
+function fillForecastHorizon(nodeId, band) {
+  const node = $(nodeId);
+  if (!node) return;
+  node.replaceChildren();
+  if (!band) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Waiting…";
+    node.appendChild(empty);
+    return;
+  }
+  const rows = [
+    ["Base", band.base + " · " + (band.basePct >= 0 ? "+" : "") + (band.basePct * 100).toFixed(1) + "%"],
+    ["Bull", band.bull + " · " + (band.bullPct >= 0 ? "+" : "") + (band.bullPct * 100).toFixed(1) + "%"],
+    ["Bear", band.bear + " · " + (band.bearPct >= 0 ? "+" : "") + (band.bearPct * 100).toFixed(1) + "%"],
+  ];
+  rows.forEach((pair) => {
+    const dt = document.createElement("dt");
+    dt.textContent = pair[0];
+    const dd = document.createElement("dd");
+    dd.textContent = pair[1];
+    if (pair[0] === "Bull") dd.className = "up";
+    if (pair[0] === "Bear") dd.className = "down";
+    node.append(dt, dd);
+  });
+}
+
+function renderForecast() {
+  const box = state.forecast || {};
+  const open = box.open;
+  const board = box.board;
+  const note = $("forecast-note");
+  const boardNote = $("forecast-board-note");
+  const openSum = $("forecast-open-sum");
+  const caseBias = $("forecast-case-bias");
+  const caseWhy = $("forecast-case-why");
+  if (caseBias) {
+    caseBias.textContent = open && open.ready
+      ? (open.symbol || "Open") + " · desk " + open.deskScore + "/100 · " + (open.deskTone || "")
+      : "Open market · waiting";
+    caseBias.className =
+      "scorecard-bias" +
+      (open && open.deskScore >= 65 ? " up" : open && open.deskScore <= 40 ? " down" : "");
+  }
+  if (caseWhy) caseWhy.textContent = open && open.deskWhy ? open.deskWhy : open && open.why ? open.why : "";
+  fillForecastHorizon("forecast-near", open && open.near);
+  fillForecastHorizon("forecast-far", open && open.far);
+  const vs = $("forecast-vs");
+  if (vs) vs.textContent = open && open.vsSpy ? open.vsSpy.why || open.vsSpy.label : "";
+  const inv = $("forecast-invalid");
+  if (inv) inv.textContent = open && open.invalidation ? "Prove wrong · " + open.invalidation : "";
+  const size = $("forecast-size");
+  if (size) size.textContent = open && open.size ? open.size.note : "";
+  const assumptions = $("forecast-assumptions");
+  if (assumptions) {
+    assumptions.replaceChildren();
+    ((open && open.assumptions) || []).forEach((line) => {
+      const li = document.createElement("li");
+      li.textContent = line;
+      assumptions.appendChild(li);
+    });
+    if (!assumptions.children.length) {
+      const li = document.createElement("li");
+      li.textContent = "Run Forecaster to list assumptions.";
+      assumptions.appendChild(li);
+    }
+  }
+  const body = $("forecast-rank-body");
+  if (body) {
+    body.replaceChildren();
+    const rows = (board && board.rows) || [];
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      addCells(tr, ["", "No ranked names yet. Run Forecaster.", "", "", "", "", "", ""]);
+      body.appendChild(tr);
+    } else {
+      rows.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        const openBtn = document.createElement("button");
+        openBtn.type = "button";
+        openBtn.className = "quiet";
+        openBtn.textContent = "Open";
+        openBtn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          chooseSymbol(row.symbol);
+        });
+        addCells(tr, [
+          String(index + 1),
+          row.symbol,
+          { text: String(row.deskScore), cls: row.deskScore >= 65 ? "up" : row.deskScore <= 40 ? "down" : "" },
+          String(row.nearBase),
+          { text: String(row.nearBull), cls: "up" },
+          { text: String(row.nearBear), cls: "down" },
+          row.vsSpy || "—",
+          openBtn,
+        ]);
+        body.appendChild(tr);
+      });
+    }
+  }
+  paintCyclePins(
+    "forecast-pins",
+    ((board && board.rows) || []).slice(0, 8).map((row) => ({
+      symbol: row.symbol,
+      stage: String(row.deskScore),
+      signal: row.deskScore >= 65 ? "buy_before_mania" : row.deskScore <= 40 ? "sell_into_greed" : "none",
+      signalLabel: row.deskTone,
+      why: row.why,
+    })),
+    ""
+  );
+  if (openSum) {
+    openSum.textContent = open && open.ready
+      ? (open.symbol || "Open") +
+        " · " +
+        open.deskTone +
+        " " +
+        open.deskScore +
+        "/100 · near base " +
+        open.near.base +
+        " · bull " +
+        open.near.bull +
+        " · bear " +
+        open.near.bear +
+        ". Not a crystal ball."
+      : "";
+  }
+  const summary =
+    box.busy
+      ? box.note || "Reading Market Forecaster…"
+      : box.note ||
+        (open && open.ready
+          ? open.symbol + " desk " + open.deskScore + "/100 · " + ((board && board.rows && board.rows.length) || 0) + " ranked. Not a crystal ball."
+          : "Press Refresh Forecast or Run Forecaster. Complements Market Outlook. Edge still gates buys.");
+  if (note) note.textContent = summary;
+  if (boardNote) boardNote.textContent = summary;
+}
+
+async function runForecast() {
+  const box = state.forecast;
+  if (!box || box.busy) return;
+  if (typeof PaperFrames === "undefined" || !PaperFrames.marketForecastRead) {
+    box.note = "Market Forecaster is not on this build.";
+    renderForecast();
+    return;
+  }
+  box.busy = true;
+  box.stop = false;
+  box.note = "Reading closed bars for Market Forecaster…";
+  renderForecast();
+  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(5000);
+  try {
+    const openSym = state.paper && state.paper.symbol;
+    const pins = readPins();
+    const scan = topScanLearnNames().slice(0, 8);
+    const need = [];
+    const seen = new Set();
+    ["SPY"].concat(openSym ? [openSym] : [], pins, scan).forEach((symbol) => {
+      if (symbol && !seen.has(symbol)) {
+        seen.add(symbol);
+        need.push(symbol);
+      }
+    });
+    const bars = {};
+    let next = 0;
+    const workers = Math.min(state.offline ? 2 : 3, Math.max(1, need.length));
+    const worker = async () => {
+      while (!box.stop && next < need.length) {
+        const symbol = need[next];
+        next += 1;
+        try {
+          if (openSym && symbol === openSym && seenBars().length) bars[symbol] = seenBars();
+          else bars[symbol] = await sqDaily(symbol);
+        } catch (error) {
+          /* Missing quote stays out. */
+        }
+        box.note = "Forecaster reading " + next + " of " + need.length + "…";
+        if (next === need.length || next % 3 === 0) renderForecast();
+      }
+    };
+    await Promise.all(Array.from({ length: workers }, () => worker()));
+    if (box.stop) {
+      box.note = "Market Forecaster stopped.";
+      return;
+    }
+    const cash = state.paper && Number(state.paper.equity) > 0 ? Number(state.paper.equity) : 10000;
+    const openBars = openSym && bars[openSym] ? bars[openSym] : seenBars();
+    const open = openBars && openBars.length
+      ? PaperFrames.marketForecastRead(openBars, {
+          symbol: openSym || "",
+          spyBars: bars.SPY,
+          vixBars: state.vixBars || [],
+          cash,
+        })
+      : null;
+    const boardSymbols = [];
+    need.forEach((symbol) => {
+      if (symbol !== "SPY" && bars[symbol] && boardSymbols.indexOf(symbol) < 0) boardSymbols.push(symbol);
+    });
+    const board = PaperFrames.forecastBoard({
+      symbols: boardSymbols,
+      bars,
+      spyBars: bars.SPY,
+      vixBars: state.vixBars || [],
+      cash,
+    });
+    box.open = open;
+    box.board = board;
+    box.at = Date.now();
+    box.note =
+      (open && open.ready ? open.symbol + " · " + open.deskTone + " " + open.deskScore + "/100" : "Forecaster") +
+      " · " +
+      ((board && board.rows && board.rows.length) || 0) +
+      " ranked. Not a crystal ball.";
+  } catch (error) {
+    box.note = error && error.message ? error.message : "Market Forecaster did not finish.";
+  } finally {
+    box.busy = false;
+    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    renderForecast();
+  }
 }
 
 async function runCycleDesk() {
@@ -7918,6 +8168,13 @@ if ($("cycle-stop")) {
     if (state.cycle) state.cycle.stop = true;
   });
 }
+if ($("forecast-scan")) $("forecast-scan").addEventListener("click", () => runForecast());
+if ($("forecast-run")) $("forecast-run").addEventListener("click", () => runForecast());
+if ($("forecast-stop")) {
+  $("forecast-stop").addEventListener("click", () => {
+    if (state.forecast) state.forecast.stop = true;
+  });
+}
 if ($("scorecard-open")) {
   $("scorecard-open").addEventListener("click", () => showDock("scorecard"));
 }
@@ -8451,6 +8708,10 @@ function showDock(name) {
   if (name === "cycle") {
     renderCycleDesk();
     if (!(state.cycle && state.cycle.at) && !(state.cycle && state.cycle.busy)) runCycleDesk();
+  }
+  if (name === "forecast") {
+    renderForecast();
+    if (!(state.forecast && state.forecast.at) && !(state.forecast && state.forecast.busy)) runForecast();
   }
   if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
     state.orbBusy = true;

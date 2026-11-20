@@ -62,6 +62,7 @@ _DESK_PAGES: list[tuple[str, str]] = [
     ("squeeze", "Squeeze scan · catalog walk"),
     ("scorecard", "Big 3 Market Scorecard · indexes, A+ squeezes, day bias"),
     ("cycle", "Cycle Desk · stages, Defensive Shield, Risk Rebound"),
+    ("forecast", "Market Forecaster · base bull bear scenarios"),
     ("home", "Tools home · full-screen desk index"),
     ("outlook", "Market Outlook · day week month board"),
     ("internals", "Internals · market gauges"),
@@ -157,6 +158,12 @@ def page_snapshot(
         base.update(
             {
                 "note": "Cycle Desk: closed-bar stages, top/bottom marks, Defensive Shield, and Risk Rebound. Own desk names only.",
+            }
+        )
+    elif page == "forecast":
+        base.update(
+            {
+                "note": "Market Forecaster: base · bull · bear on closed bars, SPY compare, desk score. Complements Outlook. Not a crystal ball.",
             }
         )
     elif page == "outlook":

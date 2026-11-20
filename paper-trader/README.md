@@ -101,9 +101,16 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
-## Continuous 24/7 learning (1.10.9)
+## Market Forecaster (1.10.10)
 
-- **Windows desk:** Bot-on Learn score runs continuously — every desk page (incl. Cycle Desk · Outlook · Tools home), rotating markets, faster passes. Tick **Start the score** so it keeps going after the window closes while you are signed in.
+- **Tools · Next pages · Markets:** **Market Forecaster** — base · bull · bear cases on closed daily bars for open / pinned / scan names.
+- Horizons ~3 months and ~1 year, assumptions, SPY/benchmark compare, what would prove the case wrong, paper size / potential-loss hint.
+- Desk rank blends Edge · Squeeze · Cycle · strength (own math only — not a third-party AI score).
+- Complements **Market Outlook** (does not replace it). **Not a crystal ball. Not a forecast guarantee.** Edge · Best setup · Auto still gate buys. Live locked · Artex · paper only. No third-party product branding or scrapes.
+
+## Continuous 24/7 learning (1.10.9 / 1.10.10)
+
+- **Windows desk:** Bot-on Learn score runs continuously — every desk page (incl. Cycle Desk · Market Forecaster · Outlook · Tools home), rotating markets, faster passes. Tick **Start the score** so it keeps going after the window closes while you are signed in.
 - **Phone / Private web:** page-open bot cycles scan + strategies + every Tools/Next page while the tab stays open (wake lock when Auto is on). Leaving the tab pauses phone learning — use the Windows zip for true after-close 24/7.
 - Closed bars only. Paper only. Live locked. Not a forecast.
 
