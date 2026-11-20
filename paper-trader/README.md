@@ -101,6 +101,15 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
+## Market Outlook (1.9.94)
+
+Top-of-desk **Market Outlook** board (own names/copy):
+
+- **Day · Week · Month** from **SPY** closed bars — green / amber / red, score **1–10**, stance **Go long** / **Stay flat** / **Short bias**.
+- Best call combines the three horizons. Tide Alert forces **Stay flat · Tide**.
+- Long-only desk — **Short bias** means stay flat / pressure review, **no short fills**.
+- Guidance only. Edge · Best setup · Auto still gate buys. Paper only. Live locked. Not a crystal ball.
+
 ## Lane Align · Range Seat · Week Board (1.9.93)
 
 Original Paper Trader desk processes (own names/copy — not a third-party signal brand). Extends Edge / Fire 5 / Best setup / Journal — **no duplicate scanners**.

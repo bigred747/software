@@ -16,7 +16,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.93</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.94</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -37,6 +37,32 @@
     <p id="open-help" class="open-help">On iPhone, open the Paper Trader web address in Safari. Tap Share, then Add to Home Screen so the desk opens like an app and you stay signed in. A github.com link to this file shows the code and does not run the app. If you saved PaperTrader.html, open the Files app, tap Share, then Edge.</p>
     <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
   </header>
+
+  <section id="market-outlook" class="market-outlook" aria-label="Market Outlook">
+    <div class="outlook-head">
+      <h2>Market Outlook</h2>
+      <button id="outlook-refresh" type="button" class="quiet">Refresh</button>
+    </div>
+    <p id="outlook-call" class="outlook-call" aria-live="polite">Reading SPY closed bars…</p>
+    <div class="outlook-grid">
+      <article id="outlook-day" class="outlook-cell wait" aria-label="Day outlook">
+        <p class="outlook-label">Day</p>
+        <p class="outlook-score">—</p>
+        <p class="outlook-stance">Waiting</p>
+      </article>
+      <article id="outlook-week" class="outlook-cell wait" aria-label="Week outlook">
+        <p class="outlook-label">Week</p>
+        <p class="outlook-score">—</p>
+        <p class="outlook-stance">Waiting</p>
+      </article>
+      <article id="outlook-month" class="outlook-cell wait" aria-label="Month outlook">
+        <p class="outlook-label">Month</p>
+        <p class="outlook-score">—</p>
+        <p class="outlook-stance">Waiting</p>
+      </article>
+    </div>
+    <p id="outlook-note" class="muted">SPY closed bars · Day · Week · Month · score 1–10 · green good / red soft. Best call: Go long, Stay flat, or Short bias. Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge and Best setup still gate buys. Paper only. Not a crystal ball.</p>
+  </section>
 
   <div class="workspace">
     <section id="view-markets" class="panel watch" aria-label="Markets">

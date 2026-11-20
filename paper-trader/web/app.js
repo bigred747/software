@@ -91,7 +91,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.93";
+const VERSION = "1.9.94";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -1237,6 +1237,7 @@ async function bootOffline() {
   noteEdge();
   deskLine("Desk is working.");
   showChart();
+  refreshOutlook().catch(() => {});
   if (state.scanOn) scanPhone();
   else {
     state.scanNote = "Scanner is off.";
@@ -1274,6 +1275,7 @@ async function boot() {
   await loadSignals();
   rememberSymbol(paper.symbol);
   deskLine("Desk is working.");
+  refreshOutlook().catch(() => {});
   if (paper.paper === true) {
     state.auto = true;
     render(paper);
@@ -5098,6 +5100,97 @@ function renderSqueeze() {
 
 state.sc = { busy: false, stop: false, result: null, at: 0, error: "", progress: "" };
 state.tide = { result: null, fades: [], note: "", busy: false, at: 0 };
+state.outlook = { busy: false, result: null, at: 0, error: "", note: "" };
+
+function paintOutlookCell(id, row) {
+  const cell = $(id);
+  if (!cell || !row) return;
+  cell.className = "outlook-cell " + (row.color || "wait");
+  const score = cell.querySelector(".outlook-score");
+  const stance = cell.querySelector(".outlook-stance");
+  if (score) score.textContent = row.ready && row.score != null ? String(row.score) + "/10" : "—";
+  if (stance) stance.textContent = row.stance || "Waiting";
+}
+
+function renderOutlook() {
+  const call = $("outlook-call");
+  const note = $("outlook-note");
+  const box = state.outlook || {};
+  const result = box.result;
+  if (!result || !result.ready) {
+    if (call) {
+      call.className = "outlook-call wait";
+      call.textContent = box.busy
+        ? "Reading SPY closed bars…"
+        : box.error
+          ? "Outlook unread · " + box.error
+          : "Market Outlook · waiting for SPY closed bars";
+    }
+    ["outlook-day", "outlook-week", "outlook-month"].forEach((id) => {
+      const cell = $(id);
+      if (!cell) return;
+      cell.className = "outlook-cell wait";
+      const score = cell.querySelector(".outlook-score");
+      const stance = cell.querySelector(".outlook-stance");
+      if (score) score.textContent = "—";
+      if (stance) stance.textContent = box.busy ? "Reading…" : "Waiting";
+    });
+    if (note) {
+      note.textContent = box.busy
+        ? "Reading SPY Day · Week · Month on closed bars…"
+        : "SPY closed bars · Day · Week · Month · score 1–10 · green good / red soft. Best call: Go long, Stay flat, or Short bias. Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge and Best setup still gate buys. Paper only. Not a crystal ball.";
+    }
+    return;
+  }
+  paintOutlookCell("outlook-day", result.day);
+  paintOutlookCell("outlook-week", result.week);
+  paintOutlookCell("outlook-month", result.month);
+  if (call) {
+    call.className = "outlook-call " + (result.color || "wait");
+    call.textContent =
+      "Best call · " +
+      result.call +
+      (result.board != null ? " · " + result.board + "/10" : "") +
+      (result.asOf ? " · through " + result.asOf : "");
+  }
+  if (note) {
+    const when = box.at
+      ? new Date(box.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
+      : "";
+    note.textContent =
+      (result.why || "") +
+      " " +
+      (result.day && result.day.why ? "Day: " + result.day.why + ". " : "") +
+      (result.week && result.week.why ? "Week: " + result.week.why + ". " : "") +
+      (result.month && result.month.why ? "Month: " + result.month.why + ". " : "") +
+      (when ? "Updated " + when + " Denver. " : "") +
+      "Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge still gates buys. Not a crystal ball.";
+  }
+}
+
+async function refreshOutlook(forcedBars) {
+  const box = state.outlook;
+  if (!box || (box.busy && !forcedBars)) return;
+  box.busy = true;
+  box.error = "";
+  renderOutlook();
+  try {
+    let bars = forcedBars;
+    if (!(bars && bars.length)) {
+      bars = await sqDaily("SPY");
+    }
+    const tide = (state.sc && state.sc.result && state.sc.result.tide) || (state.tide && state.tide.result) || null;
+    if (!PaperFrames.marketOutlook) throw new Error("Outlook math not loaded.");
+    box.result = PaperFrames.marketOutlook({ spyBars: bars, tide, symbol: "SPY" });
+    box.at = Date.now();
+  } catch (error) {
+    box.error = error.message || String(error);
+    box.result = null;
+  } finally {
+    box.busy = false;
+    renderOutlook();
+  }
+}
 
 function scorecardBiasClass(bias) {
   const text = String(bias || "").toLowerCase();
@@ -5290,6 +5383,8 @@ function scorecardPublish(box, indexes, sectors, bars, squeezes, progress) {
   });
   box.at = Date.now();
   renderScorecard();
+  const spyBars = (bars && (bars.SPY || bars.QQQ)) || null;
+  if (spyBars && spyBars.length) refreshOutlook(spyBars).catch(() => {});
 }
 
 async function runScorecard() {
@@ -7319,6 +7414,9 @@ if ($("sc-stop")) {
 }
 if ($("scorecard-open")) {
   $("scorecard-open").addEventListener("click", () => showDock("scorecard"));
+}
+if ($("outlook-refresh")) {
+  $("outlook-refresh").addEventListener("click", () => refreshOutlook());
 }
 $("sq-stop").addEventListener("click", () => {
   state.sq.stop = true;

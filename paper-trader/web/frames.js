@@ -3251,6 +3251,169 @@
     };
   }
 
+  // Market Outlook — Day · Week · Month board from SPY closed bars (own desk math).
+  // Score 1–10 · green/red/amber · Go long / Stay flat / Short bias.
+  // Long-only desk: Short bias means stay flat / pressure review — no short fills.
+  // Guidance only. Edge / Best setup / Auto still gate buys. Not a crystal ball.
+  function horizonOutlook(bars, label) {
+    const list = closedBars(bars || [], false);
+    // Day uses EMA 21/50; Week/Month use shorter averages so sparse higher-TF bars still read.
+    const fastLen = label === "Day" ? 21 : label === "Week" ? 10 : 5;
+    const slowLen = label === "Day" ? 50 : label === "Week" ? 21 : 10;
+    const need = Math.max(slowLen + 2, label === "Day" ? 50 : label === "Week" ? 26 : 10);
+    if (list.length < need) {
+      return {
+        ready: false,
+        label,
+        color: "wait",
+        score: null,
+        tone: "—",
+        stance: "Waiting",
+        why: "Need more closed " + String(label || "horizon").toLowerCase() + " bars.",
+        asOf: list.length ? list[list.length - 1].date : "",
+      };
+    }
+    const closes = list.map((bar) => bar.close);
+    const close = closes[closes.length - 1];
+    const eFast = ema(closes, fastLen);
+    const eSlow = ema(closes, slowLen);
+    const lastFast = eFast[eFast.length - 1];
+    const lastSlow = eSlow[eSlow.length - 1];
+    if (!(lastFast > 0) || !(lastSlow > 0)) {
+      return {
+        ready: false,
+        label,
+        color: "wait",
+        score: null,
+        tone: "—",
+        stance: "Waiting",
+        why: "Averages not ready on closed bars.",
+        asOf: list[list.length - 1].date,
+      };
+    }
+    const lookback = Math.min(5, closes.length - 1);
+    const prior = closes[closes.length - 1 - lookback];
+    const ret = prior > 0 ? close / prior - 1 : 0;
+    const sq = squeezeRead(list, { live: false });
+    let pts = 5;
+    if (close > lastSlow) pts += 1;
+    else pts -= 1;
+    if (close > lastFast) pts += 1;
+    else pts -= 1;
+    if (lastFast > lastSlow) pts += 1;
+    else pts -= 1;
+    if (ret > 0.015) pts += 2;
+    else if (ret > 0.004) pts += 1;
+    else if (ret < -0.015) pts -= 2;
+    else if (ret < -0.004) pts -= 1;
+    if (sq && sq.ready) {
+      if (sq.momentum != null && sq.momentum > 0) pts += 1;
+      else if (sq.momentum != null && sq.momentum < 0) pts -= 1;
+      if (sq.direction === "bull") pts += 1;
+      else if (sq.direction === "bear") pts -= 1;
+    }
+    const score = Math.max(1, Math.min(10, Math.round(pts)));
+    let color = "amber";
+    let tone = "Mixed";
+    let stance = "Stay flat";
+    if (score >= 7) {
+      color = "green";
+      tone = "Good";
+      stance = "Go long";
+    } else if (score <= 4) {
+      color = "red";
+      tone = "Soft";
+      stance = "Short bias";
+    }
+    const retPct = (ret * 100).toFixed(1);
+    return {
+      ready: true,
+      label,
+      color,
+      score,
+      tone,
+      stance,
+      why:
+        tone +
+        " " +
+        score +
+        "/10 · close vs EMA" +
+        fastLen +
+        "/" +
+        slowLen +
+        " · " +
+        (ret >= 0 ? "+" : "") +
+        retPct +
+        "% over " +
+        lookback +
+        " bars" +
+        (sq && sq.ready ? " · squeeze " + (sq.direction || "flat") : ""),
+      asOf: list[list.length - 1].date,
+      ret,
+      stacked: close > lastFast && lastFast > lastSlow,
+    };
+  }
+
+  function marketOutlook(input) {
+    const source = input || {};
+    const daily = closedBars(source.spyBars || source.bars || [], false);
+    const day = horizonOutlook(daily, "Day");
+    const week = horizonOutlook(barsFor(daily, frameById("1W")), "Week");
+    const month = horizonOutlook(barsFor(daily, frameById("1M")), "Month");
+    const readyRows = [day, week, month].filter((row) => row && row.ready && row.score != null);
+    const board = readyRows.length
+      ? Math.max(1, Math.min(10, Math.round(readyRows.reduce((sum, row) => sum + row.score, 0) / readyRows.length)))
+      : null;
+    const tideOn = !!(source.tide && source.tide.on);
+    let call = "Waiting";
+    let color = "wait";
+    if (board != null) {
+      if (tideOn) {
+        call = "Stay flat · Tide";
+        color = "amber";
+      } else if (board >= 7) {
+        call = "Go long";
+        color = "green";
+      } else if (board <= 4) {
+        call = "Short bias · Stay flat";
+        color = "red";
+      } else {
+        call = "Stay flat";
+        color = "amber";
+      }
+    }
+    const greens = readyRows.filter((row) => row.color === "green").length;
+    const reds = readyRows.filter((row) => row.color === "red").length;
+    let why =
+      board == null
+        ? "Reading SPY closed bars for Day · Week · Month…"
+        : "Best call · " +
+          call +
+          " · board " +
+          board +
+          "/10 · " +
+          greens +
+          " green · " +
+          reds +
+          " red of " +
+          readyRows.length +
+          " horizons.";
+    if (tideOn && source.tide && source.tide.why) why += " " + source.tide.why;
+    return {
+      ready: readyRows.length >= 2,
+      symbol: source.symbol || "SPY",
+      day,
+      week,
+      month,
+      board,
+      call,
+      color,
+      why,
+      tideOn,
+      asOf: day.asOf || week.asOf || month.asOf || "",
+    };
+  }
+
   root.PaperFrames = {
     edge,
     vixFallingOn,
@@ -3284,6 +3447,8 @@
     LANE_SECTOR_MIN,
     SEAT_HIGH_PCT,
     marketScorecard,
+    horizonOutlook,
+    marketOutlook,
     SCORECARD_INDEXES,
     SCORECARD_SECTORS,
     strategies,
