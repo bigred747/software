@@ -1,0 +1,57 @@
+.luae-wrap { max-width: 1080px; }
+.luae-hero {
+	margin: 16px 0;
+	padding: 24px 28px;
+	border-radius: 16px;
+	background: #0f172a;
+	color: #fff;
+}
+.luae-kicker {
+	margin: 0 0 6px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	font-size: 11px;
+	color: #fde68a;
+}
+.luae-hero h1 { margin: 0 0 8px; color: #fff; font-size: 28px; }
+.luae-lead { margin: 0; max-width: 720px; color: #e2e8f0; }
+.luae-panel {
+	margin: 16px 0;
+	padding: 8px 16px 16px;
+	background: #fff;
+	border: 1px solid #e5e7eb;
+}
+.luae-signal, .luae-problems li {
+	display: flex;
+	gap: 12px;
+	align-items: flex-start;
+	padding: 8px 0;
+	border-bottom: 1px solid #f1f5f9;
+}
+.luae-signal p, .luae-prompt { margin: 2px 0 0; color: #475569; }
+.luae-pill {
+	display: inline-block;
+	min-width: 64px;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-align: center;
+}
+.luae-green { background: #d1fae5; color: #065f46; }
+.luae-yellow { background: #fef3c7; color: #92400e; }
+.luae-red { background: #fee2e2; color: #991b1b; }
+.luae-actions { display: inline-block; margin: 12px 12px 0 0; }
+.luae-table td { vertical-align: top; }
+.luae-guide .luae-grid {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+}
+.luae-scores { display: flex; flex-wrap: wrap; gap: 12px; }
+.luae-scores input { width: 70px; }
+.luae-compare { display: flex; gap: 8px; }
+@media (max-width: 782px) {
+	.luae-guide .luae-grid, .luae-compare { display: block; }
+}
