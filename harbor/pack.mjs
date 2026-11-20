@@ -1,0 +1,1928 @@
+// Harbor content pack. Original wording checked against public clinic pages.
+// This is not a medical order and not a copy of any clinic's recipes.
+
+function juice(id, name, find) {
+  return {
+    id,
+    name,
+    group: "sip",
+    cook: "none",
+    minutes: 2,
+    portion: "A small cup",
+    fat: "None",
+    line: "Half juice, half water. Sip slowly.",
+    needs: [`1/2 cup clear ${name.toLowerCase()}`, "1/2 cup water"],
+    steps: [
+      `Pour half a cup of ${name.toLowerCase()}.`,
+      "Add half a cup of water.",
+      "Sit up. Take a small sip. Wait before the next one.",
+      "Stop if you feel sick. If you vomit, get medical care."
+    ],
+    note: "If you have diabetes, juice can raise your blood sugar. Keep it small and follow your diabetes plan.",
+    tags: ["juice"],
+    enzymes: false,
+    find
+  };
+}
+
+function fish(id, name) {
+  return {
+    id,
+    name: `Baked ${name}`,
+    group: "plate",
+    cook: "stove",
+    minutes: 15,
+    portion: "A few bites, then pause",
+    fat: "About 1 gram if you use no oil",
+    line: "No breading. No butter. Lemon is enough.",
+    needs: [`A small ${name.toLowerCase()} fillet`, "A spoon of water", "Lemon, if you want"],
+    steps: [
+      "Heat the oven to 400°F, or set up a steamer.",
+      `Put the ${name.toLowerCase()} in a dish with a spoon of water. Do not bread it.`,
+      "Cook until it flakes, about 10 to 15 minutes. Do not fry it.",
+      "Eat a few bites with rice or potato. Stop if the pain rises."
+    ],
+    note: "Skip this if you have a fish allergy.",
+    tags: ["fish"],
+    enzymes: true,
+    find: `${name.toLowerCase()} white fish fillet`
+  };
+}
+
+function veg(id, name, how, find) {
+  return {
+    id,
+    name,
+    group: "soft",
+    cook: "warm",
+    minutes: 12,
+    portion: "A small cup",
+    fat: "Under 1 gram if you add no oil",
+    line: how,
+    needs: [`A handful of ${name.toLowerCase()}`, "Water"],
+    steps: [
+      "Wash it. Cut it into small pieces if you need to.",
+      "Steam it, boil it, or microwave it with a spoon of water until soft.",
+      "Add no oil, butter, or sauce.",
+      "Eat a small cup. Stop if your belly feels tight."
+    ],
+    note: "",
+    tags: [],
+    enzymes: true,
+    find
+  };
+}
+
+export const pack = {
+  version: "2026-11-13",
+  reviewed: "November 13, 2026",
+  emergency: {
+    title: "Get emergency care now if any of these are true",
+    items: [
+      "The pain is so bad you cannot sit still, or you cannot find a position that eases it.",
+      "The pain is severe and does not let up.",
+      "You keep vomiting, or you cannot keep water down.",
+      "You have a fever or chills.",
+      "Breathing is hard, or your heart is racing.",
+      "You feel faint, very dizzy, confused, or too weak to sip water.",
+      "Your skin or the whites of your eyes look yellow.",
+      "You vomit blood, or the vomit looks like coffee grounds.",
+      "Your stool is black, maroon, or bloody.",
+      "You have chest pain or pressure."
+    ]
+  },
+  flareSteps: [
+    {
+      title: "Sit up",
+      text: "Lean on pillows. Keep your knees a little bent. Lying flat can make this pain worse. Loosen anything tight around your waist. If a position hurts more, leave it."
+    },
+    {
+      title: "Tiny sips only",
+      text: "If you are vomiting, do not force food or drink. If drinks stay down, take small sips of water. Do not start a long fast unless your own clinician already told you to pause food."
+    },
+    {
+      title: "Only your plan",
+      text: "Take only the medicine your own clinician already told you to take, at the time they told you. Harbor will not give you a drug name or a dose. If you have no plan and the pain is severe, get care. Do not guess."
+    }
+  ],
+  callToday: [
+    "The pain is worse than your usual pattern, but you are still able to sit and sip.",
+    "You are losing weight without trying.",
+    "Stools are oily, pale, or very hard to flush, or diarrhea is new.",
+    "You are much more thirsty, much more hungry, or passing urine more often.",
+    "The treatment you already have is not helping.",
+    "You cannot eat enough to hold your weight.",
+    "A new symptom is scaring you."
+  ],
+  steadyRules: [
+    "No alcohol. Not beer, not wine, not a small drink.",
+    "Smaller meals, more often. A large plate makes the pancreas work harder.",
+    "Keep a drink nearby. Dehydration can set off a flare.",
+    "Choose lean food. Skip fried food and cream sauces.",
+    "If enzymes were prescribed, take them with the meal, the way you were shown.",
+    "If a red-flag sign shows up, stop following recipes and get care."
+  ],
+  guides: [
+    {
+      id: "help-now",
+      title: "When to get help now",
+      sourceIds: ["mayo-symptoms", "cleveland", "npf", "kaiser"],
+      body: [
+        "Mayo Clinic says to get immediate help if the pain is so severe you cannot sit still or cannot find a position that is more comfortable.",
+        "Cleveland Clinic says to go to the emergency department for severe, constant belly pain, especially with repeated vomiting, fever, trouble breathing, fainting, severe dizziness, or a fast heartbeat.",
+        "The National Pancreas Foundation also says to get immediate care for yellow skin or eyes, fever or chills, trouble breathing, or signs of dehydration.",
+        "Vomiting blood, vomit that looks like coffee grounds, and black or bloody stool are emergency signs. Do not wait those out at home."
+      ]
+    },
+    {
+      id: "call-today",
+      title: "Call your own clinician today",
+      sourceIds: ["cleveland", "mayo-symptoms", "npf", "medlineplus"],
+      body: [
+        "You do not have to be in the emergency list to need a call. Call the same day if the pain is climbing past your usual, food will not stay down, or you are losing weight.",
+        "Oily, pale, very smelly stools can mean food is not being absorbed. New strong thirst, hunger, or urination can be a sign of diabetes. Both need your clinician, not a new diet from an app.",
+        "Cleveland Clinic says to call if symptoms are getting worse, you are losing weight, or your current treatment is not helping."
+      ]
+    },
+    {
+      id: "what-pain-does",
+      title: "What this pain often does",
+      sourceIds: ["mayo-symptoms", "cleveland", "npf"],
+      body: [
+        "Pain is often in the upper belly. It can spread to the back. It often gets worse after eating. It can be there for hours, or it can be a constant ache.",
+        "Cleveland Clinic says it can feel worse when you lie flat, cough, exercise, or eat a heavier meal.",
+        "Some people with chronic pancreatitis have little or no pain. You are not doing this wrong if your days do not match someone else's."
+      ]
+    },
+    {
+      id: "what-helps-pain",
+      title: "What actually helps pain",
+      sourceIds: ["mayo-treatment", "cleveland", "npf"],
+      body: [
+        "Mayo Clinic says there is no specific medicine to treat pancreatitis. In a bad attack, teams often use pain medicine, fluids, and a careful return to food. That is hospital care when the attack is severe.",
+        "For ongoing pain, a clinician may look for a fixable cause, such as a blocked duct or stones. Some people see a pain specialist. Some are offered a nerve block, a stent, or surgery. Those are medical decisions.",
+        "Harbor cannot turn the pain off. It can help you sit up, sip safely, follow the plan you were already given, and know when to get help."
+      ]
+    },
+    {
+      id: "position",
+      title: "A position that is often easier",
+      sourceIds: ["cleveland"],
+      body: [
+        "Try sitting up, pillows behind you, knees a little bent. Lying flat can make the pain worse.",
+        "Loosen a tight waistband. Stay as still as you need to. Skip exercise during a flare.",
+        "If the new position hurts more, stop it. If no position is bearable, that is a reason to get emergency care."
+      ]
+    },
+    {
+      id: "food-flare",
+      title: "Food when the flare is bad",
+      sourceIds: ["npf-nutrition", "niddk-diet", "medlineplus"],
+      body: [
+        "The National Pancreas Foundation says a doctor may tell you to limit food, sometimes for a day or two, during a flare. Only do that if your own clinician has told you to. Do not invent a long fast. A hospital fast, with a drip or a feeding tube, is not something to copy at home.",
+        "When pain is severe and you are allowed to drink, clear liquids are the usual first step: apple juice, cranberry juice, white grape juice, gelatin, and broth. They are not a full diet. Move back to food as soon as you can, on the schedule you were given.",
+        "MedlinePlus discharge advice for after an episode starts with broth or gelatin, then bland foods: rice, dry toast, crackers, bananas, and applesauce.",
+        "If you are vomiting, do not force any of this. Not keeping water down is a reason to get care."
+      ]
+    },
+    {
+      id: "food-steady",
+      title: "Food on steadier days",
+      sourceIds: ["mayo-treatment", "niddk-diet", "cleveland-diet", "npf-nutrition", "espen"],
+      body: [
+        "Mayo Clinic describes a balanced plate: vegetables, fruit, whole grains, and lean protein, without high-fat foods. NIDDK describes a low-fat plan, small frequent meals, plenty of fluids, limited caffeine, and no alcohol.",
+        "The National Pancreas Foundation says several small meals are often easier than three large ones, and that dehydration can trigger a flare.",
+        "A European nutrition guideline, ESPEN, says people with chronic pancreatitis usually should not stay on a very strict low-fat diet forever, because the body still needs energy. If you are underweight, the need is more protein and more calories, in five or six smaller meals.",
+        "Both sides agree on the part that matters today: no alcohol, no greasy meals, smaller portions, and a dietitian if weight is falling. Harbor's flare list is the gentler end on purpose. It is not a reason to under-eat all month."
+      ]
+    },
+    {
+      id: "about-fat",
+      title: "About fat, said plainly",
+      sourceIds: ["cleveland-diet", "espen", "niddk-diet"],
+      body: [
+        "One Cleveland Clinic article suggests keeping fat under about 30 grams a day and mentions MCT oil as something a dietitian may add. Do not start MCT oil during a flare, and do not start it on your own.",
+        "ESPEN's guideline says a balanced diet is preferred once chronic pancreatitis is established. A very low-fat plan can make weight loss worse.",
+        "Let your dietitian set your fat target. Until then, skip fried food and cream, and use the flare list when you are sore."
+      ]
+    },
+    {
+      id: "enzymes",
+      title: "Enzyme pills",
+      sourceIds: ["mayo-treatment", "niddk-treatment", "npf"],
+      body: [
+        "If diarrhea or weight loss is from the pancreas not making enough enzymes, a clinician may prescribe enzyme pills with meals. Mayo Clinic says they help the body break down food. They are not a promise to erase pain.",
+        "The dose is individual. Do not change it from this app. Take them the way the prescriber showed you, with food, not on an empty stomach.",
+        "A hot drink is a poor way to swallow them. If capsules are hard to swallow, ask before you open them. Do not stop them just because you had a better week.",
+        "NIDDK also says a clinician may check vitamins A, D, E, and K, and sometimes B12, if food is not being absorbed. Ask before you start a vitamin on your own."
+      ]
+    },
+    {
+      id: "alcohol-smoking",
+      title: "Alcohol and smoking",
+      sourceIds: ["mayo-treatment", "niddk-diet", "npf", "cleveland"],
+      body: [
+        "Do not drink alcohol. Mayo Clinic, NIDDK, Cleveland Clinic, and the National Pancreas Foundation all say to stop, even when alcohol was not the original cause. It can bring the inflammation back.",
+        "If stopping is hard, ask your clinician for help. That is a medical request, not a character test.",
+        "Smoking makes pancreatic disease worse and raises the risk of pancreatic cancer. Ask for help to quit. You do not have to do it by willpower alone."
+      ]
+    },
+    {
+      id: "fluids",
+      title: "Water",
+      sourceIds: ["mayo-treatment", "npf-nutrition", "niddk-diet"],
+      body: [
+        "Pancreatitis can dry you out, and dehydration can set off another flare. Keep a drink you can see.",
+        "On a sore day, small sips beat a large glass you throw up. If water will not stay down, get care.",
+        "NIDDK says to limit caffeine. On a flare day, choose water or broth before coffee."
+      ]
+    },
+    {
+      id: "weight-diabetes",
+      title: "Weight, stools, and blood sugar",
+      sourceIds: ["mayo-symptoms", "niddk-treatment", "npf"],
+      body: [
+        "Losing weight without trying, and stools that are oily or very smelly, belong on a call list. Do not answer that by eating a large fatty meal.",
+        "Chronic pancreatitis can damage the cells that make insulin. New thirst, hunger, or frequent urination needs a check.",
+        "Your team may add a dietitian. That referral is worth asking for."
+      ]
+    },
+    {
+      id: "medicines",
+      title: "Medicines",
+      sourceIds: ["mayo-symptoms", "mayo-treatment"],
+      body: [
+        "Some medicines can inflame the pancreas. Do not stop a prescription because a website says it might. Ask your clinician before you change any medicine.",
+        "Do not pick a pain pill from this app. Not a name, and not a dose. Use only the written plan you were given. If that plan is not holding a severe flare, the next step is care, not a bigger guess.",
+        "Bring your flare notes to the visit. A pain specialist is a reasonable thing to ask about when pain is running your days."
+      ]
+    },
+    {
+      id: "questions",
+      title: "Questions worth asking",
+      sourceIds: ["mayo-treatment", "cleveland", "niddk-treatment", "npf"],
+      body: [
+        "What should I do in the first hour of a flare?",
+        "Which pain medicines are mine, and which should I avoid?",
+        "Do I need enzyme pills? When do I take them?",
+        "Should I see a dietitian, and what fat target is right for me?",
+        "Do I need checks for vitamins, diabetes, or my weight?",
+        "Is this pain something a specialist should look at, such as a duct, stones, or a nerve block?",
+        "What change in weight or stool should make me call you the same day?"
+      ]
+    }
+  ],
+  sources: [
+    {
+      id: "mayo-symptoms",
+      name: "Mayo Clinic",
+      title: "Pancreatitis — symptoms and causes",
+      url: "https://www.mayoclinic.org/diseases-conditions/pancreatitis/symptoms-causes/syc-20360227"
+    },
+    {
+      id: "mayo-treatment",
+      name: "Mayo Clinic",
+      title: "Pancreatitis — diagnosis and treatment",
+      url: "https://www.mayoclinic.org/diseases-conditions/pancreatitis/diagnosis-treatment/drc-20360233"
+    },
+    {
+      id: "mayo-hs",
+      name: "Mayo Clinic Health System",
+      title: "Acute and chronic pancreatitis",
+      url: "https://www.mayoclinichealthsystem.org/hometown-health/speaking-of-health/breaking-down-pancreatitis"
+    },
+    {
+      id: "niddk-diet",
+      name: "NIDDK",
+      title: "Eating, diet, and nutrition for pancreatitis",
+      url: "https://www.niddk.nih.gov/health-information/digestive-diseases/pancreatitis/eating-diet-nutrition"
+    },
+    {
+      id: "niddk-treatment",
+      name: "NIDDK",
+      title: "Treatment for pancreatitis",
+      url: "https://www.niddk.nih.gov/health-information/digestive-diseases/pancreatitis/treatment"
+    },
+    {
+      id: "cleveland",
+      name: "Cleveland Clinic",
+      title: "Pancreatitis",
+      url: "https://my.clevelandclinic.org/health/diseases/8103-pancreatitis"
+    },
+    {
+      id: "cleveland-diet",
+      name: "Cleveland Clinic",
+      title: "Diet changes to help with pancreatitis",
+      url: "https://health.clevelandclinic.org/best-and-worst-foods-for-pancreatitis-pain"
+    },
+    {
+      id: "npf",
+      name: "National Pancreas Foundation",
+      title: "Chronic pancreatitis",
+      url: "https://www.pancreasfoundation.org/diseases/chronic-pancreatitis"
+    },
+    {
+      id: "npf-nutrition",
+      name: "National Pancreas Foundation",
+      title: "Nutrition and recipes",
+      url: "https://pancreasfoundation.org/patient-resources/nutrition-cookbook/"
+    },
+    {
+      id: "medlineplus",
+      name: "MedlinePlus",
+      title: "Pancreatitis — discharge",
+      url: "https://medlineplus.gov/ency/patientinstructions/000201.htm"
+    },
+    {
+      id: "kaiser",
+      name: "Kaiser Permanente",
+      title: "Pancreatitis: care instructions",
+      url: "https://healthy.kaiserpermanente.org/health-wellness/health-encyclopedia/he.pancreatitis-care-instructions.uf7653"
+    },
+    {
+      id: "espen",
+      name: "ESPEN",
+      title: "Practical guideline on clinical nutrition in acute and chronic pancreatitis",
+      url: "https://www.clinicalnutritionjournal.com/article/S0261-5614(23)00459-4/fulltext"
+    }
+  ],
+  startHere: ["ice-chips", "water-sips", "fat-free-broth", "diluted-apple", "gelatin", "applesauce", "banana", "saltines"],
+  staples: [
+    { id: "broth", name: "Fat-free broth, a few cartons" },
+    { id: "gelatin", name: "Plain gelatin cups" },
+    { id: "applesauce", name: "Unsweetened applesauce" },
+    { id: "bananas", name: "Bananas" },
+    { id: "juice", name: "Clear apple juice or white grape juice" },
+    { id: "crackers", name: "Saltines" },
+    { id: "rice-cakes", name: "Plain rice cakes" },
+    { id: "rice", name: "White rice" },
+    { id: "oats", name: "Plain oats" },
+    { id: "cereal", name: "Cream of Rice or grits" },
+    { id: "bread", name: "Plain white bread" },
+    { id: "potatoes", name: "Potatoes" },
+    { id: "carrots", name: "Carrots" },
+    { id: "pears", name: "Canned pears in juice" },
+    { id: "yogurt", name: "Nonfat yogurt" },
+    { id: "eggs", name: "Eggs, for the whites" },
+    { id: "chicken", name: "Boneless skinless chicken" },
+    { id: "turkey", name: "Sliced turkey breast" },
+    { id: "tuna", name: "Tuna packed in water" },
+    { id: "fish", name: "Frozen white fish" },
+    { id: "rehydrate", name: "An oral rehydration drink" }
+  ],
+  foods: [
+    {
+      id: "ice-chips",
+      name: "Ice chips",
+      group: "sip",
+      cook: "none",
+      minutes: 1,
+      portion: "One or two chips",
+      fat: "None",
+      line: "Let a chip melt. Do not chew a mouthful of ice.",
+      needs: ["Ice"],
+      steps: [
+        "Start with one or two chips.",
+        "Let them melt in your mouth.",
+        "Wait a few minutes before more.",
+        "If you vomit, stop and get medical care."
+      ],
+      note: "Only if your clinician has not told you to take nothing by mouth.",
+      tags: [],
+      enzymes: false,
+      find: "ice water melt"
+    },
+    {
+      id: "water-sips",
+      name: "Small sips of water",
+      group: "sip",
+      cook: "none",
+      minutes: 1,
+      portion: "A sip, then a pause",
+      fat: "None",
+      line: "The first drink to try when a sip will stay down.",
+      needs: ["Water"],
+      steps: [
+        "Sit up.",
+        "Take one small sip.",
+        "Wait. If it stays down, take another.",
+        "If water will not stay down, stop and get care. Do not force a full glass."
+      ],
+      note: "Dehydration can set off a flare, but vomiting changes the plan. Care comes before a quota.",
+      tags: [],
+      enzymes: false,
+      find: "water hydration sip"
+    },
+    {
+      id: "pharmacy-drink",
+      name: "Oral rehydration drink",
+      group: "sip",
+      cook: "none",
+      minutes: 1,
+      portion: "Small sips",
+      fat: "Check the label",
+      line: "A pharmacy drink made for dehydration. Not a sports soda binge.",
+      needs: ["An oral rehydration drink from a pharmacy"],
+      steps: [
+        "Choose a drink made for rehydration, not an energy drink.",
+        "Sip it cold or cool. Do not chug it.",
+        "Follow the label, and your clinician if they gave you a limit.",
+        "Stop if you feel sick."
+      ],
+      note: "If you have diabetes, kidney disease, or a sodium limit, ask which product is yours before you rely on one.",
+      tags: [],
+      enzymes: false,
+      find: "pedialyte electrolyte hydration"
+    },
+    {
+      id: "fat-free-broth",
+      name: "Fat-free chicken broth",
+      group: "sip",
+      cook: "warm",
+      minutes: 3,
+      portion: "One small mug",
+      fat: "Usually under 1 gram if the carton says fat-free",
+      line: "Warm the carton. Do not boil it. Skip creamy soup.",
+      needs: ["1 cup fat-free, low-sodium chicken broth"],
+      steps: [
+        "Check the carton. It should say fat-free, not creamy.",
+        "Warm one cup until it is pleasant to sip. Do not boil it.",
+        "Sit up. Sip slowly.",
+        "If a fat layer is floating, chill the mug and lift the fat off, or start over with a fat-free carton."
+      ],
+      note: "Choose low-sodium if your clinician limited salt. The National Pancreas Foundation lists broth as a clear liquid for a severe day.",
+      tags: [],
+      enzymes: false,
+      find: "soup broth chicken stock clear"
+    },
+    {
+      id: "vegetable-broth",
+      name: "Fat-free vegetable broth",
+      group: "sip",
+      cook: "warm",
+      minutes: 3,
+      portion: "One small mug",
+      fat: "Usually under 1 gram if it is fat-free",
+      line: "The same idea as chicken broth, if you do not eat meat.",
+      needs: ["1 cup fat-free vegetable broth"],
+      steps: [
+        "Read the label. Skip cartons with cream, coconut milk, or oil high on the list.",
+        "Warm one cup. Do not boil it.",
+        "Sip it slowly, sitting up.",
+        "Stop if nausea rises."
+      ],
+      note: "Low-sodium if salt is limited for you.",
+      tags: [],
+      enzymes: false,
+      find: "vegetable stock soup"
+    },
+    {
+      id: "beef-broth",
+      name: "Fat-free beef broth",
+      group: "sip",
+      cook: "warm",
+      minutes: 3,
+      portion: "One small mug",
+      fat: "Only if the label says fat-free",
+      line: "Use it only when the label says fat-free. Many beef broths are not.",
+      needs: ["1 cup fat-free beef broth"],
+      steps: [
+        "Read the fat line on the label before you open it.",
+        "If it is not fat-free, do not use it today.",
+        "Warm one cup and sip it slowly.",
+        "Stop if it feels heavy."
+      ],
+      note: "",
+      tags: [],
+      enzymes: false,
+      find: "beef bouillon stock"
+    },
+    juice("diluted-apple", "Apple juice", "apple juice clear niddk npf"),
+    juice("diluted-grape", "White grape juice", "white grape juice clear"),
+    {
+      ...juice("diluted-cranberry", "Cranberry juice", "cranberry juice clear"),
+      note: "If you take warfarin, a blood thinner, ask before cranberry. If you have diabetes, keep the cup small."
+    },
+    {
+      id: "gelatin",
+      name: "Plain gelatin",
+      group: "sip",
+      cook: "none",
+      minutes: 1,
+      portion: "One small cup",
+      fat: "Usually none",
+      line: "A ready cup, or a box made with water. No whipped topping.",
+      needs: ["One plain gelatin cup, or a box made as the box says"],
+      steps: [
+        "Choose a plain gelatin. Skip anything with cream or fruit in heavy syrup.",
+        "If you make a box, follow the box and use water.",
+        "Eat it cool, a small cup.",
+        "This is not a full meal. Go back to other food as soon as you can."
+      ],
+      note: "Gelatin is on the National Pancreas Foundation clear-liquid list. It will not treat the pain.",
+      tags: [],
+      enzymes: false,
+      find: "jello gelatin jelly cup"
+    },
+    {
+      id: "juice-pop",
+      name: "Diluted juice ice pop",
+      group: "sip",
+      cook: "none",
+      minutes: 1,
+      portion: "One small pop",
+      fat: "None, if you made it from diluted juice",
+      line: "A pop you froze earlier from half juice, half water. Not a cream bar.",
+      needs: ["An ice pop made from diluted apple or white grape juice"],
+      steps: [
+        "Only use a pop you made from juice and water, or a label that shows no fat and no cream.",
+        "Eat it slowly, sitting up.",
+        "One is enough to start.",
+        "Skip store bars with coconut, cream, or chocolate."
+      ],
+      note: "Make a few on a steady day and keep them in the freezer. If you have diabetes, count the juice.",
+      tags: ["juice"],
+      enzymes: false,
+      find: "popsicle ice pop freezer"
+    },
+    {
+      id: "weak-tea",
+      name: "Weak decaf tea",
+      group: "sip",
+      cook: "warm",
+      minutes: 4,
+      portion: "A small mug",
+      fat: "None if you add no milk",
+      line: "A short steep. No milk. No sugar required.",
+      needs: ["A decaf tea bag", "Hot water"],
+      steps: [
+        "Steep the bag for a short time, then take it out.",
+        "Add no milk, cream, or honey at this stage.",
+        "Let it cool until it is warm, not scorching.",
+        "Sip slowly. Coffee can wait."
+      ],
+      note: "NIDDK says to limit caffeine. Decaf is the flare-day choice. Skip tea if your clinician told you to stay on clear liquids only and did not include it.",
+      tags: [],
+      enzymes: false,
+      find: "tea decaf black"
+    },
+    {
+      id: "applesauce",
+      name: "Unsweetened applesauce",
+      group: "soft",
+      cook: "none",
+      minutes: 1,
+      portion: "A small cup",
+      fat: "Under 1 gram",
+      line: "The jar is enough. No sugar stirred in.",
+      needs: ["Unsweetened applesauce"],
+      steps: [
+        "Open a jar or a cup that says unsweetened.",
+        "Eat a small cup, cool or room temperature.",
+        "Do not add butter, sugar, or granola.",
+        "Stop if your stomach turns."
+      ],
+      note: "MedlinePlus lists applesauce among the bland foods after an episode.",
+      tags: [],
+      enzymes: true,
+      find: "apple sauce fruit"
+    },
+    {
+      id: "banana",
+      name: "Ripe banana",
+      group: "soft",
+      cook: "none",
+      minutes: 1,
+      portion: "Half, to start",
+      fat: "Under 1 gram in one half",
+      line: "Yellow, with a few brown spots. Easy to chew.",
+      needs: ["1 ripe banana"],
+      steps: [
+        "Peel half of a ripe banana.",
+        "Eat it slowly.",
+        "Save the other half.",
+        "Stop if it sits like a stone."
+      ],
+      note: "If your clinician limited potassium, ask before bananas, melon, or potatoes.",
+      tags: ["potassium"],
+      enzymes: true,
+      find: "banana fruit"
+    },
+    {
+      id: "saltines",
+      name: "Saltine crackers",
+      group: "soft",
+      cook: "none",
+      minutes: 1,
+      portion: "A few crackers",
+      fat: "About 1 gram in four plain saltines. Read the box.",
+      line: "Plain saltines. Not butter crackers.",
+      needs: ["Plain saltine crackers"],
+      steps: [
+        "Take two to four plain saltines.",
+        "Eat them dry, or with a sip of broth.",
+        "Do not add cheese or peanut butter today.",
+        "Stop at a small handful."
+      ],
+      note: "They are salty. If salt is limited for you, keep the count small.",
+      tags: [],
+      enzymes: true,
+      find: "crackers saltine soda cracker"
+    },
+    {
+      id: "rice-cakes",
+      name: "Plain rice cakes",
+      group: "soft",
+      cook: "none",
+      minutes: 1,
+      portion: "One or two",
+      fat: "Usually under 1 gram if they are plain",
+      line: "Plain, not caramel, not chocolate, not with seeds.",
+      needs: ["Plain rice cakes"],
+      steps: [
+        "Choose a plain rice cake. Read the fat line.",
+        "Eat one slowly with a sip of water or broth.",
+        "A second is fine if the first sits well.",
+        "Skip flavored cakes with icing or chocolate."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "rice cake crisp"
+    },
+    {
+      id: "melba",
+      name: "Melba toast",
+      group: "soft",
+      cook: "none",
+      minutes: 1,
+      portion: "A few pieces",
+      fat: "Low if the box says so. Read it.",
+      line: "Dry toast you do not have to make.",
+      needs: ["Plain melba toast"],
+      steps: [
+        "Take a few plain pieces.",
+        "Eat them dry.",
+        "Sip water or broth with them if your mouth is dry.",
+        "Stop if they scratch or hurt to swallow. Switch to applesauce or gelatin."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "melba toast cracker"
+    },
+    {
+      id: "canned-pears",
+      name: "Canned pears in juice",
+      group: "soft",
+      cook: "none",
+      minutes: 1,
+      portion: "A small cup",
+      fat: "Under 1 gram",
+      line: "In juice, drained. Not in heavy syrup.",
+      needs: ["Canned pears in juice"],
+      steps: [
+        "Read the can. It should say juice, not heavy syrup.",
+        "Drain it.",
+        "Eat a small cup.",
+        "If you have diabetes, count it in your fruit plan."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "pear canned fruit"
+    },
+    {
+      id: "canned-peaches",
+      name: "Canned peaches in juice",
+      group: "soft",
+      cook: "none",
+      minutes: 1,
+      portion: "A small cup",
+      fat: "Under 1 gram",
+      line: "In juice, drained. The same rule as pears.",
+      needs: ["Canned peaches in juice"],
+      steps: [
+        "Check the label for juice, not syrup.",
+        "Drain the cup.",
+        "Eat it slowly.",
+        "Skip peach pie filling."
+      ],
+      note: "If you have diabetes, count this in your fruit plan.",
+      tags: [],
+      enzymes: true,
+      find: "peach canned fruit"
+    },
+    {
+      id: "leftover-rice",
+      name: "Leftover plain rice",
+      group: "soft",
+      cook: "none",
+      minutes: 2,
+      portion: "Half a cup",
+      fat: "Under 1 gram if it was cooked with no oil",
+      line: "Rice you already made. Warm it with a splash of water.",
+      needs: ["Plain cooked rice", "A splash of water"],
+      steps: [
+        "Only use rice that was cooked without oil or butter.",
+        "Warm it with a splash of water, covered, so it steams soft.",
+        "Eat half a cup, sitting up.",
+        "If it was fried rice, do not eat it today."
+      ],
+      note: "This is the 2 a.m. option. No cooking from scratch.",
+      tags: [],
+      enzymes: true,
+      find: "rice leftover cold"
+    },
+    {
+      id: "dry-toast",
+      name: "Dry toast",
+      group: "soft",
+      cook: "warm",
+      minutes: 3,
+      portion: "One slice",
+      fat: "About 1 gram in a plain slice. Read the bread bag.",
+      line: "One slice. No butter. White bread is often easier today than seeded bread.",
+      needs: ["1 slice plain white bread"],
+      steps: [
+        "Toast one slice until it is dry, not dark.",
+        "Eat it with no butter, oil, or avocado.",
+        "A scrape of jelly is optional sugar, not fat. Skip jelly if you are limiting sugar.",
+        "One slice first. Wait before a second."
+      ],
+      note: "MedlinePlus lists dry toast as a bland food after an episode. You do not have to stay on white bread forever.",
+      tags: [],
+      enzymes: true,
+      find: "toast bread white"
+    },
+    {
+      id: "bagel",
+      name: "Plain bagel, no spread",
+      group: "soft",
+      cook: "warm",
+      minutes: 3,
+      portion: "Half a bagel",
+      fat: "Low on a plain bagel. Cream cheese is not low.",
+      line: "Half of a plain bagel. Nothing spread on it.",
+      needs: ["Half of a plain bagel"],
+      steps: [
+        "Toast half of a plain bagel if you want it warm.",
+        "Do not add cream cheese, butter, or peanut butter.",
+        "Eat it slowly.",
+        "Stop at half."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "bagel bread"
+    },
+    {
+      id: "english-muffin",
+      name: "English muffin, dry",
+      group: "soft",
+      cook: "warm",
+      minutes: 3,
+      portion: "One half",
+      fat: "About 1 gram in one plain half",
+      line: "One half, toasted, with nothing on it.",
+      needs: ["Half of a plain English muffin"],
+      steps: [
+        "Toast one half.",
+        "Eat it dry.",
+        "Skip butter and cheese.",
+        "Wait before the other half."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "english muffin bread"
+    },
+    {
+      id: "pretzels",
+      name: "Plain pretzels",
+      group: "soft",
+      cook: "none",
+      minutes: 1,
+      portion: "A small handful",
+      fat: "Varies. Read the label. Skip buttery pretzels.",
+      line: "A small handful of plain pretzels, not a bag.",
+      needs: ["Plain pretzels"],
+      steps: [
+        "Check the label. Choose plain, not chocolate or yogurt-coated.",
+        "Put a small handful in a bowl. Do not eat from the bag.",
+        "Chew well. Sip water.",
+        "Stop when the bowl is empty."
+      ],
+      note: "Salty. Keep it small if salt is limited for you.",
+      tags: [],
+      enzymes: true,
+      find: "pretzel snack"
+    },
+    {
+      id: "baked-apple",
+      name: "Baked peeled apple",
+      group: "soft",
+      cook: "stove",
+      minutes: 20,
+      portion: "Half an apple",
+      fat: "Under 1 gram",
+      line: "Peel it. Soften it with water. No sugar crust.",
+      needs: ["1 apple", "A spoon of water", "Cinnamon, if you want"],
+      steps: [
+        "Peel the apple and cut it into slices.",
+        "Put it in a dish with a spoon of water. Cover it.",
+        "Microwave or bake until it is soft.",
+        "Eat half. Add no butter."
+      ],
+      note: "Peel and cook it. A raw apple is harder work on a flare day.",
+      tags: [],
+      enzymes: true,
+      find: "apple baked fruit"
+    },
+    {
+      id: "soft-rice",
+      name: "Soft white rice",
+      group: "soft",
+      cook: "stove",
+      minutes: 20,
+      portion: "Half a cup",
+      fat: "Under 1 gram",
+      line: "Rice and water and a pinch of salt. That is the whole dish.",
+      needs: ["1/4 cup white rice", "3/4 cup water", "A pinch of salt"],
+      steps: [
+        "Rinse the rice if you like.",
+        "Simmer it in the water until it is soft, not firm.",
+        "Add no butter, no oil, and no soy sauce today.",
+        "Eat half a cup. Keep the rest for later."
+      ],
+      note: "White rice is gentler during a flare than a heavy brown-rice bowl. Brown rice can come back on a steady week.",
+      tags: [],
+      enzymes: true,
+      find: "rice white grain"
+    },
+    {
+      id: "rice-porridge",
+      name: "Rice porridge",
+      group: "soft",
+      cook: "stove",
+      minutes: 35,
+      portion: "A small bowl",
+      fat: "Under 1 gram",
+      line: "Rice cooked with extra water until it is a soft spoon food.",
+      needs: ["1/4 cup white rice", "1 1/2 cups water", "A pinch of salt"],
+      steps: [
+        "Put the rice and water in a small pot.",
+        "Simmer until the rice falls apart and looks like a soft porridge. Stir now and then.",
+        "Add a pinch of salt. Add no oil.",
+        "Eat a small bowl warm, not scorching."
+      ],
+      note: "This is the same idea as congee. It is often easier than a plate of separate foods.",
+      tags: [],
+      enzymes: true,
+      find: "congee porridge rice soup"
+    },
+    {
+      id: "cream-of-rice",
+      name: "Cream of Rice, with water",
+      group: "soft",
+      cook: "stove",
+      minutes: 10,
+      portion: "A small bowl",
+      fat: "Under 1 gram when made with water",
+      line: "The cereal name says cream. Use water anyway.",
+      needs: ["Cream of Rice cereal", "Water", "A pinch of salt"],
+      steps: [
+        "Follow the box, but use water, not milk.",
+        "Cook until smooth.",
+        "Add no butter.",
+        "Eat a small bowl."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "cream of rice cereal hot"
+    },
+    {
+      id: "cream-of-wheat",
+      name: "Cream of Wheat, with water",
+      group: "soft",
+      cook: "stove",
+      minutes: 10,
+      portion: "A small bowl",
+      fat: "Under 1 gram when made with water",
+      line: "Another soft cereal. Water, not milk, on a flare day.",
+      needs: ["Cream of Wheat", "Water"],
+      steps: [
+        "Cook it with water, as the box shows for a thin cereal.",
+        "Skip milk, butter, and brown sugar today.",
+        "Let it cool until you can eat it comfortably.",
+        "Start with a small bowl."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "cream of wheat farina cereal"
+    },
+    {
+      id: "grits",
+      name: "Grits with water",
+      group: "soft",
+      cook: "stove",
+      minutes: 15,
+      portion: "A small bowl",
+      fat: "Under 1 gram when made with water",
+      line: "Soft grits. No cheese. No butter.",
+      needs: ["Plain grits", "Water", "A pinch of salt"],
+      steps: [
+        "Stir plain grits into simmering water so they do not clump.",
+        "Cook until soft.",
+        "Salt lightly. Add no cheese, bacon, or butter.",
+        "Eat a small bowl."
+      ],
+      note: "Choose plain grits, not a cheese packet.",
+      tags: [],
+      enzymes: true,
+      find: "grits hominy cereal"
+    },
+    {
+      id: "oatmeal-water",
+      name: "Oatmeal with water",
+      group: "soft",
+      cook: "stove",
+      minutes: 8,
+      portion: "A small bowl",
+      fat: "About 2 grams in a third cup of dry oats, before toppings",
+      line: "A smaller, softer bowl than a loaded breakfast.",
+      needs: ["1/3 cup plain oats", "3/4 cup water", "A pinch of salt"],
+      steps: [
+        "Cook the oats in water until soft.",
+        "Add no milk, nuts, or peanut butter.",
+        "A few bites of banana on top are fine if fruit is sitting well.",
+        "If oats make you bloat, skip them today and use rice or cream of rice."
+      ],
+      note: "Oats have a little more fat and fiber than white rice. Wait for them if you are still at the sip stage.",
+      tags: [],
+      enzymes: true,
+      find: "oatmeal oats porridge"
+    },
+    {
+      id: "plain-pasta",
+      name: "Plain pasta",
+      group: "soft",
+      cook: "stove",
+      minutes: 15,
+      portion: "Half a cup",
+      fat: "About 1 gram in half a cup of plain cooked pasta",
+      line: "Soft noodles. No oil, no cheese, no jar sauce.",
+      needs: ["A small handful of plain pasta", "Water", "A pinch of salt"],
+      steps: [
+        "Boil a small amount of pasta until it is soft.",
+        "Drain it. Do not toss it in oil.",
+        "If you want moisture, add a spoon of fat-free broth.",
+        "Eat half a cup."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "pasta noodles macaroni"
+    },
+    {
+      id: "egg-noodles",
+      name: "Plain egg noodles",
+      group: "soft",
+      cook: "stove",
+      minutes: 12,
+      portion: "Half a cup",
+      fat: "A little higher than plain pasta. Read the bag. Keep the bowl small.",
+      line: "Soft egg noodles with broth, not a butter sauce.",
+      needs: ["A small nest of plain egg noodles", "Fat-free broth or water"],
+      steps: [
+        "Boil the noodles until soft.",
+        "Drain them.",
+        "Moisten with fat-free broth. Add no butter.",
+        "Eat half a cup. Skip this if eggs bother you."
+      ],
+      note: "",
+      tags: ["eggs"],
+      enzymes: true,
+      find: "egg noodles pasta"
+    },
+    {
+      id: "rice-noodles",
+      name: "Rice noodles in broth",
+      group: "soft",
+      cook: "stove",
+      minutes: 10,
+      portion: "A small bowl",
+      fat: "Low if the noodles are plain and the broth is fat-free",
+      line: "Soft rice noodles in fat-free broth.",
+      needs: ["A small handful of rice noodles", "1 cup fat-free broth"],
+      steps: [
+        "Heat the broth.",
+        "Soften the noodles in it until they are tender.",
+        "Add no oil and no coconut milk.",
+        "Eat the noodles and sip some of the broth. Leave it if your stomach says the bowl is enough."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "rice noodle pho soup"
+    },
+    {
+      id: "couscous",
+      name: "Plain couscous",
+      group: "soft",
+      cook: "warm",
+      minutes: 8,
+      portion: "Half a cup",
+      fat: "Under 1 gram if you stir it with water, not oil",
+      line: "Pour hot water over it. Cover it. Fluff it. No oil.",
+      needs: ["1/4 cup plain couscous", "Hot water", "A pinch of salt"],
+      steps: [
+        "Put the couscous in a bowl.",
+        "Pour on the hot water the box asks for. Cover it.",
+        "Wait about 5 minutes. Fluff it with a fork. Add no oil.",
+        "Eat half a cup."
+      ],
+      note: "This is wheat. Skip it if you do not eat gluten, and use rice instead.",
+      tags: [],
+      enzymes: true,
+      find: "couscous grain"
+    },
+    {
+      id: "boiled-potato",
+      name: "Boiled potato",
+      group: "soft",
+      cook: "stove",
+      minutes: 25,
+      portion: "Half a potato",
+      fat: "Almost none, with no butter",
+      line: "Boiled until soft. Peel if the skin bothers you.",
+      needs: ["1 potato", "Water", "A pinch of salt"],
+      steps: [
+        "Peel the potato if skins bother you. Cut it into chunks.",
+        "Boil until a fork goes in easily.",
+        "Drain it. Add a pinch of salt. Add no butter or sour cream.",
+        "Eat half. Keep the rest plain in the fridge."
+      ],
+      note: "If your clinician limited potassium, ask first.",
+      tags: ["potassium"],
+      enzymes: true,
+      find: "potato boiled"
+    },
+    {
+      id: "microwave-potato",
+      name: "Microwave potato",
+      group: "soft",
+      cook: "warm",
+      minutes: 8,
+      portion: "Half a potato",
+      fat: "Almost none, with no butter",
+      line: "The flare-day potato when you cannot stand at the stove.",
+      needs: ["1 potato"],
+      steps: [
+        "Wash it. Poke it with a fork a few times.",
+        "Microwave until soft, about 5 to 8 minutes, turning once.",
+        "Let it cool a little. Split it.",
+        "Eat half with no butter. A spoon of fat-free broth can moisten it."
+      ],
+      note: "If your clinician limited potassium, ask first.",
+      tags: ["potassium"],
+      enzymes: true,
+      find: "potato baked microwave jacket"
+    },
+    {
+      id: "mashed-potato",
+      name: "Mashed potato with broth",
+      group: "soft",
+      cook: "stove",
+      minutes: 25,
+      portion: "Half a cup",
+      fat: "Low only if you mash with broth, not butter or cream",
+      line: "Soft potatoes mashed with fat-free broth.",
+      needs: ["1 boiled potato", "Fat-free broth", "A pinch of salt"],
+      steps: [
+        "Boil or microwave a potato until soft.",
+        "Mash it with a splash of fat-free broth.",
+        "Do not add butter, milk, cheese, or gravy.",
+        "Eat half a cup."
+      ],
+      note: "",
+      tags: ["potassium"],
+      enzymes: true,
+      find: "mashed potato"
+    },
+    {
+      id: "sweet-potato",
+      name: "Plain sweet potato",
+      group: "soft",
+      cook: "warm",
+      minutes: 8,
+      portion: "Half",
+      fat: "Almost none, with no butter",
+      line: "Microwave it. Cinnamon is fine. Marshmallows are not.",
+      needs: ["1 sweet potato"],
+      steps: [
+        "Poke the sweet potato. Microwave until soft.",
+        "Split it and let it cool a little.",
+        "Eat half, plain, or with a shake of cinnamon.",
+        "Add no butter and no sugar glaze."
+      ],
+      note: "If your clinician limited potassium, ask first.",
+      tags: ["potassium"],
+      enzymes: true,
+      find: "sweet potato yam"
+    },
+    {
+      id: "pumpkin",
+      name: "Plain canned pumpkin",
+      group: "soft",
+      cook: "warm",
+      minutes: 3,
+      portion: "Half a cup",
+      fat: "Under 1 gram for plain pumpkin",
+      line: "The can must say pumpkin, not pumpkin pie mix.",
+      needs: ["Plain canned pumpkin"],
+      steps: [
+        "Read the can. Pie mix is a different food. Do not use it.",
+        "Warm half a cup with a spoon of water.",
+        "Add cinnamon if you want. Add no cream.",
+        "Eat it like a soft side."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "pumpkin squash canned"
+    },
+    veg("carrots", "Steamed carrots", "Cooked until soft. No glaze, no honey butter.", "carrot vegetable"),
+    veg("green-beans", "Green beans", "Frozen or fresh, cooked soft, no sauce packet.", "green bean vegetable"),
+    veg("zucchini", "Steamed zucchini", "Soft cubes. No oil. Skip the seeds if they bother you.", "zucchini courgette vegetable"),
+    veg("spinach", "Cooked spinach", "Wilted in a spoon of water. No garlic oil.", "spinach vegetable greens"),
+    veg("winter-squash", "Winter squash", "Soft cubes of butternut or acorn. No brown sugar.", "butternut acorn squash vegetable"),
+    {
+      id: "noodles-broth",
+      name: "Noodles in fat-free broth",
+      group: "soft",
+      cook: "stove",
+      minutes: 15,
+      portion: "A small bowl",
+      fat: "Low when both parts are plain",
+      line: "A bowl of soft noodles and broth. Not a creamy soup.",
+      needs: ["A small handful of plain pasta or rice noodles", "1 cup fat-free broth"],
+      steps: [
+        "Heat the broth.",
+        "Cook the noodles in it until soft.",
+        "Add no cream, no cheese, and no oily drizzle.",
+        "Eat a small bowl, sitting up."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "soup noodle broth"
+    },
+    {
+      id: "yogurt",
+      name: "Nonfat yogurt",
+      group: "plate",
+      cook: "none",
+      minutes: 1,
+      portion: "A small cup",
+      fat: "0 grams only if the cup says nonfat. Low-fat is a later-day food.",
+      line: "Plain nonfat yogurt. No granola on top.",
+      needs: ["Plain nonfat yogurt"],
+      steps: [
+        "Check the cup. It should say nonfat or 0% fat.",
+        "Eat it plain, or with a few bites of banana or drained pears.",
+        "Skip granola, nuts, honey clusters, and full-fat yogurt today.",
+        "If dairy bothers you, skip this and use applesauce."
+      ],
+      note: "",
+      tags: ["dairy"],
+      enzymes: true,
+      find: "yogurt dairy"
+    },
+    {
+      id: "cottage-cheese",
+      name: "Nonfat cottage cheese",
+      group: "plate",
+      cook: "none",
+      minutes: 1,
+      portion: "Half a cup",
+      fat: "Low only in the nonfat tub. Read it.",
+      line: "A small scoop of nonfat cottage cheese. Nothing fried on the side.",
+      needs: ["Nonfat cottage cheese"],
+      steps: [
+        "Read the tub. Choose nonfat.",
+        "Serve half a cup.",
+        "Eat it alone or with canned pears in juice.",
+        "Skip it if dairy bothers you."
+      ],
+      note: "It is salty. Keep the scoop small if salt is limited.",
+      tags: ["dairy"],
+      enzymes: true,
+      find: "cottage cheese dairy"
+    },
+    {
+      id: "tuna-water",
+      name: "Tuna in water",
+      group: "plate",
+      cook: "none",
+      minutes: 2,
+      portion: "Half a small can",
+      fat: "About 1 gram in half a can packed in water. Oil-packed is a different food.",
+      line: "Drain a can packed in water. No mayonnaise.",
+      needs: ["Tuna packed in water", "Lemon, if you want"],
+      steps: [
+        "Read the can. It must say water, not oil.",
+        "Drain it well.",
+        "Eat half, plain or with lemon, next to rice or rice cakes.",
+        "Save the rest in the fridge and finish it the same day."
+      ],
+      note: "Skip if you have a fish allergy.",
+      tags: ["fish"],
+      enzymes: true,
+      find: "tuna fish can"
+    },
+    {
+      id: "deli-turkey",
+      name: "Sliced turkey breast",
+      group: "plate",
+      cook: "none",
+      minutes: 1,
+      portion: "A few slices",
+      fat: "Low in plain turkey breast. Not low in salami or bologna.",
+      line: "A few slices of plain turkey breast. No mayo.",
+      needs: ["Oven-roasted turkey breast slices"],
+      steps: [
+        "Choose turkey breast, not a smoked fatty cold cut.",
+        "Eat two or three slices, rolled or with a rice cake.",
+        "Add no mayonnaise and no cheese.",
+        "It is salty. Stop at a few slices."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "turkey deli lunch meat chicken"
+    },
+    {
+      id: "egg-whites",
+      name: "Dry egg-white scramble",
+      group: "plate",
+      cook: "stove",
+      minutes: 6,
+      portion: "Two whites",
+      fat: "Almost none if the pan is truly dry",
+      line: "Whites only. A nonstick pan. No oil if you can turn them.",
+      needs: ["2 egg whites", "A nonstick pan", "A pinch of salt"],
+      steps: [
+        "Separate two whites. Save or discard the yolks. The fat is in the yolk.",
+        "Pour the whites into a nonstick pan over low heat.",
+        "Stir until just set. Add no cheese and no butter.",
+        "Eat them with toast or rice. Skip eggs entirely if they bother you."
+      ],
+      note: "If the pan will stick and burn, a half-second spray is the most fat to add. Do not pour in oil.",
+      tags: ["eggs"],
+      enzymes: true,
+      find: "egg white omelette breakfast"
+    },
+    {
+      id: "egg-drop-soup",
+      name: "Egg-white drop soup",
+      group: "plate",
+      cook: "stove",
+      minutes: 8,
+      portion: "A small bowl",
+      fat: "Very low",
+      line: "Fat-free broth with a ribbon of egg white. Not a greasy restaurant bowl.",
+      needs: ["1 cup fat-free broth", "1 egg white"],
+      steps: [
+        "Heat the broth until it simmers.",
+        "Stir the broth, and slowly pour in the egg white.",
+        "Cook for a minute until the white sets.",
+        "Eat a small bowl. Skip this if eggs bother you."
+      ],
+      note: "",
+      tags: ["eggs"],
+      enzymes: true,
+      find: "egg drop soup"
+    },
+    {
+      id: "poached-chicken",
+      name: "Poached chicken breast",
+      group: "plate",
+      cook: "stove",
+      minutes: 20,
+      portion: "A few slices",
+      fat: "About 2 grams in 2 ounces of skinless white meat, with no oil",
+      line: "Simmered in water. No skin. No frying.",
+      needs: ["1 small boneless skinless chicken breast", "Water", "A pinch of salt"],
+      steps: [
+        "Put the breast in a small pot and cover it with water.",
+        "Simmer gently until the center is cooked through. Do not boil it dry.",
+        "Slice it thin.",
+        "Eat a few slices with rice. Refrigerate the rest for the next small meal."
+      ],
+      note: "Cook poultry through. If standing at the stove is too much, skip to sliced turkey from the fridge.",
+      tags: [],
+      enzymes: true,
+      find: "chicken breast poached meat"
+    },
+    {
+      id: "baked-chicken",
+      name: "Baked chicken breast",
+      group: "plate",
+      cook: "stove",
+      minutes: 25,
+      portion: "A few slices",
+      fat: "About 2 grams in 2 ounces, skinless, no oil",
+      line: "Oven, no skin, no breading.",
+      needs: ["1 small boneless skinless chicken breast", "A spoon of water", "Salt"],
+      steps: [
+        "Heat the oven to 400°F.",
+        "Put the breast in a dish with a spoon of water. Do not bread it.",
+        "Bake until the center is cooked through.",
+        "Slice it and eat a small serving. No gravy."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "chicken baked breast"
+    },
+    fish("baked-cod", "cod"),
+    fish("baked-haddock", "haddock"),
+    fish("baked-pollock", "pollock"),
+    fish("baked-tilapia", "tilapia"),
+    fish("baked-sole", "sole"),
+    fish("baked-flounder", "flounder"),
+    {
+      id: "steamed-shrimp",
+      name: "Steamed shrimp",
+      group: "plate",
+      cook: "stove",
+      minutes: 8,
+      portion: "A few shrimp",
+      fat: "Under 1 gram in a few plain shrimp",
+      line: "Steamed or boiled. No butter. No cocktail sauce today.",
+      needs: ["A few shrimp, peeled", "Water", "Lemon, if you want"],
+      steps: [
+        "Bring a small pot of water to a simmer, or set a steamer.",
+        "Cook the shrimp just until they turn pink and firm.",
+        "Eat a few with lemon. Add no butter and no creamy sauce.",
+        "Skip this entirely if you have a shellfish allergy."
+      ],
+      note: "",
+      tags: ["shellfish"],
+      enzymes: true,
+      find: "shrimp prawn shellfish"
+    },
+    {
+      id: "crab-broth",
+      name: "Crab in broth",
+      group: "plate",
+      cook: "warm",
+      minutes: 5,
+      portion: "A small cup",
+      fat: "Low when the crab is plain and the broth is fat-free",
+      line: "Plain crab meat warmed in fat-free broth.",
+      needs: ["A small amount of plain crab meat", "Fat-free broth"],
+      steps: [
+        "Check that the crab has no creamy dressing.",
+        "Warm it in fat-free broth.",
+        "Eat a small cup.",
+        "Skip this if you have a shellfish allergy."
+      ],
+      note: "Avoid imitation crab if the label shows added fat you do not want today.",
+      tags: ["shellfish"],
+      enzymes: true,
+      find: "crab shellfish"
+    },
+    {
+      id: "silken-tofu",
+      name: "Silken tofu in broth",
+      group: "plate",
+      cook: "warm",
+      minutes: 5,
+      portion: "A few cubes",
+      fat: "About 2 to 4 grams in a small soft serving. Read the box.",
+      line: "Soft cubes in hot fat-free broth.",
+      needs: ["A small block of silken tofu", "Fat-free broth"],
+      steps: [
+        "Open silken tofu and cut a few cubes.",
+        "Warm them in fat-free broth. Do not fry them.",
+        "Eat the cubes and sip a little broth.",
+        "Skip this if soy bothers you."
+      ],
+      note: "Firm tofu cooked in oil is a different dish. Not today.",
+      tags: ["soy"],
+      enzymes: true,
+      find: "tofu soy"
+    },
+    {
+      id: "chicken-rice-soup",
+      name: "Chicken and rice soup",
+      group: "plate",
+      cook: "stove",
+      minutes: 25,
+      portion: "A small bowl",
+      fat: "Low if you use breast meat, fat-free broth, and no oil",
+      line: "Breast meat, rice, and broth. Skim any fat you see.",
+      needs: ["Fat-free broth", "A little cooked white rice", "A few slices of skinless chicken breast", "Soft carrot, if you want"],
+      steps: [
+        "Heat fat-free broth.",
+        "Add cooked rice and a little chicken breast.",
+        "If any fat rises, spoon it off.",
+        "Eat a small bowl. Chew the meat well."
+      ],
+      note: "Use chicken you already cooked plainly, or a few slices of the breast from today. Do not use a creamy canned soup.",
+      tags: [],
+      enzymes: true,
+      find: "chicken rice soup"
+    },
+    {
+      id: "turkey-rice-soup",
+      name: "Turkey and rice soup",
+      group: "plate",
+      cook: "stove",
+      minutes: 20,
+      portion: "A small bowl",
+      fat: "Low with breast meat and fat-free broth",
+      line: "The same bowl as the chicken soup, made with turkey breast.",
+      needs: ["Fat-free broth", "Cooked white rice", "Turkey breast"],
+      steps: [
+        "Heat the broth.",
+        "Add rice and a little turkey breast.",
+        "Skim any fat.",
+        "Eat a small bowl."
+      ],
+      note: "Do not use sausage, skin, or pan drippings.",
+      tags: [],
+      enzymes: true,
+      find: "turkey rice soup"
+    },
+    {
+      id: "watermelon",
+      name: "Watermelon",
+      group: "calm",
+      cook: "none",
+      minutes: 2,
+      portion: "A small bowl",
+      fat: "Under 1 gram",
+      line: "A small bowl once sips are staying down. A huge wedge is too much volume.",
+      needs: ["Watermelon"],
+      steps: [
+        "Cut a small bowl of cubes.",
+        "Eat them slowly.",
+        "Do not eat a half melon.",
+        "Skip it if you are still vomiting or still on liquids only."
+      ],
+      note: "If your clinician limited potassium or sugar, ask first. This belongs in the calming stage, not the worst hour.",
+      tags: ["potassium", "juice"],
+      enzymes: true,
+      find: "watermelon melon fruit"
+    },
+    {
+      id: "cantaloupe",
+      name: "Cantaloupe",
+      group: "calm",
+      cook: "none",
+      minutes: 2,
+      portion: "A small bowl",
+      fat: "Under 1 gram",
+      line: "Ripe, soft, a small bowl.",
+      needs: ["Cantaloupe"],
+      steps: [
+        "Cut a small bowl.",
+        "Eat it slowly.",
+        "Skip the prosciutto and cheese plate it sometimes comes with.",
+        "Wait for this until liquids are staying down."
+      ],
+      note: "If your clinician limited potassium, ask first.",
+      tags: ["potassium"],
+      enzymes: true,
+      find: "cantaloupe melon fruit"
+    },
+    {
+      id: "honeydew",
+      name: "Honeydew",
+      group: "calm",
+      cook: "none",
+      minutes: 2,
+      portion: "A small bowl",
+      fat: "Under 1 gram",
+      line: "A small bowl of ripe honeydew.",
+      needs: ["Honeydew"],
+      steps: [
+        "Cut a small bowl.",
+        "Eat it slowly, sitting up.",
+        "Stop if it feels like too much water in your stomach.",
+        "Not for the worst hour, when even sips are hard."
+      ],
+      note: "",
+      tags: ["potassium"],
+      enzymes: true,
+      find: "honeydew melon fruit"
+    },
+    {
+      id: "strawberries",
+      name: "A few strawberries",
+      group: "calm",
+      cook: "none",
+      minutes: 2,
+      portion: "Two or three",
+      fat: "Under 1 gram",
+      line: "A few, not a pint. Hull them. No cream.",
+      needs: ["Strawberries"],
+      steps: [
+        "Wash two or three berries.",
+        "Hull them. Cut them if the seeds bother you.",
+        "Eat them with no cream and no sugar crust.",
+        "If seeds bother you, choose applesauce instead."
+      ],
+      note: "This is a calming-stage fruit. Skip it while you are still on clear liquids.",
+      tags: [],
+      enzymes: true,
+      find: "strawberry berry fruit"
+    },
+    {
+      id: "blueberries",
+      name: "A few blueberries",
+      group: "calm",
+      cook: "none",
+      minutes: 1,
+      portion: "A small handful",
+      fat: "Under 1 gram",
+      line: "A small handful. Not a smoothie with seeds and yogurt drinks.",
+      needs: ["Blueberries"],
+      steps: [
+        "Rinse a small handful.",
+        "Eat them one at a time, or stir them into water-oatmeal.",
+        "Do not blend them into a fat-containing smoothie today.",
+        "Stop if the skins bother you."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "blueberry berry fruit"
+    },
+    {
+      id: "papaya",
+      name: "Ripe papaya",
+      group: "calm",
+      cook: "none",
+      minutes: 3,
+      portion: "A small cup",
+      fat: "Under 1 gram in a small cup",
+      line: "Ripe, soft, seeded. It is fruit. It is not a treatment.",
+      needs: ["Ripe papaya"],
+      steps: [
+        "Cut a small cup of ripe orange flesh. Discard the seeds.",
+        "Eat it plain.",
+        "Do not take a papaya pill in its place.",
+        "Stop if your mouth or belly feels irritated."
+      ],
+      note: "Papaya is only food here. It does not replace enzymes your clinician prescribed.",
+      tags: [],
+      enzymes: true,
+      find: "papaya fruit"
+    },
+    {
+      id: "banana-rice-plate",
+      name: "Banana and rice",
+      group: "calm",
+      cook: "none",
+      minutes: 2,
+      portion: "Half a banana and half a cup of rice",
+      fat: "Under 1 gram if the rice was plain",
+      line: "Two foods that often sit well, on one small plate.",
+      needs: ["Half a ripe banana", "Half a cup of plain rice"],
+      steps: [
+        "Warm leftover plain rice with a splash of water, or use rice you just made.",
+        "Put half a cup on a plate with half a banana.",
+        "Eat the rice and banana separately if mixing them sounds unpleasant.",
+        "Stop when the plate is done. Do not refill it yet."
+      ],
+      note: "Use this when sips have been staying down and you are ready for soft food.",
+      tags: ["potassium"],
+      enzymes: true,
+      find: "banana rice plate"
+    },
+    {
+      id: "toast-applesauce",
+      name: "Toast and applesauce",
+      group: "calm",
+      cook: "warm",
+      minutes: 4,
+      portion: "One slice and a small cup",
+      fat: "About 1 gram, mostly from the bread",
+      line: "The bland pair from discharge sheets, put on one plate.",
+      needs: ["1 slice dry toast", "A small cup of unsweetened applesauce"],
+      steps: [
+        "Toast one slice. Leave it dry.",
+        "Put a small cup of unsweetened applesauce beside it.",
+        "Alternate bites. Sit up.",
+        "Wait before you make more."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "toast applesauce plate"
+    },
+    {
+      id: "fish-potato",
+      name: "White fish and potato",
+      group: "calm",
+      cook: "stove",
+      minutes: 20,
+      portion: "A few bites of each",
+      fat: "Low if both are cooked with no oil",
+      line: "A little baked white fish and a plain potato.",
+      needs: ["A small cod, haddock, pollock, tilapia, sole, or flounder fillet", "Half a plain potato"],
+      steps: [
+        "Cook the potato in the microwave or boil it.",
+        "Bake or steam the fish with a spoon of water. Do not bread it.",
+        "Put a few bites of each on a plate. Add lemon if you want.",
+        "Eat slowly. Refrigerate the rest for another small meal."
+      ],
+      note: "Skip if you have a fish allergy.",
+      tags: ["fish", "potassium"],
+      enzymes: true,
+      find: "fish potato dinner plate"
+    },
+    {
+      id: "chicken-rice-bites",
+      name: "Chicken and rice, a few bites",
+      group: "calm",
+      cook: "none",
+      minutes: 5,
+      portion: "A few bites",
+      fat: "Low if both were cooked with no oil",
+      line: "Use food you already cooked. This is assembly, not a project.",
+      needs: ["A few slices of plain chicken breast", "Half a cup of plain rice"],
+      steps: [
+        "Warm the rice with a splash of water.",
+        "Add a few slices of skinless chicken cooked without frying.",
+        "Eat sitting up.",
+        "Stop at this small plate even if you want the rest an hour later."
+      ],
+      note: "If enzymes were prescribed, take them with these bites, the way you were shown.",
+      tags: [],
+      enzymes: true,
+      find: "chicken rice plate"
+    },
+    {
+      id: "potato-carrot",
+      name: "Potato and carrots",
+      group: "calm",
+      cook: "stove",
+      minutes: 20,
+      portion: "A small bowl",
+      fat: "Under 1 gram",
+      line: "Two soft vegetables. A full plate of plants, still plain.",
+      needs: ["Half a potato", "A small carrot"],
+      steps: [
+        "Cut both small.",
+        "Boil or steam them until a fork slides in.",
+        "Add a pinch of salt. Add no butter.",
+        "Eat a small bowl."
+      ],
+      note: "",
+      tags: ["potassium"],
+      enzymes: true,
+      find: "potato carrot vegetable plate"
+    },
+    {
+      id: "yogurt-pears",
+      name: "Yogurt and pears",
+      group: "calm",
+      cook: "none",
+      minutes: 2,
+      portion: "A small cup",
+      fat: "Low only if the yogurt is nonfat and the pears are drained",
+      line: "Nonfat yogurt with drained pears in juice.",
+      needs: ["Plain nonfat yogurt", "Canned pears in juice"],
+      steps: [
+        "Drain a few pear slices.",
+        "Put them on a small cup of nonfat yogurt.",
+        "Add no granola.",
+        "Skip this if dairy bothers you."
+      ],
+      note: "",
+      tags: ["dairy"],
+      enzymes: true,
+      find: "yogurt pear snack"
+    },
+    {
+      id: "turkey-noodles",
+      name: "Turkey and soft noodles",
+      group: "calm",
+      cook: "stove",
+      minutes: 15,
+      portion: "A small bowl",
+      fat: "Low with breast meat and no oil",
+      line: "Soft noodles, fat-free broth, a little turkey breast.",
+      needs: ["Plain noodles", "Fat-free broth", "A little turkey breast"],
+      steps: [
+        "Cook a small amount of noodles in fat-free broth.",
+        "Add turkey breast, not sausage.",
+        "Skim any fat.",
+        "Eat a small bowl."
+      ],
+      note: "",
+      tags: [],
+      enzymes: true,
+      find: "turkey noodle soup"
+    },
+    {
+      id: "avoid-alcohol",
+      name: "Alcohol",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None",
+      fat: "",
+      line: "No beer, wine, or liquor. Not a sip to settle your stomach.",
+      needs: [],
+      steps: [],
+      note: "Mayo Clinic, NIDDK, Cleveland Clinic, and the National Pancreas Foundation all say to stop.",
+      tags: [],
+      enzymes: false,
+      find: "alcohol beer wine liquor"
+    },
+    {
+      id: "avoid-fried",
+      name: "Fried food",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None",
+      fat: "High",
+      line: "Fries, fried chicken, donuts, anything cooked in a pan of oil.",
+      needs: [],
+      steps: [],
+      note: "Fat makes a sore pancreas work harder. This is the first category to leave.",
+      tags: [],
+      enzymes: false,
+      find: "fried fries deep fry"
+    },
+    {
+      id: "avoid-cream",
+      name: "Cream and butter",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None",
+      fat: "High",
+      line: "Cream soups, Alfredo, ice cream, butter, mayonnaise, and creamy dressing.",
+      needs: [],
+      steps: [],
+      note: "",
+      tags: ["dairy"],
+      enzymes: false,
+      find: "cream butter mayo ice cream alfredo"
+    },
+    {
+      id: "avoid-cheese",
+      name: "Cheese and whole milk",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None",
+      fat: "High",
+      line: "Cheese plates, whole milk, and whipped cream. Nonfat yogurt is the dairy exception on this list.",
+      needs: [],
+      steps: [],
+      note: "",
+      tags: ["dairy"],
+      enzymes: false,
+      find: "cheese milk whole"
+    },
+    {
+      id: "avoid-fatty-meat",
+      name: "Fatty meat",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None",
+      fat: "High",
+      line: "Bacon, sausage, ribs, skin-on poultry, and fatty beef.",
+      needs: [],
+      steps: [],
+      note: "Lean breast meat is on the eat list. These are not that.",
+      tags: [],
+      enzymes: false,
+      find: "bacon sausage ribs steak skin"
+    },
+    {
+      id: "avoid-fast",
+      name: "Pizza, burgers, and fast food",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None",
+      fat: "High",
+      line: "A flare day is a bad day for a drive-through.",
+      needs: [],
+      steps: [],
+      note: "",
+      tags: [],
+      enzymes: false,
+      find: "pizza burger fast food takeout"
+    },
+    {
+      id: "avoid-nuts",
+      name: "Nuts, nut butter, and avocado",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None during a flare",
+      fat: "High",
+      line: "Leave peanut butter, almonds, and avocado for a steadier day, and then only in small amounts if your dietitian agrees.",
+      needs: [],
+      steps: [],
+      note: "These are not junk. They are just too much fat for a flare.",
+      tags: [],
+      enzymes: false,
+      find: "nuts peanut butter avocado almond"
+    },
+    {
+      id: "avoid-spicy",
+      name: "Very spicy food",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None",
+      fat: "",
+      line: "Hot sauce, hot wings, and heavy spice blends. They are a common pain trigger on a sore day.",
+      needs: [],
+      steps: [],
+      note: "",
+      tags: [],
+      enzymes: false,
+      find: "spicy hot sauce chili"
+    },
+    {
+      id: "avoid-oil-tuna",
+      name: "Tuna packed in oil",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None",
+      fat: "High",
+      line: "The water-packed can is on the eat list. The oil-packed can is not.",
+      needs: [],
+      steps: [],
+      note: "",
+      tags: ["fish"],
+      enzymes: false,
+      find: "tuna oil"
+    },
+    {
+      id: "avoid-pastry",
+      name: "Pastry and chips",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None",
+      fat: "High",
+      line: "Chips, pie, cookies, and buttery crackers.",
+      needs: [],
+      steps: [],
+      note: "Plain saltines and plain rice cakes are the cracker exception.",
+      tags: [],
+      enzymes: false,
+      find: "chips pastry cookies pie"
+    },
+    {
+      id: "avoid-large",
+      name: "A large meal",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None",
+      fat: "",
+      line: "Even plain food hurts more when the portion is huge. Small, then stop, then wait.",
+      needs: [],
+      steps: [],
+      note: "Mayo Clinic and the National Pancreas Foundation both point to smaller meals.",
+      tags: [],
+      enzymes: false,
+      find: "large portion buffet"
+    },
+    {
+      id: "avoid-coffee",
+      name: "Strong coffee and energy drinks",
+      group: "avoid",
+      cook: "none",
+      minutes: 0,
+      portion: "None during a flare",
+      fat: "",
+      line: "NIDDK says to limit caffeine. On a flare day, drink water or broth first.",
+      needs: [],
+      steps: [],
+      note: "This is not a forever ban written by Harbor. It is a flare-day choice. Ask your clinician what is right on steady weeks.",
+      tags: [],
+      enzymes: false,
+      find: "coffee energy drink caffeine"
+    }
+  ]
+};
