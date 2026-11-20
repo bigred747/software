@@ -427,6 +427,36 @@ dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
 .modes { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 8px; }
 .modes button { padding-left: 4px; padding-right: 4px; }
 #live.locked { color: var(--muted); border-style: dashed; }
+.schwab-box {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px;
+  border: 1px solid #3a4656;
+  border-radius: 10px;
+  background: #121820;
+}
+.schwab-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.schwab-actions button { padding-left: 4px; padding-right: 4px; font-size: 13px; }
+#schwab-connect[aria-pressed="true"] { background: #1d4d3a; border-color: var(--up); color: var(--up); }
+#schwab-market[aria-pressed="true"] { background: #1c3d66; border-color: var(--fast); color: var(--fast); }
+#schwab-live[aria-pressed="true"] { background: #4a1820; border-color: var(--down); color: #ffb4bc; }
+#schwab-modal textarea {
+  width: 100%;
+  min-height: 88px;
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #3a4656;
+  background: #0d1218;
+  color: var(--text, #e6edf3);
+  font: inherit;
+  resize: vertical;
+}
 .breaker { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; margin-bottom: 10px; padding: 8px; border: 1px solid #5a3038; border-radius: 10px; background: #160c0f; }
 .halt { background: #4a1820; border-color: var(--down); color: #fff; font-weight: 700; }
 .halt:active { transform: scale(0.98); }
@@ -467,6 +497,7 @@ button.quiet { background: transparent; }
   flex: 0 0 auto;
 }
 .dot.on { background: var(--up); }
+.dot.bad { background: var(--down); }
 
 .chart-head, .legend { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .chart-head { flex-wrap: wrap; }

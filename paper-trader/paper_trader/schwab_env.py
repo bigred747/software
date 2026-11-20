@@ -72,18 +72,29 @@ def status_line() -> str:
 
 
 def status_report() -> dict[str, object]:
-    """Safe-check / CLI payload. No broker link and no OAuth token exchange."""
+    """Safe-check / CLI payload. Connection state comes from the local token store."""
     load_dotenv()
     ready = credentials_ready()
+    connected = False
+    connect_detail = "not connected"
+    try:
+        from paper_trader.schwab_auth import connection_status
+
+        link = connection_status()
+        connected = bool(link.get("connected"))
+        connect_detail = str(link.get("detail") or connect_detail)
+    except Exception:
+        connected = False
+    detail = status_line() if not connected else connect_detail
     return {
         "name": "Schwab credentials",
         "ok": True,
         "ready": ready,
-        "detail": status_line(),
+        "detail": detail,
         "kind": "health",
         "env_path": str(ENV_PATH),
         "callback": _configured_value("SCHWAB_CALLBACK_URL") or "https://127.0.0.1",
         "app_name": _configured_value("SCHWAB_APP_NAME") or "personal-market-data",
-        "connected": False,
+        "connected": connected,
         "live": False,
     }

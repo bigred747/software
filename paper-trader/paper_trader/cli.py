@@ -65,12 +65,16 @@ def main(argv: list[str] | None = None) -> int:
             assert_safe_launch([install_root])
             return run_learner(STATE_PATH.with_name("learn_state.json"))
         if args.command == "schwab-status":
+            from paper_trader.schwab_auth import connection_status
             from paper_trader.schwab_env import status_report
 
-            report = status_report()
-            print(f"Schwab credentials: {report['detail']}")
-            print(f".env path: {report['env_path']}")
-            print("Live stays locked. No Schwab API call was made.")
+            creds = status_report()
+            link = connection_status()
+            print(f"Schwab credentials: {creds['detail']}")
+            print(f"Schwab connection: {link['detail']}")
+            print(f".env path: {creds['env_path']}")
+            print(f"tokens path: {link['token_path']}")
+            print("Paper stays the default. No broker orders are sent.")
             return 0
         params = Params(
             fast=args.fast,

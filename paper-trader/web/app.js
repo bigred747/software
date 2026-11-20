@@ -36,6 +36,7 @@ const state = {
   stratLearn: { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 },
   breadth: null,
   vixBars: [],
+  schwab: null,
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -420,7 +421,24 @@ function withHooks(items) {
   else if (!next.some((item) => item.name === "Fear and greed")) setSignal(next, "Fear and greed", false, "Waiting on the quote");
   const breaker = breakerState();
   setSignal(next, "Breaker", !breaker.tripped, breaker.tripped ? "Tripped. Buys stop until tomorrow" : "Armed at " + Number(breaker.drop_pct || 5) + "% a day");
-  setSignal(next, "Live", true, "Locked. Paper only");
+  const schwab = state.schwab;
+  const schwabOn = !!(schwab && schwab.connected);
+  setSignal(
+    next,
+    "Schwab",
+    schwabOn,
+    schwab ? String(schwab.detail || (schwabOn ? "connected" : "not connected")) : "not connected"
+  );
+  const foundSchwab = next.find((item) => item.name === "Schwab");
+  if (foundSchwab) foundSchwab.tone = "strict";
+  setSignal(
+    next,
+    "Live",
+    true,
+    schwab && schwab.live_trading
+      ? "Trading preference on · orders still paper"
+      : "Locked. Paper only"
+  );
   const zoomOk = !!($("zoom-in") && $("zoom-out"));
   setSignal(next, "Zoom", zoomOk, zoomOk ? "In and out" : "The zoom buttons are missing");
   return next;
@@ -449,7 +467,8 @@ function noteEdge() {
 function signalRow(item) {
   const row = document.createElement("li");
   const dot = document.createElement("span");
-  dot.className = item.ok ? "dot on" : "dot";
+  const strict = item.tone === "strict" || item.name === "Schwab";
+  dot.className = item.ok ? "dot on" : strict ? "dot bad" : "dot";
   const text = document.createElement("span");
   text.textContent = item.name + " · " + item.detail;
   row.append(dot, text);
@@ -510,6 +529,12 @@ function renderLocalSignals() {
     { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
     { name: "Timeframes", ok: typeof PaperFrames !== "undefined" && PaperFrames.FRAMES.length === 10, detail: "10 windows" },
     { name: "Broker", ok: true, detail: "Not connected" },
+    {
+      name: "Schwab",
+      ok: !!(state.schwab && state.schwab.connected),
+      detail: state.schwab ? String(state.schwab.detail || "not connected") : "not connected · desk offline",
+      tone: "strict",
+    },
     { name: "Version", ok: true, detail: VERSION },
   ]));
 }
@@ -1286,7 +1311,87 @@ async function boot() {
   $("status").textContent = "Market quote ready.";
 }
 
+function paintSchwabButtons(status) {
+  state.schwab = status || null;
+  const connect = $("schwab-connect");
+  const market = $("schwab-market");
+  const live = $("schwab-live");
+  const note = $("schwab-note");
+  if (!connect || !market || !live || !note) return;
+  const linked = !!(status && status.connected);
+  const creds = !!(status && status.credentials);
+  connect.setAttribute("aria-pressed", linked ? "true" : "false");
+  connect.textContent = linked ? "Schwab connected" : "Connect to Schwab";
+  market.disabled = !linked;
+  market.setAttribute("aria-pressed", status && status.market_data ? "true" : "false");
+  market.textContent = status && status.market_data ? "Market Data on" : "Market Data";
+  live.disabled = !linked || !(status && status.market_data);
+  live.setAttribute("aria-pressed", status && status.live_trading ? "true" : "false");
+  live.textContent = status && status.live_trading ? "Live Trading on" : "Live Trading";
+  if (!creds) {
+    note.textContent = "Paste SCHWAB_APP_KEY and SCHWAB_APP_SECRET into Documents\\Paper Trader\\.env first, then Connect.";
+  } else if (!linked) {
+    note.textContent = status && status.detail
+      ? String(status.detail) + ". Connect opens Schwab sign-in. Paper stays the default."
+      : "Keys are ready. Connect opens Schwab sign-in. Paper stays the default.";
+  } else if (status.live_trading) {
+    note.textContent = "Schwab connected. Market Data on. Live Trading preference is on — this desk still fills on paper and does not send broker orders.";
+  } else if (status.market_data) {
+    note.textContent = "Schwab connected. Market Data on. Live Trading stays off until you confirm. Paper remains the default.";
+  } else {
+    note.textContent = "Schwab connected. Turn Market Data on when you want that feed preferred. Live Trading stays off. Paper remains the default.";
+  }
+}
+
+async function loadSchwab() {
+  if (state.offline) {
+    paintSchwabButtons({
+      connected: false,
+      credentials: false,
+      market_data: false,
+      live_trading: false,
+      detail: "not connected · desk offline",
+    });
+    return state.schwab;
+  }
+  try {
+    const status = await getJSON("/api/schwab");
+    paintSchwabButtons(status);
+    return status;
+  } catch (error) {
+    paintSchwabButtons({
+      connected: false,
+      credentials: false,
+      market_data: false,
+      live_trading: false,
+      detail: "not connected · " + error.message,
+    });
+    return state.schwab;
+  }
+}
+
+function closeSchwabModal() {
+  const box = $("schwab-modal");
+  if (box) box.hidden = true;
+}
+
+function openSchwabModal(message) {
+  const box = $("schwab-modal");
+  if (!box) return;
+  $("schwab-redirect").value = "";
+  $("schwab-modal-note").textContent = message || "";
+  box.hidden = false;
+  $("schwab-redirect").focus();
+}
+
+async function refreshSchwabSignals() {
+  await loadSchwab();
+  if (!state.offline) await loadSignals();
+  else renderLocalSignals();
+}
+
 async function loadSignals() {
+  await loadSchwab();
   const report = await getJSON("/api/checks");
   paintSignals(withHooks(report.items));
   requestAnimationFrame(() => paintSignals(withHooks(report.items)));
@@ -7526,13 +7631,106 @@ $("halt").addEventListener("click", async () => {
 });
 
 $("live").addEventListener("click", () => {
-  $("status").textContent = LIVE_NOTE + " To trade real money, use your broker's own app.";
+  $("status").textContent = LIVE_NOTE + " To trade real money, use your broker's own app. Use Live Trading under Schwab only after Connect and Market Data.";
 });
 
 $("paper").addEventListener("click", () => withBusy(async () => {
   const paper = await paperCall("/api/paper/mode", { mode: "paper" });
   render(paper);
   $("status").textContent = "Paper is on. Orders stay simulated on this computer.";
+}));
+
+$("schwab-connect").addEventListener("click", () => withBusy(async () => {
+  if (state.offline) {
+    $("status").textContent = "Schwab connect needs the computer desk on 127.0.0.1.";
+    return;
+  }
+  if (state.schwab && state.schwab.connected) {
+    const status = await postJSON("/api/schwab/disconnect", {});
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = "Disconnected from Schwab. Signals show red until you connect again.";
+    return;
+  }
+  try {
+    const start = await postJSON("/api/schwab/connect", {});
+    window.open(start.authorize_url, "schwab-oauth", "popup=yes,width=720,height=820");
+    openSchwabModal("Browser opened to Schwab. After sign-in, paste the https://127.0.0.1 redirect URL below.");
+    $("status").textContent = "Finish Schwab connect by pasting the redirect URL.";
+  } catch (error) {
+    $("status").textContent = error.message;
+    $("schwab-note").textContent = error.message;
+  }
+}));
+
+$("schwab-modal-cancel").addEventListener("click", () => {
+  closeSchwabModal();
+  $("status").textContent = "Schwab connect canceled. Signals stay red until you connect.";
+});
+
+$("schwab-modal-save").addEventListener("click", () => withBusy(async () => {
+  const redirect = $("schwab-redirect").value.trim();
+  try {
+    const status = await postJSON("/api/schwab/finish", { redirect });
+    paintSchwabButtons(status);
+    closeSchwabModal();
+    await loadSignals();
+    $("status").textContent = "Schwab connected. Signals show green. Market Data is still off.";
+  } catch (error) {
+    $("schwab-modal-note").textContent = error.message;
+    $("status").textContent = error.message;
+  }
+}));
+
+$("schwab-modal").addEventListener("click", (event) => {
+  if (event.target === $("schwab-modal")) closeSchwabModal();
+});
+
+$("schwab-market").addEventListener("click", () => withBusy(async () => {
+  if (!(state.schwab && state.schwab.connected)) {
+    $("status").textContent = "Connect to Schwab before Market Data.";
+    return;
+  }
+  const turnOn = !(state.schwab && state.schwab.market_data);
+  try {
+    const status = await postJSON("/api/schwab/market-data", { enabled: turnOn });
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = turnOn
+      ? "Market Data on. Quotes still use the desk feed until Schwab bars are wired; connection stays green."
+      : "Market Data off. Live Trading was cleared. Paper stays the default.";
+  } catch (error) {
+    $("status").textContent = error.message;
+  }
+}));
+
+$("schwab-live").addEventListener("click", () => withBusy(async () => {
+  if (!(state.schwab && state.schwab.connected && state.schwab.market_data)) {
+    $("status").textContent = "Connect and turn Market Data on before Live Trading.";
+    return;
+  }
+  if (state.schwab && state.schwab.live_trading) {
+    const status = await postJSON("/api/schwab/live-trading", { enabled: false, confirmed: true });
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = "Live Trading off. Paper stays the default. No broker orders were sent.";
+    return;
+  }
+  const ok = window.confirm(
+    "Turn Live Trading preference ON?\n\nPaper stays the default on this desk. This does not send broker orders. Real fills stay paper until a future Trader API step. Press Cancel to keep Live Trading off."
+  );
+  if (!ok) {
+    $("status").textContent = "Live Trading stays off.";
+    return;
+  }
+  try {
+    const status = await postJSON("/api/schwab/live-trading", { enabled: true, confirmed: true });
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = "Live Trading preference on. Orders still fill on paper. No broker link was used.";
+  } catch (error) {
+    $("status").textContent = error.message;
+  }
 }));
 
 $("quote").addEventListener("click", () => {

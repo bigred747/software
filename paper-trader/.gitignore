@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .env
+schwab_tokens.json
 paper_state.json
 learn_state.json
 learn_watch.json

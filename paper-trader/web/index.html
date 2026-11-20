@@ -248,6 +248,14 @@
         <button id="trade" type="button">Trade</button>
         <button id="voice" type="button" aria-pressed="true">Voice</button>
       </div>
+      <div class="schwab-box" id="schwab-box" aria-label="Schwab connection">
+        <div class="schwab-actions" role="group" aria-label="Schwab controls">
+          <button id="schwab-connect" type="button">Connect to Schwab</button>
+          <button id="schwab-market" type="button" aria-pressed="false" disabled>Market Data</button>
+          <button id="schwab-live" type="button" aria-pressed="false" disabled>Live Trading</button>
+        </div>
+        <p id="schwab-note" class="breaker-note">Paste App Key and Secret into .env first. Connect opens Schwab sign-in. Paper stays the default. Live Trading stays off until you confirm.</p>
+      </div>
       <div class="breaker" id="breaker">
         <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
         <p id="breaker-note" class="breaker-note">Breaker armed. A 5% paper drop in one day sells everything and stops buys until tomorrow.</p>
@@ -714,6 +722,19 @@ plot Sell = close crosses below baseline;</textarea>
       <div class="modal-buttons">
         <button id="cm-no" type="button" class="quiet">No, cancel</button>
         <button id="cm-yes" type="button">Yes, do it</button>
+      </div>
+    </div>
+  </div>
+  <div id="schwab-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="schwab-modal-title" hidden>
+    <div class="modal-card">
+      <h2 id="schwab-modal-title">Finish Schwab connect</h2>
+      <p class="breaker-note">Sign in in the Schwab window. When the browser lands on <code>https://127.0.0.1/...</code>, copy the whole address bar and paste it here. Tokens stay on this computer in <code>schwab_tokens.json</code>.</p>
+      <label for="schwab-redirect">Redirect URL</label>
+      <textarea id="schwab-redirect" rows="4" placeholder="https://127.0.0.1/?code=..." autocomplete="off" spellcheck="false"></textarea>
+      <p id="schwab-modal-note" class="modal-warn"></p>
+      <div class="modal-buttons">
+        <button id="schwab-modal-cancel" type="button" class="quiet">Cancel</button>
+        <button id="schwab-modal-save" type="button">Save connection</button>
       </div>
     </div>
   </div>

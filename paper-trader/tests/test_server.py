@@ -136,10 +136,15 @@ class ServerTests(unittest.TestCase):
         payload = json.loads(raw)
         self.assertTrue(payload["ok"])
         names = {item["name"] for item in payload["items"]}
-        for name in ("Paper", "Auto", "Trade", "Ticker", "Chart", "Markets", "Broker", "Install", "Learning", "Fear and greed", "Zoom"):
+        for name in ("Paper", "Auto", "Trade", "Ticker", "Chart", "Markets", "Broker", "Schwab", "Install", "Learning", "Fear and greed", "Zoom"):
             self.assertIn(name, names)
+        schwab = next(item for item in payload["items"] if item["name"] == "Schwab")
+        self.assertFalse(schwab["ok"])
+        self.assertIn("not connected", schwab["detail"])
         for item in payload["items"]:
-            self.assertTrue(item["ok"])
+            if item["name"] == "Schwab":
+                continue
+            self.assertTrue(item["ok"], item)
             self.assertTrue(item["detail"])
 
     def test_trade_button_places_a_simulated_order(self) -> None:
