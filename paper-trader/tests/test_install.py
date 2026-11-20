@@ -99,7 +99,7 @@ class InstallTests(unittest.TestCase):
             home = Path(folder)
             source = home / "Downloads" / "paper-trader"
             old = home / "Documents" / "paper-trader"
-            make_install(source, "1.9.99")
+            make_install(source, "1.10.0")
             make_install(old, "1.0.0")
             with patch("subprocess.Popen") as popen, patch("subprocess.run") as run, patch("os.kill") as kill:
                 install_newest(source, home)

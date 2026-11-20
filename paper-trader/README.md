@@ -341,9 +341,9 @@ Security programs watch for programs that end other programs, delete folders the
 
 Markets: all 7,510 from the catalog (crypto including XRP and Stellar, stocks, ETFs, and futures). Added in 1.9.38: VXUS, QQQM, SCHD, SCHG, VUG, and QUAL, so the core ETF list (VOO, VTI, VXUS, QQQM, SCHD) and the growth list (SMH, XLK, VGT, QQQ, IVW, SCHG, IWF, VUG, QUAL, IJH) are all searchable.
 
-## Schwab connect (1.9.99)
+## Schwab connect (1.10.0)
 
-Paper stays the default. The desk does not send broker orders. Quotes still use the existing feed until Schwab bars are wired; **Connect**, **Market Data**, and **Live Trading** prepare the Schwab session.
+Paper stays the default. The desk does not send broker orders. Quotes still use the existing feed until Schwab bars are wired; **Connect**, **Market Data**, and **Live Trading** prepare the Schwab session. Panels use a steel-desk palette (charcoal / slate / mint / coral / ice) so status colors stay clear without glow spam.
 
 When the Schwab Developer Portal app (`personal-market-data`, Market Data Production, callback `https://127.0.0.1`) is approved:
 
