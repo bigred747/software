@@ -101,6 +101,12 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
+## Continuous 24/7 learning (1.10.9)
+
+- **Windows desk:** Bot-on Learn score runs continuously — every desk page (incl. Cycle Desk · Outlook · Tools home), rotating markets, faster passes. Tick **Start the score** so it keeps going after the window closes while you are signed in.
+- **Phone / Private web:** page-open bot cycles scan + strategies + every Tools/Next page while the tab stays open (wake lock when Auto is on). Leaving the tab pauses phone learning — use the Windows zip for true after-close 24/7.
+- Closed bars only. Paper only. Live locked. Not a forecast.
+
 ## Cycle Desk · Defensive Shield · Risk Rebound (1.10.8)
 
 - **Cycle Desk** (Tools · Next pages · Markets): closed-bar stages, top/bottom, and cycle-finished marks vs a long mean — **Paper Trader names only**.

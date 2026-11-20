@@ -39,9 +39,10 @@ WATCH_LIMIT = 24
 PICK_NOTE = "Scan finished. Green signal on each name. Three to five, and no more. Not a forecast."
 EMPTY_NOTE = "No market cleared the bar today."
 WALK_NOTE = "Ten names, then three to five. Green signals come on when the scan finishes."
-SCAN_PAUSE = 0.15
-INTERVAL = 60.0
-STALE_SECONDS = 180.0
+SCAN_PAUSE = 0.12
+INTERVAL = 18.0
+STALE_SECONDS = 90.0
+PASS_BATCH = 2
 _DENVER = ZoneInfo("America/Denver")
 _NEW_YORK = ZoneInfo("America/New_York")
 DEFAULT_RULE = "True momentum 5/3 with the candle"
@@ -60,6 +61,9 @@ _DESK_PAGES: list[tuple[str, str]] = [
     ("strategies", "Strategies · classic board"),
     ("squeeze", "Squeeze scan · catalog walk"),
     ("scorecard", "Big 3 Market Scorecard · indexes, A+ squeezes, day bias"),
+    ("cycle", "Cycle Desk · stages, Defensive Shield, Risk Rebound"),
+    ("home", "Tools home · full-screen desk index"),
+    ("outlook", "Market Outlook · day week month board"),
     ("internals", "Internals · market gauges"),
     ("frames", "Timeframes · multi-TF Edge"),
     ("readings", "big4indicator · tape proxies"),
@@ -147,6 +151,24 @@ def page_snapshot(
         base.update(
             {
                 "note": "Big 3 Market Scorecard: index/sector strength, A+ squeezes, and swing/day/flat day bias from closed bars.",
+            }
+        )
+    elif page == "cycle":
+        base.update(
+            {
+                "note": "Cycle Desk: closed-bar stages, top/bottom marks, Defensive Shield, and Risk Rebound. Own desk names only.",
+            }
+        )
+    elif page == "outlook":
+        base.update(
+            {
+                "note": "Market Outlook: Day · Week · Month closed-bar board on SPY. Guidance only.",
+            }
+        )
+    elif page == "home":
+        base.update(
+            {
+                "note": "Tools home: full-screen desk index. Bot-on keeps every Tools page warm.",
             }
         )
     else:
@@ -1054,8 +1076,8 @@ def learning_report(state_path: Path, *, expect: bool, now: float | None = None)
             "ok": True,
             "running": True,
             "detail": (
-                f"Bot on · every desk section · Watching {symbol}{mood_bit}{awake}. "
-                "Closed-bar lessons, Daily scan, classic strategies, fill timing, and all scrolled-away pages keep going while this score process runs. New shipped pages/strategies auto-join."
+                f"Bot on · All day, all week · every desk section · Watching {symbol}{mood_bit}{awake}. "
+                "Continuous closed-bar lessons, Daily scan, classic strategies, fill timing, and all scrolled-away pages keep going while this score process runs. New shipped pages/strategies auto-join."
             ),
         }
     if holder and not fresh:
@@ -1066,14 +1088,15 @@ def learning_report(state_path: Path, *, expect: bool, now: float | None = None)
         return {
             "ok": False,
             "running": False,
-            "detail": "Bot score is off. Open Paper Trader (or tick Start the score under Windows extras) to turn background learning on.",
+            "detail": "Bot score is not running. Open Paper Trader (or tick Start the score under Windows extras) to turn continuous background learning on.",
         }
     return {
         "ok": True,
         "running": False,
         "detail": (
             "Bot off for background learning. Open the desk to start the score, or tick Start the score under Windows extras for sign-in. "
-            "While the bot score is on, closed pages still get lessons, scan, strategies, and timing. Phone/browser alone cannot keep that process alive."
+            "While the bot score is on, closed pages still get lessons, scan, strategies, and timing after that window closes. "
+            "Phone/browser alone cannot keep that process alive."
         ),
     }
 
@@ -1295,7 +1318,9 @@ class Watcher:
             self._pass()
             if self._stop.is_set():
                 return
-            gap = 2.0 if int(self._saved.get("passes") or 0) <= len(WATCH) else INTERVAL
+            # Stay continuous: short gaps while warming the watch, then keep a tight INTERVAL.
+            warm = int(self._saved.get("passes") or 0) <= max(len(WATCH) * 2, 24)
+            gap = 1.2 if warm else INTERVAL
             self._scan_until(time.monotonic() + gap)
 
     def _pass(self) -> None:
@@ -1333,57 +1358,68 @@ class Watcher:
             pass
         if not queue:
             return
-        symbol = queue[cursor % len(queue)]
-        try:
-            bars = quotes.load_bars(symbol, refresh=True)
-            lesson = score_row(bars, symbol)
-            board = strategy_snapshot(closed_bars(bars, symbol))
-        except ValueError as exc:
-            self._fail(str(exc), symbol, cursor + 1)
-            return
-        summary = {
-            "rule": lesson["rule"],
-            "seen": lesson["seen"],
-            "matched": lesson["matched"],
-            "average": lesson["average"],
-            "squeeze": lesson["squeeze"],
-            "calc": lesson["calc"],
-            "smooth": lesson["smooth"],
-            "candle": lesson["candle"],
-            "mood": lesson["mood"],
-            "as_of": lesson["as_of"],
-            "setup": lesson["setup"],
-            "strategies": board,
-        }
+        # Continuous learner: score a small batch each pass so new names keep rotating in.
+        batch = max(1, int(PASS_BATCH))
+        last_symbol = ""
+        page_list = desk_pages()
         with self._lock:
             symbols = dict(self._saved.get("symbols") or {})
-            previous = str((symbols.get(symbol) or {}).get("rule") or "")
-            record_process_change(self._saved, symbol, str(summary["rule"] or ""), previous, tab="learner", source="learner")
-            symbols[symbol] = summary
             boards = dict(self._saved.get("strategies") or {})
-            boards[symbol] = board
             pages = dict(self._saved.get("pages") or {})
-            page_list = desk_pages()
             page_cursor = int(self._saved.get("page_cursor") or 0)
-            # One pass warms every registered desk page for this market (scrolled-away tabs included).
-            for page_id, _label in page_list:
-                pages[page_id] = page_snapshot(
-                    page_id,
-                    symbol=symbol,
-                    lesson=lesson,
-                    board=board,
-                    scan=self._scan,
-                    timing=dict(self._saved.get("timing") or {}),
-                )
-            if page_list:
-                page_cursor = (page_cursor + 1) % len(page_list)
+            passes = int(self._saved.get("passes") or 0)
+            next_cursor = cursor
+        for step in range(batch):
+            symbol = queue[(cursor + step) % len(queue)]
+            try:
+                bars = quotes.load_bars(symbol, refresh=True)
+                lesson = score_row(bars, symbol)
+                board = strategy_snapshot(closed_bars(bars, symbol))
+            except ValueError as exc:
+                self._fail(str(exc), symbol, cursor + step + 1)
+                return
+            summary = {
+                "rule": lesson["rule"],
+                "seen": lesson["seen"],
+                "matched": lesson["matched"],
+                "average": lesson["average"],
+                "squeeze": lesson["squeeze"],
+                "calc": lesson["calc"],
+                "smooth": lesson["smooth"],
+                "candle": lesson["candle"],
+                "mood": lesson["mood"],
+                "as_of": lesson["as_of"],
+                "setup": lesson["setup"],
+                "strategies": board,
+            }
+            with self._lock:
+                previous = str((symbols.get(symbol) or {}).get("rule") or "")
+                record_process_change(self._saved, symbol, str(summary["rule"] or ""), previous, tab="learner", source="learner")
+                symbols[symbol] = summary
+                boards[symbol] = board
+                # Warm every registered desk page for this market (scrolled-away tabs included).
+                for page_id, _label in page_list:
+                    pages[page_id] = page_snapshot(
+                        page_id,
+                        symbol=symbol,
+                        lesson=lesson,
+                        board=board,
+                        scan=self._scan,
+                        timing=dict(self._saved.get("timing") or {}),
+                    )
+                if page_list:
+                    page_cursor = (page_cursor + 1) % len(page_list)
+                passes += 1
+                next_cursor = cursor + step + 1
+                last_symbol = symbol
+        with self._lock:
             self._saved = {
                 "version": 1,
-                "passes": int(self._saved.get("passes") or 0) + 1,
-                "cursor": cursor + 1,
+                "passes": passes,
+                "cursor": next_cursor,
                 "page_cursor": page_cursor,
                 "last_error": "",
-                "last_symbol": symbol,
+                "last_symbol": last_symbol,
                 "last_page": page_list[page_cursor - 1][0] if page_list else "",
                 "pid": os.getpid(),
                 "updated": time.time(),
