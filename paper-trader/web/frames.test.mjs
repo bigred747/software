@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -664,4 +664,47 @@ test("Market Outlook scores Day Week Month from SPY closed bars", () => {
   const tide = marketOutlook({ spyBars: up, tide: { on: true, why: "Tide Alert on." } });
   assert.equal(tide.call, "Stay flat · Tide");
   assert.equal(tide.color, "amber");
+});
+
+test("cycle desk reads stages and tank modes with own names", () => {
+  function sequential(startClose, step, count) {
+    const rows = [];
+    const stamp = new Date(Date.UTC(2020, 0, 1));
+    for (let index = 0; index < count; index += 1) {
+      stamp.setUTCDate(stamp.getUTCDate() + 1);
+      const iso =
+        stamp.getUTCFullYear() +
+        "-" +
+        String(stamp.getUTCMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(stamp.getUTCDate()).padStart(2, "0");
+      const close = startClose + index * step;
+      rows.push(day(iso, close - 1, close + 2, close - 2, close));
+    }
+    return rows;
+  }
+  const unread = cycleMapRead(sequential(100, 0.1, 40));
+  assert.equal(unread.ready, false);
+  const climb = sequential(100, 0.4, 220);
+  const cycle = cycleMapRead(climb);
+  assert.equal(cycle.ready, true);
+  assert.ok(cycle.label);
+  assert.ok(Array.isArray(cycle.maps));
+  assert.equal(cycle.why.includes("Own desk"), true);
+  const tank = marketTankRead(sequential(200, -0.5, 220));
+  assert.equal(tank.ready, true);
+  assert.ok(tank.mode === "tank" || tank.mode === "soft");
+  const shield = defensiveShieldScan({
+    market: tank,
+    bars: { XLU: climb, XLP: climb },
+    symbols: ["XLU", "XLP"],
+  });
+  assert.equal(shield.ready, true);
+  const rebound = riskReboundScan({
+    market: { ready: true, mode: "calm", label: "Market calm" },
+    bars: { QQQ: climb },
+    symbols: ["QQQ"],
+  });
+  assert.equal(rebound.active, false);
+  assert.equal(rebound.rows.length, 0);
 });

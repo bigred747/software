@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.7">
+  <meta name="paper-build" content="1.10.8">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -17,7 +17,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.7</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.8</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -130,6 +130,14 @@
         </div>
         <p id="tide-note" class="muted">Tide Alert watches Sector Drain (no green sector rotation) plus Weekly Tide or Index Soft on closed bars. When Tide is on, new Edge longs wait and Go Long 5 lists pressure names for chart review (not Fire 5 — Fire 5 is Edge fires only). Long-only desk — no short fills. Same Edge TMO · Squeeze · CCI · VIX gates. Paper only. Not a forecast.</p>
         <div id="go-long-five" class="pins" aria-label="Go Long five pressure names"></div>
+        <div class="scan-head fire-head">
+          <h3>Cycle Desk</h3>
+          <button id="cycle-run" type="button" class="quiet">Refresh Cycle</button>
+        </div>
+        <p id="cycle-note" class="muted">Paper Trader Cycle Desk: stage · top/bottom · cycle-finished on closed bars vs a long mean. Defensive Shield when the market is soft. Risk Rebound (non-defensive) only when the market tanks. Own names only — no third-party packs. Guidance only. Not a forecast.</p>
+        <p id="cycle-market" class="muted"></p>
+        <div id="cycle-defensive" class="pins" aria-label="Defensive Shield names"></div>
+        <div id="cycle-risk" class="pins" aria-label="Risk Rebound names"></div>
       </div>
       <label for="search">Find a market</label>
       <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
@@ -176,6 +184,7 @@
           <div class="desk-clear-chip stage"><span class="k">Stage</span><span class="v">Waiting</span></div>
           <div class="desk-clear-chip lane"><span class="k">Lane Align</span><span class="v">—</span></div>
           <div class="desk-clear-chip seat"><span class="k">Range Seat</span><span class="v">—</span></div>
+          <div class="desk-clear-chip stage"><span class="k">Cycle</span><span class="v">—</span></div>
         </div>
         <p class="chart-tools-label">Timeframes</p>
         <div id="frame-bar" class="frame-bar" aria-label="Timeframes"></div>
@@ -195,6 +204,7 @@
           <button type="button" data-open-dock="strategies">Strategies</button>
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
+          <button type="button" data-open-dock="cycle">Cycle Desk</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
           <button type="button" data-open-dock="squeeze">Squeeze scan</button>
           <button type="button" data-open-dock="readings">big4indicator</button>
@@ -369,6 +379,7 @@
         <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="scorecard">Big 3 Scorecard</button>
+        <button type="button" class="dock-tab" data-dock="cycle">Cycle Desk</button>
         <button type="button" class="dock-tab" data-dock="internals">Internals</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">big4indicator</button>
@@ -387,6 +398,7 @@
           <button type="button" data-open-dock="strategies">Strategies</button>
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
+          <button type="button" data-open-dock="cycle">Cycle Desk</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
           <button type="button" data-open-dock="squeeze">Squeeze scan</button>
           <button type="button" data-open-dock="readings">big4indicator</button>
@@ -763,6 +775,56 @@ plot Sell = close crosses below baseline;</textarea>
             <tbody id="backtest-body"></tbody>
           </table>
         </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="cycle">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Cycle Desk</h2>
+        </div>
+        <p class="muted">Original Paper Trader read on closed daily bars vs a long mean. Stages, tops, bottoms, and cycle-finished marks are this desk’s own names — nothing from a third-party course or pack. Defensive Shield runs when the market is soft. Risk Rebound lists non-defensive names only when the market tanks. Guidance only. Edge · Best setup · Auto still gate buys. Paper only. Live locked. Not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <button id="cycle-scan" type="button">Run Cycle Desk</button>
+          <button id="cycle-stop" type="button" class="quiet">Stop</button>
+        </div>
+        <p id="cycle-board-note" class="muted">Press Run Cycle Desk. Reads SPY plus defensive and risk lists.</p>
+        <div id="cycle-open" class="scorecard-day" aria-live="polite">
+          <p id="cycle-open-bias" class="scorecard-bias">Open market · waiting</p>
+          <p id="cycle-open-why" class="muted"></p>
+        </div>
+        <div id="cycle-tank" class="scorecard-day" aria-live="polite">
+          <p id="cycle-tank-bias" class="scorecard-bias">Market · waiting</p>
+          <p id="cycle-tank-why" class="muted"></p>
+        </div>
+        <div class="scorecard-grid">
+          <section class="scorecard-panel" aria-label="Defensive Shield">
+            <h3>Defensive Shield</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Market</th><th>Stage</th><th>Signal</th><th>Score</th><th></th></tr></thead>
+                <tbody id="cycle-def-body"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="scorecard-panel" aria-label="Risk Rebound">
+            <h3>Risk Rebound</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Market</th><th>Stage</th><th>Signal</th><th>Score</th><th></th></tr></thead>
+                <tbody id="cycle-risk-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <section class="scorecard-panel" aria-label="Cycle marks on open market">
+          <h3>Cycle marks · open market</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Mark</th><th>Hit</th><th>Signal</th></tr></thead>
+              <tbody id="cycle-marks-body"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
       <div class="dock-page" data-dock-page="signals">

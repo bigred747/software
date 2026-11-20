@@ -3414,6 +3414,377 @@
     };
   }
 
+  // Cycle Desk · Defensive Shield · Risk Rebound — original Paper Trader only.
+  // Closed daily bars vs a long mean. Own stage names and copy. No third-party
+  // courses, packs, brands, or trademarked pattern libraries. Guidance only.
+  // Edge · Best setup · Auto still gate buys. Paper only. Live locked. Not a forecast.
+  const CYCLE_MEAN_LEN = 100;
+  const CYCLE_LOOK = 80;
+  const DEFENSIVE_SHIELD = ["XLU", "XLP", "XLV", "TLT", "GLD", "SCHD", "HDV", "DGRO"];
+  const RISK_REBOUND = ["QQQ", "XLK", "SMH", "XLY", "IWM", "ARKW", "SPMO", "COPX", "NVDA", "TSLA", "AMD", "META", "AMZN", "HOOD"];
+
+  function smaSeries(closes, length) {
+    const out = new Array(closes.length).fill(null);
+    let sum = 0;
+    for (let index = 0; index < closes.length; index += 1) {
+      sum += closes[index];
+      if (index >= length) sum -= closes[index - length];
+      if (index >= length - 1) out[index] = sum / length;
+    }
+    return out;
+  }
+
+  function windowExtrema(closes, start, end) {
+    let hi = -Infinity;
+    let lo = Infinity;
+    let hiAt = start;
+    let loAt = start;
+    for (let index = start; index <= end; index += 1) {
+      const value = closes[index];
+      if (value > hi) {
+        hi = value;
+        hiAt = index;
+      }
+      if (value < lo) {
+        lo = value;
+        loAt = index;
+      }
+    }
+    return { hi, lo, hiAt, loAt };
+  }
+
+  function cycleMapRead(bars) {
+    const list = closedBars(bars || [], false);
+    if (list.length < CYCLE_MEAN_LEN + 25) {
+      return {
+        ready: false,
+        stage: "unread",
+        label: "Unread",
+        signal: "none",
+        signalLabel: "Need more closed bars",
+        maps: [],
+        why: "Need about " + (CYCLE_MEAN_LEN + 25) + " closed daily bars for Cycle Map.",
+      };
+    }
+    const closes = list.map((bar) => bar.close);
+    const means = smaSeries(closes, CYCLE_MEAN_LEN);
+    const i = closes.length - 1;
+    const close = closes[i];
+    const mean = means[i];
+    if (!(mean > 0) || !(close > 0)) {
+      return {
+        ready: false,
+        stage: "unread",
+        label: "Unread",
+        signal: "none",
+        signalLabel: "Mean unread",
+        maps: [],
+        why: "Mean line unread on closed bars.",
+      };
+    }
+    const stretch = (close - mean) / mean;
+    const ret5 = closes[i - 5] > 0 ? close / closes[i - 5] - 1 : 0;
+    const ret20 = closes[i - 20] > 0 ? close / closes[i - 20] - 1 : 0;
+    const start = Math.max(CYCLE_MEAN_LEN - 1, i - CYCLE_LOOK);
+    const ext = windowExtrema(closes, start, i);
+    const nearHigh = ext.hi > 0 && close >= ext.hi * 0.985;
+    const nearLow = ext.lo > 0 && close <= ext.lo * 1.015;
+    const peakStretch = (() => {
+      let best = stretch;
+      for (let index = start; index <= i; index += 1) {
+        if (!(means[index] > 0)) continue;
+        best = Math.max(best, (closes[index] - means[index]) / means[index]);
+      }
+      return best;
+    })();
+    const troughStretch = (() => {
+      let best = stretch;
+      for (let index = start; index <= i; index += 1) {
+        if (!(means[index] > 0)) continue;
+        best = Math.min(best, (closes[index] - means[index]) / means[index]);
+      }
+      return best;
+    })();
+    const sawMania = peakStretch >= 0.08;
+    const sawDespair = troughStretch <= -0.06;
+    const meanSlope = means[i - 10] > 0 ? (mean - means[i - 10]) / means[i - 10] : 0;
+
+    // Cycle marks (geometry on closed bars — Paper Trader names only).
+    const maps = [];
+    const pushMap = (id, label, hit, signal) => {
+      maps.push({ id, label, hit: !!hit, signal: signal || "none" });
+    };
+
+    const bearTrap =
+      stretch > 0.005 &&
+      stretch < 0.06 &&
+      ret5 > 0.005 &&
+      (() => {
+        for (let index = i - 12; index < i - 2; index += 1) {
+          if (index < start || !(means[index] > 0)) continue;
+          const s = (closes[index] - means[index]) / means[index];
+          if (s > 0 && s < stretch && closes[index] < close * 0.98) return true;
+        }
+        return false;
+      })();
+    pushMap("bear_trap", "Bear trap dip", bearTrap, "buy_before_mania");
+
+    const takeoff = stretch > 0.01 && stretch < 0.05 && ret20 > 0.02 && meanSlope >= 0 && !bearTrap;
+    pushMap("takeoff", "Takeoff", takeoff, "buy_before_mania");
+
+    const mania = stretch >= 0.1 || (stretch >= 0.07 && ret20 >= 0.12);
+    pushMap("mania", "Mania stretch", mania, "sell_into_greed");
+
+    const greedTop = stretch >= 0.08 && (nearHigh || ret5 <= 0.005) && peakStretch >= 0.08;
+    pushMap("greed_top", "Greed / delusion top", greedTop, "sell_into_greed");
+
+    const denial = sawMania && stretch > 0.02 && ret5 < -0.03 && !nearHigh;
+    pushMap("denial", "Denial drop", denial, "top_in");
+
+    const bullTrap =
+      sawMania &&
+      ext.hiAt < i - 3 &&
+      closes[ext.hiAt] > mean * 1.04 &&
+      close < closes[ext.hiAt] * 0.97 &&
+      ret5 < 0 &&
+      stretch > -0.02;
+    pushMap("bull_trap", "Bull trap bounce", bullTrap, "top_in");
+
+    const capitulation = ret5 <= -0.055 && stretch < -0.02 && ret20 < -0.08;
+    pushMap("capitulation", "Capitulation drop", capitulation, "bottom_watch");
+
+    const despairBottom = stretch <= -0.07 && nearLow && ret5 > -0.02;
+    pushMap("despair_bottom", "Despair bottom", despairBottom, "bottom_in");
+
+    const returnMean = stretch > -0.07 && stretch < 0.03 && sawDespair && ret5 > 0.01 && close > closes[i - 5];
+    pushMap("return_mean", "Return to mean", returnMean, "bottom_in");
+
+    const cycleDone = sawMania && sawDespair && Math.abs(stretch) <= 0.025 && ret20 > -0.02 && ret20 < 0.05;
+    pushMap("cycle_done", "Cycle finished", cycleDone, "cycle_finished");
+
+    let stage = "steady";
+    let label = "Steady · near mean";
+    if (despairBottom || (stretch <= -0.09 && nearLow)) {
+      stage = "despair";
+      label = "Despair · bottom zone";
+    } else if (capitulation) {
+      stage = "capitulation";
+      label = "Capitulation";
+    } else if (stretch <= -0.04 && ret20 <= -0.08) {
+      stage = "fear";
+      label = "Fear";
+    } else if (bullTrap) {
+      stage = "bull_trap";
+      label = "Bull trap";
+    } else if (denial) {
+      stage = "denial";
+      label = "Denial";
+    } else if (greedTop || (mania && nearHigh)) {
+      stage = stretch >= 0.12 ? "delusion" : "greed";
+      label = stretch >= 0.12 ? "Delusion · top" : "Greed · sell zone";
+    } else if (mania) {
+      stage = "mania";
+      label = "Mania / public";
+    } else if (bearTrap) {
+      stage = "bear_trap";
+      label = "Bear trap · buy zone";
+    } else if (takeoff) {
+      stage = "takeoff";
+      label = "Takeoff";
+    } else if (returnMean || (sawDespair && stretch < 0.02 && ret5 > 0)) {
+      stage = "return_mean";
+      label = "Return to mean";
+    } else if (cycleDone) {
+      stage = "cycle_done";
+      label = "Cycle finished";
+    } else if (stretch > 0.04) {
+      stage = "enthusiasm";
+      label = "Enthusiasm";
+    }
+
+    let signal = "none";
+    let signalLabel = "No cycle signal";
+    if (cycleDone) {
+      signal = "cycle_finished";
+      signalLabel = "Cycle finished · back near mean";
+    } else if (despairBottom || (stage === "despair" && ret5 >= 0)) {
+      signal = "bottom_in";
+      signalLabel = "Bottom watch · despair stall";
+    } else if (bearTrap || takeoff) {
+      signal = "buy_before_mania";
+      signalLabel = "Buy before mania · early rise";
+    } else if (greedTop || stage === "delusion" || stage === "greed") {
+      signal = "sell_into_greed";
+      signalLabel = "Sell into greed · top zone";
+    } else if (denial || bullTrap) {
+      signal = "top_in";
+      signalLabel = "Top in · denial / bull trap";
+    } else if (capitulation || stage === "fear") {
+      signal = "bottom_watch";
+      signalLabel = "Bottom watch · fear / capitulation";
+    }
+
+    const hitMaps = maps.filter((row) => row.hit).map((row) => row.label);
+    return {
+      ready: true,
+      stage,
+      label,
+      signal,
+      signalLabel,
+      stretch,
+      ret5,
+      ret20,
+      mean,
+      close,
+      peakStretch,
+      troughStretch,
+      maps,
+      mapHits: hitMaps,
+      why:
+        label +
+        " · stretch " +
+        (stretch >= 0 ? "+" : "") +
+        (stretch * 100).toFixed(1) +
+        "% vs mean" +
+        (hitMaps.length ? " · marks: " + hitMaps.join(", ") : "") +
+        ". Closed bars only. Own desk read. Not a forecast.",
+      asOf: list[i].date,
+    };
+  }
+
+  function marketTankRead(spyBars) {
+    const strength = strengthRead(spyBars);
+    const cycle = cycleMapRead(spyBars);
+    if (!strength) {
+      return {
+        ready: false,
+        mode: "unread",
+        label: "Unread",
+        why: "SPY unread — Defensive Shield and Risk Rebound wait.",
+        cycle,
+      };
+    }
+    const ret5 = strength.ret5 || 0;
+    const ret20 = (() => {
+      const list = closedBars(spyBars || [], false);
+      if (list.length < 21) return 0;
+      const close = list[list.length - 1].close;
+      const prior = list[list.length - 21].close;
+      return prior > 0 ? close / prior - 1 : 0;
+    })();
+    let mode = "calm";
+    let label = "Market calm";
+    if (ret20 <= -0.08 || ret5 <= -0.045 || (cycle && (cycle.stage === "fear" || cycle.stage === "capitulation" || cycle.stage === "despair"))) {
+      mode = "tank";
+      label = "Market tank";
+    } else if (ret5 <= -0.02 || ret20 <= -0.04 || !strength.stacked) {
+      mode = "soft";
+      label = "Market soft";
+    }
+    return {
+      ready: true,
+      mode,
+      label,
+      ret5,
+      ret20,
+      stacked: !!strength.stacked,
+      score: strength.score,
+      cycle,
+      why:
+        label +
+        " · SPY 5d " +
+        (ret5 >= 0 ? "+" : "") +
+        (ret5 * 100).toFixed(1) +
+        "% · 20d " +
+        (ret20 >= 0 ? "+" : "") +
+        (ret20 * 100).toFixed(1) +
+        "%" +
+        (cycle && cycle.ready ? " · Cycle " + cycle.label : "") +
+        ".",
+      asOf: strength.asOf,
+    };
+  }
+
+  function rankCycleRows(symbols, barsMap, scoreFn) {
+    return (symbols || [])
+      .map((symbol) => {
+        const bars = (barsMap || {})[symbol];
+        if (!bars || !bars.length) return null;
+        const strength = strengthRead(bars);
+        const cycle = cycleMapRead(bars);
+        if (!strength || !cycle || !cycle.ready) return null;
+        const score = scoreFn(strength, cycle);
+        return {
+          symbol,
+          score,
+          strength: strength.score,
+          ret5: strength.ret5,
+          stage: cycle.stage,
+          label: cycle.label,
+          signal: cycle.signal,
+          signalLabel: cycle.signalLabel,
+          mapHits: cycle.mapHits || [],
+          why: cycle.why,
+          asOf: cycle.asOf,
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol));
+  }
+
+  function defensiveShieldScan(input) {
+    const source = input || {};
+    const market = source.market || marketTankRead(source.spyBars);
+    const rows = rankCycleRows(source.symbols || DEFENSIVE_SHIELD, source.bars || {}, (strength, cycle) => {
+      let score = strength.score;
+      if (market && market.mode === "tank") score += 15;
+      if (market && market.mode === "soft") score += 8;
+      if (strength.stacked) score += 10;
+      if (cycle.signal === "buy_before_mania" || cycle.stage === "takeoff" || cycle.stage === "bear_trap") score += 12;
+      if (cycle.stage === "greed" || cycle.stage === "delusion" || cycle.stage === "mania") score -= 20;
+      return score;
+    }).slice(0, 8);
+    const active = !!(market && (market.mode === "soft" || market.mode === "tank"));
+    return {
+      ready: !!(market && market.ready),
+      active,
+      market,
+      rows: active ? rows : rows.slice(0, 3),
+      why: !market || !market.ready
+        ? "Waiting on SPY for Defensive Shield."
+        : active
+          ? "Defensive Shield on — " + market.label + ". Prefer utilities · staples · health · bonds · gold while risk is soft."
+          : "Market not soft — Defensive Shield stays quiet (showing leaders for review only).",
+    };
+  }
+
+  function riskReboundScan(input) {
+    const source = input || {};
+    const market = source.market || marketTankRead(source.spyBars);
+    const rows = rankCycleRows(source.symbols || RISK_REBOUND, source.bars || {}, (strength, cycle) => {
+      let score = 40;
+      if (cycle.signal === "bottom_in" || cycle.stage === "despair") score += 35;
+      if (cycle.signal === "bottom_watch" || cycle.stage === "capitulation" || cycle.stage === "fear") score += 20;
+      if (cycle.signal === "buy_before_mania" || cycle.stage === "return_mean" || cycle.stage === "bear_trap") score += 18;
+      if (cycle.mapHits && cycle.mapHits.some((name) => /Despair|Return|Bear trap/i.test(name))) score += 10;
+      if (cycle.stage === "mania" || cycle.stage === "greed" || cycle.stage === "delusion") score -= 30;
+      score += Math.max(0, Math.min(20, Math.round((strength.ret5 || 0) * 200 + 10)));
+      return score;
+    }).slice(0, 8);
+    const active = !!(market && market.mode === "tank");
+    return {
+      ready: !!(market && market.ready),
+      active,
+      market,
+      rows: active ? rows : [],
+      why: !market || !market.ready
+        ? "Waiting on SPY for Risk Rebound."
+        : active
+          ? "Market tank — Risk Rebound lists non-defensive names near fear / capitulation / despair for chart review (not Fire 5)."
+          : "Risk Rebound waits for a market tank. Soft / calm markets keep this list empty.",
+    };
+  }
+
   root.PaperFrames = {
     edge,
     vixFallingOn,
@@ -3449,6 +3820,12 @@
     marketScorecard,
     horizonOutlook,
     marketOutlook,
+    cycleMapRead,
+    marketTankRead,
+    defensiveShieldScan,
+    riskReboundScan,
+    DEFENSIVE_SHIELD,
+    RISK_REBOUND,
     SCORECARD_INDEXES,
     SCORECARD_SECTORS,
     strategies,

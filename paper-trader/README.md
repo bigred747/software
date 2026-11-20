@@ -101,6 +101,13 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
+## Cycle Desk · Defensive Shield · Risk Rebound (1.10.8)
+
+- **Cycle Desk** (Tools · Next pages · Markets): closed-bar stages, top/bottom, and cycle-finished marks vs a long mean — **Paper Trader names only**.
+- **Defensive Shield** when the market is soft/tanks (utilities · staples · health · bonds · gold).
+- **Risk Rebound** lists non-defensive names only when the market tanks (fear / capitulation / despair watch).
+- No third-party courses, packs, or trademarked pattern libraries. Guidance only. Edge · Best setup · Auto still gate buys. Live locked · Artex · paper only.
+
 ## Index tape · Tools Open → chart (1.10.7)
 
 - Top strip **YM · RUT · NQ · ES** beside Tools — live last + ±% in green / red (RUT uses RTY).
