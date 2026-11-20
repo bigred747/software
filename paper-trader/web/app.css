@@ -56,6 +56,8 @@ body {
   border-radius: 12px;
   background: linear-gradient(180deg, #1a1014 0%, #120c10 100%);
   box-shadow: inset 0 0 0 1px rgba(255, 107, 122, 0.12);
+  /* Keep Connect visible without locking the page scroller. */
+  flex: 0 0 auto;
 }
 .schwab-top.on {
   border-color: #1d4d3a;
@@ -222,11 +224,13 @@ h2 { font-size: 15px; }
 
 .workspace {
   display: grid;
-  flex: 1 1 auto;
+  /* 0 flex-basis so the tall Schwab header still leaves a real scrollport. */
+  flex: 1 1 0%;
   grid-template-columns: 280px minmax(0, 1fr) 280px;
-  grid-template-rows: minmax(280px, 1fr) minmax(160px, 28vh);
+  grid-template-rows: minmax(0, 1fr) minmax(120px, 28vh);
   gap: 8px;
   min-height: 0;
+  overflow: auto;
   padding: 8px;
 }
 
@@ -866,6 +870,10 @@ footer { display: none; }
 
 @media (max-width: 980px) {
   .top { align-items: center; gap: 4px 12px; }
+  .schwab-top { padding: 8px 10px; gap: 2px; }
+  #schwab-connect { min-height: 44px; min-width: min(100%, 200px); font-size: 15px; padding: 8px 12px; }
+  .schwab-top-status { font-size: 14px; }
+  .schwab-top-note { font-size: 12px; }
   .quote {
     margin: 0;
     width: 100%;
@@ -898,13 +906,17 @@ footer { display: none; }
   }
   .workspace {
     display: block;
-    flex: 1 1 auto;
-    height: auto;
+    /* height:0 + flex-grow restores a scrollport under the tall Schwab header. */
+    flex: 1 1 0%;
+    height: 0;
     min-height: 0;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 8px 12px calc(58px + var(--safe-bottom));
   }
   .watch, .chart-panel, .ticket, .dock { display: none; margin: 0; }
+  .ticket, .dock, .watch { overflow: visible; }
   .frames-layout { display: block; }
   .frame-list, .brief { max-height: none; }
   .dock-page.on[data-dock-page="frames"] { display: block; overflow: visible; }
@@ -914,9 +926,11 @@ footer { display: none; }
   body[data-tab="study"] .dock { display: block; }
   body[data-tab="chart"] .workspace {
     display: block;
-    overflow: auto;
+    flex: 1 1 0%;
+    height: 0;
     min-height: 0;
-    height: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding-top: 6px;
     padding-bottom: calc(72px + var(--safe-bottom));
     -webkit-overflow-scrolling: touch;
@@ -1211,6 +1225,7 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 }
 
 .market-outlook {
+  flex: 0 0 auto;
   margin: 0 0 10px;
   padding: 10px 12px;
   border: 1px solid var(--line);

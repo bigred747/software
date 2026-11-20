@@ -341,7 +341,7 @@ Security programs watch for programs that end other programs, delete folders the
 
 Markets: all 7,510 from the catalog (crypto including XRP and Stellar, stocks, ETFs, and futures). Added in 1.9.38: VXUS, QQQM, SCHD, SCHG, VUG, and QUAL, so the core ETF list (VOO, VTI, VXUS, QQQM, SCHD) and the growth list (SMH, XLK, VGT, QQQ, IVW, SCHG, IWF, VUG, QUAL, IJH) are all searchable.
 
-## Schwab connect (1.9.96)
+## Schwab connect (1.9.97)
 
 Paper stays the default. The desk does not send broker orders. Quotes still use the existing feed until Schwab bars are wired; **Connect**, **Market Data**, and **Live Trading** prepare the Schwab session.
 
