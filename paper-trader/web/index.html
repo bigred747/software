@@ -16,13 +16,13 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.4</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.5</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
       </div>
-      <button id="open-tools" type="button" class="top-tools-btn" aria-pressed="false">Tools</button>
     </div>
+    <button id="open-tools" type="button" class="top-tools-btn" aria-pressed="false">Tools</button>
     <div class="mood-clock">
       <canvas id="mood-clock" width="112" height="112" aria-label="Fear and greed clock"></canvas>
       <span id="mood-clock-label" class="mood-clock-label"></span>
@@ -165,6 +165,22 @@
         <div id="layers" class="layers" role="group" aria-label="Chart layers" hidden></div>
         <div id="chart-flags" class="chart-flags" aria-label="Chart status"></div>
       </div>
+      <div class="chart-below" aria-label="Tools pages">
+        <p class="chart-tools-label">Next pages</p>
+        <div id="study-pages" class="study-pages" aria-label="Open Tools pages">
+          <button type="button" data-open-dock="home">All tools</button>
+          <button type="button" data-open-dock="strategies">Strategies</button>
+          <button type="button" data-open-dock="internals">Internals</button>
+          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
+          <button type="button" data-open-dock="frames">Timeframes</button>
+          <button type="button" data-open-dock="squeeze">Squeeze scan</button>
+          <button type="button" data-open-dock="readings">big4indicator</button>
+          <button type="button" data-open-dock="journal">Journal</button>
+          <button type="button" data-open-dock="signals">Signals</button>
+          <button type="button" data-open-dock="backtest">Backtest</button>
+          <button type="button" data-open-dock="study">Study</button>
+        </div>
+      </div>
       <div class="study-toolbar" role="toolbar" aria-label="Study panes">
         <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
         <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>
@@ -201,22 +217,6 @@
           </div>
           <canvas id="cci-chart" width="800" height="160" aria-label="CCI"></canvas>
         </section>
-      </div>
-      <div class="chart-below" aria-label="Tools">
-        <p class="chart-tools-label">Tools</p>
-        <div id="study-pages" class="study-pages" aria-label="Open Tools pages">
-          <button type="button" data-open-dock="home">All tools</button>
-          <button type="button" data-open-dock="strategies">Strategies</button>
-          <button type="button" data-open-dock="internals">Internals</button>
-          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
-          <button type="button" data-open-dock="frames">Timeframes</button>
-          <button type="button" data-open-dock="squeeze">Squeeze scan</button>
-          <button type="button" data-open-dock="readings">big4indicator</button>
-          <button type="button" data-open-dock="journal">Journal</button>
-          <button type="button" data-open-dock="signals">Signals</button>
-          <button type="button" data-open-dock="backtest">Backtest</button>
-          <button type="button" data-open-dock="study">Study</button>
-        </div>
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
