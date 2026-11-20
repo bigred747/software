@@ -101,6 +101,12 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
+## Tools button · Next pages (1.10.5)
+
+- Header **Tools** button stays on its own grid cell (never clipped beside the title).
+- Chart **Next pages** grid sits above the candle stack: Strategies, Internals, Big 3, Journal, and the rest.
+- Bottom tab **Tools** opens the same full-screen pages. Live locked · Artex · paper only.
+
 ## Market Outlook (1.9.94)
 
 Top-of-desk **Market Outlook** board (own names/copy):
