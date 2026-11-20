@@ -37,6 +37,16 @@ const state = {
   breadth: null,
   vixBars: [],
   schwab: null,
+  cycle: {
+    busy: false,
+    stop: false,
+    market: null,
+    defensive: null,
+    risk: null,
+    open: null,
+    at: 0,
+    note: "",
+  },
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -92,7 +102,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.7";
+const VERSION = "1.10.8";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -1264,6 +1274,7 @@ async function bootOffline() {
   showChart();
   refreshOutlook().catch(() => {});
   refreshIndexTape().catch(() => {});
+  runCycleDesk().catch(() => {});
   if (state.scanOn) scanPhone();
   else {
     state.scanNote = "Scanner is off.";
@@ -1303,6 +1314,7 @@ async function boot() {
   deskLine("Desk is working.");
   refreshOutlook().catch(() => {});
   refreshIndexTape().catch(() => {});
+  runCycleDesk().catch(() => {});
   if (paper.paper === true) {
     state.auto = true;
     render(paper);
@@ -5653,6 +5665,258 @@ async function runScorecard() {
   }
 }
 
+function cycleSignalClass(signal) {
+  if (signal === "buy_before_mania" || signal === "bottom_in") return "go";
+  if (signal === "sell_into_greed" || signal === "top_in") return "exit";
+  if (signal === "cycle_finished") return "done";
+  if (signal === "bottom_watch") return "go-long";
+  return "";
+}
+
+function fillCycleRankBody(bodyId, rows, emptyText) {
+  const body = $(bodyId);
+  if (!body) return;
+  body.replaceChildren();
+  const list = rows || [];
+  if (!list.length) {
+    const tr = document.createElement("tr");
+    addCells(tr, ["", emptyText || "Quiet list — normal when the market mode does not call for it.", "", "", "", ""]);
+    body.appendChild(tr);
+    return;
+  }
+  list.forEach((row, index) => {
+    const tr = document.createElement("tr");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "quiet";
+    open.textContent = "Open";
+    open.addEventListener("click", (event) => {
+      event.stopPropagation();
+      chooseSymbol(row.symbol);
+    });
+    const sig = row.signalLabel || row.signal || "—";
+    addCells(tr, [
+      String(index + 1),
+      row.symbol,
+      row.label || row.stage || "—",
+      { text: sig, cls: cycleSignalClass(row.signal) === "go" ? "up" : cycleSignalClass(row.signal) === "exit" ? "down" : "" },
+      String(row.score != null ? Math.round(row.score) : "—"),
+      open,
+    ]);
+    const cls = cycleSignalClass(row.signal);
+    if (cls === "go") tr.classList.add("go");
+    body.appendChild(tr);
+  });
+}
+
+function paintCyclePins(nodeId, rows, emptyLabel) {
+  const node = $(nodeId);
+  if (!node) return;
+  node.replaceChildren();
+  const list = (rows || []).slice(0, 8);
+  if (!list.length) {
+    const span = document.createElement("span");
+    span.className = "muted";
+    span.textContent = emptyLabel || "";
+    if (emptyLabel) node.appendChild(span);
+    return;
+  }
+  list.forEach((row) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    const cls = cycleSignalClass(row.signal);
+    button.className = cls || "";
+    button.textContent = row.symbol + (row.stage ? " · " + row.stage.replace(/_/g, " ") : "");
+    button.title = row.signalLabel || row.why || row.label || row.symbol;
+    button.addEventListener("click", () => chooseSymbol(row.symbol));
+    node.appendChild(button);
+  });
+}
+
+function renderCycleDesk() {
+  const box = state.cycle || {};
+  const market = box.market;
+  const open = box.open;
+  const defensive = box.defensive;
+  const risk = box.risk;
+  const note = $("cycle-note");
+  const marketNote = $("cycle-market");
+  const boardNote = $("cycle-board-note");
+  const openBias = $("cycle-open-bias");
+  const openWhy = $("cycle-open-why");
+  const tankBias = $("cycle-tank-bias");
+  const tankWhy = $("cycle-tank-why");
+
+  if (openBias) {
+    openBias.textContent = open && open.ready
+      ? "Open · " + (open.label || "—") + (open.signalLabel ? " · " + open.signalLabel : "")
+      : "Open market · waiting";
+    openBias.className = "scorecard-bias" + (open && (open.signal === "buy_before_mania" || open.signal === "bottom_in")
+      ? " up"
+      : open && (open.signal === "sell_into_greed" || open.signal === "top_in")
+        ? " down"
+        : "");
+  }
+  if (openWhy) openWhy.textContent = open && open.why ? open.why : "";
+
+  if (tankBias) tankBias.textContent = market && market.ready ? market.label : "Market · waiting";
+  if (tankWhy) tankWhy.textContent = market && market.why ? market.why : (defensive && defensive.why) || "";
+
+  fillCycleRankBody(
+    "cycle-def-body",
+    defensive && defensive.rows,
+    defensive && !defensive.active
+      ? "Defensive Shield quiet until the market is soft or tanks."
+      : "No defensive names ready yet."
+  );
+  fillCycleRankBody(
+    "cycle-risk-body",
+    risk && risk.rows,
+    risk && !risk.active
+      ? "Risk Rebound waits for a market tank."
+      : "No risk rebound names ready yet."
+  );
+
+  const marksBody = $("cycle-marks-body");
+  if (marksBody) {
+    marksBody.replaceChildren();
+    const marks = (open && open.maps) || [];
+    if (!marks.length) {
+      const tr = document.createElement("tr");
+      addCells(tr, ["—", "Run Cycle Desk on the open market", "—"]);
+      marksBody.appendChild(tr);
+    } else {
+      marks.forEach((mark) => {
+        const tr = document.createElement("tr");
+        addCells(tr, [
+          mark.label,
+          mark.hit ? "Yes" : "—",
+          mark.hit && mark.signal !== "none" ? mark.signal.replace(/_/g, " ") : "—",
+        ]);
+        if (mark.hit) tr.classList.add("go");
+        marksBody.appendChild(tr);
+      });
+    }
+  }
+
+  paintCyclePins(
+    "cycle-defensive",
+    defensive && defensive.active ? defensive.rows : [],
+    market && market.mode === "calm" ? "Defensive Shield quiet." : ""
+  );
+  paintCyclePins(
+    "cycle-risk",
+    risk && risk.active ? risk.rows : [],
+    market && market.mode !== "tank" ? "Risk Rebound waits for a tank." : ""
+  );
+
+  if (marketNote) {
+    marketNote.textContent = market && market.why
+      ? market.why + (open && open.signalLabel ? " Open: " + open.signalLabel + "." : "")
+      : "";
+  }
+  const summary =
+    box.busy
+      ? box.note || "Reading Cycle Desk…"
+      : box.note ||
+        (market && market.ready
+          ? market.label +
+            (defensive && defensive.active ? " · Defensive Shield on" : "") +
+            (risk && risk.active ? " · Risk Rebound on" : "") +
+            (open && open.signalLabel ? " · " + open.signalLabel : "") +
+            ". Own desk names only. Not a forecast."
+          : "Press Refresh Cycle or Run Cycle Desk. Own Paper Trader read — no third-party packs.");
+  if (note) note.textContent = summary;
+  if (boardNote) boardNote.textContent = summary;
+}
+
+async function runCycleDesk() {
+  const box = state.cycle;
+  if (!box || box.busy) return;
+  if (typeof PaperFrames === "undefined" || !PaperFrames.cycleMapRead) {
+    box.note = "Cycle Desk is not on this build.";
+    renderCycleDesk();
+    return;
+  }
+  box.busy = true;
+  box.stop = false;
+  box.note = "Reading SPY and Cycle Desk lists…";
+  renderCycleDesk();
+  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(5000);
+  try {
+    const defensiveSyms = (PaperFrames.DEFENSIVE_SHIELD || []).slice();
+    const riskSyms = (PaperFrames.RISK_REBOUND || []).slice();
+    const need = [];
+    const seen = new Set();
+    ["SPY"].concat(defensiveSyms, riskSyms).forEach((symbol) => {
+      if (symbol && !seen.has(symbol)) {
+        seen.add(symbol);
+        need.push(symbol);
+      }
+    });
+    const openSym = state.paper && state.paper.symbol;
+    if (openSym && !seen.has(openSym)) {
+      seen.add(openSym);
+      need.push(openSym);
+    }
+    const bars = {};
+    let next = 0;
+    const workers = Math.min(state.offline ? 2 : 3, Math.max(1, need.length));
+    const worker = async () => {
+      while (!box.stop && next < need.length) {
+        const symbol = need[next];
+        next += 1;
+        try {
+          if (openSym && symbol === openSym && seenBars().length) bars[symbol] = seenBars();
+          else bars[symbol] = await sqDaily(symbol);
+        } catch (error) {
+          /* Missing quote stays out. */
+        }
+        box.note = "Reading Cycle Desk: " + next + " of " + need.length + "…";
+        if (next === need.length || next % 3 === 0) renderCycleDesk();
+      }
+    };
+    await Promise.all(Array.from({ length: workers }, () => worker()));
+    if (box.stop) {
+      box.note = "Cycle Desk stopped.";
+      return;
+    }
+    const market = PaperFrames.marketTankRead(bars.SPY || []);
+    const defensive = PaperFrames.defensiveShieldScan({
+      market,
+      spyBars: bars.SPY,
+      bars,
+      symbols: defensiveSyms,
+    });
+    const risk = PaperFrames.riskReboundScan({
+      market,
+      spyBars: bars.SPY,
+      bars,
+      symbols: riskSyms,
+    });
+    const openBars = openSym && bars[openSym] ? bars[openSym] : seenBars();
+    const open = openBars && openBars.length ? PaperFrames.cycleMapRead(openBars) : null;
+    box.market = market;
+    box.defensive = defensive;
+    box.risk = risk;
+    box.open = open;
+    box.at = Date.now();
+    box.note =
+      (market && market.label ? market.label : "Cycle Desk") +
+      (defensive && defensive.active ? " · Defensive " + ((defensive.rows && defensive.rows.length) || 0) : "") +
+      (risk && risk.active ? " · Risk " + ((risk.rows && risk.rows.length) || 0) : "") +
+      (open && open.signalLabel ? " · " + open.signalLabel : "") +
+      ". Own desk only.";
+  } catch (error) {
+    box.note = error && error.message ? error.message : "Cycle Desk did not finish.";
+  } finally {
+    box.busy = false;
+    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    renderCycleDesk();
+    paintChartToolBoxes(state.market && state.market.history);
+  }
+}
+
 const INT_KEY = "paper_trader_internals_v1";
 const INT_GAUGES = ["^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP"];
 
@@ -6710,6 +6974,27 @@ function paintDeskClear(history) {
     lane && lane.lane === "open" ? "bull" : lane && lane.lane === "closed" ? "bear" : lane && lane.lane === "soft" ? "mixed" : "stage";
   const seatLabel = seat && seat.label ? seat.label.replace("Seat ", "") : seat && seat.seat ? seat.seat : "—";
   const seatKind = seat && seat.seat === "high" ? "bull" : seat && seat.seat === "low" ? "bear" : "mixed";
+  const openCycle =
+    history && history.length && typeof PaperFrames !== "undefined" && PaperFrames.cycleMapRead
+      ? PaperFrames.cycleMapRead(history)
+      : state.cycle && state.cycle.open
+        ? state.cycle.open
+        : null;
+  if (openCycle && openCycle.ready && state.cycle) state.cycle.open = openCycle;
+  const cycleChipLabel =
+    openCycle && openCycle.ready
+      ? openCycle.signal !== "none"
+        ? (openCycle.signalLabel || openCycle.label || "Cycle").replace(/ · .*$/, "").slice(0, 22)
+        : (openCycle.label || "Cycle").slice(0, 18)
+      : "—";
+  const cycleChipKind =
+    openCycle && (openCycle.signal === "buy_before_mania" || openCycle.signal === "bottom_in")
+      ? "bull"
+      : openCycle && (openCycle.signal === "sell_into_greed" || openCycle.signal === "top_in")
+        ? "bear"
+        : openCycle && openCycle.ready
+          ? "stage"
+          : "mixed";
   // Always paint the desk boxes so phone users can see them; values stay "—" until bars are ready.
   const chips = read
     ? [
@@ -6721,6 +7006,11 @@ function paintDeskClear(history) {
         { k: "Stage", v: read.stage, kind: "stage" },
         { k: "Lane Align", v: laneLabel, kind: laneKind },
         { k: "Range Seat", v: seatLabel, kind: seatKind },
+        {
+          k: "Cycle",
+          v: cycleChipLabel,
+          kind: cycleChipKind,
+        },
       ]
     : [
         { k: "VWAP D", v: "—", kind: "vwap" },
@@ -6731,6 +7021,7 @@ function paintDeskClear(history) {
         { k: "Stage", v: "Waiting", kind: "stage" },
         { k: "Lane Align", v: laneLabel, kind: laneKind },
         { k: "Range Seat", v: seatLabel, kind: seatKind },
+        { k: "Cycle", v: cycleChipLabel, kind: cycleChipKind },
       ];
   paintChipRow(node, chips);
 }
@@ -7572,6 +7863,13 @@ if ($("sc-stop")) {
     if (state.sc) state.sc.stop = true;
   });
 }
+if ($("cycle-scan")) $("cycle-scan").addEventListener("click", () => runCycleDesk());
+if ($("cycle-run")) $("cycle-run").addEventListener("click", () => runCycleDesk());
+if ($("cycle-stop")) {
+  $("cycle-stop").addEventListener("click", () => {
+    if (state.cycle) state.cycle.stop = true;
+  });
+}
 if ($("scorecard-open")) {
   $("scorecard-open").addEventListener("click", () => showDock("scorecard"));
 }
@@ -8101,6 +8399,10 @@ function showDock(name) {
   if (name === "scorecard") {
     renderScorecard();
     if (!(state.sc && state.sc.result) && !(state.sc && state.sc.busy)) runScorecard();
+  }
+  if (name === "cycle") {
+    renderCycleDesk();
+    if (!(state.cycle && state.cycle.at) && !(state.cycle && state.cycle.busy)) runCycleDesk();
   }
   if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
     state.orbBusy = true;
