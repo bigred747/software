@@ -1114,6 +1114,78 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
   .scorecard-grid { grid-template-columns: 1fr; }
 }
 
+.market-outlook {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: #0c1116;
+}
+.outlook-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.outlook-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.outlook-call {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.outlook-call.green { color: var(--up); }
+.outlook-call.red { color: var(--down); }
+.outlook-call.amber { color: #ffd166; }
+.outlook-call.wait { color: var(--muted, #9fb0c6); }
+.outlook-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.outlook-cell {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: #0e1318;
+  min-width: 0;
+}
+.outlook-cell.green { border-color: #2f6b4f; }
+.outlook-cell.red { border-color: #7a3a44; }
+.outlook-cell.amber { border-color: #6a5a2e; }
+.outlook-label {
+  margin: 0 0 2px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted, #9fb0c6);
+}
+.outlook-score {
+  margin: 0 0 2px;
+  font-size: 22px;
+  font-weight: 750;
+  line-height: 1.1;
+}
+.outlook-cell.green .outlook-score { color: var(--up); }
+.outlook-cell.red .outlook-score { color: var(--down); }
+.outlook-cell.amber .outlook-score { color: #ffd166; }
+.outlook-stance {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+@media (max-width: 980px) {
+  .market-outlook { margin: 0 8px 8px; padding: 8px 10px; }
+  .outlook-call { font-size: 15px; }
+  .outlook-score { font-size: 18px; }
+  .outlook-stance { font-size: 12px; }
+}
+
 .win-box{margin-top:8px;display:grid;gap:4px;font-size:12px}
 .win-box h4{margin:0;font-size:12px}
 .win-box label{display:flex;gap:6px;align-items:center}

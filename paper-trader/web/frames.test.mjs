@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -625,4 +625,43 @@ test("Tide Alert drains soft sectors and Go Long 5 ranks pressure names", () => 
     ranked.map((row) => row.symbol),
     ["DDD", "AAA"]
   );
+});
+
+test("Market Outlook scores Day Week Month from SPY closed bars", () => {
+  function sequential(startClose, step, count) {
+    const rows = [];
+    const start = Date.UTC(2022, 0, 3);
+    for (let index = 0; index < count; index += 1) {
+      const stamp = new Date(start + index * 86400000);
+      const iso =
+        stamp.getUTCFullYear() +
+        "-" +
+        String(stamp.getUTCMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(stamp.getUTCDate()).padStart(2, "0");
+      const close = startClose + index * step;
+      rows.push(day(iso, close - 1, close + 2, close - 2, close));
+    }
+    return rows;
+  }
+  const up = sequential(100, 0.35, 420);
+  const down = sequential(220, -0.35, 420);
+  const bull = marketOutlook({ spyBars: up });
+  assert.equal(bull.ready, true);
+  assert.ok(bull.day.score >= 7);
+  assert.equal(bull.day.color, "green");
+  assert.equal(bull.day.stance, "Go long");
+  assert.ok(bull.week.ready);
+  assert.ok(bull.month.ready);
+  assert.equal(bull.call, "Go long");
+  assert.ok(bull.board >= 7);
+  const soft = marketOutlook({ spyBars: down });
+  assert.equal(soft.ready, true);
+  assert.ok(soft.day.score <= 4);
+  assert.equal(soft.day.color, "red");
+  assert.equal(soft.day.stance, "Short bias");
+  assert.match(soft.call, /Short bias|Stay flat/);
+  const tide = marketOutlook({ spyBars: up, tide: { on: true, why: "Tide Alert on." } });
+  assert.equal(tide.call, "Stay flat · Tide");
+  assert.equal(tide.color, "amber");
 });
