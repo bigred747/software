@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.6">
+  <meta name="paper-build" content="1.10.7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -17,13 +17,35 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.6</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.7</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
       </div>
     </div>
     <button id="open-tools" type="button" class="top-tools-btn" aria-pressed="false">Tools</button>
+    <nav id="index-tape" class="index-tape" aria-label="Index futures YM RUT NQ ES">
+      <button type="button" class="index-chip" data-index-symbol="YM" aria-label="YM">
+        <span class="index-chip-sym">YM</span>
+        <span class="index-chip-last">—</span>
+        <span class="index-chip-chg">—</span>
+      </button>
+      <button type="button" class="index-chip" data-index-symbol="RTY" aria-label="RUT">
+        <span class="index-chip-sym">RUT</span>
+        <span class="index-chip-last">—</span>
+        <span class="index-chip-chg">—</span>
+      </button>
+      <button type="button" class="index-chip" data-index-symbol="NQ" aria-label="NQ">
+        <span class="index-chip-sym">NQ</span>
+        <span class="index-chip-last">—</span>
+        <span class="index-chip-chg">—</span>
+      </button>
+      <button type="button" class="index-chip" data-index-symbol="ES" aria-label="ES">
+        <span class="index-chip-sym">ES</span>
+        <span class="index-chip-last">—</span>
+        <span class="index-chip-chg">—</span>
+      </button>
+    </nav>
     <div class="mood-clock">
       <canvas id="mood-clock" width="112" height="112" aria-label="Fear and greed clock"></canvas>
       <span id="mood-clock-label" class="mood-clock-label"></span>

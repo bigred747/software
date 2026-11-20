@@ -198,6 +198,71 @@ body {
   border-color: #9ec4ff;
   color: #fff;
 }
+.index-tape {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  min-width: 0;
+}
+.index-chip {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  row-gap: 0;
+  align-items: baseline;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.index-chip:hover,
+.index-chip:focus-visible {
+  border-color: var(--fast);
+}
+.index-chip-sym {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.index-chip-last {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.index-chip-chg {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.index-chip.up .index-chip-last,
+.index-chip.up .index-chip-chg,
+.index-chip.up .index-chip-sym { color: var(--up); }
+.index-chip.down .index-chip-last,
+.index-chip.down .index-chip-chg,
+.index-chip.down .index-chip-sym { color: var(--down); }
+.index-chip.flat .index-chip-chg { color: var(--muted); }
 .seal {
   margin: 0;
   padding: 4px 8px;
@@ -428,6 +493,11 @@ body[data-tools] .dock {
   gap: 10px;
   margin: 0 0 8px;
   flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 2px 0 6px;
+  background: linear-gradient(180deg, var(--bg-elev) 70%, transparent 100%);
 }
 .dock-page-head h2,
 .dock-page-head .signals-title {
@@ -438,8 +508,8 @@ body[data-tools] .dock {
 }
 .dock-back {
   width: auto;
-  min-height: 32px;
-  padding: 4px 10px;
+  min-height: 40px;
+  padding: 6px 12px;
   font-weight: 700;
   border-color: var(--fast);
   color: var(--fast);
@@ -1041,6 +1111,20 @@ footer { display: none; }
     min-width: 96px;
     padding: 8px 14px;
     font-size: 16px;
+  }
+  .index-tape {
+    gap: 3px;
+  }
+  .index-chip {
+    min-height: 44px;
+    padding: 5px 6px;
+  }
+  .index-chip-sym { font-size: 10px; }
+  .index-chip-last { font-size: 12px; }
+  .index-chip-chg { font-size: 10px; }
+  .dock-back {
+    min-height: 44px;
+    padding: 8px 14px;
   }
   .desk-rail {
     grid-template-columns: minmax(120px, 1fr) minmax(0, 1.4fr);

@@ -101,6 +101,12 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
+## Index tape · Tools Open → chart (1.10.7)
+
+- Top strip **YM · RUT · NQ · ES** beside Tools — live last + ±% in green / red (RUT uses RTY).
+- Tap a chip or Tools **Open** to load that market on the chart and leave Tools.
+- **Back** on every Tools page (sticky head). Live locked · Artex · paper only.
+
 ## Tools button · Next pages (1.10.5 / 1.10.6)
 
 - Header **Tools** button stays on its own grid cell (never clipped beside the title).
