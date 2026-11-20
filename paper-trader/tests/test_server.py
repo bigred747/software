@@ -284,6 +284,7 @@ class ServerTests(unittest.TestCase):
             "squeeze",
             "scorecard",
             "cycle",
+            "forecast",
             "home",
             "outlook",
             "internals",
@@ -996,7 +997,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.10.9", script)
+        self.assertIn(b"1.10.10", script)
         self.assertIn(b"holdLearnAwake", script)
         self.assertIn(b'id="index-tape"', page)
         self.assertIn(b"refreshIndexTape", script)
@@ -1007,6 +1008,17 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"runCycleDesk", script)
         self.assertIn(b'data-dock="cycle"', page)
         self.assertIn(b">Cycle Desk<", page)
+        self.assertIn(b"runForecast", script)
+        self.assertIn(b"marketForecastRead", script)
+        self.assertIn(b'data-dock="forecast"', page)
+        self.assertIn(b">Market Forecaster<", page)
+        self.assertIn(b"Not a crystal ball", page)
+        self.assertNotIn(b"Danelfin", page)
+        self.assertNotIn(b"TrendSpider", page)
+        self.assertNotIn(b"QuantConnect", page)
+        self.assertNotIn(b"Trade Ideas", page)
+        self.assertNotIn(b"AnaChart", page)
+        self.assertNotIn(b"OfficeChai", page)
         self.assertNotIn(b"David Elliott", page)
         self.assertNotIn(b"kickmarketers", page.lower())
         self.assertIn(b"/api/breadth", script)
@@ -1026,7 +1038,10 @@ class ServerTests(unittest.TestCase):
         learn = Path(__file__).resolve().parents[1].joinpath("paper_trader", "learn.py").read_bytes()
         self.assertIn(b"PASS_BATCH", learn)
         self.assertIn(b'("cycle",', learn)
+        self.assertIn(b'("forecast",', learn)
         self.assertIn(b"function cycleMapRead", frames)
+        self.assertIn(b"function marketForecastRead", frames)
+        self.assertIn(b"function forecastBoard", frames)
         self.assertIn(b"function defensiveShieldScan", frames)
         self.assertIn(b"function riskReboundScan", frames)
         self.assertIn(b"function tideRead", frames)

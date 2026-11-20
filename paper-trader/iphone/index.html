@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.9">
+  <meta name="paper-build" content="1.10.10">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -1851,7 +1851,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.9</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.10</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -1972,6 +1972,13 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         <p id="cycle-market" class="muted"></p>
         <div id="cycle-defensive" class="pins" aria-label="Defensive Shield names"></div>
         <div id="cycle-risk" class="pins" aria-label="Risk Rebound names"></div>
+        <div class="scan-head fire-head">
+          <h3>Market Forecaster</h3>
+          <button id="forecast-run" type="button" class="quiet">Refresh Forecast</button>
+        </div>
+        <p id="forecast-note" class="muted">Paper Trader Market Forecaster: base · bull · bear on closed bars, SPY compare, what would prove it wrong, paper size hint. Complements Market Outlook. Own desk score — not a third-party AI score. Not a crystal ball. Not a forecast guarantee. Edge still gates buys.</p>
+        <p id="forecast-open-sum" class="muted"></p>
+        <div id="forecast-pins" class="pins" aria-label="Forecaster ranked names"></div>
       </div>
       <label for="search">Find a market</label>
       <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
@@ -2039,6 +2046,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
           <button type="button" data-open-dock="cycle">Cycle Desk</button>
+          <button type="button" data-open-dock="forecast">Market Forecaster</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
           <button type="button" data-open-dock="squeeze">Squeeze scan</button>
           <button type="button" data-open-dock="readings">big4indicator</button>
@@ -2145,7 +2153,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <h4>Windows extras</h4>
           <label><input id="win-startup" type="checkbox"> Start the score when I sign in to Windows</label>
           <label><input id="win-desktop" type="checkbox"> Put Paper Trader.bat on my Desktop</label>
-          <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process — continuous 24/7 while Windows is on and you are signed in. It scores new markets and every desk section (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) even when scrolled away or the desk window is closed. Tick Start the score for sign-in. Phone/browser alone pauses when you leave the tab. Not a broker. Not a forecast.</p>
+          <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process — continuous 24/7 while Windows is on and you are signed in. It scores new markets and every desk section (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Market Forecaster, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) even when scrolled away or the desk window is closed. Tick Start the score for sign-in. Phone/browser alone pauses when you leave the tab. Not a broker. Not a forecast.</p>
         </div>
       </div>
       <section id="ticket" class="ticket-box" aria-label="Order ticket">
@@ -2214,6 +2222,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="scorecard">Big 3 Scorecard</button>
         <button type="button" class="dock-tab" data-dock="cycle">Cycle Desk</button>
+        <button type="button" class="dock-tab" data-dock="forecast">Market Forecaster</button>
         <button type="button" class="dock-tab" data-dock="internals">Internals</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">big4indicator</button>
@@ -2233,6 +2242,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
           <button type="button" data-open-dock="cycle">Cycle Desk</button>
+          <button type="button" data-open-dock="forecast">Market Forecaster</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
           <button type="button" data-open-dock="squeeze">Squeeze scan</button>
           <button type="button" data-open-dock="readings">big4indicator</button>
@@ -2656,6 +2666,51 @@ plot Sell = close crosses below baseline;</textarea>
             <table>
               <thead><tr><th>Mark</th><th>Hit</th><th>Signal</th></tr></thead>
               <tbody id="cycle-marks-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="dock-page" data-dock-page="forecast">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Market Forecaster</h2>
+        </div>
+        <p class="muted">Original Paper Trader scenario board on closed daily bars. Base · bull · bear cases, about-3-month and about-1-year horizons, assumptions, SPY/benchmark compare, what would prove the case wrong, and a paper size / potential-loss hint. Desk rank blends Edge · Squeeze · Cycle · strength — our math only. Complements Market Outlook (does not replace it). Not a crystal ball. Not a forecast guarantee. Edge · Best setup · Auto still gate buys. Paper only. Live locked. No third-party product or scrape.</p>
+        <div class="strat-orb-inputs">
+          <button id="forecast-scan" type="button">Run Forecaster</button>
+          <button id="forecast-stop" type="button" class="quiet">Stop</button>
+        </div>
+        <p id="forecast-board-note" class="muted">Press Run Forecaster. Reads the open market, pins, and top scan names.</p>
+        <div id="forecast-case" class="scorecard-day" aria-live="polite">
+          <p id="forecast-case-bias" class="scorecard-bias">Open market · waiting</p>
+          <p id="forecast-case-why" class="muted"></p>
+        </div>
+        <div class="scorecard-grid">
+          <section class="scorecard-panel" aria-label="Near horizon">
+            <h3>About 3 months</h3>
+            <dl id="forecast-near" class="strat-levels"></dl>
+          </section>
+          <section class="scorecard-panel" aria-label="Far horizon">
+            <h3>About 1 year</h3>
+            <dl id="forecast-far" class="strat-levels"></dl>
+          </section>
+        </div>
+        <div id="forecast-meta" class="scorecard-day">
+          <p id="forecast-vs" class="muted"></p>
+          <p id="forecast-invalid" class="muted"></p>
+          <p id="forecast-size" class="muted"></p>
+        </div>
+        <section class="scorecard-panel" aria-label="Assumptions">
+          <h3>Assumptions</h3>
+          <ul id="forecast-assumptions" class="safe-list"></ul>
+        </section>
+        <section class="scorecard-panel" aria-label="Ranked names">
+          <h3>Desk rank · open · pins · scan</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Market</th><th>Score</th><th>Near base</th><th>Bull</th><th>Bear</th><th>vs SPY</th><th></th></tr></thead>
+              <tbody id="forecast-rank-body"></tbody>
             </table>
           </div>
         </section>
@@ -8198,6 +8253,277 @@ plot Sell = close crosses below baseline;</textarea>
     };
   }
 
+  // Market Forecaster — original Paper Trader desk process (closed bars only).
+  // Scenario board: base · bull · bear, horizons, assumptions, SPY compare,
+  // invalidation, paper size guidance, and a desk rank from Edge · Squeeze · Cycle · strength.
+  // Complements Market Outlook — does not replace it. Own names/copy only.
+  // Not a crystal ball. Not a forecast guarantee. Edge · Best setup · Auto still gate buys.
+  // Paper only. Live locked. No third-party product, score brand, or scrape.
+  function clampNum(value, lo, hi) {
+    return Math.max(lo, Math.min(hi, value));
+  }
+
+  function retOverBars(list, barsBack) {
+    if (!list || list.length <= barsBack) return null;
+    const close = list[list.length - 1].close;
+    const prior = list[list.length - 1 - barsBack].close;
+    if (!(prior > 0) || !(close > 0)) return null;
+    return close / prior - 1;
+  }
+
+  function realizedVol(list, window) {
+    const n = Math.min(window || 20, (list || []).length - 1);
+    if (n < 8) return null;
+    const rets = [];
+    for (let index = list.length - n; index < list.length; index += 1) {
+      const prior = list[index - 1].close;
+      const close = list[index].close;
+      if (prior > 0 && close > 0) rets.push(close / prior - 1);
+    }
+    if (rets.length < 5) return null;
+    const mean = rets.reduce((sum, value) => sum + value, 0) / rets.length;
+    let sumSq = 0;
+    rets.forEach((value) => {
+      const d = value - mean;
+      sumSq += d * d;
+    });
+    return Math.sqrt(sumSq / rets.length);
+  }
+
+  function scenarioBand(close, basePct, bullPct, bearPct) {
+    const roundPx = (pct) => {
+      const price = close * (1 + pct);
+      if (price >= 1000) return Math.round(price);
+      if (price >= 100) return Math.round(price * 10) / 10;
+      return Math.round(price * 100) / 100;
+    };
+    return {
+      basePct,
+      bullPct,
+      bearPct,
+      base: roundPx(basePct),
+      bull: roundPx(bullPct),
+      bear: roundPx(bearPct),
+    };
+  }
+
+  function marketForecastRead(bars, options) {
+    const source = options || {};
+    const list = closedBars(bars || [], false);
+    const symbol = source.symbol || "";
+    if (list.length < 80) {
+      return {
+        ready: false,
+        symbol,
+        why: "Need more closed daily bars for Market Forecaster.",
+        deskScore: null,
+      };
+    }
+    const close = list[list.length - 1].close;
+    if (!(close > 0)) {
+      return { ready: false, symbol, why: "Last close unread.", deskScore: null };
+    }
+    const strength = strengthRead(list);
+    const cycle = cycleMapRead(list);
+    const squeeze = squeezeRead(list, { live: false });
+    const seat = rangeSeat(list);
+    const timing = edge(list, { live: false, vixBars: source.vixBars || [] });
+    const vol = realizedVol(list, 21);
+    const r63 = retOverBars(list, 63);
+    const r252 = retOverBars(list, Math.min(252, list.length - 1));
+    const stacked = !!(strength && strength.stacked);
+    const ret5 = strength && strength.ret5 != null ? strength.ret5 : 0;
+
+    // Scenario slopes from closed-bar structure (range + vol), not a crystal ball.
+    const volAnchor = vol != null ? vol * Math.sqrt(63) : 0.08;
+    let nearBase = clampNum((r63 != null ? r63 * 0.35 : 0) + ret5 * 2, -0.12, 0.12);
+    if (stacked) nearBase += 0.02;
+    if (cycle && (cycle.stage === "greed" || cycle.stage === "delusion" || cycle.stage === "mania")) nearBase -= 0.03;
+    if (cycle && (cycle.stage === "despair" || cycle.stage === "return_mean" || cycle.stage === "bear_trap")) nearBase += 0.02;
+    const nearBull = clampNum(nearBase + Math.max(0.04, volAnchor * 0.9), nearBase + 0.02, 0.28);
+    const nearBear = clampNum(nearBase - Math.max(0.04, volAnchor * 0.9), -0.28, nearBase - 0.02);
+
+    const farVol = vol != null ? vol * Math.sqrt(252) : 0.16;
+    let farBase = clampNum((r252 != null ? r252 * 0.25 : nearBase * 2) + (stacked ? 0.04 : -0.02), -0.25, 0.3);
+    if (cycle && (cycle.signal === "sell_into_greed" || cycle.signal === "top_in")) farBase -= 0.05;
+    if (cycle && (cycle.signal === "bottom_in" || cycle.signal === "buy_before_mania")) farBase += 0.04;
+    const farBull = clampNum(farBase + Math.max(0.08, farVol * 0.85), farBase + 0.04, 0.55);
+    const farBear = clampNum(farBase - Math.max(0.08, farVol * 0.85), -0.55, farBase - 0.04);
+
+    const near = Object.assign({ label: "About 3 months", bars: 63 }, scenarioBand(close, nearBase, nearBull, nearBear));
+    const far = Object.assign({ label: "About 1 year", bars: 252 }, scenarioBand(close, farBase, farBull, farBear));
+
+    const spyBars = closedBars(source.spyBars || [], false);
+    const spyStrength = spyBars.length >= 50 ? strengthRead(spyBars) : null;
+    const spyRet63 = spyBars.length > 63 ? retOverBars(spyBars, 63) : null;
+    let vsSpy = {
+      ready: !!(spyStrength && r63 != null && spyRet63 != null),
+      relative63: null,
+      label: "SPY unread",
+      why: "Need SPY closed bars for a benchmark compare.",
+    };
+    if (vsSpy.ready) {
+      const rel = r63 - spyRet63;
+      vsSpy.relative63 = rel;
+      vsSpy.label = rel > 0.02 ? "Ahead of SPY" : rel < -0.02 ? "Behind SPY" : "In line with SPY";
+      vsSpy.why =
+        "About 3 months: this name " +
+        (r63 >= 0 ? "+" : "") +
+        (r63 * 100).toFixed(1) +
+        "% · SPY " +
+        (spyRet63 >= 0 ? "+" : "") +
+        (spyRet63 * 100).toFixed(1) +
+        "% · relative " +
+        (rel >= 0 ? "+" : "") +
+        (rel * 100).toFixed(1) +
+        "%. Closed bars only.";
+    }
+
+    let deskScore = 45;
+    const parts = [];
+    if (timing && timing.ready) {
+      const edgePts = Math.round((Number(timing.score) || 0) * (100 / 6) * 0.35);
+      deskScore += edgePts - 10;
+      parts.push("Edge " + timing.score + "/6");
+    } else {
+      parts.push("Edge unread");
+    }
+    if (squeeze && squeeze.ready) {
+      if (squeeze.direction === "bull" && (squeeze.state === "ON" || squeeze.dots >= 5 || squeeze.rising)) {
+        deskScore += 12;
+        parts.push("Squeeze constructive");
+      } else if (squeeze.direction === "bear") {
+        deskScore -= 8;
+        parts.push("Squeeze soft");
+      } else {
+        parts.push("Squeeze mixed");
+      }
+    }
+    if (cycle && cycle.ready) {
+      if (cycle.signal === "buy_before_mania" || cycle.signal === "bottom_in") deskScore += 12;
+      else if (cycle.signal === "sell_into_greed" || cycle.signal === "top_in") deskScore -= 12;
+      else if (cycle.signal === "bottom_watch") deskScore += 4;
+      parts.push("Cycle " + (cycle.label || cycle.stage));
+    }
+    if (strength) {
+      deskScore += Math.round((strength.score - 50) * 0.25);
+      parts.push(stacked ? "Stacked" : "Unstacked");
+    }
+    if (seat && seat.seat === "high") {
+      deskScore += 4;
+      parts.push("Seat High");
+    } else if (seat && seat.seat === "low") {
+      deskScore -= 2;
+      parts.push("Seat Low");
+    }
+    if (vsSpy.ready && vsSpy.relative63 != null) {
+      deskScore += clampNum(Math.round(vsSpy.relative63 * 80), -8, 8);
+      parts.push(vsSpy.label);
+    }
+    deskScore = Math.round(clampNum(deskScore, 1, 100));
+    const deskTone = deskScore >= 65 ? "Constructive" : deskScore <= 40 ? "Cautious" : "Mixed";
+
+    const assumptions = [
+      "Closed daily bars only — today's forming bar is not used as a settled signal.",
+      "Horizons use about 63 and 252 closed sessions as desk labels for ~3 months and ~1 year.",
+      "Scenarios scale from recent return, stack, Cycle Desk stage, and realized volatility — not a model guarantee.",
+      "SPY compare is relative closed-bar performance, not a correlation product.",
+      "Edge · Best setup · Auto still gate any paper buy. Live stays locked.",
+    ];
+
+    let invalidation = "Break of the bear case on the near horizon with Edge still WAIT and Cycle still soft.";
+    if (cycle && (cycle.signal === "buy_before_mania" || cycle.signal === "bottom_in")) {
+      invalidation = "Close back below the near bear case or Cycle flips to greed/top marks before Edge Fire.";
+    } else if (cycle && (cycle.signal === "sell_into_greed" || cycle.signal === "top_in")) {
+      invalidation = "A fresh Edge Fire with stacked averages and Cycle leaving greed would challenge the soft case.";
+    } else if (stacked && deskScore >= 65) {
+      invalidation = "Loss of stack (close under the mid average) or SPY relative flipping clearly behind.";
+    }
+
+    const cash = Number(source.cash) > 0 ? Number(source.cash) : 10000;
+    const riskPct = 0.01;
+    const stopFrac = Math.max(0.02, Math.abs(near.bearPct));
+    const riskCash = cash * riskPct;
+    const maxNotional = riskCash / stopFrac;
+    const maxShares = close > 0 ? Math.floor((maxNotional / close) * 10000) / 10000 : 0;
+    const potentialLoss = Math.min(riskCash, maxShares * close * stopFrac);
+
+    return {
+      ready: true,
+      symbol,
+      close,
+      asOf: list[list.length - 1].date,
+      deskScore,
+      deskTone,
+      deskWhy: deskTone + " desk score " + deskScore + "/100 · " + parts.join(" · ") + ". Own closed-bar blend — not a third-party AI score.",
+      near,
+      far,
+      assumptions,
+      vsSpy,
+      invalidation,
+      size: {
+        cash,
+        riskPct,
+        stopFrac,
+        maxShares,
+        potentialLoss,
+        note:
+          "Paper size hint · risk about " +
+          (riskPct * 100).toFixed(0) +
+          "% of cash (~$" +
+          Math.round(riskCash) +
+          ") to the near bear case (~" +
+          (stopFrac * 100).toFixed(1) +
+          "%). About " +
+          maxShares +
+          " shares · potential loss ~$" +
+          Math.round(potentialLoss) +
+          ". Guidance only — not a broker order.",
+      },
+      edge: timing && timing.ready ? { score: timing.score, call: timing.call, stage: timing.stage } : null,
+      cycle: cycle && cycle.ready ? { stage: cycle.stage, label: cycle.label, signal: cycle.signal, signalLabel: cycle.signalLabel } : null,
+      why:
+        "Market Forecaster scenarios from closed bars. Complements Market Outlook. Not a crystal ball. Not a forecast guarantee. Edge still gates buys. Paper only. Live locked.",
+    };
+  }
+
+  function forecastBoard(input) {
+    const source = input || {};
+    const symbols = source.symbols || [];
+    const barsMap = source.bars || {};
+    const rows = symbols
+      .map((symbol) => {
+        const read = marketForecastRead(barsMap[symbol], {
+          symbol,
+          spyBars: source.spyBars,
+          vixBars: source.vixBars,
+          cash: source.cash,
+        });
+        if (!read || !read.ready) return null;
+        return {
+          symbol,
+          deskScore: read.deskScore,
+          deskTone: read.deskTone,
+          nearBase: read.near.base,
+          nearBull: read.near.bull,
+          nearBear: read.near.bear,
+          vsSpy: read.vsSpy && read.vsSpy.label,
+          signal: read.cycle && read.cycle.signalLabel,
+          why: read.deskWhy,
+          read,
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => right.deskScore - left.deskScore || left.symbol.localeCompare(right.symbol));
+    return {
+      ready: true,
+      rows: rows.slice(0, 12),
+      why: rows.length
+        ? "Ranked by Paper Trader desk score (Edge · Squeeze · Cycle · strength · SPY relative). Guidance only. Not a crystal ball."
+        : "No forecast rows ready. Open a market or wait for closed bars.",
+    };
+  }
+
   root.PaperFrames = {
     edge,
     vixFallingOn,
@@ -8237,6 +8563,8 @@ plot Sell = close crosses below baseline;</textarea>
     marketTankRead,
     defensiveShieldScan,
     riskReboundScan,
+    marketForecastRead,
+    forecastBoard,
     DEFENSIVE_SHIELD,
     RISK_REBOUND,
     SCORECARD_INDEXES,
@@ -8340,6 +8668,14 @@ const state = {
     at: 0,
     note: "",
   },
+  forecast: {
+    busy: false,
+    stop: false,
+    open: null,
+    board: null,
+    at: 0,
+    note: "",
+  },
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -8395,7 +8731,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.9";
+const VERSION = "1.10.10";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -8704,9 +9040,9 @@ function withHooks(items) {
   const learnDetail = learnTouchNote
     || fillTimingNote()
     || (botOn
-      ? "Bot on · all " + pageCount + " desk pages (incl. Cycle Desk · Outlook · Tools) learn on closed bars even when scrolled away; Windows score keeps going after the desk closes. Not a forecast."
+      ? "Bot on · all " + pageCount + " desk pages (incl. Cycle Desk · Market Forecaster · Outlook · Tools) learn on closed bars even when scrolled away; Windows score keeps going after the desk closes. Not a forecast."
       : state.offline
-        ? "Page-open bot · all " + pageCount + " desk pages cycle while this tab stays open (Cycle Desk included). Close the tab and phone learning pauses — use the Windows zip + Start the score for after-close. Not a forecast."
+        ? "Page-open bot · all " + pageCount + " desk pages cycle while this tab stays open (Cycle Desk · Market Forecaster included). Close the tab and phone learning pauses — use the Windows zip + Start the score for after-close. Not a forecast."
         : "Bot score off for after-close learning. Open the desk or tick Start the score under Windows extras. Page-open cycles still cover every Tools page here.");
   if (!next.some((item) => item.name === "Learning")) {
     setSignal(next, "Learning", true, learnDetail);
@@ -9571,6 +9907,7 @@ async function bootOffline() {
   refreshOutlook().catch(() => {});
   refreshIndexTape().catch(() => {});
   runCycleDesk().catch(() => {});
+  runForecast().catch(() => {});
   if (state.scanOn) scanPhone();
   else {
     state.scanNote = "Scanner is off.";
@@ -9611,6 +9948,7 @@ async function boot() {
   refreshOutlook().catch(() => {});
   refreshIndexTape().catch(() => {});
   runCycleDesk().catch(() => {});
+  runForecast().catch(() => {});
   if (paper.paper === true) {
     state.auto = true;
     render(paper);
@@ -12829,7 +13167,7 @@ function deskLearnPages() {
   const push = (id) => {
     if (id && pages.indexOf(id) < 0) pages.push(id);
   };
-  ["markets", "chart", "trade", "study", "outlook", "cycle", "home"].forEach(push);
+  ["markets", "chart", "trade", "study", "outlook", "cycle", "forecast", "home"].forEach(push);
   document.querySelectorAll(".dock-tab[data-dock]").forEach((button) => push(button.dataset.dock));
   document.querySelectorAll(".tabbar [data-tab]").forEach((button) => push(button.dataset.tab));
   document.querySelectorAll("[data-open-dock]").forEach((button) => push(button.dataset.openDock));
@@ -12870,6 +13208,23 @@ async function cycleDeskPageLearn() {
       }
     } catch (error) {
       /* Cycle warm pass is best-effort. */
+    }
+  }
+  if (batchPages.indexOf("forecast") >= 0) {
+    try {
+      if (typeof PaperFrames !== "undefined" && PaperFrames.marketForecastRead && seenBars().length) {
+        if (!state.forecast) {
+          state.forecast = { busy: false, stop: false, open: null, board: null, at: 0, note: "" };
+        }
+        const cash = state.paper && Number(state.paper.equity) > 0 ? Number(state.paper.equity) : 10000;
+        state.forecast.open = PaperFrames.marketForecastRead(seenBars(), {
+          symbol: (state.paper && state.paper.symbol) || "",
+          vixBars: state.vixBars || [],
+          cash,
+        });
+      }
+    } catch (error) {
+      /* Forecaster warm pass is best-effort. */
     }
   }
   learnTouchNote =
@@ -13324,7 +13679,7 @@ async function phoneSafe() {
     botOn
       ? "Bot on · all " +
         pageCount +
-        " desk sections (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) learn on closed bars even when scrolled away. New shipped pages auto-join. Windows score keeps going after close. Not a broker."
+        " desk sections (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Market Forecaster, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) learn on closed bars even when scrolled away. New shipped pages auto-join. Windows score keeps going after close. Not a broker."
       : state.offline
         ? "Page-open bot · all " +
           pageCount +
@@ -14169,6 +14524,229 @@ function renderCycleDesk() {
           : "Press Refresh Cycle or Run Cycle Desk. Own Paper Trader read — no third-party packs.");
   if (note) note.textContent = summary;
   if (boardNote) boardNote.textContent = summary;
+}
+
+function fillForecastHorizon(nodeId, band) {
+  const node = $(nodeId);
+  if (!node) return;
+  node.replaceChildren();
+  if (!band) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Waiting…";
+    node.appendChild(empty);
+    return;
+  }
+  const rows = [
+    ["Base", band.base + " · " + (band.basePct >= 0 ? "+" : "") + (band.basePct * 100).toFixed(1) + "%"],
+    ["Bull", band.bull + " · " + (band.bullPct >= 0 ? "+" : "") + (band.bullPct * 100).toFixed(1) + "%"],
+    ["Bear", band.bear + " · " + (band.bearPct >= 0 ? "+" : "") + (band.bearPct * 100).toFixed(1) + "%"],
+  ];
+  rows.forEach((pair) => {
+    const dt = document.createElement("dt");
+    dt.textContent = pair[0];
+    const dd = document.createElement("dd");
+    dd.textContent = pair[1];
+    if (pair[0] === "Bull") dd.className = "up";
+    if (pair[0] === "Bear") dd.className = "down";
+    node.append(dt, dd);
+  });
+}
+
+function renderForecast() {
+  const box = state.forecast || {};
+  const open = box.open;
+  const board = box.board;
+  const note = $("forecast-note");
+  const boardNote = $("forecast-board-note");
+  const openSum = $("forecast-open-sum");
+  const caseBias = $("forecast-case-bias");
+  const caseWhy = $("forecast-case-why");
+  if (caseBias) {
+    caseBias.textContent = open && open.ready
+      ? (open.symbol || "Open") + " · desk " + open.deskScore + "/100 · " + (open.deskTone || "")
+      : "Open market · waiting";
+    caseBias.className =
+      "scorecard-bias" +
+      (open && open.deskScore >= 65 ? " up" : open && open.deskScore <= 40 ? " down" : "");
+  }
+  if (caseWhy) caseWhy.textContent = open && open.deskWhy ? open.deskWhy : open && open.why ? open.why : "";
+  fillForecastHorizon("forecast-near", open && open.near);
+  fillForecastHorizon("forecast-far", open && open.far);
+  const vs = $("forecast-vs");
+  if (vs) vs.textContent = open && open.vsSpy ? open.vsSpy.why || open.vsSpy.label : "";
+  const inv = $("forecast-invalid");
+  if (inv) inv.textContent = open && open.invalidation ? "Prove wrong · " + open.invalidation : "";
+  const size = $("forecast-size");
+  if (size) size.textContent = open && open.size ? open.size.note : "";
+  const assumptions = $("forecast-assumptions");
+  if (assumptions) {
+    assumptions.replaceChildren();
+    ((open && open.assumptions) || []).forEach((line) => {
+      const li = document.createElement("li");
+      li.textContent = line;
+      assumptions.appendChild(li);
+    });
+    if (!assumptions.children.length) {
+      const li = document.createElement("li");
+      li.textContent = "Run Forecaster to list assumptions.";
+      assumptions.appendChild(li);
+    }
+  }
+  const body = $("forecast-rank-body");
+  if (body) {
+    body.replaceChildren();
+    const rows = (board && board.rows) || [];
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      addCells(tr, ["", "No ranked names yet. Run Forecaster.", "", "", "", "", "", ""]);
+      body.appendChild(tr);
+    } else {
+      rows.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        const openBtn = document.createElement("button");
+        openBtn.type = "button";
+        openBtn.className = "quiet";
+        openBtn.textContent = "Open";
+        openBtn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          chooseSymbol(row.symbol);
+        });
+        addCells(tr, [
+          String(index + 1),
+          row.symbol,
+          { text: String(row.deskScore), cls: row.deskScore >= 65 ? "up" : row.deskScore <= 40 ? "down" : "" },
+          String(row.nearBase),
+          { text: String(row.nearBull), cls: "up" },
+          { text: String(row.nearBear), cls: "down" },
+          row.vsSpy || "—",
+          openBtn,
+        ]);
+        body.appendChild(tr);
+      });
+    }
+  }
+  paintCyclePins(
+    "forecast-pins",
+    ((board && board.rows) || []).slice(0, 8).map((row) => ({
+      symbol: row.symbol,
+      stage: String(row.deskScore),
+      signal: row.deskScore >= 65 ? "buy_before_mania" : row.deskScore <= 40 ? "sell_into_greed" : "none",
+      signalLabel: row.deskTone,
+      why: row.why,
+    })),
+    ""
+  );
+  if (openSum) {
+    openSum.textContent = open && open.ready
+      ? (open.symbol || "Open") +
+        " · " +
+        open.deskTone +
+        " " +
+        open.deskScore +
+        "/100 · near base " +
+        open.near.base +
+        " · bull " +
+        open.near.bull +
+        " · bear " +
+        open.near.bear +
+        ". Not a crystal ball."
+      : "";
+  }
+  const summary =
+    box.busy
+      ? box.note || "Reading Market Forecaster…"
+      : box.note ||
+        (open && open.ready
+          ? open.symbol + " desk " + open.deskScore + "/100 · " + ((board && board.rows && board.rows.length) || 0) + " ranked. Not a crystal ball."
+          : "Press Refresh Forecast or Run Forecaster. Complements Market Outlook. Edge still gates buys.");
+  if (note) note.textContent = summary;
+  if (boardNote) boardNote.textContent = summary;
+}
+
+async function runForecast() {
+  const box = state.forecast;
+  if (!box || box.busy) return;
+  if (typeof PaperFrames === "undefined" || !PaperFrames.marketForecastRead) {
+    box.note = "Market Forecaster is not on this build.";
+    renderForecast();
+    return;
+  }
+  box.busy = true;
+  box.stop = false;
+  box.note = "Reading closed bars for Market Forecaster…";
+  renderForecast();
+  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(5000);
+  try {
+    const openSym = state.paper && state.paper.symbol;
+    const pins = readPins();
+    const scan = topScanLearnNames().slice(0, 8);
+    const need = [];
+    const seen = new Set();
+    ["SPY"].concat(openSym ? [openSym] : [], pins, scan).forEach((symbol) => {
+      if (symbol && !seen.has(symbol)) {
+        seen.add(symbol);
+        need.push(symbol);
+      }
+    });
+    const bars = {};
+    let next = 0;
+    const workers = Math.min(state.offline ? 2 : 3, Math.max(1, need.length));
+    const worker = async () => {
+      while (!box.stop && next < need.length) {
+        const symbol = need[next];
+        next += 1;
+        try {
+          if (openSym && symbol === openSym && seenBars().length) bars[symbol] = seenBars();
+          else bars[symbol] = await sqDaily(symbol);
+        } catch (error) {
+          /* Missing quote stays out. */
+        }
+        box.note = "Forecaster reading " + next + " of " + need.length + "…";
+        if (next === need.length || next % 3 === 0) renderForecast();
+      }
+    };
+    await Promise.all(Array.from({ length: workers }, () => worker()));
+    if (box.stop) {
+      box.note = "Market Forecaster stopped.";
+      return;
+    }
+    const cash = state.paper && Number(state.paper.equity) > 0 ? Number(state.paper.equity) : 10000;
+    const openBars = openSym && bars[openSym] ? bars[openSym] : seenBars();
+    const open = openBars && openBars.length
+      ? PaperFrames.marketForecastRead(openBars, {
+          symbol: openSym || "",
+          spyBars: bars.SPY,
+          vixBars: state.vixBars || [],
+          cash,
+        })
+      : null;
+    const boardSymbols = [];
+    need.forEach((symbol) => {
+      if (symbol !== "SPY" && bars[symbol] && boardSymbols.indexOf(symbol) < 0) boardSymbols.push(symbol);
+    });
+    const board = PaperFrames.forecastBoard({
+      symbols: boardSymbols,
+      bars,
+      spyBars: bars.SPY,
+      vixBars: state.vixBars || [],
+      cash,
+    });
+    box.open = open;
+    box.board = board;
+    box.at = Date.now();
+    box.note =
+      (open && open.ready ? open.symbol + " · " + open.deskTone + " " + open.deskScore + "/100" : "Forecaster") +
+      " · " +
+      ((board && board.rows && board.rows.length) || 0) +
+      " ranked. Not a crystal ball.";
+  } catch (error) {
+    box.note = error && error.message ? error.message : "Market Forecaster did not finish.";
+  } finally {
+    box.busy = false;
+    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    renderForecast();
+  }
 }
 
 async function runCycleDesk() {
@@ -16211,6 +16789,13 @@ if ($("cycle-stop")) {
     if (state.cycle) state.cycle.stop = true;
   });
 }
+if ($("forecast-scan")) $("forecast-scan").addEventListener("click", () => runForecast());
+if ($("forecast-run")) $("forecast-run").addEventListener("click", () => runForecast());
+if ($("forecast-stop")) {
+  $("forecast-stop").addEventListener("click", () => {
+    if (state.forecast) state.forecast.stop = true;
+  });
+}
 if ($("scorecard-open")) {
   $("scorecard-open").addEventListener("click", () => showDock("scorecard"));
 }
@@ -16744,6 +17329,10 @@ function showDock(name) {
   if (name === "cycle") {
     renderCycleDesk();
     if (!(state.cycle && state.cycle.at) && !(state.cycle && state.cycle.busy)) runCycleDesk();
+  }
+  if (name === "forecast") {
+    renderForecast();
+    if (!(state.forecast && state.forecast.at) && !(state.forecast && state.forecast.busy)) runForecast();
   }
   if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
     state.orbBusy = true;

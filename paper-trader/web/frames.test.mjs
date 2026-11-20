@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -707,4 +707,46 @@ test("cycle desk reads stages and tank modes with own names", () => {
   });
   assert.equal(rebound.active, false);
   assert.equal(rebound.rows.length, 0);
+});
+
+test("marketForecastRead builds base bull bear and desk score", () => {
+  function sequential(startClose, step, count) {
+    const rows = [];
+    const stamp = new Date(Date.UTC(2020, 0, 1));
+    for (let index = 0; index < count; index += 1) {
+      stamp.setUTCDate(stamp.getUTCDate() + 1);
+      const iso =
+        stamp.getUTCFullYear() +
+        "-" +
+        String(stamp.getUTCMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(stamp.getUTCDate()).padStart(2, "0");
+      const close = startClose + index * step;
+      rows.push(day(iso, close - 1, close + 2, close - 2, close));
+    }
+    return rows;
+  }
+  const unread = marketForecastRead(sequential(100, 0.1, 40), { symbol: "TEST" });
+  assert.equal(unread.ready, false);
+  const climb = sequential(100, 0.4, 280);
+  const spy = sequential(400, 0.2, 280);
+  const read = marketForecastRead(climb, { symbol: "TEST", spyBars: spy, cash: 10000 });
+  assert.equal(read.ready, true);
+  assert.ok(read.near && read.near.base > 0 && read.near.bull > read.near.base && read.near.bear < read.near.base);
+  assert.ok(read.far && read.far.base > 0);
+  assert.ok(read.deskScore >= 1 && read.deskScore <= 100);
+  assert.ok(Array.isArray(read.assumptions) && read.assumptions.length >= 3);
+  assert.ok(read.invalidation);
+  assert.ok(read.size && read.size.note);
+  assert.equal(read.why.includes("crystal ball"), true);
+  assert.ok(read.vsSpy && read.vsSpy.ready);
+  const board = forecastBoard({
+    symbols: ["TEST", "WEAK"],
+    bars: { TEST: climb, WEAK: sequential(100, -0.2, 280) },
+    spyBars: spy,
+    cash: 10000,
+  });
+  assert.equal(board.ready, true);
+  assert.ok(board.rows.length >= 1);
+  assert.equal(board.rows[0].symbol, "TEST");
 });
