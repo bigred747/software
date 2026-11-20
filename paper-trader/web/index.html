@@ -15,16 +15,8 @@
 </head>
 <body data-tab="chart">
   <header class="top">
-    <div id="schwab-top" class="schwab-top" aria-label="Schwab connection">
-      <div class="schwab-top-row">
-        <span id="schwab-top-dot" class="schwab-top-dot bad" title="Not connected" aria-hidden="true"></span>
-        <button id="schwab-connect" type="button" aria-pressed="false">Connect to Schwab</button>
-        <strong id="schwab-top-status" class="schwab-top-status bad">Not connected</strong>
-      </div>
-      <p id="schwab-top-note" class="schwab-top-note">Connect after your Schwab app is approved.</p>
-    </div>
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.2</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.3</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -46,30 +38,38 @@
     <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
   </header>
 
-  <section id="market-outlook" class="market-outlook" aria-label="Market Outlook">
-    <div class="outlook-head">
-      <h2>Market Outlook</h2>
-      <button id="outlook-refresh" type="button" class="quiet">Refresh</button>
+  <section class="desk-rail" aria-label="Connect and outlook">
+    <div id="schwab-top" class="schwab-top" aria-label="Schwab connection">
+      <div class="schwab-top-row">
+        <span id="schwab-top-dot" class="schwab-top-dot bad" title="Not connected" aria-hidden="true"></span>
+        <button id="schwab-connect" type="button" aria-pressed="false">Connect</button>
+        <strong id="schwab-top-status" class="schwab-top-status bad">OFF</strong>
+      </div>
     </div>
-    <p id="outlook-call" class="outlook-call" aria-live="polite">Reading SPY closed bars…</p>
-    <div class="outlook-grid">
-      <article id="outlook-day" class="outlook-cell wait" aria-label="Day outlook">
-        <p class="outlook-label">Day</p>
-        <p class="outlook-score">—</p>
-        <p class="outlook-stance">Waiting</p>
-      </article>
-      <article id="outlook-week" class="outlook-cell wait" aria-label="Week outlook">
-        <p class="outlook-label">Week</p>
-        <p class="outlook-score">—</p>
-        <p class="outlook-stance">Waiting</p>
-      </article>
-      <article id="outlook-month" class="outlook-cell wait" aria-label="Month outlook">
-        <p class="outlook-label">Month</p>
-        <p class="outlook-score">—</p>
-        <p class="outlook-stance">Waiting</p>
-      </article>
-    </div>
-    <p id="outlook-note" class="muted">SPY closed bars · Day · Week · Month · score 1–10 · green good / red soft. Best call: Go long, Stay flat, or Short bias. Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge and Best setup still gate buys. Paper only. Not a crystal ball.</p>
+    <section id="market-outlook" class="market-outlook" aria-label="Market Outlook">
+      <div class="outlook-head">
+        <h2>Outlook</h2>
+        <p id="outlook-call" class="outlook-call" aria-live="polite">…</p>
+        <button id="outlook-refresh" type="button" class="quiet">↻</button>
+      </div>
+      <div class="outlook-grid">
+        <article id="outlook-day" class="outlook-cell wait" aria-label="Day outlook">
+          <p class="outlook-label">Day</p>
+          <p class="outlook-score">—</p>
+          <p class="outlook-stance">—</p>
+        </article>
+        <article id="outlook-week" class="outlook-cell wait" aria-label="Week outlook">
+          <p class="outlook-label">Week</p>
+          <p class="outlook-score">—</p>
+          <p class="outlook-stance">—</p>
+        </article>
+        <article id="outlook-month" class="outlook-cell wait" aria-label="Month outlook">
+          <p class="outlook-label">Month</p>
+          <p class="outlook-score">—</p>
+          <p class="outlook-stance">—</p>
+        </article>
+      </div>
+    </section>
   </section>
 
   <div class="workspace">
@@ -262,7 +262,7 @@
           <button id="schwab-market" type="button" aria-pressed="false" disabled>Market Data</button>
           <button id="schwab-live" type="button" aria-pressed="false" disabled>Live Trading</button>
         </div>
-        <p id="schwab-note" class="breaker-note">Use Connect to Schwab at the top of the page first. Market Data and Live Trading unlock after Connect. Paper stays the default.</p>
+        <p id="schwab-note" class="breaker-note">Paper stays the default.</p>
       </div>
       <div class="breaker" id="breaker">
         <button id="halt" type="button" class="halt">Sell all · Stop buys</button>

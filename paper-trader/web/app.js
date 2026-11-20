@@ -92,7 +92,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.2";
+const VERSION = "1.10.3";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -1320,12 +1320,11 @@ function paintSchwabButtons(status) {
   const top = $("schwab-top");
   const dot = $("schwab-top-dot");
   const topStatus = $("schwab-top-status");
-  const topNote = $("schwab-top-note");
   if (!connect || !market || !live) return;
   const linked = !!(status && status.connected);
   const creds = !!(status && status.credentials);
   connect.setAttribute("aria-pressed", linked ? "true" : "false");
-  connect.textContent = linked ? "Schwab connected" : "Connect to Schwab";
+  connect.textContent = linked ? "Connected" : "Connect";
   if (top) top.classList.toggle("on", linked);
   if (dot) {
     dot.className = linked ? "schwab-top-dot on" : "schwab-top-dot bad";
@@ -1333,12 +1332,7 @@ function paintSchwabButtons(status) {
   }
   if (topStatus) {
     topStatus.className = linked ? "schwab-top-status on" : "schwab-top-status bad";
-    topStatus.textContent = linked ? "CONNECTED" : "NOT CONNECTED";
-  }
-  if (topNote) {
-    topNote.textContent = linked
-      ? "Schwab session is on. Market Data and Live Trading are under Trade."
-      : "Connect after your Schwab app is approved.";
+    topStatus.textContent = linked ? "ON" : "OFF";
   }
   market.disabled = !linked;
   market.setAttribute("aria-pressed", status && status.market_data ? "true" : "false");
@@ -1348,17 +1342,17 @@ function paintSchwabButtons(status) {
   live.textContent = status && status.live_trading ? "Live Trading on" : "Live Trading";
   if (!note) return;
   if (!creds) {
-    note.textContent = "Schwab credentials are not set yet. Use Connect at the top after your app is approved. Paper stays the default.";
+    note.textContent = "Paper stays the default.";
   } else if (!linked) {
     note.textContent = status && status.detail
-      ? String(status.detail) + ". Use Connect at the top. Paper stays the default."
-      : "Credentials are ready. Use Connect at the top. Paper stays the default.";
+      ? String(status.detail)
+      : "Paper stays the default.";
   } else if (status.live_trading) {
-    note.textContent = "Market Data on. Live Trading preference is on — this desk still fills on paper and does not send broker orders.";
+    note.textContent = "Market Data on · Live preference on · paper fills only.";
   } else if (status.market_data) {
-    note.textContent = "Market Data on. Live Trading stays off until you confirm. Paper remains the default.";
+    note.textContent = "Market Data on · Live off · paper default.";
   } else {
-    note.textContent = "Turn Market Data on when you want that feed preferred. Live Trading stays off. Paper remains the default.";
+    note.textContent = "Connected · Market Data off · paper default.";
   }
 }
 
@@ -5238,17 +5232,16 @@ function paintOutlookCell(id, row) {
 
 function renderOutlook() {
   const call = $("outlook-call");
-  const note = $("outlook-note");
   const box = state.outlook || {};
   const result = box.result;
   if (!result || !result.ready) {
     if (call) {
       call.className = "outlook-call wait";
       call.textContent = box.busy
-        ? "Reading SPY closed bars…"
+        ? "Reading…"
         : box.error
-          ? "Outlook unread · " + box.error
-          : "Market Outlook · waiting for SPY closed bars";
+          ? "Unread"
+          : "Waiting";
     }
     ["outlook-day", "outlook-week", "outlook-month"].forEach((id) => {
       const cell = $(id);
@@ -5257,13 +5250,8 @@ function renderOutlook() {
       const score = cell.querySelector(".outlook-score");
       const stance = cell.querySelector(".outlook-stance");
       if (score) score.textContent = "—";
-      if (stance) stance.textContent = box.busy ? "Reading…" : "Waiting";
+      if (stance) stance.textContent = box.busy ? "…" : "—";
     });
-    if (note) {
-      note.textContent = box.busy
-        ? "Reading SPY Day · Week · Month on closed bars…"
-        : "SPY closed bars · Day · Week · Month · score 1–10 · green good / red soft. Best call: Go long, Stay flat, or Short bias. Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge and Best setup still gate buys. Paper only. Not a crystal ball.";
-    }
     return;
   }
   paintOutlookCell("outlook-day", result.day);
@@ -5272,23 +5260,8 @@ function renderOutlook() {
   if (call) {
     call.className = "outlook-call " + (result.color || "wait");
     call.textContent =
-      "Best call · " +
-      result.call +
-      (result.board != null ? " · " + result.board + "/10" : "") +
-      (result.asOf ? " · through " + result.asOf : "");
-  }
-  if (note) {
-    const when = box.at
-      ? new Date(box.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
-      : "";
-    note.textContent =
-      (result.why || "") +
-      " " +
-      (result.day && result.day.why ? "Day: " + result.day.why + ". " : "") +
-      (result.week && result.week.why ? "Week: " + result.week.why + ". " : "") +
-      (result.month && result.month.why ? "Month: " + result.month.why + ". " : "") +
-      (when ? "Updated " + when + " Denver. " : "") +
-      "Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge still gates buys. Not a crystal ball.";
+      (result.call || "—") +
+      (result.board != null ? " · " + result.board + "/10" : "");
   }
 }
 

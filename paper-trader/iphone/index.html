@@ -76,20 +76,26 @@ body {
   background: linear-gradient(180deg, #0e1319 0%, var(--bg-elev) 100%);
 }
 
-.schwab-top {
-  grid-column: 1 / -1;
-  grid-row: 1;
+.desk-rail {
+  flex: 0 0 auto;
   display: grid;
-  gap: 2px;
-  margin: 0 0 2px;
-  padding: 6px 10px;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+  gap: 4px;
+  align-items: stretch;
+  padding: 3px 6px 2px;
+  min-height: 0;
+}
+.schwab-top {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 4px 6px;
   border: 1px solid var(--down-mid);
   border-radius: var(--radius);
   background:
     linear-gradient(180deg, rgba(255, 107, 122, 0.08) 0%, transparent 42%),
     linear-gradient(180deg, #1a1216 0%, #120d11 100%);
-  /* Keep Connect visible without locking the page scroller. */
-  flex: 0 0 auto;
+  min-width: 0;
 }
 .schwab-top.on {
   border-color: var(--up-mid);
@@ -99,13 +105,15 @@ body {
 }
 .schwab-top-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 8px 12px;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 .schwab-top-dot {
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex: 0 0 auto;
   background: var(--down);
@@ -116,10 +124,11 @@ body {
   box-shadow: 0 0 0 2px rgba(61, 220, 151, 0.20);
 }
 #schwab-connect {
-  min-height: 40px;
-  min-width: min(100%, 200px);
-  padding: 8px 14px;
-  font-size: 15px;
+  min-height: 28px;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 3px 8px;
+  font-size: 12px;
   font-weight: 750;
   letter-spacing: 0.01em;
   border-width: 1px;
@@ -133,18 +142,13 @@ body {
   color: #fff;
 }
 .schwab-top-status {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 750;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
 }
 .schwab-top-status.bad { color: var(--down); }
 .schwab-top-status.on { color: var(--up); }
-.schwab-top-note {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--accent);
-}
 
 .mood-clock { display: flex; flex-direction: column; align-items: center; grid-column: 2; grid-row: 2; }
 #mood-clock { width: 112px; height: 112px; margin: 0; background: transparent; }
@@ -389,6 +393,7 @@ body[data-tools] .workspace {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
 }
+body[data-tools] .desk-rail,
 body[data-tools] .market-outlook,
 body[data-tools] .watch,
 body[data-tools] .chart-panel,
@@ -1013,10 +1018,14 @@ footer { display: none; }
 
 @media (max-width: 980px) {
   .top { align-items: center; gap: 4px 12px; }
-  .schwab-top { padding: 8px 10px; gap: 2px; }
-  #schwab-connect { min-height: 44px; min-width: min(100%, 200px); font-size: 15px; padding: 8px 12px; }
-  .schwab-top-status { font-size: 14px; }
-  .schwab-top-note { font-size: 12px; }
+  .desk-rail {
+    grid-template-columns: minmax(120px, 1fr) minmax(0, 1.4fr);
+    gap: 3px;
+    padding: 2px 8px 0;
+  }
+  .schwab-top { padding: 4px 6px; }
+  #schwab-connect { min-height: 32px; font-size: 12px; padding: 4px 8px; }
+  .schwab-top-status { font-size: 11px; }
   .quote {
     margin: 0;
     width: 100%;
@@ -1071,6 +1080,7 @@ footer { display: none; }
   body[data-tab="study"] .watch,
   body[data-tab="study"] .chart-panel,
   body[data-tab="study"] .ticket,
+  body[data-tab="study"] .desk-rail,
   body[data-tab="study"] .market-outlook { display: none !important; }
   body[data-tab="chart"] .workspace {
     display: block;
@@ -1083,8 +1093,11 @@ footer { display: none; }
     padding-bottom: calc(72px + var(--safe-bottom));
     -webkit-overflow-scrolling: touch;
   }
+  body[data-tab="chart"] .desk-rail {
+    display: grid;
+  }
   body[data-tab="chart"] .market-outlook {
-    display: none;
+    display: block;
   }
   body[data-tab="chart"] .chart-panel {
     display: block;
@@ -1402,33 +1415,47 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 
 .market-outlook {
   flex: 0 0 auto;
-  margin: 0 0 6px;
-  padding: var(--pad);
+  margin: 0;
+  padding: 3px 5px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background:
     linear-gradient(180deg, rgba(110, 168, 255, 0.06) 0%, transparent 42%),
     var(--panel-ink);
+  min-width: 0;
 }
 .outlook-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 3px;
+  gap: 6px;
+  margin-bottom: 2px;
+  min-width: 0;
 }
 .outlook-head h2 {
   margin: 0;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 650;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--accent);
+  flex: 0 0 auto;
+}
+.outlook-head #outlook-refresh {
+  margin-left: auto;
+  min-height: 24px;
+  min-width: 28px;
+  padding: 2px 6px;
+  font-size: 12px;
 }
 .outlook-call {
-  margin: 0 0 4px;
-  font-size: 14px;
+  margin: 0;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .outlook-call.green { color: var(--up); }
 .outlook-call.red { color: var(--down); }
@@ -1437,11 +1464,11 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 .outlook-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  margin-bottom: 4px;
+  gap: 3px;
+  margin: 0;
 }
 .outlook-cell {
-  padding: 5px 7px;
+  padding: 2px 5px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--panel);
@@ -1460,31 +1487,36 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
   background: linear-gradient(180deg, rgba(255, 209, 102, 0.08) 0%, var(--panel) 70%);
 }
 .outlook-label {
-  margin: 0 0 1px;
-  font-size: 10px;
+  margin: 0;
+  font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
+  line-height: 1.2;
 }
 .outlook-score {
-  margin: 0 0 1px;
-  font-size: 18px;
+  margin: 0;
+  font-size: 14px;
   font-weight: 750;
-  line-height: 1.1;
+  line-height: 1.15;
 }
 .outlook-cell.green .outlook-score { color: var(--up); }
 .outlook-cell.red .outlook-score { color: var(--down); }
 .outlook-cell.amber .outlook-score { color: var(--warn); }
 .outlook-stance {
   margin: 0;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 @media (max-width: 980px) {
-  .market-outlook { margin: 0 6px 6px; padding: var(--pad-sm) var(--pad); }
-  .outlook-call { font-size: 13px; }
-  .outlook-score { font-size: 16px; }
-  .outlook-stance { font-size: 11px; }
+  .market-outlook { margin: 0; padding: 3px 4px; }
+  .outlook-call { font-size: 11px; }
+  .outlook-score { font-size: 13px; }
+  .outlook-stance { font-size: 9px; }
 }
 
 .win-box{margin-top:8px;display:grid;gap:4px;font-size:12px}
@@ -1695,16 +1727,8 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 </head>
 <body data-tab="chart">
   <header class="top">
-    <div id="schwab-top" class="schwab-top" aria-label="Schwab connection">
-      <div class="schwab-top-row">
-        <span id="schwab-top-dot" class="schwab-top-dot bad" title="Not connected" aria-hidden="true"></span>
-        <button id="schwab-connect" type="button" aria-pressed="false">Connect to Schwab</button>
-        <strong id="schwab-top-status" class="schwab-top-status bad">Not connected</strong>
-      </div>
-      <p id="schwab-top-note" class="schwab-top-note">Connect after your Schwab app is approved.</p>
-    </div>
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.2</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.3</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -1726,30 +1750,38 @@ body.ready #mood-clock { width: 88px; height: 88px; }
     <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
   </header>
 
-  <section id="market-outlook" class="market-outlook" aria-label="Market Outlook">
-    <div class="outlook-head">
-      <h2>Market Outlook</h2>
-      <button id="outlook-refresh" type="button" class="quiet">Refresh</button>
+  <section class="desk-rail" aria-label="Connect and outlook">
+    <div id="schwab-top" class="schwab-top" aria-label="Schwab connection">
+      <div class="schwab-top-row">
+        <span id="schwab-top-dot" class="schwab-top-dot bad" title="Not connected" aria-hidden="true"></span>
+        <button id="schwab-connect" type="button" aria-pressed="false">Connect</button>
+        <strong id="schwab-top-status" class="schwab-top-status bad">OFF</strong>
+      </div>
     </div>
-    <p id="outlook-call" class="outlook-call" aria-live="polite">Reading SPY closed bars…</p>
-    <div class="outlook-grid">
-      <article id="outlook-day" class="outlook-cell wait" aria-label="Day outlook">
-        <p class="outlook-label">Day</p>
-        <p class="outlook-score">—</p>
-        <p class="outlook-stance">Waiting</p>
-      </article>
-      <article id="outlook-week" class="outlook-cell wait" aria-label="Week outlook">
-        <p class="outlook-label">Week</p>
-        <p class="outlook-score">—</p>
-        <p class="outlook-stance">Waiting</p>
-      </article>
-      <article id="outlook-month" class="outlook-cell wait" aria-label="Month outlook">
-        <p class="outlook-label">Month</p>
-        <p class="outlook-score">—</p>
-        <p class="outlook-stance">Waiting</p>
-      </article>
-    </div>
-    <p id="outlook-note" class="muted">SPY closed bars · Day · Week · Month · score 1–10 · green good / red soft. Best call: Go long, Stay flat, or Short bias. Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge and Best setup still gate buys. Paper only. Not a crystal ball.</p>
+    <section id="market-outlook" class="market-outlook" aria-label="Market Outlook">
+      <div class="outlook-head">
+        <h2>Outlook</h2>
+        <p id="outlook-call" class="outlook-call" aria-live="polite">…</p>
+        <button id="outlook-refresh" type="button" class="quiet">↻</button>
+      </div>
+      <div class="outlook-grid">
+        <article id="outlook-day" class="outlook-cell wait" aria-label="Day outlook">
+          <p class="outlook-label">Day</p>
+          <p class="outlook-score">—</p>
+          <p class="outlook-stance">—</p>
+        </article>
+        <article id="outlook-week" class="outlook-cell wait" aria-label="Week outlook">
+          <p class="outlook-label">Week</p>
+          <p class="outlook-score">—</p>
+          <p class="outlook-stance">—</p>
+        </article>
+        <article id="outlook-month" class="outlook-cell wait" aria-label="Month outlook">
+          <p class="outlook-label">Month</p>
+          <p class="outlook-score">—</p>
+          <p class="outlook-stance">—</p>
+        </article>
+      </div>
+    </section>
   </section>
 
   <div class="workspace">
@@ -1942,7 +1974,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <button id="schwab-market" type="button" aria-pressed="false" disabled>Market Data</button>
           <button id="schwab-live" type="button" aria-pressed="false" disabled>Live Trading</button>
         </div>
-        <p id="schwab-note" class="breaker-note">Use Connect to Schwab at the top of the page first. Market Data and Live Trading unlock after Connect. Paper stays the default.</p>
+        <p id="schwab-note" class="breaker-note">Paper stays the default.</p>
       </div>
       <div class="breaker" id="breaker">
         <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
@@ -7750,7 +7782,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.2";
+const VERSION = "1.10.3";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -8978,12 +9010,11 @@ function paintSchwabButtons(status) {
   const top = $("schwab-top");
   const dot = $("schwab-top-dot");
   const topStatus = $("schwab-top-status");
-  const topNote = $("schwab-top-note");
   if (!connect || !market || !live) return;
   const linked = !!(status && status.connected);
   const creds = !!(status && status.credentials);
   connect.setAttribute("aria-pressed", linked ? "true" : "false");
-  connect.textContent = linked ? "Schwab connected" : "Connect to Schwab";
+  connect.textContent = linked ? "Connected" : "Connect";
   if (top) top.classList.toggle("on", linked);
   if (dot) {
     dot.className = linked ? "schwab-top-dot on" : "schwab-top-dot bad";
@@ -8991,12 +9022,7 @@ function paintSchwabButtons(status) {
   }
   if (topStatus) {
     topStatus.className = linked ? "schwab-top-status on" : "schwab-top-status bad";
-    topStatus.textContent = linked ? "CONNECTED" : "NOT CONNECTED";
-  }
-  if (topNote) {
-    topNote.textContent = linked
-      ? "Schwab session is on. Market Data and Live Trading are under Trade."
-      : "Connect after your Schwab app is approved.";
+    topStatus.textContent = linked ? "ON" : "OFF";
   }
   market.disabled = !linked;
   market.setAttribute("aria-pressed", status && status.market_data ? "true" : "false");
@@ -9006,17 +9032,17 @@ function paintSchwabButtons(status) {
   live.textContent = status && status.live_trading ? "Live Trading on" : "Live Trading";
   if (!note) return;
   if (!creds) {
-    note.textContent = "Schwab credentials are not set yet. Use Connect at the top after your app is approved. Paper stays the default.";
+    note.textContent = "Paper stays the default.";
   } else if (!linked) {
     note.textContent = status && status.detail
-      ? String(status.detail) + ". Use Connect at the top. Paper stays the default."
-      : "Credentials are ready. Use Connect at the top. Paper stays the default.";
+      ? String(status.detail)
+      : "Paper stays the default.";
   } else if (status.live_trading) {
-    note.textContent = "Market Data on. Live Trading preference is on — this desk still fills on paper and does not send broker orders.";
+    note.textContent = "Market Data on · Live preference on · paper fills only.";
   } else if (status.market_data) {
-    note.textContent = "Market Data on. Live Trading stays off until you confirm. Paper remains the default.";
+    note.textContent = "Market Data on · Live off · paper default.";
   } else {
-    note.textContent = "Turn Market Data on when you want that feed preferred. Live Trading stays off. Paper remains the default.";
+    note.textContent = "Connected · Market Data off · paper default.";
   }
 }
 
@@ -12896,17 +12922,16 @@ function paintOutlookCell(id, row) {
 
 function renderOutlook() {
   const call = $("outlook-call");
-  const note = $("outlook-note");
   const box = state.outlook || {};
   const result = box.result;
   if (!result || !result.ready) {
     if (call) {
       call.className = "outlook-call wait";
       call.textContent = box.busy
-        ? "Reading SPY closed bars…"
+        ? "Reading…"
         : box.error
-          ? "Outlook unread · " + box.error
-          : "Market Outlook · waiting for SPY closed bars";
+          ? "Unread"
+          : "Waiting";
     }
     ["outlook-day", "outlook-week", "outlook-month"].forEach((id) => {
       const cell = $(id);
@@ -12915,13 +12940,8 @@ function renderOutlook() {
       const score = cell.querySelector(".outlook-score");
       const stance = cell.querySelector(".outlook-stance");
       if (score) score.textContent = "—";
-      if (stance) stance.textContent = box.busy ? "Reading…" : "Waiting";
+      if (stance) stance.textContent = box.busy ? "…" : "—";
     });
-    if (note) {
-      note.textContent = box.busy
-        ? "Reading SPY Day · Week · Month on closed bars…"
-        : "SPY closed bars · Day · Week · Month · score 1–10 · green good / red soft. Best call: Go long, Stay flat, or Short bias. Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge and Best setup still gate buys. Paper only. Not a crystal ball.";
-    }
     return;
   }
   paintOutlookCell("outlook-day", result.day);
@@ -12930,23 +12950,8 @@ function renderOutlook() {
   if (call) {
     call.className = "outlook-call " + (result.color || "wait");
     call.textContent =
-      "Best call · " +
-      result.call +
-      (result.board != null ? " · " + result.board + "/10" : "") +
-      (result.asOf ? " · through " + result.asOf : "");
-  }
-  if (note) {
-    const when = box.at
-      ? new Date(box.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
-      : "";
-    note.textContent =
-      (result.why || "") +
-      " " +
-      (result.day && result.day.why ? "Day: " + result.day.why + ". " : "") +
-      (result.week && result.week.why ? "Week: " + result.week.why + ". " : "") +
-      (result.month && result.month.why ? "Month: " + result.month.why + ". " : "") +
-      (when ? "Updated " + when + " Denver. " : "") +
-      "Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge still gates buys. Not a crystal ball.";
+      (result.call || "—") +
+      (result.board != null ? " · " + result.board + "/10" : "");
   }
 }
 
