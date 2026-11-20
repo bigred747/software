@@ -14,17 +14,34 @@
   <style>
 :root {
   color-scheme: dark;
-  --bg: #07090b;
-  --panel: #101418;
-  --text: #f4f7f8;
-  --muted: #9aa6b2;
-  --line: #2a3340;
+  /* Steel desk: charcoal floor, slate panels, mint/coral status, ice accent. */
+  --bg: #080b0f;
+  --bg-elev: #0c1016;
+  --panel: #12181f;
+  --panel-2: #161d26;
+  --panel-ink: #0e141b;
+  --text: #eef3f7;
+  --muted: #93a0ae;
+  --line: #2c3644;
+  --line-strong: #3d4b5c;
   --up: #3ddc97;
+  --up-deep: #0f3d2a;
+  --up-mid: #1a5c3d;
   --down: #ff6b7a;
-  --fast: #7eb6ff;
+  --down-deep: #3a1520;
+  --down-mid: #6a2430;
+  --fast: #6ea8ff;
+  --fast-deep: #163154;
   --slow: #e2b15a;
-  --button: #161c22;
-  --accent: #e7eef3;
+  --slow-deep: #3a2a14;
+  --warn: #ffd166;
+  --warn-deep: #3a3012;
+  --button: #182028;
+  --accent: #dce6ef;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --pad: 7px;
+  --pad-sm: 5px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -56,10 +73,84 @@ body {
   min-height: 58px;
   padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px;
   border-bottom: 1px solid var(--line);
-  background: #0c1014;
+  background: linear-gradient(180deg, #0e1319 0%, var(--bg-elev) 100%);
 }
 
-.mood-clock { display: flex; flex-direction: column; align-items: center; grid-column: 2; grid-row: 1; }
+.desk-rail {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+  gap: 4px;
+  align-items: stretch;
+  padding: 3px 6px 2px;
+  min-height: 0;
+}
+.schwab-top {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--down-mid);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 107, 122, 0.08) 0%, transparent 42%),
+    linear-gradient(180deg, #1a1216 0%, #120d11 100%);
+  min-width: 0;
+}
+.schwab-top.on {
+  border-color: var(--up-mid);
+  background:
+    linear-gradient(180deg, rgba(61, 220, 151, 0.10) 0%, transparent 42%),
+    linear-gradient(180deg, #102018 0%, #0c1410 100%);
+}
+.schwab-top-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.schwab-top-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--down);
+  box-shadow: 0 0 0 2px rgba(255, 107, 122, 0.18);
+}
+.schwab-top-dot.on {
+  background: var(--up);
+  box-shadow: 0 0 0 2px rgba(61, 220, 151, 0.20);
+}
+#schwab-connect {
+  min-height: 28px;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  border-width: 1px;
+  background: var(--down-deep);
+  border-color: var(--down);
+  color: #ffd0d6;
+}
+#schwab-connect[aria-pressed="true"] {
+  background: var(--up-mid);
+  border-color: var(--up);
+  color: #fff;
+}
+.schwab-top-status {
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+}
+.schwab-top-status.bad { color: var(--down); }
+.schwab-top-status.on { color: var(--up); }
+
+.mood-clock { display: flex; flex-direction: column; align-items: center; grid-column: 2; grid-row: 2; }
 #mood-clock { width: 112px; height: 112px; margin: 0; background: transparent; }
 .mood-clock-label { font-size: 12px; font-weight: 650; min-height: 1em; }
 .mood-clock-label.fear { color: var(--down); }
@@ -89,7 +180,33 @@ body {
 .quote.up #quote-last, .quote.up #quote-change { color: var(--up); }
 .quote.down #quote-last, .quote.down #quote-change { color: var(--down); }
 
-.brand { display: flex; align-items: center; gap: 12px; grid-column: 1; grid-row: 1; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 12px; grid-column: 1; grid-row: 2; min-width: 0; }
+.top-tools-btn {
+  flex: 0 0 auto;
+  min-height: 48px;
+  min-width: 112px;
+  margin-left: 4px;
+  padding: 10px 18px;
+  border: 2px solid var(--fast);
+  border-radius: var(--radius);
+  background: var(--fast-deep);
+  color: #e8f1ff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.top-tools-btn:hover,
+.top-tools-btn:focus-visible {
+  border-color: #9ec4ff;
+  color: #fff;
+}
+.top-tools-btn[aria-pressed="true"],
+.top-tools-btn.on {
+  background: #1f4f8a;
+  border-color: #9ec4ff;
+  color: #fff;
+}
 .seal {
   margin: 0;
   padding: 4px 8px;
@@ -170,25 +287,39 @@ h2 { font-size: 15px; }
 
 .workspace {
   display: grid;
-  flex: 1 1 auto;
-  grid-template-columns: 280px minmax(0, 1fr) 280px;
-  grid-template-rows: minmax(280px, 1fr) minmax(160px, 28vh);
-  gap: 8px;
+  /* 0 flex-basis so the tall Schwab header still leaves a real scrollport. */
+  flex: 1 1 0%;
+  /* Slim side rails — charts own the middle. Tools open full-bleed separately. */
+  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr) minmax(150px, 190px);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 4px;
   min-height: 0;
-  padding: 8px;
+  overflow: auto;
+  padding: 4px;
 }
 
 .panel {
-  background: var(--panel);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 28%),
+    var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: var(--radius);
+  padding: var(--pad);
   min-height: 0;
   min-width: 0;
 }
+.panel h2,
+.panel h3,
+.ticket-box h3,
+.scorecard-card-head h3,
+.scorecard-panel h3,
+.strat-detail h3,
+.strat-card h4 {
+  letter-spacing: 0.01em;
+}
 
 .watch { grid-column: 1; grid-row: 1; overflow: auto; }
-.chart-panel { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; overflow: auto; min-height: 0; align-content: start; }
+.chart-panel { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; overflow: auto; min-height: 0; align-content: start; padding: 4px; }
 .chart-panel > .chart-head,
 .chart-panel > .desk-status,
 .chart-panel > .chart-read,
@@ -198,17 +329,17 @@ h2 { font-size: 15px; }
 .chart-panel > .study-toolbar,
 .chart-panel > .chart-below,
 .chart-panel > .chart-fold { flex: 0 0 auto; }
-.chart-panel > .study-stack { flex: 0 0 auto; }
+.chart-panel > .study-stack { flex: 1 1 auto; min-height: 0; }
 .chart-tools {
   display: grid;
-  gap: 6px;
-  margin: 0 0 8px;
+  gap: 4px;
+  margin: 0 0 4px;
 }
 .chart-below {
   display: grid;
-  gap: 6px;
-  margin: 12px 0 8px;
-  padding: 10px 0 0;
+  gap: 4px;
+  margin: 6px 0 4px;
+  padding: 6px 0 0;
   border-top: 1px solid var(--line);
 }
 .chart-tools-label {
@@ -223,33 +354,33 @@ h2 { font-size: 15px; }
 .chart-boxes {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  gap: 4px;
   margin: 0;
 }
 .chart-boxes .desk-clear-chip { min-width: 0; width: 100%; }
 #desk-clear {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
+  gap: 4px;
 }
 #desk-clear .desk-clear-chip { min-width: 0; width: 100%; }
 .desk-clear-chip.breadth {
-  background: #182028;
-  border-color: #4a5a6a;
+  background: var(--button);
+  border-color: var(--line-strong);
   min-width: 78px;
 }
 .desk-clear-chip.breadth .v { color: #c9d4de; font-size: 12px; font-weight: 650; }
 .desk-clear-chip.breadth.bull {
-  background: #145236;
-  border-color: #3ddc97;
+  background: var(--up-deep);
+  border-color: var(--up);
 }
 .desk-clear-chip.breadth.bear {
-  background: #7a1f28;
-  border-color: #ff6b7a;
+  background: var(--down-deep);
+  border-color: var(--down);
 }
 .desk-clear-chip.breadth.mixed {
-  background: #3a3f46;
-  border-color: #8b98a5;
+  background: #2a323c;
+  border-color: #7a8898;
 }
 .desk-clear-chip.breadth.bull .v,
 .desk-clear-chip.breadth.bear .v,
@@ -272,11 +403,60 @@ h2 { font-size: 15px; }
     font-weight: 700;
     background: #151c24;
   }
-  .study-pages { grid-template-columns: repeat(9, minmax(0, 1fr)); }
-  .study-pages button { min-height: 36px; }
+  .study-pages { grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); }
+  .study-pages button { min-height: 34px; }
 }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
-.dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
+.dock {
+  display: none;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+body[data-tools] .workspace {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+body[data-tools] .desk-rail,
+body[data-tools] .market-outlook,
+body[data-tools] .watch,
+body[data-tools] .chart-panel,
+body[data-tools] .ticket {
+  display: none !important;
+}
+body[data-tools] .dock {
+  display: flex;
+  grid-column: 1;
+  grid-row: 1;
+}
+.dock-page-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  flex: 0 0 auto;
+}
+.dock-page-head h2,
+.dock-page-head .signals-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 680;
+  color: var(--accent);
+}
+.dock-back {
+  width: auto;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-weight: 700;
+  border-color: var(--fast);
+  color: var(--fast);
+  background: var(--fast-deep);
+}
+.tools-index {
+  margin-top: 8px;
+}
 
 label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 13px; }
 
@@ -399,16 +579,18 @@ textarea {
 .signal.sell { color: var(--down); }
 
 .edge {
-  margin: 10px 0;
-  padding: 10px;
+  margin: 6px 0;
+  padding: var(--pad);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, transparent 40%),
+    var(--panel-ink);
 }
-.edge-head { display: flex; align-items: baseline; gap: 10px; }
-.edge-name { color: var(--muted); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
-.edge-call { font-size: 24px; font-weight: 720; letter-spacing: 0.02em; }
-.edge-score { margin-left: auto; color: var(--muted); font-size: 13px; }
+.edge-head { display: flex; align-items: baseline; gap: 8px; }
+.edge-name { color: var(--muted); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
+.edge-call { font-size: 20px; font-weight: 720; letter-spacing: 0.02em; }
+.edge-score { margin-left: auto; color: var(--muted); font-size: 12px; }
 .edge.buy .edge-call, .edge.hold .edge-call { color: var(--up); }
 .edge.sell .edge-call { color: var(--down); }
 .edge.wait .edge-call { color: var(--text); }
@@ -428,11 +610,16 @@ textarea {
 .stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 10px 0;
+  gap: 4px;
+  margin: 6px 0;
 }
 
-.stats div { padding: 8px; background: var(--bg); border-radius: 8px; }
+.stats div {
+  padding: var(--pad-sm) var(--pad);
+  background: var(--panel-ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
 
 dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
 dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
@@ -441,25 +628,78 @@ dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
 .modes { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 8px; }
 .modes button { padding-left: 4px; padding-right: 4px; }
 #live.locked { color: var(--muted); border-style: dashed; }
-.breaker { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; margin-bottom: 10px; padding: 8px; border: 1px solid #5a3038; border-radius: 10px; background: #160c0f; }
-.halt { background: #4a1820; border-color: var(--down); color: #fff; font-weight: 700; }
+.schwab-box {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 6px;
+  padding: var(--pad);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(110, 168, 255, 0.06) 0%, transparent 36%),
+    var(--panel-2);
+}
+.schwab-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+.schwab-actions button { padding-left: 4px; padding-right: 4px; font-size: 13px; }
+#schwab-market[aria-pressed="true"] { background: var(--fast-deep); border-color: var(--fast); color: var(--fast); }
+#schwab-live[aria-pressed="true"] { background: var(--down-deep); border-color: var(--down); color: #ffb4bc; }
+#schwab-modal textarea {
+  width: 100%;
+  min-height: 88px;
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--panel-ink);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+.breaker {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: var(--pad);
+  border: 1px solid var(--down-mid);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 107, 122, 0.08) 0%, transparent 50%),
+    var(--down-deep);
+}
+.halt { background: var(--down-mid); border-color: var(--down); color: #fff; font-weight: 700; }
 .halt:active { transform: scale(0.98); }
 .last-fill { margin: 0 0 8px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.last-fill.on { color: var(--text, #e8edf2); }
+.last-fill.on { color: var(--text); }
 .breaker-note { margin: 0; font-size: 12px; color: var(--muted); }
 .breaker.tripped { border-color: var(--down); }
 .breaker.tripped .breaker-note { color: var(--down); }
 .study-actions { grid-template-columns: 1fr auto; margin-top: 8px; }
 
-#trade { background: #3a2a14; border-color: var(--slow); color: var(--slow); }
-#paper[aria-pressed="true"] { background: #1d4d3a; border-color: var(--up); color: var(--up); }
-#auto[aria-pressed="true"] { background: #1c3d66; border-color: var(--fast); color: var(--fast); }
-#study-install, #frames-all { background: #1c3330; border-color: var(--accent); color: var(--accent); }
+#trade { background: var(--slow-deep); border-color: var(--slow); color: var(--slow); }
+#paper[aria-pressed="true"] { background: var(--up-deep); border-color: var(--up); color: var(--up); }
+#auto[aria-pressed="true"] { background: var(--fast-deep); border-color: var(--fast); color: var(--fast); }
+#study-install, #frames-all { background: #1a2a2c; border-color: var(--accent); color: var(--accent); }
 
-button { min-height: 44px; padding: 10px 12px; background: var(--button); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-button:hover:not(:disabled) { border-color: #4d5d72; }
+button {
+  min-height: 36px;
+  padding: 6px 10px;
+  background: var(--button);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button:hover:not(:disabled) { border-color: var(--line-strong); background: #1c2630; }
 button:active:not(:disabled) { transform: scale(0.985); }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible { outline: 2px solid var(--fast); outline-offset: 2px; }
 button:disabled { opacity: 0.45; cursor: default; }
 button.quiet { background: transparent; }
 
@@ -481,6 +721,7 @@ button.quiet { background: transparent; }
   flex: 0 0 auto;
 }
 .dot.on { background: var(--up); }
+.dot.bad { background: var(--down); }
 
 .chart-head, .legend { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .chart-head { flex-wrap: wrap; }
@@ -610,48 +851,48 @@ button.quiet { background: transparent; }
 .chart-flag.break { background: #ff4d4d; color: #111418; border-color: #ff7a7a; }
 .chart-flag.alert { background: #101418; color: #facc15; border-color: #facc15; }
 .chart-flag.score { background: #3ddc97; color: #0b1a12; border-color: #6ef0b4; }
-.chart-flag.vwap { background: #6b3fa0; color: #f4e9ff; border-color: #9b6fd0; }
+.chart-flag.vwap { background: var(--fast-deep); color: #cfe0ff; border-color: var(--fast); }
 .desk-clear {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
   align-items: stretch;
-  margin: 8px 0 2px;
+  margin: 4px 0 2px;
 }
 .desk-clear:empty { display: none; }
 .desk-clear-chip {
   display: inline-flex;
   flex-direction: column;
   justify-content: center;
-  gap: 2px;
-  min-width: 88px;
-  padding: 6px 10px;
-  border-radius: 4px;
-  border: 1px solid #2a3a4a;
-  background: #121820;
-  color: #e7edf3;
+  gap: 1px;
+  min-width: 72px;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--panel-ink);
+  color: var(--text);
 }
-.desk-clear-chip .k { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #9aa6b2; }
-.desk-clear-chip .v { font-size: 13px; font-weight: 720; }
-.desk-clear-chip.vwap { background: #3a2460; border-color: #7b53b8; }
-.desk-clear-chip.bear { background: #7a1f28; border-color: #ff6b7a; }
-.desk-clear-chip.bull { background: #145236; border-color: #3ddc97; }
-.desk-clear-chip.mixed { background: #3a3f46; border-color: #8b98a5; }
-.desk-clear-chip.stage { background: #1a2430; }
+.desk-clear-chip .k { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.desk-clear-chip .v { font-size: 12px; font-weight: 720; }
+.desk-clear-chip.vwap { background: var(--fast-deep); border-color: #3a6aaa; }
+.desk-clear-chip.bear { background: var(--down-deep); border-color: var(--down); }
+.desk-clear-chip.bull { background: var(--up-deep); border-color: var(--up); }
+.desk-clear-chip.mixed { background: #2a323c; border-color: #7a8898; }
+.desk-clear-chip.stage { background: var(--panel-2); }
 .swatch.trend { background: #3ddc97; }
 .swatch.pivots { background: linear-gradient(90deg, #ff6b7a, #3ddc97); }
 .study-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
-  margin: 10px 0 8px;
+  margin: 4px 0;
   flex: 0 0 auto;
 }
 .study-toolbar button {
   width: auto;
-  min-height: 36px;
-  padding: 6px 12px;
+  min-height: 30px;
+  padding: 4px 10px;
   font-size: 12px;
 }
 .study-stack {
@@ -659,7 +900,7 @@ button.quiet { background: transparent; }
   flex: 0 0 auto;
   width: 100%;
   margin: 0;
-  padding: 0 0 28px;
+  padding: 0 0 16px;
   overflow: visible;
 }
 .study-pane {
@@ -667,9 +908,9 @@ button.quiet { background: transparent; }
   position: relative;
   width: 100%;
   height: auto;
-  margin: 0 0 18px;
-  border: 1px solid #2a3a4a;
-  border-radius: 8px;
+  margin: 0 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   background: #05070a;
   overflow: hidden;
   flex: none;
@@ -679,14 +920,14 @@ button.quiet { background: transparent; }
 .study-pane-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 40px;
+  gap: 8px;
+  height: 30px;
   box-sizing: border-box;
-  padding: 0 10px 0 4px;
-  background: #121a22;
-  border-bottom: 1px solid #2a3a4a;
-  color: #e7edf3;
-  font-size: 13px;
+  padding: 0 8px 0 2px;
+  background: linear-gradient(180deg, #161e28 0%, #121a22 100%);
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.03em;
 }
@@ -704,7 +945,7 @@ button.quiet { background: transparent; }
 }
 .study-roll[aria-expanded="false"] { transform: rotate(-90deg); }
 .study-pane[data-expanded="false"] canvas { display: none !important; }
-.study-pane[data-expanded="false"] { height: 40px; }
+.study-pane[data-expanded="false"] { height: 30px; }
 .study-pane[data-expanded="false"] .study-pane-head { border-bottom: 0; }
 .study-stack canvas {
   display: block;
@@ -717,42 +958,61 @@ button.quiet { background: transparent; }
   background: #000;
   vertical-align: top;
 }
-.study-pane[data-pane="price"] #candles { height: 300px !important; min-height: 300px; }
-.study-pane[data-pane="tmo"] #rsi-chart { height: 200px !important; min-height: 200px; }
-.study-pane[data-pane="sqz"] #sqz-chart { height: 170px !important; min-height: 170px; }
-.study-pane[data-pane="cci"] #cci-chart { height: 200px !important; min-height: 200px; }
-.study-pane.big[data-pane="price"] #candles { height: 360px !important; min-height: 360px; }
+.study-pane[data-pane="price"] #candles { height: 620px !important; min-height: 620px; }
+.study-pane[data-pane="tmo"] #rsi-chart { height: 300px !important; min-height: 300px; }
+.study-pane[data-pane="sqz"] #sqz-chart { height: 260px !important; min-height: 260px; }
+.study-pane[data-pane="cci"] #cci-chart { height: 300px !important; min-height: 300px; }
+.study-pane.big[data-pane="price"] #candles { height: 780px !important; min-height: 780px; }
 .study-pane.big[data-pane="tmo"] #rsi-chart,
-.study-pane.big[data-pane="cci"] #cci-chart { height: 300px !important; min-height: 300px; }
-.study-pane.big[data-pane="sqz"] #sqz-chart { height: 240px !important; min-height: 240px; }
-.zoom-bar { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-.zoom-bar button { width: auto; min-height: 36px; padding: 6px 12px; }
+.study-pane.big[data-pane="cci"] #cci-chart { height: 420px !important; min-height: 420px; }
+.study-pane.big[data-pane="sqz"] #sqz-chart { height: 360px !important; min-height: 360px; }
+.zoom-bar { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.zoom-bar button { width: auto; min-height: 30px; padding: 4px 10px; }
 .mood { font-weight: 650; }
 .mood.fear { color: var(--down); }
 .mood.greed { color: var(--up); }
 .mood.neutral, .mood.waiting { color: var(--muted); }
 
-.dock-tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; }
+.dock-tabs { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 6px; }
 .dock-tab {
-  min-height: 36px;
+  min-height: 30px;
   width: auto;
-  padding: 6px 10px;
-  background: transparent;
+  padding: 4px 8px;
   white-space: nowrap;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-ink);
+  color: var(--muted);
 }
-.dock-tab.on { border-color: var(--accent); color: var(--text); background: #1c242c; }
+.dock-tab.on { border-color: var(--fast); color: var(--text); background: var(--panel-2); }
 .dock-tab.ready::after {
   content: "";
-  width: 8px;
-  height: 8px;
-  margin-left: 6px;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
   border-radius: 50%;
   background: var(--up);
   display: inline-block;
 }
 .dock-page { display: none; }
-.dock-page.on { display: block; overflow: auto; flex: 1; min-height: 0; }
-.dock-page.on[data-dock-page="frames"] { display: flex; flex-direction: column; overflow: hidden; }
+.dock-page.on {
+  display: block;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  padding: var(--pad);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, transparent 36%),
+    var(--panel-ink);
+}
+.dock-page.on[data-dock-page="frames"] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: var(--pad-sm);
+}
 .frames-layout {
   display: grid;
   grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
@@ -784,6 +1044,21 @@ footer { display: none; }
 
 @media (max-width: 980px) {
   .top { align-items: center; gap: 4px 12px; }
+  .brand { gap: 8px; }
+  .top-tools-btn {
+    min-height: 44px;
+    min-width: 96px;
+    padding: 8px 14px;
+    font-size: 16px;
+  }
+  .desk-rail {
+    grid-template-columns: minmax(120px, 1fr) minmax(0, 1.4fr);
+    gap: 3px;
+    padding: 2px 8px 0;
+  }
+  .schwab-top { padding: 4px 6px; }
+  #schwab-connect { min-height: 32px; font-size: 12px; padding: 4px 8px; }
+  .schwab-top-status { font-size: 11px; }
   .quote {
     margin: 0;
     width: 100%;
@@ -816,28 +1091,46 @@ footer { display: none; }
   }
   .workspace {
     display: block;
-    flex: 1 1 auto;
-    height: auto;
+    /* height:0 + flex-grow restores a scrollport under the tall Schwab header. */
+    flex: 1 1 0%;
+    height: 0;
     min-height: 0;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 8px 12px calc(58px + var(--safe-bottom));
   }
   .watch, .chart-panel, .ticket, .dock { display: none; margin: 0; }
+  .ticket, .dock, .watch { overflow: visible; }
   .frames-layout { display: block; }
   .frame-list, .brief { max-height: none; }
   .dock-page.on[data-dock-page="frames"] { display: block; overflow: visible; }
   body[data-tab="markets"] .watch,
   body[data-tab="chart"] .chart-panel,
-  body[data-tab="trade"] .ticket,
-  body[data-tab="study"] .dock { display: block; }
+  body[data-tab="trade"] .ticket { display: block; }
+  body[data-tab="study"] .dock,
+  body[data-tools] .dock { display: flex; }
+  body[data-tab="study"] .watch,
+  body[data-tab="study"] .chart-panel,
+  body[data-tab="study"] .ticket,
+  body[data-tab="study"] .desk-rail,
+  body[data-tab="study"] .market-outlook { display: none !important; }
   body[data-tab="chart"] .workspace {
     display: block;
-    overflow: auto;
+    flex: 1 1 0%;
+    height: 0;
     min-height: 0;
-    height: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding-top: 6px;
     padding-bottom: calc(72px + var(--safe-bottom));
     -webkit-overflow-scrolling: touch;
+  }
+  body[data-tab="chart"] .desk-rail {
+    display: grid;
+  }
+  body[data-tab="chart"] .market-outlook {
+    display: block;
   }
   body[data-tab="chart"] .chart-panel {
     display: block;
@@ -845,7 +1138,7 @@ footer { display: none; }
     height: auto;
     min-height: 0;
     overflow: visible;
-    padding: 8px 10px 24px;
+    padding: 4px 6px 20px;
   }
   body[data-tab="chart"] .chart-back { display: inline-flex; }
   body[data-tab="chart"] .chart-head { flex-wrap: wrap; gap: 2px 8px; margin: 0; }
@@ -880,55 +1173,55 @@ footer { display: none; }
     text-overflow: ellipsis;
   }
   .signal-sum::before { content: ""; flex: 0 0 8px; height: 8px; border-radius: 50%; background: var(--slow); }
-  .signal-sum.ok { color: var(--up); border-color: #1d4d3a; }
+  .signal-sum.ok { color: var(--up); border-color: var(--up-mid); background: var(--up-deep); }
   .signal-sum.ok::before { background: var(--up); }
   /* No sticky chrome — sticky tools were covering the panes when scrolling. */
   body[data-tab="chart"] .chart-tools {
     position: static;
     z-index: auto;
-    margin: 0 0 10px;
-    padding: 0 0 10px;
+    margin: 0 0 4px;
+    padding: 0 0 4px;
     background: transparent;
     border-bottom: 1px solid var(--line);
   }
-  body[data-tab="chart"] .chart-tools-label { font-size: 12px; color: #c5d0db; }
+  body[data-tab="chart"] .chart-tools-label { font-size: 10px; color: #c5d0db; }
   body[data-tab="chart"] .study-pages { margin-top: 2px; }
-  body[data-tab="chart"] .study-pages button { min-height: 42px; font-size: 13px; }
+  body[data-tab="chart"] .study-pages button { min-height: 34px; font-size: 12px; }
   body[data-tab="chart"] .frame-bar {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 6px;
+    gap: 4px;
     overflow: visible;
     padding-bottom: 0;
   }
   body[data-tab="chart"] .frame-bar button {
     width: 100%;
-    min-height: 42px;
-    padding: 6px 4px;
-    font-size: 13px;
+    min-height: 34px;
+    padding: 4px 2px;
+    font-size: 12px;
     font-weight: 740;
     background: #151c24;
     border-color: #3a4656;
   }
-  body[data-tab="chart"] .zoom-bar button { min-height: 40px; padding: 6px 10px; font-size: 13px; }
-  body[data-tab="chart"] .zoom-bar { margin-top: 2px; gap: 6px; }
+  body[data-tab="chart"] .zoom-bar button { min-height: 32px; padding: 4px 8px; font-size: 12px; }
+  body[data-tab="chart"] .zoom-bar { margin-top: 2px; gap: 4px; }
   body[data-tab="chart"] .chart-fold { margin-top: 2px; }
-  body[data-tab="chart"] .chart-flags { margin-top: 2px; gap: 6px; }
-  body[data-tab="chart"] .chart-flag { font-size: 11px; padding: 5px 9px; }
-  body[data-tab="chart"] .desk-clear { gap: 8px; margin: 2px 0 0; }
+  body[data-tab="chart"] .chart-flags { margin-top: 2px; gap: 4px; }
+  body[data-tab="chart"] .chart-flag { font-size: 10px; padding: 3px 6px; }
+  body[data-tab="chart"] .desk-clear { gap: 4px; margin: 2px 0 0; }
   body[data-tab="chart"] .chart-boxes {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 6px;
+    gap: 4px;
   }
-  body[data-tab="chart"] .chart-boxes .desk-clear-chip { min-width: 0; width: 100%; padding: 8px 6px; }
-  body[data-tab="chart"] .desk-clear-chip { min-width: 92px; padding: 8px 10px; }
-  body[data-tab="chart"] .desk-clear-chip .k { font-size: 11px; }
-  body[data-tab="chart"] .desk-clear-chip .v { font-size: 14px; }
+  body[data-tab="chart"] .chart-boxes .desk-clear-chip { min-width: 0; width: 100%; padding: 4px 4px; }
+  body[data-tab="chart"] .desk-clear-chip { min-width: 72px; padding: 4px 6px; }
+  body[data-tab="chart"] .desk-clear-chip .k { font-size: 9px; }
+  body[data-tab="chart"] .desk-clear-chip .v { font-size: 12px; }
   body[data-tab="chart"] #desk-clear {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
+    gap: 4px;
   }
   body[data-tab="chart"] #desk-clear .desk-clear-chip { min-width: 0; width: 100%; }
   body[data-tab="study"] .dock-tabs {
@@ -954,29 +1247,29 @@ footer { display: none; }
   body[data-tab="chart"] .study-toolbar { margin: 8px 0; gap: 6px; }
   body[data-tab="chart"] .study-toolbar button { min-height: 36px; padding: 6px 10px; font-size: 12px; }
   body[data-tab="chart"] .chart-below {
-    margin: 8px 0 24px;
-    padding-top: 12px;
+    margin: 4px 0 16px;
+    padding-top: 6px;
   }
   body[data-tab="chart"] .study-stack {
     display: block;
     margin: 0;
-    padding-bottom: 12px;
+    padding-bottom: 8px;
     overflow: visible;
   }
   body[data-tab="chart"] .study-pane {
     display: block;
-    margin: 0 0 20px;
+    margin: 0 0 10px;
     flex: none;
   }
-  body[data-tab="chart"] .study-pane-head { height: 42px; font-size: 13px; }
-  body[data-tab="chart"] .study-pane[data-pane="price"] #candles { height: 280px !important; min-height: 280px; }
-  body[data-tab="chart"] .study-pane[data-pane="tmo"] #rsi-chart { height: 200px !important; min-height: 200px; }
-  body[data-tab="chart"] .study-pane[data-pane="sqz"] #sqz-chart { height: 170px !important; min-height: 170px; }
-  body[data-tab="chart"] .study-pane[data-pane="cci"] #cci-chart { height: 200px !important; min-height: 200px; }
-  body[data-tab="chart"] .study-pane.big[data-pane="price"] #candles { height: 340px !important; min-height: 340px; }
+  body[data-tab="chart"] .study-pane-head { height: 28px; font-size: 11px; }
+  body[data-tab="chart"] .study-pane[data-pane="price"] #candles { height: 560px !important; min-height: 560px; }
+  body[data-tab="chart"] .study-pane[data-pane="tmo"] #rsi-chart { height: 280px !important; min-height: 280px; }
+  body[data-tab="chart"] .study-pane[data-pane="sqz"] #sqz-chart { height: 240px !important; min-height: 240px; }
+  body[data-tab="chart"] .study-pane[data-pane="cci"] #cci-chart { height: 280px !important; min-height: 280px; }
+  body[data-tab="chart"] .study-pane.big[data-pane="price"] #candles { height: 700px !important; min-height: 700px; }
   body[data-tab="chart"] .study-pane.big[data-pane="tmo"] #rsi-chart,
-  body[data-tab="chart"] .study-pane.big[data-pane="cci"] #cci-chart { height: 280px !important; min-height: 280px; }
-  body[data-tab="chart"] .study-pane.big[data-pane="sqz"] #sqz-chart { height: 230px !important; min-height: 230px; }
+  body[data-tab="chart"] .study-pane.big[data-pane="cci"] #cci-chart { height: 380px !important; min-height: 380px; }
+  body[data-tab="chart"] .study-pane.big[data-pane="sqz"] #sqz-chart { height: 320px !important; min-height: 320px; }
   #mood-clock { width: 56px; height: 56px; }
   .tabbar {
     display: grid;
@@ -1008,26 +1301,28 @@ footer { display: none; }
 }
 
 .ticket-box {
-  margin: 14px 0;
-  padding: 12px;
+  margin: 8px 0;
+  padding: var(--pad);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #0f151c;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 34%),
+    var(--panel-ink);
 }
 
-.ticket-box h3 { margin: 0 0 8px; font-size: 14px; }
-.ticket-box h3 + .table-wrap, .ticket-box .table-wrap + button { margin-top: 6px; }
-.ticket-box .tiny { font-size: 12px; margin: 8px 0; }
-.ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.ticket-grid label { margin: 0; font-size: 12px; }
+.ticket-box h3 { margin: 0 0 4px; font-size: 13px; color: var(--accent); }
+.ticket-box h3 + .table-wrap, .ticket-box .table-wrap + button { margin-top: 4px; }
+.ticket-box .tiny { font-size: 11px; margin: 4px 0; }
+.ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.ticket-grid label { margin: 0; font-size: 11px; }
 .ticket-grid label[hidden] { display: none; }
-.side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 6px; }
 .side-row .buy { background: #163528; border-color: var(--up); color: var(--up); }
 .side-row .sell { background: #3a1820; border-color: var(--down); color: var(--down); }
 .side-row .on { box-shadow: inset 0 0 0 2px currentColor; font-weight: 700; }
-.ticket-box .confirm { display: flex; gap: 8px; align-items: center; margin: 10px 0 6px; color: var(--text); font-size: 14px; }
+.ticket-box .confirm { display: flex; gap: 6px; align-items: center; margin: 6px 0 4px; color: var(--text); font-size: 13px; }
 .ticket-box .confirm input { width: auto; }
-.ticket-box .send { width: 100%; background: #1d4d3a; border-color: var(--up); color: var(--up); margin-bottom: 12px; }
+.ticket-box .send { width: 100%; background: #1d4d3a; border-color: var(--up); color: var(--up); margin-bottom: 8px; }
 .ticket-box .send.sell-side { background: #3a1820; border-color: var(--down); color: var(--down); }
 .ticket-box table.working { font-size: 12px; }
 .ticket-box table.working th, .ticket-box table.working td { padding: 5px 4px; }
@@ -1043,10 +1338,15 @@ footer { display: none; }
 .strat-trade button:disabled{opacity:.45}
 .strat-orb-inputs input{width:84px}
 .strat-switch{display:inline-flex;gap:6px;align-items:center}
-.strat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:12px 0}
-.strat-card{border:1px solid var(--line,#2a3442);border-radius:10px;padding:10px 12px}
-.strat-card h4{margin:0 0 4px;font-size:14px}
-.strat-card p{margin:4px 0;font-size:13px}
+.strat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;margin:8px 0}
+.strat-card{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:var(--pad);
+  background:linear-gradient(180deg, rgba(255,255,255,.03) 0%, transparent 40%), var(--panel-2);
+}
+.strat-card h4{margin:0 0 2px;font-size:13px;color:var(--accent)}
+.strat-card p{margin:2px 0;font-size:12px;color:var(--muted)}
 .strat-levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px 12px;margin:8px 0}
 .strat-levels div{display:flex;flex-direction:column}
 .strat-levels dt{font-size:11px;opacity:.7}
@@ -1062,142 +1362,194 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 #strat-board td:nth-child(2),#strat-sweep-body td:nth-child(2){text-align:center;white-space:nowrap}
 #strat-board td:nth-child(n+3),#strat-sweep-body td:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 
-.safe-box{margin:8px 0}
-.safe-btn{width:100%;font-weight:700;border:1px solid #3a4656;background:#1c242c;color:var(--text,#e6edf3);padding:10px 12px;border-radius:10px}
-.safe-btn.ok{background:#12803f;border-color:#3ddc97;color:#fff}
-.safe-btn.warn{background:#8a6a12;border-color:#ffd166;color:#fff}
-.safe-btn.bad{background:#a12a38;border-color:#ff6b7a;color:#fff}
-.best-setup-box{margin:10px 0 4px;display:grid;gap:8px}
-.best-setup-btn{font-weight:700;border:1px solid #3a4656;background:#1c242c;color:var(--text,#e6edf3);padding:10px 14px;border-radius:10px;text-align:left}
-.best-setup-btn.on{background:#0f3d2a;border-color:#2f6b4f;color:#d8ffe9}
-.best-setup-btn.ready{background:#12803f;border-color:#3ddc97;color:#fff;box-shadow:inset 0 0 0 1px rgba(61,220,151,.35)}
+.safe-box{
+  margin:4px 0;
+  padding:var(--pad);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:linear-gradient(180deg, rgba(255,255,255,.03) 0%, transparent 36%), var(--panel-2);
+}
+.safe-btn{width:100%;font-weight:700;border:1px solid var(--line-strong);background:var(--button);color:var(--text);padding:6px 10px;border-radius:var(--radius)}
+.safe-btn.ok{background:var(--up-mid);border-color:var(--up);color:#fff}
+.safe-btn.warn{background:#8a6a12;border-color:var(--warn);color:#fff}
+.safe-btn.bad{background:var(--down-mid);border-color:var(--down);color:#fff}
+.best-setup-box{margin:6px 0 2px;display:grid;gap:4px}
+.best-setup-btn{font-weight:700;border:1px solid var(--line-strong);background:var(--button);color:var(--text);padding:6px 10px;border-radius:var(--radius);text-align:left}
+.best-setup-btn.on{background:var(--up-deep);border-color:var(--up-mid);color:#d8ffe9}
+.best-setup-btn.ready{background:var(--up-mid);border-color:var(--up);color:#fff}
 .best-setup-btn.ready::before{content:"";display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:#9dffc7;vertical-align:middle}
 .best-setup-gates{list-style:none;margin:0;padding:0;display:grid;gap:4px}
-.best-setup-gates li{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted,#9aa7b5)}
+.best-setup-gates li{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 .best-setup-gates li::before{content:"";width:8px;height:8px;border-radius:50%;background:#5a6572;flex:0 0 auto}
 .best-setup-gates li.on{color:#d8ffe9}
-.best-setup-gates li.on::before{background:#3ddc97}
-.best-setup-gates li.off::before{background:#ff6b7a}
+.best-setup-gates li.on::before{background:var(--up)}
+.best-setup-gates li.off::before{background:var(--down)}
 .safe-list{list-style:none;margin:6px 0 0;padding:0;font-size:12px;display:grid;gap:3px}
-.safe-list li::before{content:"OK  ";font-weight:700;color:#3ddc97}
-.safe-list li.warn::before{content:"CHECK  ";color:#ffd166}
-.safe-list li.bad::before{content:"FAIL  ";color:#ff6b7a}
+.safe-list li::before{content:"OK  ";font-weight:700;color:var(--up)}
+.safe-list li.warn::before{content:"CHECK  ";color:var(--warn)}
+.safe-list li.bad::before{content:"FAIL  ";color:var(--down)}
 
-.internals-pill{width:100%;margin:6px 0;text-align:left;border:1px solid #3a4656;background:#1c242c;color:var(--text,#e6edf3);padding:8px 12px;border-radius:10px;font-weight:600}
-.internals-pill.supportive{border-color:#3ddc97;color:#bff5db}
-.internals-pill.mixed{border-color:#ffd166;color:#ffe9b0}
-.internals-pill.defensive{border-color:#ff6b7a;color:#ffc7ce}
+.internals-pill{width:100%;margin:4px 0;text-align:left;border:1px solid var(--line-strong);background:var(--button);color:var(--text);padding:6px 10px;border-radius:var(--radius);font-weight:600}
+.internals-pill.supportive{border-color:var(--up);color:#bff5db;background:var(--up-deep)}
+.internals-pill.mixed{border-color:var(--warn);color:#ffe9b0;background:var(--warn-deep)}
+.internals-pill.defensive{border-color:var(--down);color:#ffc7ce;background:var(--down-deep)}
 
 .scorecard-card {
-  margin: 10px 0 4px;
-  padding: 10px 12px;
+  margin: 6px 0 2px;
+  padding: var(--pad);
   border: 1px solid var(--line);
-  background: #0e1318;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(110, 168, 255, 0.05) 0%, transparent 40%),
+    var(--panel-ink);
+}
+.scorecard-card-compact {
+  margin: 4px 0;
+  padding: var(--pad-sm) var(--pad);
+}
+.scorecard-card-compact .scorecard-bias {
+  margin: 0;
+  font-size: 12px;
 }
 .scorecard-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 4px;
+  gap: 8px;
+  margin-bottom: 2px;
 }
-.scorecard-card-head h3 { margin: 0; font-size: 15px; font-weight: 640; }
+.scorecard-card-head h3 { margin: 0; font-size: 13px; font-weight: 640; color: var(--accent); }
 .scorecard-bias {
-  margin: 0 0 4px;
-  font-size: 15px;
+  margin: 0 0 2px;
+  font-size: 13px;
   font-weight: 650;
   letter-spacing: 0.01em;
 }
 .scorecard-bias.swing { color: var(--up); }
-.scorecard-bias.day { color: #ffd166; }
+.scorecard-bias.day { color: var(--warn); }
 .scorecard-bias.flat { color: var(--down); }
 .scorecard-day {
-  margin: 10px 0 14px;
-  padding: 10px 12px;
+  margin: 6px 0 8px;
+  padding: var(--pad);
   border: 1px solid var(--line);
-  background: #0e1318;
+  border-radius: var(--radius);
+  background: var(--panel-ink);
 }
 .scorecard-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
-.scorecard-panel h3 { margin: 0 0 8px; font-size: 15px; font-weight: 640; }
+.scorecard-panel h3 { margin: 0 0 4px; font-size: 13px; font-weight: 640; }
 @media (max-width: 980px) {
   .scorecard-grid { grid-template-columns: 1fr; }
 }
 
 .market-outlook {
-  margin: 0 0 10px;
-  padding: 10px 12px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 3px 5px;
   border: 1px solid var(--line);
-  background: #0c1116;
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(110, 168, 255, 0.06) 0%, transparent 42%),
+    var(--panel-ink);
+  min-width: 0;
 }
 .outlook-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 2px;
+  min-width: 0;
 }
 .outlook-head h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: 11px;
   font-weight: 650;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  flex: 0 0 auto;
+}
+.outlook-head #outlook-refresh {
+  margin-left: auto;
+  min-height: 24px;
+  min-width: 28px;
+  padding: 2px 6px;
+  font-size: 12px;
 }
 .outlook-call {
-  margin: 0 0 8px;
-  font-size: 16px;
+  margin: 0;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .outlook-call.green { color: var(--up); }
 .outlook-call.red { color: var(--down); }
-.outlook-call.amber { color: #ffd166; }
-.outlook-call.wait { color: var(--muted, #9fb0c6); }
+.outlook-call.amber { color: var(--warn); }
+.outlook-call.wait { color: var(--muted); }
 .outlook-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 3px;
+  margin: 0;
 }
 .outlook-cell {
-  padding: 8px 10px;
+  padding: 2px 5px;
   border: 1px solid var(--line);
-  background: #0e1318;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
   min-width: 0;
 }
-.outlook-cell.green { border-color: #2f6b4f; }
-.outlook-cell.red { border-color: #7a3a44; }
-.outlook-cell.amber { border-color: #6a5a2e; }
+.outlook-cell.green {
+  border-color: var(--up-mid);
+  background: linear-gradient(180deg, rgba(61, 220, 151, 0.08) 0%, var(--panel) 70%);
+}
+.outlook-cell.red {
+  border-color: var(--down-mid);
+  background: linear-gradient(180deg, rgba(255, 107, 122, 0.08) 0%, var(--panel) 70%);
+}
+.outlook-cell.amber {
+  border-color: #6a5a2e;
+  background: linear-gradient(180deg, rgba(255, 209, 102, 0.08) 0%, var(--panel) 70%);
+}
 .outlook-label {
-  margin: 0 0 2px;
-  font-size: 11px;
+  margin: 0;
+  font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted, #9fb0c6);
+  color: var(--muted);
+  line-height: 1.2;
 }
 .outlook-score {
-  margin: 0 0 2px;
-  font-size: 22px;
+  margin: 0;
+  font-size: 14px;
   font-weight: 750;
-  line-height: 1.1;
+  line-height: 1.15;
 }
 .outlook-cell.green .outlook-score { color: var(--up); }
 .outlook-cell.red .outlook-score { color: var(--down); }
-.outlook-cell.amber .outlook-score { color: #ffd166; }
+.outlook-cell.amber .outlook-score { color: var(--warn); }
 .outlook-stance {
   margin: 0;
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 @media (max-width: 980px) {
-  .market-outlook { margin: 0 8px 8px; padding: 8px 10px; }
-  .outlook-call { font-size: 15px; }
-  .outlook-score { font-size: 18px; }
-  .outlook-stance { font-size: 12px; }
+  .market-outlook { margin: 0; padding: 3px 4px; }
+  .outlook-call { font-size: 11px; }
+  .outlook-score { font-size: 13px; }
+  .outlook-stance { font-size: 9px; }
 }
 
 .win-box{margin-top:8px;display:grid;gap:4px;font-size:12px}
@@ -1207,13 +1559,29 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 tr.pickable{cursor:pointer}
 tr.pickable:hover td,tr.picked td{background:rgba(255,255,255,.06)}
 tr.picked td:first-child{box-shadow:inset 3px 0 0 #6ea8ff;font-weight:700}
-.strat-detail{border:1px solid var(--line,#2a3442);border-radius:10px;padding:10px 12px;margin:10px 0}
-.strat-detail h3{margin:0 0 4px}
+.strat-detail{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:var(--pad);
+  margin:6px 0;
+  background:linear-gradient(180deg, rgba(255,255,255,.03) 0%, transparent 40%), var(--panel-2);
+}
+.strat-detail h3{margin:0 0 2px;font-size:13px;color:var(--accent)}
 .modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:12px}
 .modal[hidden]{display:none}
-.modal-card{background:#111823;border:2px solid #6ea8ff;border-radius:12px;max-width:520px;width:100%;padding:16px 18px;max-height:92vh;overflow:auto;color:#e8eef7}
-.modal.buy .modal-card{border-color:#3ddc97}
-.modal.sell .modal-card{border-color:#ff6b7a}
+.modal-card{
+  background:var(--panel-2);
+  border:2px solid var(--fast);
+  border-radius:var(--radius);
+  max-width:520px;
+  width:100%;
+  padding:16px 18px;
+  max-height:92vh;
+  overflow:auto;
+  color:var(--text);
+}
+.modal.buy .modal-card{border-color:var(--up)}
+.modal.sell .modal-card{border-color:var(--down)}
 .modal-card h2{margin:0 0 8px;font-size:18px}
 .modal-rows{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0 0 8px;font-size:13px}
 .modal-rows dt{color:#9fb0c6}
@@ -1226,11 +1594,11 @@ tr.picked td:first-child{box-shadow:inset 3px 0 0 #6ea8ff;font-weight:700}
 
 .edge-frames{margin-top:8px}
 .edge-chips{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
-.edge-chips button{padding:3px 8px;font-size:12px;border-radius:999px;border:1px solid #3a4655;background:#161e29;color:#e8eef7;cursor:pointer}
-.edge-chips button.buy{border-color:#3ddc97;color:#3ddc97}
-.edge-chips button.hold{border-color:#6ea8ff;color:#6ea8ff}
-.edge-chips button.sell{border-color:#ff6b7a;color:#ff6b7a}
-.edge-chips button.wait{color:#9fb0c6}
+.edge-chips button{padding:3px 8px;font-size:12px;border-radius:var(--radius-sm);border:1px solid var(--line-strong);background:var(--panel-ink);color:var(--text);cursor:pointer}
+.edge-chips button.buy{border-color:var(--up);color:var(--up);background:var(--up-deep)}
+.edge-chips button.hold{border-color:var(--fast);color:var(--fast);background:var(--fast-deep)}
+.edge-chips button.sell{border-color:var(--down);color:var(--down);background:var(--down-deep)}
+.edge-chips button.wait{color:var(--muted)}
 
 #paper-tip {
   position: fixed;
@@ -1306,40 +1674,50 @@ tr.picked td:first-child{box-shadow:inset 3px 0 0 #6ea8ff;font-weight:700}
 .day-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin: 0 0 10px;
+  gap: 4px;
+  margin: 0 0 6px;
 }
 .day-strip .day-card {
-  padding: 8px 10px;
+  padding: var(--pad-sm) var(--pad);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #0f151c;
+  border-radius: var(--radius-sm);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 40%),
+    var(--panel-ink);
 }
 .day-strip .day-card span {
   display: block;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .day-strip .day-card strong {
   display: block;
-  margin-top: 2px;
-  font-size: 15px;
+  margin-top: 1px;
+  font-size: 13px;
   font-weight: 650;
+}
+.day-strip .day-card.up {
+  border-color: var(--up-mid);
+  background: linear-gradient(180deg, rgba(61, 220, 151, 0.08) 0%, var(--panel-ink) 70%);
+}
+.day-strip .day-card.down {
+  border-color: var(--down-mid);
+  background: linear-gradient(180deg, rgba(255, 107, 122, 0.08) 0%, var(--panel-ink) 70%);
 }
 .day-strip .day-card.up strong { color: var(--up); }
 .day-strip .day-card.down strong { color: var(--down); }
 
 .ticket-preview {
-  margin: 0 0 8px;
-  padding: 8px 10px;
+  margin: 0 0 4px;
+  padding: var(--pad-sm) var(--pad);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #0c1218;
+  border-radius: var(--radius-sm);
+  background: var(--panel-ink);
   color: var(--text);
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .quote.stale #quote-asof { color: var(--slow); }
@@ -1383,11 +1761,12 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.94</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.4</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
       </div>
+      <button id="open-tools" type="button" class="top-tools-btn" aria-pressed="false">Tools</button>
     </div>
     <div class="mood-clock">
       <canvas id="mood-clock" width="112" height="112" aria-label="Fear and greed clock"></canvas>
@@ -1405,30 +1784,38 @@ body.ready #mood-clock { width: 88px; height: 88px; }
     <p id="edge-note" class="edge-note" hidden>Open this file in Microsoft Edge on any phone or tablet. On iPhone or iPad, use the Files app, tap Share, then Edge. On Android, use Files or Downloads, tap Open with, then Edge. This page cannot switch to Edge by itself.</p>
   </header>
 
-  <section id="market-outlook" class="market-outlook" aria-label="Market Outlook">
-    <div class="outlook-head">
-      <h2>Market Outlook</h2>
-      <button id="outlook-refresh" type="button" class="quiet">Refresh</button>
+  <section class="desk-rail" aria-label="Connect and outlook">
+    <div id="schwab-top" class="schwab-top" aria-label="Schwab connection">
+      <div class="schwab-top-row">
+        <span id="schwab-top-dot" class="schwab-top-dot bad" title="Not connected" aria-hidden="true"></span>
+        <button id="schwab-connect" type="button" aria-pressed="false">Connect</button>
+        <strong id="schwab-top-status" class="schwab-top-status bad">OFF</strong>
+      </div>
     </div>
-    <p id="outlook-call" class="outlook-call" aria-live="polite">Reading SPY closed bars…</p>
-    <div class="outlook-grid">
-      <article id="outlook-day" class="outlook-cell wait" aria-label="Day outlook">
-        <p class="outlook-label">Day</p>
-        <p class="outlook-score">—</p>
-        <p class="outlook-stance">Waiting</p>
-      </article>
-      <article id="outlook-week" class="outlook-cell wait" aria-label="Week outlook">
-        <p class="outlook-label">Week</p>
-        <p class="outlook-score">—</p>
-        <p class="outlook-stance">Waiting</p>
-      </article>
-      <article id="outlook-month" class="outlook-cell wait" aria-label="Month outlook">
-        <p class="outlook-label">Month</p>
-        <p class="outlook-score">—</p>
-        <p class="outlook-stance">Waiting</p>
-      </article>
-    </div>
-    <p id="outlook-note" class="muted">SPY closed bars · Day · Week · Month · score 1–10 · green good / red soft. Best call: Go long, Stay flat, or Short bias. Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge and Best setup still gate buys. Paper only. Not a crystal ball.</p>
+    <section id="market-outlook" class="market-outlook" aria-label="Market Outlook">
+      <div class="outlook-head">
+        <h2>Outlook</h2>
+        <p id="outlook-call" class="outlook-call" aria-live="polite">…</p>
+        <button id="outlook-refresh" type="button" class="quiet">↻</button>
+      </div>
+      <div class="outlook-grid">
+        <article id="outlook-day" class="outlook-cell wait" aria-label="Day outlook">
+          <p class="outlook-label">Day</p>
+          <p class="outlook-score">—</p>
+          <p class="outlook-stance">—</p>
+        </article>
+        <article id="outlook-week" class="outlook-cell wait" aria-label="Week outlook">
+          <p class="outlook-label">Week</p>
+          <p class="outlook-score">—</p>
+          <p class="outlook-stance">—</p>
+        </article>
+        <article id="outlook-month" class="outlook-cell wait" aria-label="Month outlook">
+          <p class="outlook-label">Month</p>
+          <p class="outlook-score">—</p>
+          <p class="outlook-stance">—</p>
+        </article>
+      </div>
+    </section>
   </section>
 
   <div class="workspace">
@@ -1436,13 +1823,13 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       <h2>Markets</h2>
       <div id="pins" class="pins" aria-label="Pinned markets"></div>
       <button id="pin-toggle" type="button" class="quiet">Pin this market</button>
-      <div id="scorecard-card" class="scorecard-card" aria-label="Big 3 Market Scorecard">
+      <div id="scorecard-card" class="scorecard-card scorecard-card-compact" aria-label="Big 3 Market Scorecard">
         <div class="scorecard-card-head">
-          <h3>Big 3 Market Scorecard</h3>
-          <button id="scorecard-open" type="button" class="quiet">Open scorecard</button>
+          <h3>Big 3 Scorecard</h3>
+          <button id="scorecard-open" type="button" class="quiet">Open</button>
         </div>
-        <p id="scorecard-bias" class="scorecard-bias">Press Run scorecard for rankings, A+ squeezes, Tide Alert, and day bias.</p>
-        <p id="scorecard-blurb" class="muted">Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, flags Tide Alert when sectors drain with no rotation, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.</p>
+        <p id="scorecard-bias" class="scorecard-bias">Open Tools for rankings, A+ squeezes, Tide Alert, and day bias.</p>
+        <p id="scorecard-blurb" class="muted" hidden>Ranks the strongest indexes and sectors on the Tools page. Paper only. Not a forecast.</p>
       </div>
       <div class="scan-block">
         <div class="scan-head">
@@ -1560,9 +1947,10 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <canvas id="cci-chart" width="800" height="160" aria-label="CCI"></canvas>
         </section>
       </div>
-      <div class="chart-below" aria-label="Second page">
-        <p class="chart-tools-label">Second page</p>
-        <div id="study-pages" class="study-pages" aria-label="Open Study pages">
+      <div class="chart-below" aria-label="Tools">
+        <p class="chart-tools-label">Tools</p>
+        <div id="study-pages" class="study-pages" aria-label="Open Tools pages">
+          <button type="button" data-open-dock="home">All tools</button>
           <button type="button" data-open-dock="strategies">Strategies</button>
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
@@ -1572,7 +1960,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <button type="button" data-open-dock="journal">Journal</button>
           <button type="button" data-open-dock="signals">Signals</button>
           <button type="button" data-open-dock="backtest">Backtest</button>
-          <button type="button" data-open-dock="study">Study code</button>
+          <button type="button" data-open-dock="study">Study</button>
         </div>
       </div>
       <details class="chart-fold">
@@ -1614,6 +2002,13 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         <button id="live" type="button" aria-pressed="false" class="locked">Live</button>
         <button id="trade" type="button">Trade</button>
         <button id="voice" type="button" aria-pressed="true">Voice</button>
+      </div>
+      <div class="schwab-box" id="schwab-box" aria-label="Schwab market and live">
+        <div class="schwab-actions" role="group" aria-label="Schwab market and live">
+          <button id="schwab-market" type="button" aria-pressed="false" disabled>Market Data</button>
+          <button id="schwab-live" type="button" aria-pressed="false" disabled>Live Trading</button>
+        </div>
+        <p id="schwab-note" class="breaker-note">Paper stays the default.</p>
       </div>
       <div class="breaker" id="breaker">
         <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
@@ -1691,7 +2086,8 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 
     <section id="view-study" class="panel dock" aria-label="Desk tools">
       <div class="dock-tabs" role="tablist">
-        <button type="button" class="dock-tab on" data-dock="study">Study</button>
+        <button type="button" class="dock-tab on" data-dock="home">Tools</button>
+        <button type="button" class="dock-tab" data-dock="study">Study</button>
         <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="scorecard">Big 3 Scorecard</button>
@@ -1703,8 +2099,31 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         <button type="button" class="dock-tab" data-dock="signals">Signals</button>
       </div>
 
-      <div class="dock-page on" data-dock-page="study">
-        <h2>Install study</h2>
+      <div class="dock-page on" data-dock-page="home">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back to desk</button>
+          <h2>Tools</h2>
+        </div>
+        <p class="muted">Open a page full-screen. Use Back on that page to return here, then Back to desk for Markets · Chart · Trade.</p>
+        <div id="tools-index" class="study-pages tools-index" aria-label="Tools index">
+          <button type="button" data-open-dock="strategies">Strategies</button>
+          <button type="button" data-open-dock="internals">Internals</button>
+          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
+          <button type="button" data-open-dock="frames">Timeframes</button>
+          <button type="button" data-open-dock="squeeze">Squeeze scan</button>
+          <button type="button" data-open-dock="readings">big4indicator</button>
+          <button type="button" data-open-dock="journal">Journal</button>
+          <button type="button" data-open-dock="signals">Signals</button>
+          <button type="button" data-open-dock="backtest">Backtest</button>
+          <button type="button" data-open-dock="study">Study</button>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="study">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Install study</h2>
+        </div>
         <p class="muted">Paste your own price formula. It runs on the quotes in this page only. It cannot place a broker order, open a connection, or read files.</p>
         <label for="study-name">Name</label>
         <input id="study-name" maxlength="40" value="Baseline cross" autocomplete="off">
@@ -1724,7 +2143,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="strategies">
-        <h2>Strategies</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Strategies</h2>
+        </div>
         <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. While this page is open, Learning re-scores each strategy on top Daily scan names and learns from paper buy/sell fills to refine Fire timing. Scored on closed bars only. The ranking looks backward. Not a forecast.</p>
         <div class="table-wrap strat-board-wrap">
           <table class="strat-board-table">
@@ -1828,7 +2250,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="squeeze">
-        <h2>Squeeze scan</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Squeeze scan</h2>
+        </div>
         <p class="muted">This desk's own squeeze: Bollinger Bands inside Keltner Channels at three compression levels (high, mid, low), or just left them. It ranks closed daily bars on squeeze on or just fired, energy built, compression level, averages stacked with momentum, a clean squeeze, momentum building, a weekly squeeze too, and the same squeeze in the stock, its sector fund, and its index fund. It also runs the same optimized Edge Fire gates as Fire 5 (TMO above −10, TMO turns green, squeeze, momentum above zero, CCI 50 · 14 · 5 into +100) and lifts those names to the top. The ranking looks backward. It is not a forecast. It is not a third-party study.</p>
         <div class="strat-orb-inputs">
           <label for="sq-list">List</label>
@@ -1865,7 +2290,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="scorecard">
-        <h2>Big 3 Market Scorecard</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Big 3 Market Scorecard</h2>
+        </div>
         <p class="muted">Four closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), (3) Tide Alert when Sector Drain meets Weekly Tide or Index Soft, and (4) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
         <div class="strat-orb-inputs">
           <button id="sc-run" type="button">Run scorecard</button>
@@ -1913,7 +2341,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="internals">
-        <h2>Market internals</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Market internals</h2>
+        </div>
         <p id="int-lead" class="muted">Reads the fear gauges, index trend, how many sectors take part, small against large, offense against defense, credit, rates, and the dollar from real daily bars, then rolls them into one market label: Supportive, Mixed, or Defensive. For the open market it also folds in desk studies — Squeeze, TMO, big4indicator, SMA stack, and weekly/monthly MTF — using the same closed-bar math as Strategies / Best setup / Edge. Looks backward only. Not a forecast.</p>
         <div class="strat-orb-inputs">
           <button id="int-refresh" type="button">Refresh internals</button>
@@ -1933,6 +2364,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="frames">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Timeframes</h2>
+        </div>
         <div class="frames-layout">
           <div class="frames-side">
             <div class="study-actions">
@@ -1966,12 +2401,18 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="readings">
-        <h2 class="signals-title">big4indicator</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2 class="signals-title">big4indicator</h2>
+        </div>
         <div id="readings" class="readings"></div>
       </div>
 
       <div class="dock-page" data-dock-page="journal">
-        <h2>Today's check</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Today's check</h2>
+        </div>
         <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Lane Align and Range Seat tag each name for desk review. Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
         <h3 class="journal-check-head">Week Board</h3>
         <p id="week-board-note" class="muted">This Denver week’s Fire names plus Lane Align · Range Seat · Tide. Review only — not a second Fire 5 list. Paper only. Not a forecast.</p>
@@ -2031,7 +2472,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="backtest">
-        <h2>Market history</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Market history</h2>
+        </div>
         <p id="backtest-summary" class="muted">Replays the loaded market history. The paper session stays on the latest quote.</p>
         <div class="table-wrap">
           <table>
@@ -2044,7 +2488,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="signals">
-        <h2 class="signals-title">Signals</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2 class="signals-title">Signals</h2>
+        </div>
         <ul id="signals" class="signals"></ul>
       </div>
     </section>
@@ -2054,7 +2501,7 @@ plot Sell = close crosses below baseline;</textarea>
     <button type="button" data-tab="markets">Markets</button>
     <button type="button" data-tab="chart" class="on">Chart</button>
     <button type="button" data-tab="trade">Trade</button>
-    <button type="button" data-tab="study">Study</button>
+    <button type="button" data-tab="study">Tools</button>
   </nav>
 
   <footer>
@@ -2081,6 +2528,19 @@ plot Sell = close crosses below baseline;</textarea>
       <div class="modal-buttons">
         <button id="cm-no" type="button" class="quiet">No, cancel</button>
         <button id="cm-yes" type="button">Yes, do it</button>
+      </div>
+    </div>
+  </div>
+  <div id="schwab-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="schwab-modal-title" hidden>
+    <div class="modal-card">
+      <h2 id="schwab-modal-title">Finish Schwab connect</h2>
+      <p class="breaker-note">Sign in in the Schwab window. When the browser lands on <code>https://127.0.0.1/...</code>, copy the whole address bar and paste it here. Tokens stay only on this computer.</p>
+      <label for="schwab-redirect">Redirect URL</label>
+      <textarea id="schwab-redirect" rows="4" placeholder="https://127.0.0.1/?code=..." autocomplete="off" spellcheck="false"></textarea>
+      <p id="schwab-modal-note" class="modal-warn"></p>
+      <div class="modal-buttons">
+        <button id="schwab-modal-cancel" type="button" class="quiet">Cancel</button>
+        <button id="schwab-modal-save" type="button">Save connection</button>
       </div>
     </div>
   </div>
@@ -7300,6 +7760,7 @@ const state = {
   stratLearn: { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 },
   breadth: null,
   vixBars: [],
+  schwab: null,
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -7355,7 +7816,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.94";
+const VERSION = "1.10.4";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -7684,7 +8145,24 @@ function withHooks(items) {
   else if (!next.some((item) => item.name === "Fear and greed")) setSignal(next, "Fear and greed", false, "Waiting on the quote");
   const breaker = breakerState();
   setSignal(next, "Breaker", !breaker.tripped, breaker.tripped ? "Tripped. Buys stop until tomorrow" : "Armed at " + Number(breaker.drop_pct || 5) + "% a day");
-  setSignal(next, "Live", true, "Locked. Paper only");
+  const schwab = state.schwab;
+  const schwabOn = !!(schwab && schwab.connected);
+  setSignal(
+    next,
+    "Schwab",
+    schwabOn,
+    schwab ? String(schwab.detail || (schwabOn ? "connected" : "not connected")) : "not connected"
+  );
+  const foundSchwab = next.find((item) => item.name === "Schwab");
+  if (foundSchwab) foundSchwab.tone = "strict";
+  setSignal(
+    next,
+    "Live",
+    true,
+    schwab && schwab.live_trading
+      ? "Trading preference on · orders still paper"
+      : "Locked. Paper only"
+  );
   const zoomOk = !!($("zoom-in") && $("zoom-out"));
   setSignal(next, "Zoom", zoomOk, zoomOk ? "In and out" : "The zoom buttons are missing");
   return next;
@@ -7713,7 +8191,8 @@ function noteEdge() {
 function signalRow(item) {
   const row = document.createElement("li");
   const dot = document.createElement("span");
-  dot.className = item.ok ? "dot on" : "dot";
+  const strict = item.tone === "strict" || item.name === "Schwab";
+  dot.className = item.ok ? "dot on" : strict ? "dot bad" : "dot";
   const text = document.createElement("span");
   text.textContent = item.name + " · " + item.detail;
   row.append(dot, text);
@@ -7774,6 +8253,12 @@ function renderLocalSignals() {
     { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
     { name: "Timeframes", ok: typeof PaperFrames !== "undefined" && PaperFrames.FRAMES.length === 10, detail: "10 windows" },
     { name: "Broker", ok: true, detail: "Not connected" },
+    {
+      name: "Schwab",
+      ok: !!(state.schwab && state.schwab.connected),
+      detail: state.schwab ? String(state.schwab.detail || "not connected") : "not connected · desk offline",
+      tone: "strict",
+    },
     { name: "Version", ok: true, detail: VERSION },
   ]));
 }
@@ -8550,7 +9035,100 @@ async function boot() {
   $("status").textContent = "Market quote ready.";
 }
 
+function paintSchwabButtons(status) {
+  state.schwab = status || null;
+  const connect = $("schwab-connect");
+  const market = $("schwab-market");
+  const live = $("schwab-live");
+  const note = $("schwab-note");
+  const top = $("schwab-top");
+  const dot = $("schwab-top-dot");
+  const topStatus = $("schwab-top-status");
+  if (!connect || !market || !live) return;
+  const linked = !!(status && status.connected);
+  const creds = !!(status && status.credentials);
+  connect.setAttribute("aria-pressed", linked ? "true" : "false");
+  connect.textContent = linked ? "Connected" : "Connect";
+  if (top) top.classList.toggle("on", linked);
+  if (dot) {
+    dot.className = linked ? "schwab-top-dot on" : "schwab-top-dot bad";
+    dot.title = linked ? "Connected" : "Not connected";
+  }
+  if (topStatus) {
+    topStatus.className = linked ? "schwab-top-status on" : "schwab-top-status bad";
+    topStatus.textContent = linked ? "ON" : "OFF";
+  }
+  market.disabled = !linked;
+  market.setAttribute("aria-pressed", status && status.market_data ? "true" : "false");
+  market.textContent = status && status.market_data ? "Market Data on" : "Market Data";
+  live.disabled = !linked || !(status && status.market_data);
+  live.setAttribute("aria-pressed", status && status.live_trading ? "true" : "false");
+  live.textContent = status && status.live_trading ? "Live Trading on" : "Live Trading";
+  if (!note) return;
+  if (!creds) {
+    note.textContent = "Paper stays the default.";
+  } else if (!linked) {
+    note.textContent = status && status.detail
+      ? String(status.detail)
+      : "Paper stays the default.";
+  } else if (status.live_trading) {
+    note.textContent = "Market Data on · Live preference on · paper fills only.";
+  } else if (status.market_data) {
+    note.textContent = "Market Data on · Live off · paper default.";
+  } else {
+    note.textContent = "Connected · Market Data off · paper default.";
+  }
+}
+
+async function loadSchwab() {
+  if (state.offline) {
+    paintSchwabButtons({
+      connected: false,
+      credentials: false,
+      market_data: false,
+      live_trading: false,
+      detail: "not connected · desk offline",
+    });
+    return state.schwab;
+  }
+  try {
+    const status = await getJSON("/api/schwab");
+    paintSchwabButtons(status);
+    return status;
+  } catch (error) {
+    paintSchwabButtons({
+      connected: false,
+      credentials: false,
+      market_data: false,
+      live_trading: false,
+      detail: "not connected · " + error.message,
+    });
+    return state.schwab;
+  }
+}
+
+function closeSchwabModal() {
+  const box = $("schwab-modal");
+  if (box) box.hidden = true;
+}
+
+function openSchwabModal(message) {
+  const box = $("schwab-modal");
+  if (!box) return;
+  $("schwab-redirect").value = "";
+  $("schwab-modal-note").textContent = message || "";
+  box.hidden = false;
+  $("schwab-redirect").focus();
+}
+
+async function refreshSchwabSignals() {
+  await loadSchwab();
+  if (!state.offline) await loadSignals();
+  else renderLocalSignals();
+}
+
 async function loadSignals() {
+  await loadSchwab();
   const report = await getJSON("/api/checks");
   paintSignals(withHooks(report.items));
   requestAnimationFrame(() => paintSignals(withHooks(report.items)));
@@ -12378,17 +12956,16 @@ function paintOutlookCell(id, row) {
 
 function renderOutlook() {
   const call = $("outlook-call");
-  const note = $("outlook-note");
   const box = state.outlook || {};
   const result = box.result;
   if (!result || !result.ready) {
     if (call) {
       call.className = "outlook-call wait";
       call.textContent = box.busy
-        ? "Reading SPY closed bars…"
+        ? "Reading…"
         : box.error
-          ? "Outlook unread · " + box.error
-          : "Market Outlook · waiting for SPY closed bars";
+          ? "Unread"
+          : "Waiting";
     }
     ["outlook-day", "outlook-week", "outlook-month"].forEach((id) => {
       const cell = $(id);
@@ -12397,13 +12974,8 @@ function renderOutlook() {
       const score = cell.querySelector(".outlook-score");
       const stance = cell.querySelector(".outlook-stance");
       if (score) score.textContent = "—";
-      if (stance) stance.textContent = box.busy ? "Reading…" : "Waiting";
+      if (stance) stance.textContent = box.busy ? "…" : "—";
     });
-    if (note) {
-      note.textContent = box.busy
-        ? "Reading SPY Day · Week · Month on closed bars…"
-        : "SPY closed bars · Day · Week · Month · score 1–10 · green good / red soft. Best call: Go long, Stay flat, or Short bias. Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge and Best setup still gate buys. Paper only. Not a crystal ball.";
-    }
     return;
   }
   paintOutlookCell("outlook-day", result.day);
@@ -12412,23 +12984,8 @@ function renderOutlook() {
   if (call) {
     call.className = "outlook-call " + (result.color || "wait");
     call.textContent =
-      "Best call · " +
-      result.call +
-      (result.board != null ? " · " + result.board + "/10" : "") +
-      (result.asOf ? " · through " + result.asOf : "");
-  }
-  if (note) {
-    const when = box.at
-      ? new Date(box.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
-      : "";
-    note.textContent =
-      (result.why || "") +
-      " " +
-      (result.day && result.day.why ? "Day: " + result.day.why + ". " : "") +
-      (result.week && result.week.why ? "Week: " + result.week.why + ". " : "") +
-      (result.month && result.month.why ? "Month: " + result.month.why + ". " : "") +
-      (when ? "Updated " + when + " Denver. " : "") +
-      "Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge still gates buys. Not a crystal ball.";
+      (result.call || "—") +
+      (result.board != null ? " · " + result.board + "/10" : "");
   }
 }
 
@@ -13167,7 +13724,7 @@ function drawCandles(retry) {
     return;
   }
   if (canvas.clientWidth < 40) canvas.style.width = "100%";
-  if (canvas.clientHeight < 40) canvas.style.minHeight = "240px";
+  if (canvas.clientHeight < 40) canvas.style.minHeight = "420px";
   const history = sliceToCursor(state.market.bars);
   const fitted = currentLesson(history);
   const view = PaperFrames.zoomBars(history, state.zoom);
@@ -14790,13 +15347,106 @@ $("halt").addEventListener("click", async () => {
 });
 
 $("live").addEventListener("click", () => {
-  $("status").textContent = LIVE_NOTE + " To trade real money, use your broker's own app.";
+  $("status").textContent = LIVE_NOTE + " To trade real money, use your broker's own app. Use Live Trading under Schwab only after Connect and Market Data.";
 });
 
 $("paper").addEventListener("click", () => withBusy(async () => {
   const paper = await paperCall("/api/paper/mode", { mode: "paper" });
   render(paper);
   $("status").textContent = "Paper is on. Orders stay simulated on this computer.";
+}));
+
+$("schwab-connect").addEventListener("click", () => withBusy(async () => {
+  if (state.offline) {
+    $("status").textContent = "Schwab connect needs the computer desk on 127.0.0.1.";
+    return;
+  }
+  if (state.schwab && state.schwab.connected) {
+    const status = await postJSON("/api/schwab/disconnect", {});
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = "Disconnected from Schwab. Signals show red until you connect again.";
+    return;
+  }
+  try {
+    const start = await postJSON("/api/schwab/connect", {});
+    window.open(start.authorize_url, "schwab-oauth", "popup=yes,width=720,height=820");
+    openSchwabModal("Browser opened to Schwab. After sign-in, paste the https://127.0.0.1 redirect URL below.");
+    $("status").textContent = "Finish Schwab connect by pasting the redirect URL.";
+  } catch (error) {
+    $("status").textContent = error.message;
+    $("schwab-note").textContent = error.message;
+  }
+}));
+
+$("schwab-modal-cancel").addEventListener("click", () => {
+  closeSchwabModal();
+  $("status").textContent = "Schwab connect canceled. Signals stay red until you connect.";
+});
+
+$("schwab-modal-save").addEventListener("click", () => withBusy(async () => {
+  const redirect = $("schwab-redirect").value.trim();
+  try {
+    const status = await postJSON("/api/schwab/finish", { redirect });
+    paintSchwabButtons(status);
+    closeSchwabModal();
+    await loadSignals();
+    $("status").textContent = "Schwab connected. Signals show green. Market Data is still off.";
+  } catch (error) {
+    $("schwab-modal-note").textContent = error.message;
+    $("status").textContent = error.message;
+  }
+}));
+
+$("schwab-modal").addEventListener("click", (event) => {
+  if (event.target === $("schwab-modal")) closeSchwabModal();
+});
+
+$("schwab-market").addEventListener("click", () => withBusy(async () => {
+  if (!(state.schwab && state.schwab.connected)) {
+    $("status").textContent = "Connect to Schwab before Market Data.";
+    return;
+  }
+  const turnOn = !(state.schwab && state.schwab.market_data);
+  try {
+    const status = await postJSON("/api/schwab/market-data", { enabled: turnOn });
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = turnOn
+      ? "Market Data on. Quotes still use the desk feed until Schwab bars are wired; connection stays green."
+      : "Market Data off. Live Trading was cleared. Paper stays the default.";
+  } catch (error) {
+    $("status").textContent = error.message;
+  }
+}));
+
+$("schwab-live").addEventListener("click", () => withBusy(async () => {
+  if (!(state.schwab && state.schwab.connected && state.schwab.market_data)) {
+    $("status").textContent = "Connect and turn Market Data on before Live Trading.";
+    return;
+  }
+  if (state.schwab && state.schwab.live_trading) {
+    const status = await postJSON("/api/schwab/live-trading", { enabled: false, confirmed: true });
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = "Live Trading off. Paper stays the default. No broker orders were sent.";
+    return;
+  }
+  const ok = window.confirm(
+    "Turn Live Trading preference ON?\n\nPaper stays the default on this desk. This does not send broker orders. Real fills stay paper until a future Trader API step. Press Cancel to keep Live Trading off."
+  );
+  if (!ok) {
+    $("status").textContent = "Live Trading stays off.";
+    return;
+  }
+  try {
+    const status = await postJSON("/api/schwab/live-trading", { enabled: true, confirmed: true });
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = "Live Trading preference on. Orders still fill on paper. No broker link was used.";
+  } catch (error) {
+    $("status").textContent = error.message;
+  }
 }));
 
 $("quote").addEventListener("click", () => {
@@ -15072,7 +15722,42 @@ function restoreStudies() {
   state.studyCode = studies[0].code;
 }
 
+let toolsReturnTab = "chart";
+
+function paintOpenToolsButton() {
+  const btn = $("open-tools");
+  if (!btn) return;
+  const open = !!document.body.dataset.tools;
+  btn.setAttribute("aria-pressed", open ? "true" : "false");
+  btn.classList.toggle("on", open);
+}
+
+function hideTools() {
+  delete document.body.dataset.tools;
+  paintOpenToolsButton();
+  const phone = window.matchMedia("(max-width: 980px)").matches;
+  if (phone) {
+    const back = toolsReturnTab === "study" ? "chart" : toolsReturnTab || "chart";
+    showPhoneTab(back);
+  }
+  const status = $("status");
+  if (status) status.textContent = "Back to desk.";
+}
+
+function backFromToolPage() {
+  const current = document.body.dataset.tools || "";
+  if (current && current !== "home") {
+    showDock("home");
+    const status = $("status");
+    if (status) status.textContent = "Tools.";
+    return;
+  }
+  hideTools();
+}
+
 function showDock(name) {
+  if (!name) name = "home";
+  if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) name = "home";
   if (name === "internals") loadInternals(false);
   if (name === "scorecard") {
     renderScorecard();
@@ -15084,6 +15769,12 @@ function showDock(name) {
       state.orbBusy = false;
     });
   }
+  if (!document.body.dataset.tools) {
+    const tab = document.body.dataset.tab || "chart";
+    toolsReturnTab = tab === "study" ? "chart" : tab;
+  }
+  document.body.dataset.tools = name;
+  paintOpenToolsButton();
   document.querySelectorAll(".dock-tab").forEach((button) => {
     button.classList.toggle("on", button.dataset.dock === name);
   });
@@ -15105,20 +15796,31 @@ function showDock(name) {
     renderBook(state.paper);
     renderJournalCheck(state.paper);
   }
-  nudgeLearn(name);
-  if (window.matchMedia("(max-width: 980px)").matches) {
+  nudgeLearn(name === "home" ? "study" : name);
+  const phone = window.matchMedia("(max-width: 980px)").matches;
+  if (phone) {
     document.body.dataset.tab = "study";
     document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
       button.classList.toggle("on", button.dataset.tab === "study");
     });
   }
+  const workspace = document.querySelector(".workspace");
+  if (workspace) workspace.scrollTop = 0;
+  const page = document.querySelector('.dock-page.on');
+  if (page) page.scrollTop = 0;
 }
 
 function restoreDock() {
   try {
-    const name = localStorage.getItem(DOCK_KEY) || "";
-    if (!name || !document.querySelector('.dock-tab[data-dock="' + name + '"]')) return;
-    showDock(name);
+    const name = localStorage.getItem(DOCK_KEY) || "home";
+    if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) return;
+    /* Remember the last Tools page without opening it over the main desk. */
+    document.querySelectorAll(".dock-tab").forEach((button) => {
+      button.classList.toggle("on", button.dataset.dock === name);
+    });
+    document.querySelectorAll(".dock-page").forEach((page) => {
+      page.classList.toggle("on", page.dataset.dockPage === name);
+    });
   } catch (error) {
     return;
   }
@@ -15174,11 +15876,23 @@ $("frames-all").addEventListener("click", () => openAllFrames());
 $("brief-window").addEventListener("click", () => openBrief());
 
 function showPhoneTab(name) {
+  if (name === "study") {
+    if (!document.body.dataset.tools) {
+      toolsReturnTab = document.body.dataset.tab || "chart";
+    }
+    document.body.dataset.tab = "study";
+    document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === "study"));
+    if (state.market && state.paper) redrawStudies();
+    showDock(document.body.dataset.tools || (document.querySelector(".dock-tab.on") || {}).dataset.dock || "home");
+    return;
+  }
+  delete document.body.dataset.tools;
+  paintOpenToolsButton();
   document.body.dataset.tab = name;
   document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
   if (name === "chart") paintChartToolBoxes(state.market && state.market.history);
-  if (state.market && state.paper && (name === "chart" || name === "study")) redrawStudies();
-  nudgeLearn(name === "study" ? (document.querySelector(".dock-tab.on") || {}).dataset.dock || "study" : name);
+  if (state.market && state.paper && name === "chart") redrawStudies();
+  nudgeLearn(name);
 }
 
 document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
@@ -15188,13 +15902,17 @@ document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
 const chartBack = $("chart-back");
 if (chartBack) {
   chartBack.addEventListener("click", () => {
+    if (document.body.dataset.tools) {
+      hideTools();
+      return;
+    }
     if (window.matchMedia("(max-width: 980px)").matches) {
       showPhoneTab("markets");
       $("status").textContent = "Back to markets.";
       return;
     }
-    showDock("journal");
-    $("status").textContent = "Journal is open.";
+    showDock("home");
+    $("status").textContent = "Tools.";
   });
 }
 
@@ -15205,14 +15923,31 @@ document.querySelectorAll(".dock-tab").forEach((button) => {
   button.addEventListener("click", () => showDock(button.dataset.dock));
 });
 
-document.querySelectorAll("#study-pages [data-open-dock]").forEach((button) => {
+document.querySelectorAll("[data-open-dock]").forEach((button) => {
   button.addEventListener("click", () => {
     const name = button.dataset.openDock;
-    if (window.matchMedia("(max-width: 980px)").matches) showPhoneTab("study");
     showDock(name);
     $("status").textContent = "Opened " + (button.textContent || name) + ".";
   });
 });
+
+document.querySelectorAll(".dock-back").forEach((button) => {
+  button.addEventListener("click", () => backFromToolPage());
+});
+
+const openTools = $("open-tools");
+if (openTools) {
+  openTools.addEventListener("click", () => {
+    if (document.body.dataset.tools === "home") {
+      hideTools();
+      return;
+    }
+    showDock("home");
+    const status = $("status");
+    if (status) status.textContent = "Tools.";
+  });
+}
+paintOpenToolsButton();
 
 const buildTag = $("build-tag");
 if (buildTag) buildTag.textContent = VERSION;

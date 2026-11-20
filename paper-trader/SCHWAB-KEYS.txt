@@ -1,0 +1,15 @@
+# ============================================================
+# SCHWAB KEYS — paste App Key and App Secret below
+# ============================================================
+# When Schwab approves your Developer Portal app, open this file
+# OR open Documents\Paper Trader\.env (created automatically) and
+# replace the paste-... placeholders with your real values.
+#
+# Never commit .env or this file after pasting real secrets.
+# Paper stays the default. Live Trading stays off until you confirm.
+# ============================================================
+
+SCHWAB_APP_KEY=paste-app-key-here
+SCHWAB_APP_SECRET=paste-app-secret-here
+SCHWAB_CALLBACK_URL=https://127.0.0.1
+SCHWAB_APP_NAME=personal-market-data

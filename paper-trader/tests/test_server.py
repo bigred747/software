@@ -136,10 +136,15 @@ class ServerTests(unittest.TestCase):
         payload = json.loads(raw)
         self.assertTrue(payload["ok"])
         names = {item["name"] for item in payload["items"]}
-        for name in ("Paper", "Auto", "Trade", "Ticker", "Chart", "Markets", "Broker", "Install", "Learning", "Fear and greed", "Zoom"):
+        for name in ("Paper", "Auto", "Trade", "Ticker", "Chart", "Markets", "Broker", "Schwab", "Install", "Learning", "Fear and greed", "Zoom"):
             self.assertIn(name, names)
+        schwab = next(item for item in payload["items"] if item["name"] == "Schwab")
+        self.assertFalse(schwab["ok"])
+        self.assertIn("not connected", schwab["detail"])
         for item in payload["items"]:
-            self.assertTrue(item["ok"])
+            if item["name"] == "Schwab":
+                continue
+            self.assertTrue(item["ok"], item)
             self.assertTrue(item["detail"])
 
     def test_trade_button_places_a_simulated_order(self) -> None:
@@ -529,8 +534,13 @@ class ServerTests(unittest.TestCase):
             "Program unchanged",
             "Launchers clean",
             "Quiet installer",
+            "Schwab credentials",
         ):
             self.assertIn(name, names)
+        schwab = next(item for item in report["items"] if item["name"] == "Schwab credentials")
+        self.assertEqual(schwab["kind"], "health")
+        self.assertTrue(schwab["ok"])
+        self.assertIn(schwab["detail"], ("missing", "ready (not connected)"))
         self.assertTrue(all(item["ok"] for item in report["items"] if item["kind"] == "safety"))
 
     def test_windows_extras_are_off_by_default_and_wired(self) -> None:
@@ -982,7 +992,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.9.94", script)
+        self.assertIn(b"1.10.4", script)
         self.assertIn(b"/api/breadth", script)
         self.assertIn(b"loadBreadth", script)
         self.assertIn(b"will not invent", script)
@@ -1035,7 +1045,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b'id="chart-boxes"', page)
         self.assertIn(b">VIX<", page)
         self.assertIn(b'id="study-pages"', page)
-        self.assertIn(b"Second page", page)
+        self.assertIn(b">Tools<", page)
+        self.assertIn(b'data-dock="home"', page)
+        self.assertIn(b"dock-back", page)
         self.assertIn(b"paintChartBoxes", script)
         self.assertIn(b"No feed", page)
         self.assertIn(b"will not paint fake numbers", page)

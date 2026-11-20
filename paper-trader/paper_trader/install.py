@@ -13,6 +13,8 @@ LAUNCHER = "Start-Paper-Trader.bat"
 PACKAGE = Path("paper_trader") / "__init__.py"
 SKIP_DIRS = {"__pycache__", "tests", ".git"}
 SKIP_FILES = {
+    ".env",
+    "schwab_tokens.json",
     "paper_state.json",
     "learn_state.json",
     "learn_watch.json",
@@ -91,6 +93,9 @@ def install_newest(source: Path, home: Path) -> tuple[Path, str]:
             _replace_install(source, dest)
         dest.mkdir(parents=True, exist_ok=True)
         (dest / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
+        from paper_trader.schwab_env import ensure_env_file
+
+        ensure_env_file(dest)
     except OSError as exc:
         raise ValueError("Could not replace the older copy. Opening the new copy instead.") from exc
     _resume_learner(dest)

@@ -36,6 +36,7 @@ const state = {
   stratLearn: { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 },
   breadth: null,
   vixBars: [],
+  schwab: null,
 };
 
 const STUDY_KEY = "paperTraderStudies";
@@ -91,7 +92,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.94";
+const VERSION = "1.10.4";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -420,7 +421,24 @@ function withHooks(items) {
   else if (!next.some((item) => item.name === "Fear and greed")) setSignal(next, "Fear and greed", false, "Waiting on the quote");
   const breaker = breakerState();
   setSignal(next, "Breaker", !breaker.tripped, breaker.tripped ? "Tripped. Buys stop until tomorrow" : "Armed at " + Number(breaker.drop_pct || 5) + "% a day");
-  setSignal(next, "Live", true, "Locked. Paper only");
+  const schwab = state.schwab;
+  const schwabOn = !!(schwab && schwab.connected);
+  setSignal(
+    next,
+    "Schwab",
+    schwabOn,
+    schwab ? String(schwab.detail || (schwabOn ? "connected" : "not connected")) : "not connected"
+  );
+  const foundSchwab = next.find((item) => item.name === "Schwab");
+  if (foundSchwab) foundSchwab.tone = "strict";
+  setSignal(
+    next,
+    "Live",
+    true,
+    schwab && schwab.live_trading
+      ? "Trading preference on · orders still paper"
+      : "Locked. Paper only"
+  );
   const zoomOk = !!($("zoom-in") && $("zoom-out"));
   setSignal(next, "Zoom", zoomOk, zoomOk ? "In and out" : "The zoom buttons are missing");
   return next;
@@ -449,7 +467,8 @@ function noteEdge() {
 function signalRow(item) {
   const row = document.createElement("li");
   const dot = document.createElement("span");
-  dot.className = item.ok ? "dot on" : "dot";
+  const strict = item.tone === "strict" || item.name === "Schwab";
+  dot.className = item.ok ? "dot on" : strict ? "dot bad" : "dot";
   const text = document.createElement("span");
   text.textContent = item.name + " · " + item.detail;
   row.append(dot, text);
@@ -510,6 +529,12 @@ function renderLocalSignals() {
     { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
     { name: "Timeframes", ok: typeof PaperFrames !== "undefined" && PaperFrames.FRAMES.length === 10, detail: "10 windows" },
     { name: "Broker", ok: true, detail: "Not connected" },
+    {
+      name: "Schwab",
+      ok: !!(state.schwab && state.schwab.connected),
+      detail: state.schwab ? String(state.schwab.detail || "not connected") : "not connected · desk offline",
+      tone: "strict",
+    },
     { name: "Version", ok: true, detail: VERSION },
   ]));
 }
@@ -1286,7 +1311,100 @@ async function boot() {
   $("status").textContent = "Market quote ready.";
 }
 
+function paintSchwabButtons(status) {
+  state.schwab = status || null;
+  const connect = $("schwab-connect");
+  const market = $("schwab-market");
+  const live = $("schwab-live");
+  const note = $("schwab-note");
+  const top = $("schwab-top");
+  const dot = $("schwab-top-dot");
+  const topStatus = $("schwab-top-status");
+  if (!connect || !market || !live) return;
+  const linked = !!(status && status.connected);
+  const creds = !!(status && status.credentials);
+  connect.setAttribute("aria-pressed", linked ? "true" : "false");
+  connect.textContent = linked ? "Connected" : "Connect";
+  if (top) top.classList.toggle("on", linked);
+  if (dot) {
+    dot.className = linked ? "schwab-top-dot on" : "schwab-top-dot bad";
+    dot.title = linked ? "Connected" : "Not connected";
+  }
+  if (topStatus) {
+    topStatus.className = linked ? "schwab-top-status on" : "schwab-top-status bad";
+    topStatus.textContent = linked ? "ON" : "OFF";
+  }
+  market.disabled = !linked;
+  market.setAttribute("aria-pressed", status && status.market_data ? "true" : "false");
+  market.textContent = status && status.market_data ? "Market Data on" : "Market Data";
+  live.disabled = !linked || !(status && status.market_data);
+  live.setAttribute("aria-pressed", status && status.live_trading ? "true" : "false");
+  live.textContent = status && status.live_trading ? "Live Trading on" : "Live Trading";
+  if (!note) return;
+  if (!creds) {
+    note.textContent = "Paper stays the default.";
+  } else if (!linked) {
+    note.textContent = status && status.detail
+      ? String(status.detail)
+      : "Paper stays the default.";
+  } else if (status.live_trading) {
+    note.textContent = "Market Data on · Live preference on · paper fills only.";
+  } else if (status.market_data) {
+    note.textContent = "Market Data on · Live off · paper default.";
+  } else {
+    note.textContent = "Connected · Market Data off · paper default.";
+  }
+}
+
+async function loadSchwab() {
+  if (state.offline) {
+    paintSchwabButtons({
+      connected: false,
+      credentials: false,
+      market_data: false,
+      live_trading: false,
+      detail: "not connected · desk offline",
+    });
+    return state.schwab;
+  }
+  try {
+    const status = await getJSON("/api/schwab");
+    paintSchwabButtons(status);
+    return status;
+  } catch (error) {
+    paintSchwabButtons({
+      connected: false,
+      credentials: false,
+      market_data: false,
+      live_trading: false,
+      detail: "not connected · " + error.message,
+    });
+    return state.schwab;
+  }
+}
+
+function closeSchwabModal() {
+  const box = $("schwab-modal");
+  if (box) box.hidden = true;
+}
+
+function openSchwabModal(message) {
+  const box = $("schwab-modal");
+  if (!box) return;
+  $("schwab-redirect").value = "";
+  $("schwab-modal-note").textContent = message || "";
+  box.hidden = false;
+  $("schwab-redirect").focus();
+}
+
+async function refreshSchwabSignals() {
+  await loadSchwab();
+  if (!state.offline) await loadSignals();
+  else renderLocalSignals();
+}
+
 async function loadSignals() {
+  await loadSchwab();
   const report = await getJSON("/api/checks");
   paintSignals(withHooks(report.items));
   requestAnimationFrame(() => paintSignals(withHooks(report.items)));
@@ -5114,17 +5232,16 @@ function paintOutlookCell(id, row) {
 
 function renderOutlook() {
   const call = $("outlook-call");
-  const note = $("outlook-note");
   const box = state.outlook || {};
   const result = box.result;
   if (!result || !result.ready) {
     if (call) {
       call.className = "outlook-call wait";
       call.textContent = box.busy
-        ? "Reading SPY closed bars…"
+        ? "Reading…"
         : box.error
-          ? "Outlook unread · " + box.error
-          : "Market Outlook · waiting for SPY closed bars";
+          ? "Unread"
+          : "Waiting";
     }
     ["outlook-day", "outlook-week", "outlook-month"].forEach((id) => {
       const cell = $(id);
@@ -5133,13 +5250,8 @@ function renderOutlook() {
       const score = cell.querySelector(".outlook-score");
       const stance = cell.querySelector(".outlook-stance");
       if (score) score.textContent = "—";
-      if (stance) stance.textContent = box.busy ? "Reading…" : "Waiting";
+      if (stance) stance.textContent = box.busy ? "…" : "—";
     });
-    if (note) {
-      note.textContent = box.busy
-        ? "Reading SPY Day · Week · Month on closed bars…"
-        : "SPY closed bars · Day · Week · Month · score 1–10 · green good / red soft. Best call: Go long, Stay flat, or Short bias. Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge and Best setup still gate buys. Paper only. Not a crystal ball.";
-    }
     return;
   }
   paintOutlookCell("outlook-day", result.day);
@@ -5148,23 +5260,8 @@ function renderOutlook() {
   if (call) {
     call.className = "outlook-call " + (result.color || "wait");
     call.textContent =
-      "Best call · " +
-      result.call +
-      (result.board != null ? " · " + result.board + "/10" : "") +
-      (result.asOf ? " · through " + result.asOf : "");
-  }
-  if (note) {
-    const when = box.at
-      ? new Date(box.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
-      : "";
-    note.textContent =
-      (result.why || "") +
-      " " +
-      (result.day && result.day.why ? "Day: " + result.day.why + ". " : "") +
-      (result.week && result.week.why ? "Week: " + result.week.why + ". " : "") +
-      (result.month && result.month.why ? "Month: " + result.month.why + ". " : "") +
-      (when ? "Updated " + when + " Denver. " : "") +
-      "Long-only desk — Short bias means stay flat / pressure review, no short fills. Edge still gates buys. Not a crystal ball.";
+      (result.call || "—") +
+      (result.board != null ? " · " + result.board + "/10" : "");
   }
 }
 
@@ -5903,7 +6000,7 @@ function drawCandles(retry) {
     return;
   }
   if (canvas.clientWidth < 40) canvas.style.width = "100%";
-  if (canvas.clientHeight < 40) canvas.style.minHeight = "240px";
+  if (canvas.clientHeight < 40) canvas.style.minHeight = "420px";
   const history = sliceToCursor(state.market.bars);
   const fitted = currentLesson(history);
   const view = PaperFrames.zoomBars(history, state.zoom);
@@ -7526,13 +7623,106 @@ $("halt").addEventListener("click", async () => {
 });
 
 $("live").addEventListener("click", () => {
-  $("status").textContent = LIVE_NOTE + " To trade real money, use your broker's own app.";
+  $("status").textContent = LIVE_NOTE + " To trade real money, use your broker's own app. Use Live Trading under Schwab only after Connect and Market Data.";
 });
 
 $("paper").addEventListener("click", () => withBusy(async () => {
   const paper = await paperCall("/api/paper/mode", { mode: "paper" });
   render(paper);
   $("status").textContent = "Paper is on. Orders stay simulated on this computer.";
+}));
+
+$("schwab-connect").addEventListener("click", () => withBusy(async () => {
+  if (state.offline) {
+    $("status").textContent = "Schwab connect needs the computer desk on 127.0.0.1.";
+    return;
+  }
+  if (state.schwab && state.schwab.connected) {
+    const status = await postJSON("/api/schwab/disconnect", {});
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = "Disconnected from Schwab. Signals show red until you connect again.";
+    return;
+  }
+  try {
+    const start = await postJSON("/api/schwab/connect", {});
+    window.open(start.authorize_url, "schwab-oauth", "popup=yes,width=720,height=820");
+    openSchwabModal("Browser opened to Schwab. After sign-in, paste the https://127.0.0.1 redirect URL below.");
+    $("status").textContent = "Finish Schwab connect by pasting the redirect URL.";
+  } catch (error) {
+    $("status").textContent = error.message;
+    $("schwab-note").textContent = error.message;
+  }
+}));
+
+$("schwab-modal-cancel").addEventListener("click", () => {
+  closeSchwabModal();
+  $("status").textContent = "Schwab connect canceled. Signals stay red until you connect.";
+});
+
+$("schwab-modal-save").addEventListener("click", () => withBusy(async () => {
+  const redirect = $("schwab-redirect").value.trim();
+  try {
+    const status = await postJSON("/api/schwab/finish", { redirect });
+    paintSchwabButtons(status);
+    closeSchwabModal();
+    await loadSignals();
+    $("status").textContent = "Schwab connected. Signals show green. Market Data is still off.";
+  } catch (error) {
+    $("schwab-modal-note").textContent = error.message;
+    $("status").textContent = error.message;
+  }
+}));
+
+$("schwab-modal").addEventListener("click", (event) => {
+  if (event.target === $("schwab-modal")) closeSchwabModal();
+});
+
+$("schwab-market").addEventListener("click", () => withBusy(async () => {
+  if (!(state.schwab && state.schwab.connected)) {
+    $("status").textContent = "Connect to Schwab before Market Data.";
+    return;
+  }
+  const turnOn = !(state.schwab && state.schwab.market_data);
+  try {
+    const status = await postJSON("/api/schwab/market-data", { enabled: turnOn });
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = turnOn
+      ? "Market Data on. Quotes still use the desk feed until Schwab bars are wired; connection stays green."
+      : "Market Data off. Live Trading was cleared. Paper stays the default.";
+  } catch (error) {
+    $("status").textContent = error.message;
+  }
+}));
+
+$("schwab-live").addEventListener("click", () => withBusy(async () => {
+  if (!(state.schwab && state.schwab.connected && state.schwab.market_data)) {
+    $("status").textContent = "Connect and turn Market Data on before Live Trading.";
+    return;
+  }
+  if (state.schwab && state.schwab.live_trading) {
+    const status = await postJSON("/api/schwab/live-trading", { enabled: false, confirmed: true });
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = "Live Trading off. Paper stays the default. No broker orders were sent.";
+    return;
+  }
+  const ok = window.confirm(
+    "Turn Live Trading preference ON?\n\nPaper stays the default on this desk. This does not send broker orders. Real fills stay paper until a future Trader API step. Press Cancel to keep Live Trading off."
+  );
+  if (!ok) {
+    $("status").textContent = "Live Trading stays off.";
+    return;
+  }
+  try {
+    const status = await postJSON("/api/schwab/live-trading", { enabled: true, confirmed: true });
+    paintSchwabButtons(status);
+    await loadSignals();
+    $("status").textContent = "Live Trading preference on. Orders still fill on paper. No broker link was used.";
+  } catch (error) {
+    $("status").textContent = error.message;
+  }
 }));
 
 $("quote").addEventListener("click", () => {
@@ -7808,7 +7998,42 @@ function restoreStudies() {
   state.studyCode = studies[0].code;
 }
 
+let toolsReturnTab = "chart";
+
+function paintOpenToolsButton() {
+  const btn = $("open-tools");
+  if (!btn) return;
+  const open = !!document.body.dataset.tools;
+  btn.setAttribute("aria-pressed", open ? "true" : "false");
+  btn.classList.toggle("on", open);
+}
+
+function hideTools() {
+  delete document.body.dataset.tools;
+  paintOpenToolsButton();
+  const phone = window.matchMedia("(max-width: 980px)").matches;
+  if (phone) {
+    const back = toolsReturnTab === "study" ? "chart" : toolsReturnTab || "chart";
+    showPhoneTab(back);
+  }
+  const status = $("status");
+  if (status) status.textContent = "Back to desk.";
+}
+
+function backFromToolPage() {
+  const current = document.body.dataset.tools || "";
+  if (current && current !== "home") {
+    showDock("home");
+    const status = $("status");
+    if (status) status.textContent = "Tools.";
+    return;
+  }
+  hideTools();
+}
+
 function showDock(name) {
+  if (!name) name = "home";
+  if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) name = "home";
   if (name === "internals") loadInternals(false);
   if (name === "scorecard") {
     renderScorecard();
@@ -7820,6 +8045,12 @@ function showDock(name) {
       state.orbBusy = false;
     });
   }
+  if (!document.body.dataset.tools) {
+    const tab = document.body.dataset.tab || "chart";
+    toolsReturnTab = tab === "study" ? "chart" : tab;
+  }
+  document.body.dataset.tools = name;
+  paintOpenToolsButton();
   document.querySelectorAll(".dock-tab").forEach((button) => {
     button.classList.toggle("on", button.dataset.dock === name);
   });
@@ -7841,20 +8072,31 @@ function showDock(name) {
     renderBook(state.paper);
     renderJournalCheck(state.paper);
   }
-  nudgeLearn(name);
-  if (window.matchMedia("(max-width: 980px)").matches) {
+  nudgeLearn(name === "home" ? "study" : name);
+  const phone = window.matchMedia("(max-width: 980px)").matches;
+  if (phone) {
     document.body.dataset.tab = "study";
     document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
       button.classList.toggle("on", button.dataset.tab === "study");
     });
   }
+  const workspace = document.querySelector(".workspace");
+  if (workspace) workspace.scrollTop = 0;
+  const page = document.querySelector('.dock-page.on');
+  if (page) page.scrollTop = 0;
 }
 
 function restoreDock() {
   try {
-    const name = localStorage.getItem(DOCK_KEY) || "";
-    if (!name || !document.querySelector('.dock-tab[data-dock="' + name + '"]')) return;
-    showDock(name);
+    const name = localStorage.getItem(DOCK_KEY) || "home";
+    if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) return;
+    /* Remember the last Tools page without opening it over the main desk. */
+    document.querySelectorAll(".dock-tab").forEach((button) => {
+      button.classList.toggle("on", button.dataset.dock === name);
+    });
+    document.querySelectorAll(".dock-page").forEach((page) => {
+      page.classList.toggle("on", page.dataset.dockPage === name);
+    });
   } catch (error) {
     return;
   }
@@ -7910,11 +8152,23 @@ $("frames-all").addEventListener("click", () => openAllFrames());
 $("brief-window").addEventListener("click", () => openBrief());
 
 function showPhoneTab(name) {
+  if (name === "study") {
+    if (!document.body.dataset.tools) {
+      toolsReturnTab = document.body.dataset.tab || "chart";
+    }
+    document.body.dataset.tab = "study";
+    document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === "study"));
+    if (state.market && state.paper) redrawStudies();
+    showDock(document.body.dataset.tools || (document.querySelector(".dock-tab.on") || {}).dataset.dock || "home");
+    return;
+  }
+  delete document.body.dataset.tools;
+  paintOpenToolsButton();
   document.body.dataset.tab = name;
   document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
   if (name === "chart") paintChartToolBoxes(state.market && state.market.history);
-  if (state.market && state.paper && (name === "chart" || name === "study")) redrawStudies();
-  nudgeLearn(name === "study" ? (document.querySelector(".dock-tab.on") || {}).dataset.dock || "study" : name);
+  if (state.market && state.paper && name === "chart") redrawStudies();
+  nudgeLearn(name);
 }
 
 document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
@@ -7924,13 +8178,17 @@ document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
 const chartBack = $("chart-back");
 if (chartBack) {
   chartBack.addEventListener("click", () => {
+    if (document.body.dataset.tools) {
+      hideTools();
+      return;
+    }
     if (window.matchMedia("(max-width: 980px)").matches) {
       showPhoneTab("markets");
       $("status").textContent = "Back to markets.";
       return;
     }
-    showDock("journal");
-    $("status").textContent = "Journal is open.";
+    showDock("home");
+    $("status").textContent = "Tools.";
   });
 }
 
@@ -7941,14 +8199,31 @@ document.querySelectorAll(".dock-tab").forEach((button) => {
   button.addEventListener("click", () => showDock(button.dataset.dock));
 });
 
-document.querySelectorAll("#study-pages [data-open-dock]").forEach((button) => {
+document.querySelectorAll("[data-open-dock]").forEach((button) => {
   button.addEventListener("click", () => {
     const name = button.dataset.openDock;
-    if (window.matchMedia("(max-width: 980px)").matches) showPhoneTab("study");
     showDock(name);
     $("status").textContent = "Opened " + (button.textContent || name) + ".";
   });
 });
+
+document.querySelectorAll(".dock-back").forEach((button) => {
+  button.addEventListener("click", () => backFromToolPage());
+});
+
+const openTools = $("open-tools");
+if (openTools) {
+  openTools.addEventListener("click", () => {
+    if (document.body.dataset.tools === "home") {
+      hideTools();
+      return;
+    }
+    showDock("home");
+    const status = $("status");
+    if (status) status.textContent = "Tools.";
+  });
+}
+paintOpenToolsButton();
 
 const buildTag = $("build-tag");
 if (buildTag) buildTag.textContent = VERSION;

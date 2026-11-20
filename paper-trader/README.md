@@ -341,6 +341,27 @@ Security programs watch for programs that end other programs, delete folders the
 
 Markets: all 7,510 from the catalog (crypto including XRP and Stellar, stocks, ETFs, and futures). Added in 1.9.38: VXUS, QQQM, SCHD, SCHG, VUG, and QUAL, so the core ETF list (VOO, VTI, VXUS, QQQM, SCHD) and the growth list (SMH, XLK, VGT, QQQ, IVW, SCHG, IWF, VUG, QUAL, IJH) are all searchable.
 
+## Schwab connect (1.10.4)
+
+Paper stays the default. The desk does not send broker orders. Quotes still use the existing feed until Schwab bars are wired; **Connect**, **Market Data**, and **Live Trading** prepare the Schwab session. Panels use a steel-desk palette (charcoal / slate / mint / coral / ice) so status colors stay clear without glow spam. Connect + Outlook share one compact top rail so charts keep the room. A big **Tools** button sits beside the Paper Trader title. Study, Strategies, Squeeze scan, Scorecard, Internals, Timeframes, big4indicator, Journal, Backtest, and Signals open as full Tools pages with Back.
+
+When the Schwab Developer Portal app (`personal-market-data`, Market Data Production, callback `https://127.0.0.1`) is approved:
+
+1. Open **`Documents\Paper Trader\.env`** (created automatically on install/launch from `SCHWAB-KEYS.txt` / `.env.example` if missing). You can also open `SCHWAB-KEYS.txt` in that folder — same placeholders.
+2. Paste your App Key and App Secret over the placeholders:
+
+```
+SCHWAB_APP_KEY=paste-app-key-here
+SCHWAB_APP_SECRET=paste-app-secret-here
+SCHWAB_CALLBACK_URL=https://127.0.0.1
+SCHWAB_APP_NAME=personal-market-data
+```
+
+3. Never commit `.env` or `schwab_tokens.json`. Reinstalls keep both in place.
+4. At the **top of the desk**, **Connect to Schwab** sits with a green/red light (CONNECTED / NOT CONNECTED). It opens Schwab sign-in; paste the `https://127.0.0.1/?code=...` redirect URL to finish. Tokens stay in `schwab_tokens.json`.
+5. On the Trade panel: **Market Data** (after Connect) and **Live Trading** (after Market Data; confirm; default off). Paper remains the default; no broker orders.
+6. **Signals** also show **Schwab** green/red. CLI: `python -m paper_trader schwab-status`.
+
 ## Check
 
 ```bash

@@ -30,6 +30,10 @@ def main(argv: list[str] | None = None) -> int:
     install = commands.add_parser("install", help="Keep only the newest copy in Documents")
     install.add_argument("--home", type=Path, default=None)
     commands.add_parser("learn", help="Score closed bars all day on this computer")
+    commands.add_parser(
+        "schwab-status",
+        help="Show whether Schwab App Key/Secret are in .env (no API call; Live stays locked)",
+    )
     check = commands.add_parser("backtest", help="Replay one market's quotes and print the paper result")
     check.add_argument("--symbol", default="BTC-USD")
     check.add_argument("--fast", type=int, default=10)
@@ -53,6 +57,9 @@ def main(argv: list[str] | None = None) -> int:
             install_root = Path(__file__).resolve().parents[1]
             os.chdir(install_root)
             assert_safe_launch([install_root])
+            from paper_trader.schwab_env import ensure_env_file
+
+            ensure_env_file(install_root)
             serve(STATE_PATH, args.port, open_browser=not args.no_browser)
             return 0
         if args.command == "learn":
@@ -60,6 +67,18 @@ def main(argv: list[str] | None = None) -> int:
             os.chdir(install_root)
             assert_safe_launch([install_root])
             return run_learner(STATE_PATH.with_name("learn_state.json"))
+        if args.command == "schwab-status":
+            from paper_trader.schwab_auth import connection_status
+            from paper_trader.schwab_env import status_report
+
+            creds = status_report()
+            link = connection_status()
+            print(f"Schwab credentials: {creds['detail']}")
+            print(f"Schwab connection: {link['detail']}")
+            print(f".env path: {creds['env_path']}")
+            print(f"tokens path: {link['token_path']}")
+            print("Paper stays the default. No broker orders are sent.")
+            return 0
         params = Params(
             fast=args.fast,
             slow=args.slow,

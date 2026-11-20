@@ -70,6 +70,16 @@ from paper_trader.model import params_from_dict
 from paper_trader.indicators import squeeze, squeeze_alert
 from paper_trader import quotes
 from paper_trader.samples import catalog_size, search_symbols, warm
+from paper_trader.schwab_auth import (
+    authorize_url as schwab_authorize_url,
+    connection_status as schwab_connection_status,
+    disconnect as schwab_disconnect,
+    finish_oauth as schwab_finish_oauth,
+    set_live_trading as schwab_set_live_trading,
+    set_market_data as schwab_set_market_data,
+    signal_item as schwab_signal_item,
+)
+from paper_trader.schwab_env import status_report as schwab_status_report
 
 WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
 STATIC = {
@@ -800,10 +810,13 @@ class Desk:
             self._breaker_check(),
             {"name": "Ticket", "ok": True, "detail": "Market, limit, stop, stop limit"},
             {"name": "Broker", "ok": True, "detail": "Not connected · Live locked"},
+            schwab_signal_item(),
             {"name": "Version", "ok": True, "detail": __version__},
             single_copy_status(Path.home()),
         ]
-        return {"ok": all(bool(item["ok"]) for item in items), "items": items}
+        # Schwab starts red until OAuth succeeds; that alone does not fail the desk.
+        desk_ok = all(bool(item["ok"]) for item in items if item.get("name") != "Schwab")
+        return {"ok": desk_ok, "items": items}
 
     def safe_report(self, bound: str = "127.0.0.1") -> dict:
         """Every safety item must pass for green. Health items only warn."""
@@ -863,6 +876,8 @@ class Desk:
             add("Quotes", False, str(exc), "health")
         learn = self._learning_check()
         add("Learning", bool(learn["ok"]), str(learn["detail"]), "health")
+        schwab = schwab_status_report()
+        add(str(schwab["name"]), True, str(schwab["detail"]), "health")
         safe = all(item["ok"] for item in items if item["kind"] == "safety")
         warned = [item["name"] for item in items if item["kind"] == "health" and not item["ok"]]
         return {
@@ -1383,6 +1398,9 @@ class DeskHandler(BaseHTTPRequestHandler):
         if method == "GET" and path == "/api/safe":
             self._json(self.desk.safe_report(str(self.server.server_address[0])))
             return
+        if method == "GET" and path == "/api/schwab":
+            self._json(schwab_connection_status())
+            return
         if method == "GET" and path == "/api/bars":
             symbol = query.get("symbol") or self.desk.journal.symbol
             self._json(self.desk.bars(symbol, query.get("frame") or "1D"))
@@ -1413,6 +1431,25 @@ class DeskHandler(BaseHTTPRequestHandler):
         if method == "POST" and path == "/api/paper/mode":
             mode_guard(str(body.get("mode") or ""))
             self._json(self.desk.snapshot())
+            return
+        if method == "POST" and path == "/api/schwab/connect":
+            self._json(schwab_authorize_url())
+            return
+        if method == "POST" and path == "/api/schwab/finish":
+            schwab_finish_oauth(str(body.get("redirect") or body.get("code") or ""))
+            self._json(schwab_connection_status())
+            return
+        if method == "POST" and path == "/api/schwab/disconnect":
+            schwab_disconnect()
+            self._json(schwab_connection_status())
+            return
+        if method == "POST" and path == "/api/schwab/market-data":
+            schwab_set_market_data(bool(body.get("enabled")))
+            self._json(schwab_connection_status())
+            return
+        if method == "POST" and path == "/api/schwab/live-trading":
+            schwab_set_live_trading(bool(body.get("enabled")), confirmed=body.get("confirmed") is True)
+            self._json(schwab_connection_status())
             return
         if method == "POST" and path == "/api/paper/halt":
             self._json(self.desk.halt())
