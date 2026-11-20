@@ -92,7 +92,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.3";
+const VERSION = "1.10.4";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -8000,8 +8000,17 @@ function restoreStudies() {
 
 let toolsReturnTab = "chart";
 
+function paintOpenToolsButton() {
+  const btn = $("open-tools");
+  if (!btn) return;
+  const open = !!document.body.dataset.tools;
+  btn.setAttribute("aria-pressed", open ? "true" : "false");
+  btn.classList.toggle("on", open);
+}
+
 function hideTools() {
   delete document.body.dataset.tools;
+  paintOpenToolsButton();
   const phone = window.matchMedia("(max-width: 980px)").matches;
   if (phone) {
     const back = toolsReturnTab === "study" ? "chart" : toolsReturnTab || "chart";
@@ -8041,6 +8050,7 @@ function showDock(name) {
     toolsReturnTab = tab === "study" ? "chart" : tab;
   }
   document.body.dataset.tools = name;
+  paintOpenToolsButton();
   document.querySelectorAll(".dock-tab").forEach((button) => {
     button.classList.toggle("on", button.dataset.dock === name);
   });
@@ -8153,6 +8163,7 @@ function showPhoneTab(name) {
     return;
   }
   delete document.body.dataset.tools;
+  paintOpenToolsButton();
   document.body.dataset.tab = name;
   document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
   if (name === "chart") paintChartToolBoxes(state.market && state.market.history);
@@ -8199,6 +8210,20 @@ document.querySelectorAll("[data-open-dock]").forEach((button) => {
 document.querySelectorAll(".dock-back").forEach((button) => {
   button.addEventListener("click", () => backFromToolPage());
 });
+
+const openTools = $("open-tools");
+if (openTools) {
+  openTools.addEventListener("click", () => {
+    if (document.body.dataset.tools === "home") {
+      hideTools();
+      return;
+    }
+    showDock("home");
+    const status = $("status");
+    if (status) status.textContent = "Tools.";
+  });
+}
+paintOpenToolsButton();
 
 const buildTag = $("build-tag");
 if (buildTag) buildTag.textContent = VERSION;
