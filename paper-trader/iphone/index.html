@@ -240,12 +240,13 @@ h2 { font-size: 15px; }
   display: grid;
   /* 0 flex-basis so the tall Schwab header still leaves a real scrollport. */
   flex: 1 1 0%;
-  grid-template-columns: 280px minmax(0, 1fr) 280px;
-  grid-template-rows: minmax(0, 1fr) minmax(120px, 28vh);
-  gap: 8px;
+  /* Narrower side rails so the chart column reads big. */
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(180px, 220px);
+  grid-template-rows: minmax(0, 1fr) minmax(100px, 20vh);
+  gap: 6px;
   min-height: 0;
   overflow: auto;
-  padding: 8px;
+  padding: 6px;
 }
 
 .panel {
@@ -258,7 +259,7 @@ h2 { font-size: 15px; }
 }
 
 .watch { grid-column: 1; grid-row: 1; overflow: auto; }
-.chart-panel { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; overflow: auto; min-height: 0; align-content: start; }
+.chart-panel { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; overflow: auto; min-height: 0; align-content: start; padding: 8px; }
 .chart-panel > .chart-head,
 .chart-panel > .desk-status,
 .chart-panel > .chart-read,
@@ -268,11 +269,11 @@ h2 { font-size: 15px; }
 .chart-panel > .study-toolbar,
 .chart-panel > .chart-below,
 .chart-panel > .chart-fold { flex: 0 0 auto; }
-.chart-panel > .study-stack { flex: 0 0 auto; }
+.chart-panel > .study-stack { flex: 1 1 auto; min-height: 0; }
 .chart-tools {
   display: grid;
-  gap: 6px;
-  margin: 0 0 8px;
+  gap: 4px;
+  margin: 0 0 4px;
 }
 .chart-below {
   display: grid;
@@ -817,14 +818,14 @@ button.quiet { background: transparent; }
   background: #000;
   vertical-align: top;
 }
-.study-pane[data-pane="price"] #candles { height: 300px !important; min-height: 300px; }
-.study-pane[data-pane="tmo"] #rsi-chart { height: 200px !important; min-height: 200px; }
-.study-pane[data-pane="sqz"] #sqz-chart { height: 170px !important; min-height: 170px; }
-.study-pane[data-pane="cci"] #cci-chart { height: 200px !important; min-height: 200px; }
-.study-pane.big[data-pane="price"] #candles { height: 360px !important; min-height: 360px; }
+.study-pane[data-pane="price"] #candles { height: 440px !important; min-height: 440px; }
+.study-pane[data-pane="tmo"] #rsi-chart { height: 260px !important; min-height: 260px; }
+.study-pane[data-pane="sqz"] #sqz-chart { height: 220px !important; min-height: 220px; }
+.study-pane[data-pane="cci"] #cci-chart { height: 260px !important; min-height: 260px; }
+.study-pane.big[data-pane="price"] #candles { height: 560px !important; min-height: 560px; }
 .study-pane.big[data-pane="tmo"] #rsi-chart,
-.study-pane.big[data-pane="cci"] #cci-chart { height: 300px !important; min-height: 300px; }
-.study-pane.big[data-pane="sqz"] #sqz-chart { height: 240px !important; min-height: 240px; }
+.study-pane.big[data-pane="cci"] #cci-chart { height: 360px !important; min-height: 360px; }
+.study-pane.big[data-pane="sqz"] #sqz-chart { height: 300px !important; min-height: 300px; }
 .zoom-bar { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 .zoom-bar button { width: auto; min-height: 36px; padding: 6px 12px; }
 .mood { font-weight: 650; }
@@ -949,13 +950,16 @@ footer { display: none; }
     padding-bottom: calc(72px + var(--safe-bottom));
     -webkit-overflow-scrolling: touch;
   }
+  body[data-tab="chart"] .market-outlook {
+    display: none;
+  }
   body[data-tab="chart"] .chart-panel {
     display: block;
     flex: none;
     height: auto;
     min-height: 0;
     overflow: visible;
-    padding: 8px 10px 24px;
+    padding: 4px 6px 20px;
   }
   body[data-tab="chart"] .chart-back { display: inline-flex; }
   body[data-tab="chart"] .chart-head { flex-wrap: wrap; gap: 2px 8px; margin: 0; }
@@ -1078,15 +1082,15 @@ footer { display: none; }
     margin: 0 0 20px;
     flex: none;
   }
-  body[data-tab="chart"] .study-pane-head { height: 42px; font-size: 13px; }
-  body[data-tab="chart"] .study-pane[data-pane="price"] #candles { height: 280px !important; min-height: 280px; }
-  body[data-tab="chart"] .study-pane[data-pane="tmo"] #rsi-chart { height: 200px !important; min-height: 200px; }
-  body[data-tab="chart"] .study-pane[data-pane="sqz"] #sqz-chart { height: 170px !important; min-height: 170px; }
-  body[data-tab="chart"] .study-pane[data-pane="cci"] #cci-chart { height: 200px !important; min-height: 200px; }
-  body[data-tab="chart"] .study-pane.big[data-pane="price"] #candles { height: 340px !important; min-height: 340px; }
+  body[data-tab="chart"] .study-pane-head { height: 36px; font-size: 12px; }
+  body[data-tab="chart"] .study-pane[data-pane="price"] #candles { height: 420px !important; min-height: 420px; }
+  body[data-tab="chart"] .study-pane[data-pane="tmo"] #rsi-chart { height: 250px !important; min-height: 250px; }
+  body[data-tab="chart"] .study-pane[data-pane="sqz"] #sqz-chart { height: 210px !important; min-height: 210px; }
+  body[data-tab="chart"] .study-pane[data-pane="cci"] #cci-chart { height: 250px !important; min-height: 250px; }
+  body[data-tab="chart"] .study-pane.big[data-pane="price"] #candles { height: 520px !important; min-height: 520px; }
   body[data-tab="chart"] .study-pane.big[data-pane="tmo"] #rsi-chart,
-  body[data-tab="chart"] .study-pane.big[data-pane="cci"] #cci-chart { height: 280px !important; min-height: 280px; }
-  body[data-tab="chart"] .study-pane.big[data-pane="sqz"] #sqz-chart { height: 230px !important; min-height: 230px; }
+  body[data-tab="chart"] .study-pane.big[data-pane="cci"] #cci-chart { height: 340px !important; min-height: 340px; }
+  body[data-tab="chart"] .study-pane.big[data-pane="sqz"] #sqz-chart { height: 280px !important; min-height: 280px; }
   #mood-clock { width: 56px; height: 56px; }
   .tabbar {
     display: grid;
@@ -1502,7 +1506,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       <p id="schwab-top-note" class="schwab-top-note">Connect after your Schwab app is approved.</p>
     </div>
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.98</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.99</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -7495,7 +7499,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.98";
+const VERSION = "1.9.99";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -13430,7 +13434,7 @@ function drawCandles(retry) {
     return;
   }
   if (canvas.clientWidth < 40) canvas.style.width = "100%";
-  if (canvas.clientHeight < 40) canvas.style.minHeight = "240px";
+  if (canvas.clientHeight < 40) canvas.style.minHeight = "420px";
   const history = sliceToCursor(state.market.bars);
   const fitted = currentLesson(history);
   const view = PaperFrames.zoomBars(history, state.zoom);

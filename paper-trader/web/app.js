@@ -92,7 +92,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.9.98";
+const VERSION = "1.9.99";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -6027,7 +6027,7 @@ function drawCandles(retry) {
     return;
   }
   if (canvas.clientWidth < 40) canvas.style.width = "100%";
-  if (canvas.clientHeight < 40) canvas.style.minHeight = "240px";
+  if (canvas.clientHeight < 40) canvas.style.minHeight = "420px";
   const history = sliceToCursor(state.market.bars);
   const fitted = currentLesson(history);
   const view = PaperFrames.zoomBars(history, state.zoom);
