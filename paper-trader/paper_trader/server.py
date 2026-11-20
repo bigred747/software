@@ -70,6 +70,7 @@ from paper_trader.model import params_from_dict
 from paper_trader.indicators import squeeze, squeeze_alert
 from paper_trader import quotes
 from paper_trader.samples import catalog_size, search_symbols, warm
+from paper_trader.schwab_env import status_report as schwab_status_report
 
 WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
 STATIC = {
@@ -863,6 +864,8 @@ class Desk:
             add("Quotes", False, str(exc), "health")
         learn = self._learning_check()
         add("Learning", bool(learn["ok"]), str(learn["detail"]), "health")
+        schwab = schwab_status_report()
+        add(str(schwab["name"]), True, str(schwab["detail"]), "health")
         safe = all(item["ok"] for item in items if item["kind"] == "safety")
         warned = [item["name"] for item in items if item["kind"] == "health" and not item["ok"]]
         return {

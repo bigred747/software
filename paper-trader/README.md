@@ -341,6 +341,23 @@ Security programs watch for programs that end other programs, delete folders the
 
 Markets: all 7,510 from the catalog (crypto including XRP and Stellar, stocks, ETFs, and futures). Added in 1.9.38: VXUS, QQQM, SCHD, SCHG, VUG, and QUAL, so the core ETF list (VOO, VTI, VXUS, QQQM, SCHD) and the growth list (SMH, XLK, VGT, QQQ, IVW, SCHG, IWF, VUG, QUAL, IJH) are all searchable.
 
+## Schwab credentials (Market Data later)
+
+Live trading stays locked. Quotes still come from the existing feed. When the Schwab Developer Portal app (`personal-market-data`, Market Data Production, callback `https://127.0.0.1`) is approved, paste the App Key and App Secret into a local `.env` file only:
+
+1. In the install folder (`Documents\Paper Trader` on Windows, or the `paper-trader` checkout), copy `.env.example` to `.env`.
+2. Set these lines (keep the callback and app name as registered):
+
+```
+SCHWAB_APP_KEY=paste-app-key-here
+SCHWAB_APP_SECRET=paste-app-secret-here
+SCHWAB_CALLBACK_URL=https://127.0.0.1
+SCHWAB_APP_NAME=personal-market-data
+```
+
+3. Never commit `.env`. Reinstalls keep an existing `.env` in place.
+4. Check status without contacting Schwab: `python -m paper_trader schwab-status`, or open **Safe check** — it shows `Schwab credentials: missing` or `ready (not connected)`. OAuth tokens come later; this step only stores the app key and secret.
+
 ## Check
 
 ```bash

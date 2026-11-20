@@ -30,6 +30,10 @@ def main(argv: list[str] | None = None) -> int:
     install = commands.add_parser("install", help="Keep only the newest copy in Documents")
     install.add_argument("--home", type=Path, default=None)
     commands.add_parser("learn", help="Score closed bars all day on this computer")
+    commands.add_parser(
+        "schwab-status",
+        help="Show whether Schwab App Key/Secret are in .env (no API call; Live stays locked)",
+    )
     check = commands.add_parser("backtest", help="Replay one market's quotes and print the paper result")
     check.add_argument("--symbol", default="BTC-USD")
     check.add_argument("--fast", type=int, default=10)
@@ -60,6 +64,14 @@ def main(argv: list[str] | None = None) -> int:
             os.chdir(install_root)
             assert_safe_launch([install_root])
             return run_learner(STATE_PATH.with_name("learn_state.json"))
+        if args.command == "schwab-status":
+            from paper_trader.schwab_env import status_report
+
+            report = status_report()
+            print(f"Schwab credentials: {report['detail']}")
+            print(f".env path: {report['env_path']}")
+            print("Live stays locked. No Schwab API call was made.")
+            return 0
         params = Params(
             fast=args.fast,
             slow=args.slow,

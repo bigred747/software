@@ -13,6 +13,7 @@ LAUNCHER = "Start-Paper-Trader.bat"
 PACKAGE = Path("paper_trader") / "__init__.py"
 SKIP_DIRS = {"__pycache__", "tests", ".git"}
 SKIP_FILES = {
+    ".env",
     "paper_state.json",
     "learn_state.json",
     "learn_watch.json",

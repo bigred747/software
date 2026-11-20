@@ -529,8 +529,13 @@ class ServerTests(unittest.TestCase):
             "Program unchanged",
             "Launchers clean",
             "Quiet installer",
+            "Schwab credentials",
         ):
             self.assertIn(name, names)
+        schwab = next(item for item in report["items"] if item["name"] == "Schwab credentials")
+        self.assertEqual(schwab["kind"], "health")
+        self.assertTrue(schwab["ok"])
+        self.assertIn(schwab["detail"], ("missing", "ready (not connected)"))
         self.assertTrue(all(item["ok"] for item in report["items"] if item["kind"] == "safety"))
 
     def test_windows_extras_are_off_by_default_and_wired(self) -> None:

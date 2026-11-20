@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+.env
 paper_state.json
 learn_state.json
 learn_watch.json
