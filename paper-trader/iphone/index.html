@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.6">
+  <meta name="paper-build" content="1.10.7">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -213,6 +213,71 @@ body {
   border-color: #9ec4ff;
   color: #fff;
 }
+.index-tape {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  min-width: 0;
+}
+.index-chip {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  row-gap: 0;
+  align-items: baseline;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.index-chip:hover,
+.index-chip:focus-visible {
+  border-color: var(--fast);
+}
+.index-chip-sym {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.index-chip-last {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.index-chip-chg {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.index-chip.up .index-chip-last,
+.index-chip.up .index-chip-chg,
+.index-chip.up .index-chip-sym { color: var(--up); }
+.index-chip.down .index-chip-last,
+.index-chip.down .index-chip-chg,
+.index-chip.down .index-chip-sym { color: var(--down); }
+.index-chip.flat .index-chip-chg { color: var(--muted); }
 .seal {
   margin: 0;
   padding: 4px 8px;
@@ -443,6 +508,11 @@ body[data-tools] .dock {
   gap: 10px;
   margin: 0 0 8px;
   flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 2px 0 6px;
+  background: linear-gradient(180deg, var(--bg-elev) 70%, transparent 100%);
 }
 .dock-page-head h2,
 .dock-page-head .signals-title {
@@ -453,8 +523,8 @@ body[data-tools] .dock {
 }
 .dock-back {
   width: auto;
-  min-height: 32px;
-  padding: 4px 10px;
+  min-height: 40px;
+  padding: 6px 12px;
   font-weight: 700;
   border-color: var(--fast);
   color: var(--fast);
@@ -1056,6 +1126,20 @@ footer { display: none; }
     min-width: 96px;
     padding: 8px 14px;
     font-size: 16px;
+  }
+  .index-tape {
+    gap: 3px;
+  }
+  .index-chip {
+    min-height: 44px;
+    padding: 5px 6px;
+  }
+  .index-chip-sym { font-size: 10px; }
+  .index-chip-last { font-size: 12px; }
+  .index-chip-chg { font-size: 10px; }
+  .dock-back {
+    min-height: 44px;
+    padding: 8px 14px;
   }
   .desk-rail {
     grid-template-columns: minmax(120px, 1fr) minmax(0, 1.4fr);
@@ -1767,13 +1851,35 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.6</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.7</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
       </div>
     </div>
     <button id="open-tools" type="button" class="top-tools-btn" aria-pressed="false">Tools</button>
+    <nav id="index-tape" class="index-tape" aria-label="Index futures YM RUT NQ ES">
+      <button type="button" class="index-chip" data-index-symbol="YM" aria-label="YM">
+        <span class="index-chip-sym">YM</span>
+        <span class="index-chip-last">—</span>
+        <span class="index-chip-chg">—</span>
+      </button>
+      <button type="button" class="index-chip" data-index-symbol="RTY" aria-label="RUT">
+        <span class="index-chip-sym">RUT</span>
+        <span class="index-chip-last">—</span>
+        <span class="index-chip-chg">—</span>
+      </button>
+      <button type="button" class="index-chip" data-index-symbol="NQ" aria-label="NQ">
+        <span class="index-chip-sym">NQ</span>
+        <span class="index-chip-last">—</span>
+        <span class="index-chip-chg">—</span>
+      </button>
+      <button type="button" class="index-chip" data-index-symbol="ES" aria-label="ES">
+        <span class="index-chip-sym">ES</span>
+        <span class="index-chip-last">—</span>
+        <span class="index-chip-chg">—</span>
+      </button>
+    </nav>
     <div class="mood-clock">
       <canvas id="mood-clock" width="112" height="112" aria-label="Fear and greed clock"></canvas>
       <span id="mood-clock-label" class="mood-clock-label"></span>
@@ -2961,6 +3067,21 @@ plot Sell = close crosses below baseline;</textarea>
     return quote;
   }
 
+  function changePctFromQuote(quote, live) {
+    const raw = quote.change_pct != null ? quote.change_pct : quote.changePercent;
+    const pct = Number(String(raw == null ? "" : raw).replace(/[%,+\s]/g, ""));
+    if (Number.isFinite(pct)) return pct;
+    const prev = priceOf(quote.previous_day_closing || quote.prev_close);
+    if (prev > 0 && live > 0) return ((live - prev) / prev) * 100;
+    const chg = Number(String(quote.change == null ? "" : quote.change).replace(/[,\s+]/g, ""));
+    if (Number.isFinite(chg) && prev > 0) return (chg / prev) * 100;
+    if (Number.isFinite(chg) && live > 0) {
+      const basis = live - chg;
+      if (basis > 0) return (chg / basis) * 100;
+    }
+    return null;
+  }
+
   function sessionFromQuote(quote) {
     const open = priceOf(quote.open);
     const high = priceOf(quote.high);
@@ -2978,6 +3099,7 @@ plot Sell = close crosses below baseline;</textarea>
       asOf = Math.floor(extWhen / 1000);
     }
     const rel = Number(quote.pcttendayvol);
+    const changePct = changePctFromQuote(quote, live);
     return {
       open,
       high,
@@ -2986,6 +3108,7 @@ plot Sell = close crosses below baseline;</textarea>
       live,
       date,
       asOf,
+      changePct,
       volume: volumeOf(quote.volume),
       tape: tapeFields({
         relVol: rel > 0 ? rel : 0,
@@ -3050,6 +3173,7 @@ plot Sell = close crosses below baseline;</textarea>
         high: session.high,
         low: session.low,
         volume: session.volume,
+        changePct: session.changePct,
       },
       session.tape || {}
     );
@@ -7822,7 +7946,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.6";
+const VERSION = "1.10.7";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -8993,6 +9117,7 @@ async function bootOffline() {
   deskLine("Desk is working.");
   showChart();
   refreshOutlook().catch(() => {});
+  refreshIndexTape().catch(() => {});
   if (state.scanOn) scanPhone();
   else {
     state.scanNote = "Scanner is off.";
@@ -9031,6 +9156,7 @@ async function boot() {
   rememberSymbol(paper.symbol);
   deskLine("Desk is working.");
   refreshOutlook().catch(() => {});
+  refreshIndexTape().catch(() => {});
   if (paper.paper === true) {
     state.auto = true;
     render(paper);
@@ -10250,10 +10376,68 @@ function showRead(text) {
 
 function showChart() {
   const narrow = window.matchMedia("(max-width: 980px)").matches;
-  if (narrow) showPhoneTab("chart");
+  if (narrow) {
+    showPhoneTab("chart");
+  } else if (document.body.dataset.tools) {
+    delete document.body.dataset.tools;
+    paintOpenToolsButton();
+  }
   requestAnimationFrame(() => {
     if (state.market && state.paper) redrawStudies();
   });
+}
+
+function formatIndexPrice(price) {
+  const value = Number(price);
+  if (!(value > 0)) return "—";
+  if (value >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (value >= 100) return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return formatPrice(value);
+}
+
+function paintIndexChip(chip, trade) {
+  const lastEl = chip.querySelector(".index-chip-last");
+  const chgEl = chip.querySelector(".index-chip-chg");
+  const price = trade && Number(trade.price);
+  if (!(price > 0)) {
+    if (lastEl) lastEl.textContent = "—";
+    if (chgEl) chgEl.textContent = "—";
+    chip.classList.remove("up", "down", "flat");
+    return;
+  }
+  if (lastEl) lastEl.textContent = formatIndexPrice(price);
+  let pct = trade.changePct;
+  if (!(Number.isFinite(pct)) && trade.open > 0) {
+    pct = ((price - trade.open) / trade.open) * 100;
+  }
+  let tone = "flat";
+  let text = "—";
+  if (Number.isFinite(pct)) {
+    tone = pct > 0.005 ? "up" : pct < -0.005 ? "down" : "flat";
+    text = (pct > 0 ? "+" : "") + pct.toFixed(2) + "%";
+  }
+  if (chgEl) chgEl.textContent = text;
+  chip.classList.toggle("up", tone === "up");
+  chip.classList.toggle("down", tone === "down");
+  chip.classList.toggle("flat", tone === "flat");
+}
+
+async function refreshIndexTape() {
+  const root = $("index-tape");
+  if (!root || !window.PaperLive || !PaperLive.lastTrade) return;
+  const chips = Array.from(root.querySelectorAll(".index-chip[data-index-symbol]"));
+  await Promise.all(
+    chips.map(async (chip) => {
+      const symbol = chip.dataset.indexSymbol;
+      if (!symbol) return;
+      try {
+        const trade = await PaperLive.lastTrade(symbol, "future");
+        paintIndexChip(chip, trade);
+      } catch (error) {
+        paintIndexChip(chip, null);
+      }
+    })
+  );
 }
 
 function chooseSymbol(symbol) {
@@ -12908,7 +13092,10 @@ function renderSqueeze() {
     open.type = "button";
     open.className = "quiet";
     open.textContent = "Open";
-    open.addEventListener("click", () => chooseSymbol(row.symbol));
+    open.addEventListener("click", (event) => {
+      event.stopPropagation();
+      chooseSymbol(row.symbol);
+    });
     const edgeLabel = row.edgeFire
       ? "FIRE"
       : row.edgeStage
@@ -15941,6 +16128,16 @@ document.querySelectorAll(".dock-back").forEach((button) => {
   button.addEventListener("click", () => backFromToolPage());
 });
 
+const indexTape = $("index-tape");
+if (indexTape) {
+  indexTape.querySelectorAll(".index-chip[data-index-symbol]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const symbol = chip.dataset.indexSymbol;
+      if (symbol) chooseSymbol(symbol);
+    });
+  });
+}
+
 const openTools = $("open-tools");
 if (openTools) {
   openTools.addEventListener("click", () => {
@@ -16161,6 +16358,8 @@ boot().then(() => {
   syncTriggerChecks();
   warnDesk();
   setInterval(warnDesk, 20000);
+  refreshIndexTape().catch(() => {});
+  setInterval(() => refreshIndexTape().catch(() => {}), 30000);
   setInterval(() => {
     if (state.paper) renderQuote(state.paper);
     syncDeskStatus();

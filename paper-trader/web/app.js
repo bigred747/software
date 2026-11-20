@@ -92,7 +92,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.6";
+const VERSION = "1.10.7";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -1263,6 +1263,7 @@ async function bootOffline() {
   deskLine("Desk is working.");
   showChart();
   refreshOutlook().catch(() => {});
+  refreshIndexTape().catch(() => {});
   if (state.scanOn) scanPhone();
   else {
     state.scanNote = "Scanner is off.";
@@ -1301,6 +1302,7 @@ async function boot() {
   rememberSymbol(paper.symbol);
   deskLine("Desk is working.");
   refreshOutlook().catch(() => {});
+  refreshIndexTape().catch(() => {});
   if (paper.paper === true) {
     state.auto = true;
     render(paper);
@@ -2520,10 +2522,68 @@ function showRead(text) {
 
 function showChart() {
   const narrow = window.matchMedia("(max-width: 980px)").matches;
-  if (narrow) showPhoneTab("chart");
+  if (narrow) {
+    showPhoneTab("chart");
+  } else if (document.body.dataset.tools) {
+    delete document.body.dataset.tools;
+    paintOpenToolsButton();
+  }
   requestAnimationFrame(() => {
     if (state.market && state.paper) redrawStudies();
   });
+}
+
+function formatIndexPrice(price) {
+  const value = Number(price);
+  if (!(value > 0)) return "—";
+  if (value >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (value >= 100) return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return formatPrice(value);
+}
+
+function paintIndexChip(chip, trade) {
+  const lastEl = chip.querySelector(".index-chip-last");
+  const chgEl = chip.querySelector(".index-chip-chg");
+  const price = trade && Number(trade.price);
+  if (!(price > 0)) {
+    if (lastEl) lastEl.textContent = "—";
+    if (chgEl) chgEl.textContent = "—";
+    chip.classList.remove("up", "down", "flat");
+    return;
+  }
+  if (lastEl) lastEl.textContent = formatIndexPrice(price);
+  let pct = trade.changePct;
+  if (!(Number.isFinite(pct)) && trade.open > 0) {
+    pct = ((price - trade.open) / trade.open) * 100;
+  }
+  let tone = "flat";
+  let text = "—";
+  if (Number.isFinite(pct)) {
+    tone = pct > 0.005 ? "up" : pct < -0.005 ? "down" : "flat";
+    text = (pct > 0 ? "+" : "") + pct.toFixed(2) + "%";
+  }
+  if (chgEl) chgEl.textContent = text;
+  chip.classList.toggle("up", tone === "up");
+  chip.classList.toggle("down", tone === "down");
+  chip.classList.toggle("flat", tone === "flat");
+}
+
+async function refreshIndexTape() {
+  const root = $("index-tape");
+  if (!root || !window.PaperLive || !PaperLive.lastTrade) return;
+  const chips = Array.from(root.querySelectorAll(".index-chip[data-index-symbol]"));
+  await Promise.all(
+    chips.map(async (chip) => {
+      const symbol = chip.dataset.indexSymbol;
+      if (!symbol) return;
+      try {
+        const trade = await PaperLive.lastTrade(symbol, "future");
+        paintIndexChip(chip, trade);
+      } catch (error) {
+        paintIndexChip(chip, null);
+      }
+    })
+  );
 }
 
 function chooseSymbol(symbol) {
@@ -5178,7 +5238,10 @@ function renderSqueeze() {
     open.type = "button";
     open.className = "quiet";
     open.textContent = "Open";
-    open.addEventListener("click", () => chooseSymbol(row.symbol));
+    open.addEventListener("click", (event) => {
+      event.stopPropagation();
+      chooseSymbol(row.symbol);
+    });
     const edgeLabel = row.edgeFire
       ? "FIRE"
       : row.edgeStage
@@ -8211,6 +8274,16 @@ document.querySelectorAll(".dock-back").forEach((button) => {
   button.addEventListener("click", () => backFromToolPage());
 });
 
+const indexTape = $("index-tape");
+if (indexTape) {
+  indexTape.querySelectorAll(".index-chip[data-index-symbol]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const symbol = chip.dataset.indexSymbol;
+      if (symbol) chooseSymbol(symbol);
+    });
+  });
+}
+
 const openTools = $("open-tools");
 if (openTools) {
   openTools.addEventListener("click", () => {
@@ -8431,6 +8504,8 @@ boot().then(() => {
   syncTriggerChecks();
   warnDesk();
   setInterval(warnDesk, 20000);
+  refreshIndexTape().catch(() => {});
+  setInterval(() => refreshIndexTape().catch(() => {}), 30000);
   setInterval(() => {
     if (state.paper) renderQuote(state.paper);
     syncDeskStatus();

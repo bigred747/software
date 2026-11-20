@@ -408,6 +408,21 @@
     return quote;
   }
 
+  function changePctFromQuote(quote, live) {
+    const raw = quote.change_pct != null ? quote.change_pct : quote.changePercent;
+    const pct = Number(String(raw == null ? "" : raw).replace(/[%,+\s]/g, ""));
+    if (Number.isFinite(pct)) return pct;
+    const prev = priceOf(quote.previous_day_closing || quote.prev_close);
+    if (prev > 0 && live > 0) return ((live - prev) / prev) * 100;
+    const chg = Number(String(quote.change == null ? "" : quote.change).replace(/[,\s+]/g, ""));
+    if (Number.isFinite(chg) && prev > 0) return (chg / prev) * 100;
+    if (Number.isFinite(chg) && live > 0) {
+      const basis = live - chg;
+      if (basis > 0) return (chg / basis) * 100;
+    }
+    return null;
+  }
+
   function sessionFromQuote(quote) {
     const open = priceOf(quote.open);
     const high = priceOf(quote.high);
@@ -425,6 +440,7 @@
       asOf = Math.floor(extWhen / 1000);
     }
     const rel = Number(quote.pcttendayvol);
+    const changePct = changePctFromQuote(quote, live);
     return {
       open,
       high,
@@ -433,6 +449,7 @@
       live,
       date,
       asOf,
+      changePct,
       volume: volumeOf(quote.volume),
       tape: tapeFields({
         relVol: rel > 0 ? rel : 0,
@@ -497,6 +514,7 @@
         high: session.high,
         low: session.low,
         volume: session.volume,
+        changePct: session.changePct,
       },
       session.tape || {}
     );
