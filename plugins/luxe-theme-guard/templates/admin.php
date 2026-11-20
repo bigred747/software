@@ -283,13 +283,25 @@ $amazon_on  = ! empty( $amazon_on );
 					<td><strong>ThemeForest purchase code</strong></td>
 					<td>
 						<input type="password" name="flatsome_purchase_code" class="regular-text" autocomplete="new-password" value="" placeholder="<?php echo ! empty( $settings['flatsome_purchase_code'] ) ? 'saved — paste to replace' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'; ?>" />
-						<p class="description">ThemeForest → Downloads → License certificate &amp; purchase code. Paste the code or the whole certificate line. Guard keeps the 8-4-4-4-12 code, registers this site with api.uxthemes.com using Flatsome’s 3.14+ method (purchaseCode + license id), clears the Flatsome status Theme red X when UX Themes accepts it, and installs the watched release. Leave blank to keep a saved code. If the code is already on another domain, remove it at account.uxthemes.com first.</p>
+						<p class="description">ThemeForest → Downloads → License certificate &amp; purchase code. Paste the code or the whole certificate line. Guard keeps the 8-4-4-4-12 code, registers this site with api.uxthemes.com using Flatsome’s 3.14+ method (purchaseCode + license id), and installs the watched release. Leave blank to keep a saved code.</p>
+						<?php if ( class_exists( 'Luxe_Theme_Guard_Updater' ) && Luxe_Theme_Guard_Updater::has_outdated_registration() ) : ?>
+							<div class="notice notice-warning inline" style="margin:10px 0;padding:8px 12px;">
+								<p><strong>Outdated registration leftovers found.</strong> That is why Flatsome shows “unsupported or outdated method.” Clear them, then Save the purchase code again.</p>
+							</div>
+						<?php endif; ?>
+						<p class="description"><strong>Already registered on another site?</strong> Open <a href="https://account.uxthemes.com" target="_blank" rel="noopener noreferrer">account.uxthemes.com</a>, trash the old domain, then paste the code here and Save. <a href="https://docs.uxthemes.com/article/417-the-purchase-code-is-already-registered-on-another-site" target="_blank" rel="noopener noreferrer">UX Themes guide</a>.</p>
 					</td>
 				</tr>
 			</tbody>
 		</table>
 		<p class="submit">
-			<button type="submit" class="button button-primary lsr-save">Save settings</button>
+			<button type="submit" name="luxe_theme_guard_save" value="1" class="button button-primary lsr-save">Save settings</button>
 		</p>
 	</form>
+	<?php if ( class_exists( 'Luxe_Theme_Guard_Updater' ) && Luxe_Theme_Guard_Updater::has_outdated_registration() ) : ?>
+	<form method="post" action="" style="margin-top:12px;">
+		<?php wp_nonce_field( 'luxe_theme_guard_clear_outdated' ); ?>
+		<button type="submit" name="luxe_theme_guard_clear_outdated" value="1" class="button button-secondary">Clear outdated Flatsome registration leftovers</button>
+	</form>
+	<?php endif; ?>
 </div>

@@ -2,19 +2,19 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
-## Luxe Theme Guard 1.4.5
+## Luxe Theme Guard 1.4.6
 
-Flatsome auto-update + 24/7 process learning + Amazon AI. Fixes the Flatsome 3.14+ registration method (`purchaseCode` + UX Themes license id) so Status → Theme can go green and official 3.20.13+ packages can install.
+Flatsome auto-update + 24/7 process learning + Amazon AI. Fixes the Flatsome 3.14+ registration method (`purchaseCode` + UX Themes license id), clears outdated wupdates leftovers that cause “unsupported or outdated method,” and guides already-registered codes through account.uxthemes.com.
 
 **Upload this file from Windows 11 into WordPress:**
 
-[Luxe-Theme-Guard-v1.4.5.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/theme-guard-registration-f4c7/dist/Luxe-Theme-Guard-v1.4.5.zip)
+[Luxe-Theme-Guard-v1.4.6.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/theme-guard-registration-f4c7/dist/Luxe-Theme-Guard-v1.4.6.zip)
 
-SHA-256 `da6dbca51d2012307a16190c60a89393d284af2aec67476b3105fbd26fdb931d`
+SHA-256 `33f56a2655ed3752319eace3f9c3f31441766ea420d9e1a0b70a1e3162692016`
 
 Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate → **Luxe Theme** → paste ThemeForest purchase code → Save settings.
 
-If the code is already registered on another domain, remove it at [account.uxthemes.com](https://account.uxthemes.com) first.
+If the code is already registered on another domain, trash that domain at [account.uxthemes.com](https://account.uxthemes.com) first, then Save again.
 
 ## Luxe Affiliate Product Scout 5.6.8
 

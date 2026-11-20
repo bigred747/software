@@ -1,11 +1,11 @@
-# Luxe Theme Guard 1.4.5
+# Luxe Theme Guard 1.4.6
 
 24/7 process learning, Amazon AI, and official Flatsome auto-update. WordPress admin menu: **Luxe Theme**.
 
 ## Install
 
 1. Download `luxe-theme-guard.zip` (Windows 11 / WordPress zip).
-2. Plugins → Add Plugin → Upload Plugin → Install Now → Activate (replace 1.4.4 if asked).
+2. Plugins → Add Plugin → Upload Plugin → Install Now → Activate (replace 1.4.5 if asked).
 3. Open the left menu **Luxe Theme**.
 4. Paste your ThemeForest purchase code and click **Save settings**.
 5. Leave **Auto-update Flatsome** On. Guard registers the site with api.uxthemes.com (Flatsome 3.14+ `purchaseCode` method), watches the official release, and installs it when UX Themes returns the package. It does not stop at 3.20.9.
@@ -14,9 +14,15 @@ Do **not** upload this zip over Flatsome, Product Scout, Luxe SEO, Mission Contr
 
 ## Registration
 
-Guard must write Flatsome’s `flatsome_registration` option with **purchaseCode** (camelCase) and a license **id** from UX Themes. The old `purchase_code` snake_case key alone leaves Flatsome → Status → Theme with a red X and blocks auto-updates.
+Guard must write Flatsome’s `flatsome_registration` option with **purchaseCode** (camelCase) and a license **id** from UX Themes. Never write `flatsome_wup_purchase_code` — that leftover makes Flatsome show “unsupported or outdated method.”
 
-If the purchase code is already registered on another domain, remove it at [account.uxthemes.com](https://account.uxthemes.com) first, then Save settings again.
+If the purchase code is already registered on another domain:
+
+1. Open [account.uxthemes.com](https://account.uxthemes.com) with the Envato purchaser account
+2. Trash the old domain registration
+3. Paste the code on **Luxe Theme** and Save again
+
+Guide: https://docs.uxthemes.com/article/417-the-purchase-code-is-already-registered-on-another-site
 
 ## 24/7 learning
 

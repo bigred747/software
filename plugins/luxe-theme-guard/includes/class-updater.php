@@ -33,7 +33,7 @@ class Luxe_Theme_Guard_Updater {
 
 	/**
 	 * Register the Envato purchase code the way Flatsome 3.14+ expects.
-	 * Writes purchaseCode (camelCase) and calls UX Themes POST /v1/license/{code}.
+	 * Clears outdated wupdates leftovers first, then POST /v1/license/{code}.
 	 *
 	 * @param string $code Purchase code.
 	 * @return array{ok:bool,detail:string}
@@ -46,23 +46,69 @@ class Luxe_Theme_Guard_Updater {
 				'detail' => 'No purchase code.',
 			);
 		}
-		// Legacy wupdates key (pre-3.14). Harmless to keep for older helpers.
-		update_option( 'flatsome_wup_purchase_code', $code, false );
-
-		$reg = get_option( 'flatsome_registration', array() );
-		if ( ! is_array( $reg ) ) {
-			$reg = array();
-		}
-		// Flatsome_Registration::get_code() reads purchaseCode, not purchase_code.
-		$reg['purchaseCode'] = $code;
-		unset( $reg['purchase_code'] );
-		update_option( 'flatsome_registration', $reg, false );
+		// Writing flatsome_wup_purchase_code triggers Flatsome's
+		// "unsupported or outdated method" notice. Always clear it.
+		self::clear_outdated_registration();
 
 		$result = self::instance()->register_with_uxthemes( $code );
 		if ( function_exists( 'delete_site_transient' ) ) {
 			delete_site_transient( 'update_themes' );
 		}
 		return $result;
+	}
+
+	/**
+	 * Remove pre-3.14 wupdates / Envato leftovers that block modern registration.
+	 *
+	 * @return string[] Deleted option names.
+	 */
+	public static function clear_outdated_registration() {
+		$deleted = array();
+		$keys    = array(
+			'flatsome_wup_purchase_code',
+			'flatsome_wup_buyer',
+			'flatsome_wup_sold_at',
+			'flatsome_wup_supported_until',
+			'flatsome_wup_errors',
+			'flatsome_wup_attempts',
+			'flatsome_wupdates',
+			'flatsome_envato',
+		);
+		foreach ( $keys as $key ) {
+			if ( false !== get_option( $key, false ) ) {
+				delete_option( $key );
+				$deleted[] = $key;
+			}
+		}
+		$reg = get_option( 'flatsome_registration', array() );
+		if ( is_array( $reg ) && isset( $reg['purchase_code'] ) ) {
+			unset( $reg['purchase_code'] );
+			update_option( 'flatsome_registration', $reg, false );
+			$deleted[] = 'flatsome_registration.purchase_code';
+		}
+		return $deleted;
+	}
+
+	/**
+	 * True when Flatsome would show the outdated-method warning.
+	 *
+	 * @return bool
+	 */
+	public static function has_outdated_registration() {
+		if ( get_option( 'flatsome_wup_purchase_code', '' ) || get_option( 'flatsome_envato', '' ) ) {
+			return true;
+		}
+		$reg = get_option( 'flatsome_registration', array() );
+		if ( ! is_array( $reg ) ) {
+			return false;
+		}
+		$verified = ! empty( $reg['licenseType'] ) && is_string( $reg['licenseType'] );
+		$code     = ! empty( $reg['purchaseCode'] ) ? Luxe_Theme_Guard_Signals::sanitize_purchase_code( $reg['purchaseCode'] ) : '';
+		// Snake_case only, or code without verified licenseType + leftover wupdates path.
+		if ( ! $verified && ! empty( $reg['purchase_code'] ) && ! $code ) {
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -109,21 +155,10 @@ class Luxe_Theme_Guard_Updater {
 
 		$instance = $this->theme_registration();
 		if ( is_object( $instance ) && is_callable( array( $instance, 'register' ) ) ) {
-			$raw    = $this->call_theme( array( $instance, 'register' ), array( $code ) );
-			$norm   = $this->normalize_theme_result( $raw );
-			$reg    = get_option( 'flatsome_registration', array() );
-			$ok     = is_array( $reg ) && ! empty( $reg['purchaseCode'] ) && ! empty( $reg['id'] );
-			$detail = '';
-			if ( ! empty( $norm['detail'] ) ) {
-				$detail = $norm['detail'];
-			} elseif ( is_array( $raw ) && ! empty( $raw['licenseType'] ) ) {
-				$detail = 'UX Themes registered this site for Flatsome updates.';
-				$ok     = true;
-			} elseif ( $ok ) {
-				$detail = 'UX Themes registered this site for Flatsome updates.';
-			} else {
-				$detail = 'UX Themes did not confirm Flatsome registration.';
-			}
+			$raw  = $this->call_theme( array( $instance, 'register' ), array( $code ) );
+			$norm = $this->normalize_theme_result( $raw );
+			$reg  = get_option( 'flatsome_registration', array() );
+			$ok   = is_array( $reg ) && ! empty( $reg['purchaseCode'] ) && ! empty( $reg['id'] );
 			// 429 with an id still counts as registered (needs later verify).
 			if ( is_wp_error( $raw ) && 429 === (int) $raw->get_error_code() ) {
 				$data = $raw->get_error_data();
@@ -131,6 +166,10 @@ class Luxe_Theme_Guard_Updater {
 					$ok = true;
 				}
 			}
+			if ( is_array( $raw ) && ! empty( $raw['licenseType'] ) ) {
+				$ok = true;
+			}
+			$detail = self::registration_detail_message( $raw, $norm, $ok );
 			return array(
 				'ok'     => (bool) $ok,
 				'detail' => $detail,
@@ -138,6 +177,38 @@ class Luxe_Theme_Guard_Updater {
 		}
 
 		return $this->register_via_api( $code );
+	}
+
+	/**
+	 * Human-readable registration result, including already-registered steps.
+	 *
+	 * @param mixed $raw  Raw theme/API result.
+	 * @param array $norm Normalized result.
+	 * @param bool  $ok   Success.
+	 * @return string
+	 */
+	public static function registration_detail_message( $raw, $norm, $ok ) {
+		$detail = ! empty( $norm['detail'] ) ? (string) $norm['detail'] : '';
+		if ( $ok && ! $detail ) {
+			return 'UX Themes registered this site for Flatsome updates.';
+		}
+		if ( $ok ) {
+			return $detail;
+		}
+		$status = 0;
+		if ( is_wp_error( $raw ) ) {
+			$status = (int) $raw->get_error_code();
+			if ( ! $detail ) {
+				$detail = Luxe_Theme_Guard_Signals::plain_api_text( $raw->get_error_message() );
+			}
+		}
+		$already = ( 409 === $status )
+			|| false !== stripos( $detail, 'already registered' )
+			|| false !== stripos( $detail, 'already-registered' );
+		if ( $already ) {
+			return 'This purchase code is already registered on another site. Open https://account.uxthemes.com (Envato purchaser login), click the trash icon next to the old domain, then paste the code here again and Save. Guide: https://docs.uxthemes.com/article/417-the-purchase-code-is-already-registered-on-another-site';
+		}
+		return $detail ? $detail : 'UX Themes did not confirm Flatsome registration.';
 	}
 
 	/**
@@ -187,9 +258,13 @@ class Luxe_Theme_Guard_Updater {
 				'detail' => 'UX Themes registered this site for Flatsome updates.',
 			);
 		}
+		$fake_err = null;
+		if ( function_exists( 'is_wp_error' ) ) {
+			$fake_err = new WP_Error( (int) $res['code'], $parsed['detail'] ? $parsed['detail'] : '' );
+		}
 		return array(
 			'ok'     => false,
-			'detail' => $parsed['detail'] ? $parsed['detail'] : 'UX Themes did not confirm Flatsome registration.',
+			'detail' => self::registration_detail_message( $fake_err ? $fake_err : null, $parsed, false ),
 		);
 	}
 
@@ -677,6 +752,21 @@ class Luxe_Theme_Guard_Updater {
 	public function boot() {
 		add_filter( 'auto_update_theme', array( $this, 'auto_update_theme' ), 10, 2 );
 		add_action( 'admin_init', array( $this, 'maybe_manual' ) );
+		add_action( 'admin_init', array( $this, 'maybe_auto_clear_outdated' ), 5 );
+	}
+
+	/**
+	 * Drop wupdates leftovers as soon as an admin loads Theme Guard / Flatsome screens.
+	 * Those leftovers alone cause Flatsome's "unsupported or outdated method" banner.
+	 */
+	public function maybe_auto_clear_outdated() {
+		if ( ! self::has_outdated_registration() ) {
+			return;
+		}
+		if ( ! current_user_can( 'update_themes' ) && ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		self::clear_outdated_registration();
 	}
 
 	/**

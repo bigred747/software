@@ -68,6 +68,7 @@ class Luxe_Theme_Guard_Plugin {
 	 */
 	public function boot() {
 		add_action( 'admin_init', array( $this, 'maybe_save' ) );
+		add_action( 'admin_init', array( $this, 'maybe_clear_outdated' ) );
 		Luxe_Theme_Guard_Updater::instance()->boot();
 		Luxe_Theme_Guard_Learning::instance()->boot();
 		if ( class_exists( 'Luxe_Theme_Guard_Amazon' ) ) {
@@ -76,6 +77,28 @@ class Luxe_Theme_Guard_Plugin {
 		if ( is_admin() ) {
 			Luxe_Theme_Guard_Admin::instance()->boot();
 		}
+	}
+
+	/**
+	 * Clear pre-3.14 wupdates leftovers that trigger Flatsome's outdated-method notice.
+	 */
+	public function maybe_clear_outdated() {
+		if ( empty( $_POST['luxe_theme_guard_clear_outdated'] ) ) {
+			return;
+		}
+		if ( ! current_user_can( 'update_themes' ) && ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		check_admin_referer( 'luxe_theme_guard_clear_outdated' );
+		$deleted = Luxe_Theme_Guard_Updater::clear_outdated_registration();
+		add_settings_error(
+			'luxe_theme_guard',
+			'cleared-outdated',
+			$deleted
+				? __( 'Cleared outdated Flatsome registration leftovers (wupdates / Envato). Paste your purchase code below and Save to register with UX Themes.', 'luxe-theme-guard' )
+				: __( 'No outdated Flatsome registration leftovers were found.', 'luxe-theme-guard' ),
+			'updated'
+		);
 	}
 
 	/**
