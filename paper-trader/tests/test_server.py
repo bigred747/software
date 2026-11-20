@@ -282,6 +282,10 @@ class ServerTests(unittest.TestCase):
             "study",
             "strategies",
             "squeeze",
+            "scorecard",
+            "cycle",
+            "home",
+            "outlook",
             "internals",
             "frames",
             "readings",
@@ -992,7 +996,8 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.10.8", script)
+        self.assertIn(b"1.10.9", script)
+        self.assertIn(b"holdLearnAwake", script)
         self.assertIn(b'id="index-tape"', page)
         self.assertIn(b"refreshIndexTape", script)
         self.assertIn(b'data-index-symbol="YM"', page)
@@ -1018,6 +1023,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"function renderJournalCheck", script)
         self.assertIn(b"function refreshJournalSells", script)
         frames = Path(__file__).resolve().parents[1].joinpath("web", "frames.js").read_bytes()
+        learn = Path(__file__).resolve().parents[1].joinpath("paper_trader", "learn.py").read_bytes()
+        self.assertIn(b"PASS_BATCH", learn)
+        self.assertIn(b'("cycle",', learn)
         self.assertIn(b"function cycleMapRead", frames)
         self.assertIn(b"function defensiveShieldScan", frames)
         self.assertIn(b"function riskReboundScan", frames)

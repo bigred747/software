@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.8">
+  <meta name="paper-build" content="1.10.9">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -1851,7 +1851,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.8</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.9</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -2145,7 +2145,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <h4>Windows extras</h4>
           <label><input id="win-startup" type="checkbox"> Start the score when I sign in to Windows</label>
           <label><input id="win-desktop" type="checkbox"> Put Paper Trader.bat on my Desktop</label>
-          <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process. While it runs, every desk section keeps learning on closed bars even when scrolled away (Markets, Chart, Trade, Study, Strategies, Squeeze scan, Big 3 Scorecard, Internals, Timeframes, big4indicator, Journal, Backtest, Signals). New shipped pages and strategies auto-join the learner. Open the desk to start it; tick Start the score for Windows sign-in. Phone/browser alone cannot keep the bot process alive. Not a broker. Not a forecast.</p>
+          <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process — continuous 24/7 while Windows is on and you are signed in. It scores new markets and every desk section (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) even when scrolled away or the desk window is closed. Tick Start the score for sign-in. Phone/browser alone pauses when you leave the tab. Not a broker. Not a forecast.</p>
         </div>
       </div>
       <section id="ticket" class="ticket-box" aria-label="Order ticket">
@@ -8395,7 +8395,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.8";
+const VERSION = "1.10.9";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -8700,11 +8700,14 @@ function withHooks(items) {
   const webPage = state.offline && location.protocol !== "file:";
   applyHook(next, "Edge", edge || webPage, edge ? "This page is in Microsoft Edge" : webPage ? "This browser loads the quotes" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
   const botOn = !!(state.learnBook && state.learnBook.bot_on);
+  const pageCount = deskLearnPages().length;
   const learnDetail = learnTouchNote
     || fillTimingNote()
     || (botOn
-      ? "Bot on · learning all desk pages (scan, strategies, timing) even when tabs are closed. Not a forecast."
-      : "Bot score off for background learning. Open Paper Trader or tick Start the score under Windows extras. Page-open cycles still run here.");
+      ? "Bot on · all " + pageCount + " desk pages (incl. Cycle Desk · Outlook · Tools) learn on closed bars even when scrolled away; Windows score keeps going after the desk closes. Not a forecast."
+      : state.offline
+        ? "Page-open bot · all " + pageCount + " desk pages cycle while this tab stays open (Cycle Desk included). Close the tab and phone learning pauses — use the Windows zip + Start the score for after-close. Not a forecast."
+        : "Bot score off for after-close learning. Open the desk or tick Start the score under Windows extras. Page-open cycles still cover every Tools page here.");
   if (!next.some((item) => item.name === "Learning")) {
     setSignal(next, "Learning", true, learnDetail);
   } else {
@@ -12821,14 +12824,15 @@ function learnFromPaperFill(paper) {
 }
 
 function deskLearnPages() {
-  // Auto-includes every dock tab and phone tab present in the shipped UI.
+  // Auto-includes every dock tab, phone tab, and fixed desk boards in the shipped UI.
   const pages = [];
   const push = (id) => {
     if (id && pages.indexOf(id) < 0) pages.push(id);
   };
-  ["markets", "chart", "trade", "study"].forEach(push);
+  ["markets", "chart", "trade", "study", "outlook", "cycle", "home"].forEach(push);
   document.querySelectorAll(".dock-tab[data-dock]").forEach((button) => push(button.dataset.dock));
   document.querySelectorAll(".tabbar [data-tab]").forEach((button) => push(button.dataset.tab));
+  document.querySelectorAll("[data-open-dock]").forEach((button) => push(button.dataset.openDock));
   ((state.learnBook && state.learnBook.desk_pages) || []).forEach((row) => push(row && row.id));
   return pages;
 }
@@ -12837,42 +12841,79 @@ async function cycleDeskPageLearn() {
   if (typeof document !== "undefined" && document.visibilityState === "hidden") return "";
   const pages = deskLearnPages();
   if (!pages.length) return "";
-  if (!state.pageLearn) state.pageLearn = { cursor: 0, lastAt: 0, lastPage: "" };
+  if (!state.pageLearn) state.pageLearn = { cursor: 0, lastAt: 0, lastPage: "", covered: [] };
   const now = Date.now();
-  if (now - (state.pageLearn.lastAt || 0) < SCAN_LEARN_GAP_MS) return state.pageLearn.lastPage || "";
-  const page = pages[state.pageLearn.cursor % pages.length];
-  state.pageLearn.cursor += 1;
+  if (now - (state.pageLearn.lastAt || 0) < Math.max(4000, SCAN_LEARN_GAP_MS / 2)) return state.pageLearn.lastPage || "";
+  // Warm two pages each pass so every Tools/Next page gets hit faster.
+  const batchPages = [];
+  for (let step = 0; step < 2 && pages.length; step += 1) {
+    const page = pages[state.pageLearn.cursor % pages.length];
+    state.pageLearn.cursor += 1;
+    if (page && batchPages.indexOf(page) < 0) batchPages.push(page);
+  }
   state.pageLearn.lastAt = now;
-  state.pageLearn.lastPage = page;
-  const batch = topScanLearnNames().slice(0, 2);
-  await nudgeLearn(page, batch);
+  state.pageLearn.lastPage = batchPages[batchPages.length - 1] || "";
+  const covered = Array.isArray(state.pageLearn.covered) ? state.pageLearn.covered : [];
+  batchPages.forEach((page) => {
+    if (covered.indexOf(page) < 0) covered.push(page);
+  });
+  state.pageLearn.covered = covered.slice(-80);
+  const names = topScanLearnNames().slice(0, 2);
+  for (let index = 0; index < batchPages.length; index += 1) {
+    await nudgeLearn(batchPages[index], names);
+  }
+  if (batchPages.indexOf("cycle") >= 0 || batchPages.indexOf("outlook") >= 0) {
+    try {
+      if (typeof PaperFrames !== "undefined" && PaperFrames.cycleMapRead && seenBars().length) {
+        if (!state.cycle) state.cycle = { busy: false, stop: false, market: null, defensive: null, risk: null, open: null, at: 0, note: "" };
+        state.cycle.open = PaperFrames.cycleMapRead(seenBars());
+      }
+    } catch (error) {
+      /* Cycle warm pass is best-effort. */
+    }
+  }
   learnTouchNote =
     "Desk page learn · " +
-    page +
+    batchPages.join(", ") +
     " (" +
+    covered.length +
+    "/" +
     pages.length +
-    " sections). Bot-on covers scrolled-away pages too. Closed bars only. Not a forecast.";
+    " sections this session). Every Tools and Next page stays in the loop while this tab is open. Closed bars only. Not a forecast.";
   refreshLearnSignal();
-  return page;
+  return state.pageLearn.lastPage || "";
+}
+
+async function holdLearnAwake() {
+  if (typeof navigator === "undefined" || !navigator.wakeLock || !navigator.wakeLock.request) return;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+  try {
+    if (state.wakeLock && !state.wakeLock.released) return;
+    state.wakeLock = await navigator.wakeLock.request("screen");
+    state.wakeLock.addEventListener("release", () => {
+      state.wakeLock = null;
+    });
+  } catch (error) {
+    state.wakeLock = null;
+  }
 }
 
 function startScanLearnLoop() {
   if (state.scanLearn && state.scanLearn.timer) return;
   if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
-  let turn = 0;
   const tick = async () => {
     try {
+      // Continuous while this tab stays open: scan + strategies + every desk page each pass.
       if (typeof document === "undefined" || document.visibilityState !== "hidden") {
-        const step = turn % 3;
-        if (step === 0) await cycleScanLearn(state.auto ? "auto" : "scan");
-        else if (step === 1) await cycleStrategyLearn();
-        else await cycleDeskPageLearn();
-        turn += 1;
+        if (state.auto) await holdLearnAwake();
+        await cycleScanLearn(state.auto ? "auto" : "scan");
+        await cycleStrategyLearn();
+        await cycleDeskPageLearn();
       }
     } catch (error) {
       /* Keep the page-open cycle alive. */
     }
-    const wait = state.auto ? SCAN_LEARN_GAP_MS : SCAN_LEARN_GAP_MS + 4000;
+    const wait = state.auto ? Math.max(8000, SCAN_LEARN_GAP_MS - 2000) : SCAN_LEARN_GAP_MS;
     state.scanLearn.timer = setTimeout(tick, wait);
   };
   state.scanLearn.timer = setTimeout(tick, 2500);
@@ -13276,12 +13317,19 @@ async function phoneSafe() {
   add("Paper book saves", saves, saves ? "This browser keeps positions and fills" : "This browser blocks saving. Positions last until the page closes");
   add("Quotes", !!state.market, state.market ? "A real quote is loaded" : "Waiting on the quote", "health");
   const botOn = !!(state.learnBook && state.learnBook.bot_on);
+  const pageCount = deskLearnPages().length;
   add(
     "Learning",
     true,
     botOn
-      ? "Bot on · every desk section (Study, Strategies, Squeeze, Internals, Timeframes, big4indicator, Journal, Backtest, Signals, Markets, Chart, Trade) keeps learning on closed bars even when scrolled away. New shipped pages/strategies auto-join. Not a broker."
-      : "Bot score off. Open Paper Trader to start it, or tick Start the score under Windows extras. Page-open learning still runs in this tab.",
+      ? "Bot on · all " +
+        pageCount +
+        " desk sections (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) learn on closed bars even when scrolled away. New shipped pages auto-join. Windows score keeps going after close. Not a broker."
+      : state.offline
+        ? "Page-open bot · all " +
+          pageCount +
+          " desk sections cycle while this tab stays open. Close the tab and phone learning pauses. For after-close learning use the Windows zip and tick Start the score."
+        : "Bot score off. Open Paper Trader to start it, or tick Start the score under Windows extras. Page-open learning still covers every Tools page in this tab.",
     "health"
   );
   return { safe: items.filter((item) => item.kind === "safety").every((item) => item.ok), items };
