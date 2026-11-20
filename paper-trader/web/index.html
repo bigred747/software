@@ -24,7 +24,7 @@
       <p id="schwab-top-note" class="schwab-top-note">Connect after your Schwab app is approved.</p>
     </div>
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.1</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.2</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -77,13 +77,13 @@
       <h2>Markets</h2>
       <div id="pins" class="pins" aria-label="Pinned markets"></div>
       <button id="pin-toggle" type="button" class="quiet">Pin this market</button>
-      <div id="scorecard-card" class="scorecard-card" aria-label="Big 3 Market Scorecard">
+      <div id="scorecard-card" class="scorecard-card scorecard-card-compact" aria-label="Big 3 Market Scorecard">
         <div class="scorecard-card-head">
-          <h3>Big 3 Market Scorecard</h3>
-          <button id="scorecard-open" type="button" class="quiet">Open scorecard</button>
+          <h3>Big 3 Scorecard</h3>
+          <button id="scorecard-open" type="button" class="quiet">Open</button>
         </div>
-        <p id="scorecard-bias" class="scorecard-bias">Press Run scorecard for rankings, A+ squeezes, Tide Alert, and day bias.</p>
-        <p id="scorecard-blurb" class="muted">Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, flags Tide Alert when sectors drain with no rotation, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.</p>
+        <p id="scorecard-bias" class="scorecard-bias">Open Tools for rankings, A+ squeezes, Tide Alert, and day bias.</p>
+        <p id="scorecard-blurb" class="muted" hidden>Ranks the strongest indexes and sectors on the Tools page. Paper only. Not a forecast.</p>
       </div>
       <div class="scan-block">
         <div class="scan-head">
@@ -201,9 +201,10 @@
           <canvas id="cci-chart" width="800" height="160" aria-label="CCI"></canvas>
         </section>
       </div>
-      <div class="chart-below" aria-label="Second page">
-        <p class="chart-tools-label">Second page</p>
-        <div id="study-pages" class="study-pages" aria-label="Open Study pages">
+      <div class="chart-below" aria-label="Tools">
+        <p class="chart-tools-label">Tools</p>
+        <div id="study-pages" class="study-pages" aria-label="Open Tools pages">
+          <button type="button" data-open-dock="home">All tools</button>
           <button type="button" data-open-dock="strategies">Strategies</button>
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
@@ -213,7 +214,7 @@
           <button type="button" data-open-dock="journal">Journal</button>
           <button type="button" data-open-dock="signals">Signals</button>
           <button type="button" data-open-dock="backtest">Backtest</button>
-          <button type="button" data-open-dock="study">Study code</button>
+          <button type="button" data-open-dock="study">Study</button>
         </div>
       </div>
       <details class="chart-fold">
@@ -339,7 +340,8 @@
 
     <section id="view-study" class="panel dock" aria-label="Desk tools">
       <div class="dock-tabs" role="tablist">
-        <button type="button" class="dock-tab on" data-dock="study">Study</button>
+        <button type="button" class="dock-tab on" data-dock="home">Tools</button>
+        <button type="button" class="dock-tab" data-dock="study">Study</button>
         <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="scorecard">Big 3 Scorecard</button>
@@ -351,8 +353,31 @@
         <button type="button" class="dock-tab" data-dock="signals">Signals</button>
       </div>
 
-      <div class="dock-page on" data-dock-page="study">
-        <h2>Install study</h2>
+      <div class="dock-page on" data-dock-page="home">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back to desk</button>
+          <h2>Tools</h2>
+        </div>
+        <p class="muted">Open a page full-screen. Use Back on that page to return here, then Back to desk for Markets · Chart · Trade.</p>
+        <div id="tools-index" class="study-pages tools-index" aria-label="Tools index">
+          <button type="button" data-open-dock="strategies">Strategies</button>
+          <button type="button" data-open-dock="internals">Internals</button>
+          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
+          <button type="button" data-open-dock="frames">Timeframes</button>
+          <button type="button" data-open-dock="squeeze">Squeeze scan</button>
+          <button type="button" data-open-dock="readings">big4indicator</button>
+          <button type="button" data-open-dock="journal">Journal</button>
+          <button type="button" data-open-dock="signals">Signals</button>
+          <button type="button" data-open-dock="backtest">Backtest</button>
+          <button type="button" data-open-dock="study">Study</button>
+        </div>
+      </div>
+
+      <div class="dock-page" data-dock-page="study">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Install study</h2>
+        </div>
         <p class="muted">Paste your own price formula. It runs on the quotes in this page only. It cannot place a broker order, open a connection, or read files.</p>
         <label for="study-name">Name</label>
         <input id="study-name" maxlength="40" value="Baseline cross" autocomplete="off">
@@ -372,7 +397,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="strategies">
-        <h2>Strategies</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Strategies</h2>
+        </div>
         <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. While this page is open, Learning re-scores each strategy on top Daily scan names and learns from paper buy/sell fills to refine Fire timing. Scored on closed bars only. The ranking looks backward. Not a forecast.</p>
         <div class="table-wrap strat-board-wrap">
           <table class="strat-board-table">
@@ -476,7 +504,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="squeeze">
-        <h2>Squeeze scan</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Squeeze scan</h2>
+        </div>
         <p class="muted">This desk's own squeeze: Bollinger Bands inside Keltner Channels at three compression levels (high, mid, low), or just left them. It ranks closed daily bars on squeeze on or just fired, energy built, compression level, averages stacked with momentum, a clean squeeze, momentum building, a weekly squeeze too, and the same squeeze in the stock, its sector fund, and its index fund. It also runs the same optimized Edge Fire gates as Fire 5 (TMO above −10, TMO turns green, squeeze, momentum above zero, CCI 50 · 14 · 5 into +100) and lifts those names to the top. The ranking looks backward. It is not a forecast. It is not a third-party study.</p>
         <div class="strat-orb-inputs">
           <label for="sq-list">List</label>
@@ -513,7 +544,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="scorecard">
-        <h2>Big 3 Market Scorecard</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Big 3 Market Scorecard</h2>
+        </div>
         <p class="muted">Four closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), (3) Tide Alert when Sector Drain meets Weekly Tide or Index Soft, and (4) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
         <div class="strat-orb-inputs">
           <button id="sc-run" type="button">Run scorecard</button>
@@ -561,7 +595,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="internals">
-        <h2>Market internals</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Market internals</h2>
+        </div>
         <p id="int-lead" class="muted">Reads the fear gauges, index trend, how many sectors take part, small against large, offense against defense, credit, rates, and the dollar from real daily bars, then rolls them into one market label: Supportive, Mixed, or Defensive. For the open market it also folds in desk studies — Squeeze, TMO, big4indicator, SMA stack, and weekly/monthly MTF — using the same closed-bar math as Strategies / Best setup / Edge. Looks backward only. Not a forecast.</p>
         <div class="strat-orb-inputs">
           <button id="int-refresh" type="button">Refresh internals</button>
@@ -581,6 +618,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="frames">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Timeframes</h2>
+        </div>
         <div class="frames-layout">
           <div class="frames-side">
             <div class="study-actions">
@@ -614,12 +655,18 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="readings">
-        <h2 class="signals-title">big4indicator</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2 class="signals-title">big4indicator</h2>
+        </div>
         <div id="readings" class="readings"></div>
       </div>
 
       <div class="dock-page" data-dock-page="journal">
-        <h2>Today's check</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Today's check</h2>
+        </div>
         <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Lane Align and Range Seat tag each name for desk review. Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
         <h3 class="journal-check-head">Week Board</h3>
         <p id="week-board-note" class="muted">This Denver week’s Fire names plus Lane Align · Range Seat · Tide. Review only — not a second Fire 5 list. Paper only. Not a forecast.</p>
@@ -679,7 +726,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="backtest">
-        <h2>Market history</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Market history</h2>
+        </div>
         <p id="backtest-summary" class="muted">Replays the loaded market history. The paper session stays on the latest quote.</p>
         <div class="table-wrap">
           <table>
@@ -692,7 +742,10 @@ plot Sell = close crosses below baseline;</textarea>
       </div>
 
       <div class="dock-page" data-dock-page="signals">
-        <h2 class="signals-title">Signals</h2>
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2 class="signals-title">Signals</h2>
+        </div>
         <ul id="signals" class="signals"></ul>
       </div>
     </section>
@@ -702,7 +755,7 @@ plot Sell = close crosses below baseline;</textarea>
     <button type="button" data-tab="markets">Markets</button>
     <button type="button" data-tab="chart" class="on">Chart</button>
     <button type="button" data-tab="trade">Trade</button>
-    <button type="button" data-tab="study">Study</button>
+    <button type="button" data-tab="study">Tools</button>
   </nav>
 
   <footer>

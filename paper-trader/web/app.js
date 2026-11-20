@@ -92,7 +92,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.1";
+const VERSION = "1.10.2";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -8025,7 +8025,33 @@ function restoreStudies() {
   state.studyCode = studies[0].code;
 }
 
+let toolsReturnTab = "chart";
+
+function hideTools() {
+  delete document.body.dataset.tools;
+  const phone = window.matchMedia("(max-width: 980px)").matches;
+  if (phone) {
+    const back = toolsReturnTab === "study" ? "chart" : toolsReturnTab || "chart";
+    showPhoneTab(back);
+  }
+  const status = $("status");
+  if (status) status.textContent = "Back to desk.";
+}
+
+function backFromToolPage() {
+  const current = document.body.dataset.tools || "";
+  if (current && current !== "home") {
+    showDock("home");
+    const status = $("status");
+    if (status) status.textContent = "Tools.";
+    return;
+  }
+  hideTools();
+}
+
 function showDock(name) {
+  if (!name) name = "home";
+  if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) name = "home";
   if (name === "internals") loadInternals(false);
   if (name === "scorecard") {
     renderScorecard();
@@ -8037,6 +8063,11 @@ function showDock(name) {
       state.orbBusy = false;
     });
   }
+  if (!document.body.dataset.tools) {
+    const tab = document.body.dataset.tab || "chart";
+    toolsReturnTab = tab === "study" ? "chart" : tab;
+  }
+  document.body.dataset.tools = name;
   document.querySelectorAll(".dock-tab").forEach((button) => {
     button.classList.toggle("on", button.dataset.dock === name);
   });
@@ -8058,20 +8089,31 @@ function showDock(name) {
     renderBook(state.paper);
     renderJournalCheck(state.paper);
   }
-  nudgeLearn(name);
-  if (window.matchMedia("(max-width: 980px)").matches) {
+  nudgeLearn(name === "home" ? "study" : name);
+  const phone = window.matchMedia("(max-width: 980px)").matches;
+  if (phone) {
     document.body.dataset.tab = "study";
     document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
       button.classList.toggle("on", button.dataset.tab === "study");
     });
   }
+  const workspace = document.querySelector(".workspace");
+  if (workspace) workspace.scrollTop = 0;
+  const page = document.querySelector('.dock-page.on');
+  if (page) page.scrollTop = 0;
 }
 
 function restoreDock() {
   try {
-    const name = localStorage.getItem(DOCK_KEY) || "";
-    if (!name || !document.querySelector('.dock-tab[data-dock="' + name + '"]')) return;
-    showDock(name);
+    const name = localStorage.getItem(DOCK_KEY) || "home";
+    if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) return;
+    /* Remember the last Tools page without opening it over the main desk. */
+    document.querySelectorAll(".dock-tab").forEach((button) => {
+      button.classList.toggle("on", button.dataset.dock === name);
+    });
+    document.querySelectorAll(".dock-page").forEach((page) => {
+      page.classList.toggle("on", page.dataset.dockPage === name);
+    });
   } catch (error) {
     return;
   }
@@ -8127,11 +8169,22 @@ $("frames-all").addEventListener("click", () => openAllFrames());
 $("brief-window").addEventListener("click", () => openBrief());
 
 function showPhoneTab(name) {
+  if (name === "study") {
+    if (!document.body.dataset.tools) {
+      toolsReturnTab = document.body.dataset.tab || "chart";
+    }
+    document.body.dataset.tab = "study";
+    document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === "study"));
+    if (state.market && state.paper) redrawStudies();
+    showDock(document.body.dataset.tools || (document.querySelector(".dock-tab.on") || {}).dataset.dock || "home");
+    return;
+  }
+  delete document.body.dataset.tools;
   document.body.dataset.tab = name;
   document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
   if (name === "chart") paintChartToolBoxes(state.market && state.market.history);
-  if (state.market && state.paper && (name === "chart" || name === "study")) redrawStudies();
-  nudgeLearn(name === "study" ? (document.querySelector(".dock-tab.on") || {}).dataset.dock || "study" : name);
+  if (state.market && state.paper && name === "chart") redrawStudies();
+  nudgeLearn(name);
 }
 
 document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
@@ -8141,13 +8194,17 @@ document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
 const chartBack = $("chart-back");
 if (chartBack) {
   chartBack.addEventListener("click", () => {
+    if (document.body.dataset.tools) {
+      hideTools();
+      return;
+    }
     if (window.matchMedia("(max-width: 980px)").matches) {
       showPhoneTab("markets");
       $("status").textContent = "Back to markets.";
       return;
     }
-    showDock("journal");
-    $("status").textContent = "Journal is open.";
+    showDock("home");
+    $("status").textContent = "Tools.";
   });
 }
 
@@ -8158,13 +8215,16 @@ document.querySelectorAll(".dock-tab").forEach((button) => {
   button.addEventListener("click", () => showDock(button.dataset.dock));
 });
 
-document.querySelectorAll("#study-pages [data-open-dock]").forEach((button) => {
+document.querySelectorAll("[data-open-dock]").forEach((button) => {
   button.addEventListener("click", () => {
     const name = button.dataset.openDock;
-    if (window.matchMedia("(max-width: 980px)").matches) showPhoneTab("study");
     showDock(name);
     $("status").textContent = "Opened " + (button.textContent || name) + ".";
   });
+});
+
+document.querySelectorAll(".dock-back").forEach((button) => {
+  button.addEventListener("click", () => backFromToolPage());
 });
 
 const buildTag = $("build-tag");

@@ -245,9 +245,9 @@ h2 { font-size: 15px; }
   display: grid;
   /* 0 flex-basis so the tall Schwab header still leaves a real scrollport. */
   flex: 1 1 0%;
-  /* Slim side rails — charts own the middle. */
+  /* Slim side rails — charts own the middle. Tools open full-bleed separately. */
   grid-template-columns: minmax(150px, 190px) minmax(0, 1fr) minmax(150px, 190px);
-  grid-template-rows: minmax(0, 1fr) minmax(80px, 16vh);
+  grid-template-rows: minmax(0, 1fr);
   gap: 4px;
   min-height: 0;
   overflow: auto;
@@ -359,11 +359,59 @@ h2 { font-size: 15px; }
     font-weight: 700;
     background: #151c24;
   }
-  .study-pages { grid-template-columns: repeat(9, minmax(0, 1fr)); }
-  .study-pages button { min-height: 36px; }
+  .study-pages { grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); }
+  .study-pages button { min-height: 34px; }
 }
 .ticket { grid-column: 3; grid-row: 1; overflow: auto; }
-.dock { grid-column: 1 / -1; grid-row: 2; display: flex; flex-direction: column; overflow: hidden; }
+.dock {
+  display: none;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+body[data-tools] .workspace {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+body[data-tools] .market-outlook,
+body[data-tools] .watch,
+body[data-tools] .chart-panel,
+body[data-tools] .ticket {
+  display: none !important;
+}
+body[data-tools] .dock {
+  display: flex;
+  grid-column: 1;
+  grid-row: 1;
+}
+.dock-page-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  flex: 0 0 auto;
+}
+.dock-page-head h2,
+.dock-page-head .signals-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 680;
+  color: var(--accent);
+}
+.dock-back {
+  width: auto;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-weight: 700;
+  border-color: var(--fast);
+  color: var(--fast);
+  background: var(--fast-deep);
+}
+.tools-index {
+  margin-top: 8px;
+}
 
 label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 13px; }
 
@@ -1003,8 +1051,13 @@ footer { display: none; }
   .dock-page.on[data-dock-page="frames"] { display: block; overflow: visible; }
   body[data-tab="markets"] .watch,
   body[data-tab="chart"] .chart-panel,
-  body[data-tab="trade"] .ticket,
-  body[data-tab="study"] .dock { display: block; }
+  body[data-tab="trade"] .ticket { display: block; }
+  body[data-tab="study"] .dock,
+  body[data-tools] .dock { display: flex; }
+  body[data-tab="study"] .watch,
+  body[data-tab="study"] .chart-panel,
+  body[data-tab="study"] .ticket,
+  body[data-tab="study"] .market-outlook { display: none !important; }
   body[data-tab="chart"] .workspace {
     display: block;
     flex: 1 1 0%;
@@ -1289,6 +1342,14 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
   background:
     linear-gradient(180deg, rgba(110, 168, 255, 0.05) 0%, transparent 40%),
     var(--panel-ink);
+}
+.scorecard-card-compact {
+  margin: 4px 0;
+  padding: var(--pad-sm) var(--pad);
+}
+.scorecard-card-compact .scorecard-bias {
+  margin: 0;
+  font-size: 12px;
 }
 .scorecard-card-head {
   display: flex;
