@@ -125,12 +125,20 @@ class SchwabEnvTests(unittest.TestCase):
         header = page.split("<header", 1)[1].split("</header>", 1)[0]
         self.assertIn('id="schwab-connect"', header)
         self.assertIn('id="schwab-top-dot"', header)
-        self.assertIn("Paste keys into Documents\\Paper Trader\\.env", header)
+        self.assertNotIn("Paste keys into Documents\\Paper Trader\\.env", page)
+        self.assertNotIn("SCHWAB-KEYS.txt", page)
+        self.assertNotIn("Documents\\Paper Trader\\.env", page)
         self.assertIn('id="schwab-market"', page)
         self.assertIn('id="schwab-live"', page)
         # Connect belongs at the top, not only under Trade.
         trade = page.split('id="schwab-box"', 1)[1]
         self.assertNotIn('id="schwab-connect"', trade)
+
+    def test_ui_script_does_not_advertise_secret_paths(self) -> None:
+        script = (Path(__file__).resolve().parents[1] / "web" / "app.js").read_text(encoding="utf-8")
+        self.assertNotIn("Paste keys into Documents\\Paper Trader\\.env", script)
+        self.assertNotIn("Documents\\Paper Trader\\.env", script)
+        self.assertNotIn("SCHWAB-KEYS.txt", script)
 
 
 if __name__ == "__main__":

@@ -105,10 +105,7 @@ def clear_tokens(path: Path | None = None, *, keep_prefs: bool = True) -> dict[s
 def authorize_url(state: str | None = None) -> dict[str, str]:
     """Build the Schwab authorize URL. Does not open a browser or call the API."""
     if not credentials_ready():
-        raise ValueError(
-            "Schwab App Key and App Secret are missing. Paste them into "
-            f"{ENV_PATH.name} first (see .env.example)."
-        )
+        raise ValueError("Schwab App Key and App Secret are not set yet.")
     nonce = state or secrets.token_urlsafe(16)
     query = urllib.parse.urlencode(
         {
@@ -193,7 +190,7 @@ def _apply_token_payload(store: dict[str, Any], payload: dict[str, Any]) -> dict
 def finish_oauth(raw_redirect: str, path: Path | None = None) -> dict[str, Any]:
     """Exchange the pasted redirect URL / code for tokens and save them locally."""
     if not credentials_ready():
-        raise ValueError("Schwab App Key and App Secret are missing in .env")
+        raise ValueError("Schwab App Key and App Secret are not set yet.")
     code = extract_code(raw_redirect)
     payload = _token_request(
         {
@@ -216,7 +213,7 @@ def refresh_access(path: Path | None = None) -> dict[str, Any]:
     if not refresh:
         raise ValueError("Not connected to Schwab")
     if not credentials_ready():
-        raise ValueError("Schwab App Key and App Secret are missing in .env")
+        raise ValueError("Schwab App Key and App Secret are not set yet.")
     try:
         payload = _token_request(
             {

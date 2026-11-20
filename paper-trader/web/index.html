@@ -21,10 +21,10 @@
         <button id="schwab-connect" type="button" aria-pressed="false">Connect to Schwab</button>
         <strong id="schwab-top-status" class="schwab-top-status bad">Not connected</strong>
       </div>
-      <p id="schwab-top-note" class="schwab-top-note">Paste keys into Documents\Paper Trader\.env</p>
+      <p id="schwab-top-note" class="schwab-top-note">Connect after your Schwab app is approved.</p>
     </div>
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.97</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.9.98</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -735,7 +735,7 @@ plot Sell = close crosses below baseline;</textarea>
   <div id="schwab-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="schwab-modal-title" hidden>
     <div class="modal-card">
       <h2 id="schwab-modal-title">Finish Schwab connect</h2>
-      <p class="breaker-note">Sign in in the Schwab window. When the browser lands on <code>https://127.0.0.1/...</code>, copy the whole address bar and paste it here. Tokens stay on this computer in <code>schwab_tokens.json</code>.</p>
+      <p class="breaker-note">Sign in in the Schwab window. When the browser lands on <code>https://127.0.0.1/...</code>, copy the whole address bar and paste it here. Tokens stay only on this computer.</p>
       <label for="schwab-redirect">Redirect URL</label>
       <textarea id="schwab-redirect" rows="4" placeholder="https://127.0.0.1/?code=..." autocomplete="off" spellcheck="false"></textarea>
       <p id="schwab-modal-note" class="modal-warn"></p>
