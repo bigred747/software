@@ -101,6 +101,10 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
+## Force Private seal refresh (1.10.11)
+
+- Reseals Private / phone so the Version seal leaves a stuck older build (e.g. 1.10.9). Same Market Forecaster desk as 1.10.10. Live locked · Artex · paper only.
+
 ## Market Forecaster (1.10.10)
 
 - **Tools · Next pages · Markets:** **Market Forecaster** — base · bull · bear cases on closed daily bars for open / pinned / scan names.
