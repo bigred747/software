@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.11">
+  <meta name="paper-build" content="1.10.12">
   <meta name="paper-private-build" content="publish-20261121T021800Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1887,7 +1887,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.11</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.12</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -6661,6 +6661,11 @@ plot Sell = close crosses below baseline;</textarea>
     macdx: { name: "MACD cross", who: "Momentum cross", idea: "Buy when the MACD line crosses above its signal line. Exit when it crosses back below." },
     bollrev: { name: "Bollinger reversion", who: "Mean reversion", idea: "In an uptrend above the 200-bar average, buy a close under the lower Bollinger band. Exit when price closes back at or above the middle band." },
     atrtrail: { name: "EMA trend · ATR trail", who: "Volatility trail", idea: "Buy when the 20-bar EMA crosses above the 50-bar EMA. Exit when the close falls 2.5 ATR under the best high since entry." },
+    seatrail: {
+      name: "Seat Trail",
+      who: "Seat-aware breakout trail",
+      idea: "Patience breakout on closed bars only: close above the prior 20-bar high, relative volume ≥ 1.8× the 20-bar average, ATR(14) expanding vs its 20-bar average, Range Seat Mid or High, and close above the 50 EMA. Initial stop and trail width follow Range Seat (wider on Seat High, tighter on Mid/Low). Exit on the seat-aware ATR trail under the best high, or after 40 held bars. Own desk math — not a third-party product. Distinct from Edge / Fire 5 / Tide / Go Long. Paper only. Not a forecast.",
+    },
     weeklow: { name: "7-day low pullback", who: "Weekly pullback", idea: "Above the 200-bar average, buy a close that is the lowest of the last 7 bars. Exit on a close that is the highest of the last 7 bars." },
   };
   const STRATEGY_IDS = Object.keys(STRATEGY_INFO);
@@ -6961,6 +6966,51 @@ plot Sell = close crosses below baseline;</textarea>
       });
       finish("atrtrail", run);
     } else notReady("atrtrail", "Needs at least 80 bars.");
+
+    if (end >= 80) {
+      const ranges = edgeAtr(list, SEAT_TRAIL_ATR);
+      const atrBase = simpleAverage(ranges, SEAT_TRAIL_ATR_BASE);
+      const volumes = list.map((bar) => Math.max(0, Number(bar.volume) || 0));
+      const volAvg = simpleAverage(volumes, SEAT_TRAIL_CHANNEL);
+      const ema50 = ema(closes, 50);
+      const hasVolume = volumes.some((value) => value > 0);
+      const run = runRule(list, end, 55, {
+        enter: (index) => {
+          if (!hasVolume) return null;
+          const seat = rangeSeatAt(list, index);
+          if (!seat || (seat.seat !== "high" && seat.seat !== "mid")) return null;
+          if (ema50[index] == null || closes[index] <= ema50[index]) return null;
+          if (ranges[index] == null || atrBase[index] == null || !(ranges[index] > atrBase[index])) return null;
+          if (volAvg[index] == null || !(volAvg[index] > 0) || !(volumes[index] >= SEAT_TRAIL_VOL_MULT * volAvg[index])) return null;
+          let top = -Infinity;
+          for (let back = 1; back <= SEAT_TRAIL_CHANNEL; back += 1) top = Math.max(top, list[index - back].high);
+          if (!(closes[index] > top)) return null;
+          const mult = seatTrailMult(seat.seat);
+          return { stop: closes[index] - mult * ranges[index], seat: seat.seat, mult };
+        },
+        exit: (index, open) => {
+          if (!open || ranges[index] == null) return false;
+          const held = index - open.entryIndex + 1;
+          if (held >= SEAT_TRAIL_MAX_HOLD) return true;
+          const seat = rangeSeatAt(list, index);
+          const mult = seatTrailMult(seat && seat.seat);
+          let peak = open.entry;
+          for (let back = open.entryIndex; back <= index; back += 1) peak = Math.max(peak, list[back].high);
+          return closes[index] < peak - mult * ranges[index];
+        },
+      });
+      const read = seatTrailRead(list, { live });
+      finish("seatrail", run, {
+        seat: read && read.seat,
+        seatLabel: read && read.seatLabel,
+        trailMult: read && read.trailMult,
+        breakout: !!(read && read.breakout),
+        volumeOk: !!(read && read.volumeOk),
+        expandOk: !!(read && read.expandOk),
+        structureOk: !!(read && read.structureOk),
+        armed: !!(read && read.armed),
+      });
+    } else notReady("seatrail", "Needs at least 80 bars.");
 
     if (end >= 220) {
       const long = simpleAverage(closes, 200);
@@ -7708,10 +7758,26 @@ plot Sell = close crosses below baseline;</textarea>
   const SEAT_HIGH_PCT = 55;
   const SEAT_MID_PCT = 30;
 
-  function rangeSeat(bars) {
-    const list = closedBars(bars || [], false);
-    if (list.length < 60) return null;
-    const window = list.slice(-252);
+  // Seat Trail — original patience breakout with seat-aware ATR trail (Strategies Auto).
+  // Distinct from Edge / Fire 5 / Tide / Go Long. Closed bars only. Own names only.
+  const SEAT_TRAIL_CHANNEL = 20;
+  const SEAT_TRAIL_VOL_MULT = 1.8;
+  const SEAT_TRAIL_ATR = 14;
+  const SEAT_TRAIL_ATR_BASE = 20;
+  const SEAT_TRAIL_MAX_HOLD = 40;
+  const SEAT_TRAIL_HIGH = 3.0;
+  const SEAT_TRAIL_MID = 2.2;
+  const SEAT_TRAIL_LOW = 1.6;
+
+  function seatTrailMult(seat) {
+    if (seat === "high") return SEAT_TRAIL_HIGH;
+    if (seat === "mid") return SEAT_TRAIL_MID;
+    return SEAT_TRAIL_LOW;
+  }
+
+  function rangeSeatAt(list, index) {
+    if (!list || index < 59 || index >= list.length) return null;
+    const window = list.slice(Math.max(0, index - 251), index + 1);
     let hi = -Infinity;
     let lo = Infinity;
     window.forEach((bar) => {
@@ -7728,6 +7794,81 @@ plot Sell = close crosses below baseline;</textarea>
       seat,
       label: seat === "high" ? "Seat High" : seat === "mid" ? "Seat Mid" : "Seat Low",
       asOf: window[window.length - 1].date,
+    };
+  }
+
+  function rangeSeat(bars) {
+    const list = closedBars(bars || [], false);
+    if (list.length < 60) return null;
+    return rangeSeatAt(list, list.length - 1);
+  }
+
+  function seatTrailRead(bars, options) {
+    const all = bars || [];
+    const live = !!(options && options.live) && all.length > 0;
+    const list = live ? all.slice(0, -1) : all;
+    const count = list.length;
+    if (count < 80) {
+      return {
+        ready: false,
+        armed: false,
+        call: "WAIT",
+        why: "Needs at least 80 closed bars for Seat Trail.",
+        seat: null,
+        seatLabel: "",
+        trailMult: SEAT_TRAIL_MID,
+      };
+    }
+    const last = count - 1;
+    const closes = list.map((bar) => bar.close);
+    const ranges = edgeAtr(list, SEAT_TRAIL_ATR);
+    const atrBase = simpleAverage(ranges, SEAT_TRAIL_ATR_BASE);
+    const volumes = list.map((bar) => Math.max(0, Number(bar.volume) || 0));
+    const volAvg = simpleAverage(volumes, SEAT_TRAIL_CHANNEL);
+    const ema50 = ema(closes, 50);
+    const seat = rangeSeatAt(list, last);
+    const hasVolume = volumes.some((value) => value > 0);
+    let top = -Infinity;
+    for (let back = 1; back <= SEAT_TRAIL_CHANNEL && last - back >= 0; back += 1) {
+      top = Math.max(top, list[last - back].high);
+    }
+    const breakout = closes[last] > top;
+    const volumeOk =
+      hasVolume && volAvg[last] != null && volAvg[last] > 0 && volumes[last] >= SEAT_TRAIL_VOL_MULT * volAvg[last];
+    const expandOk = ranges[last] != null && atrBase[last] != null && ranges[last] > atrBase[last];
+    const structureOk = ema50[last] != null && closes[last] > ema50[last];
+    const seatOk = !!(seat && (seat.seat === "high" || seat.seat === "mid"));
+    const trailMult = seatTrailMult(seat && seat.seat);
+    const armed = !!(hasVolume && breakout && volumeOk && expandOk && structureOk && seatOk);
+    const parts = [];
+    if (!hasVolume) parts.push("no volume — fail closed");
+    else {
+      parts.push(breakout ? "20-bar high break" : "no break");
+      parts.push(volumeOk ? "volume surge" : "thin volume");
+      parts.push(expandOk ? "ATR expanding" : "ATR quiet");
+      parts.push(structureOk ? "above 50 EMA" : "under 50 EMA");
+      parts.push(seat ? seat.label : "Seat unread");
+      parts.push("trail ×" + trailMult.toFixed(1));
+    }
+    return {
+      ready: true,
+      armed,
+      call: armed ? "BUY" : "WAIT",
+      why: (armed ? "Seat Trail armed · " : "Seat Trail waiting · ") + parts.join(" · ") + ". Closed bars only. Not a forecast.",
+      seat: seat ? seat.seat : null,
+      seatLabel: seat ? seat.label : "",
+      seatPct: seat ? seat.pct : null,
+      trailMult,
+      breakout,
+      volumeOk,
+      expandOk,
+      structureOk,
+      seatOk,
+      hasVolume,
+      stop: armed && ranges[last] != null ? closes[last] - trailMult * ranges[last] : null,
+      asOf: list[last].date,
+      relVol:
+        hasVolume && volAvg[last] > 0 ? Math.round((volumes[last] / volAvg[last]) * 10) / 10 : null,
     };
   }
 
@@ -8725,10 +8866,19 @@ plot Sell = close crosses below baseline;</textarea>
     bestFades,
     FADE_FIVE_LIMIT,
     rangeSeat,
+    rangeSeatAt,
+    seatTrailMult,
+    seatTrailRead,
     laneAlign,
     laneAllowsAuto,
     LANE_SECTOR_MIN,
     SEAT_HIGH_PCT,
+    SEAT_TRAIL_CHANNEL,
+    SEAT_TRAIL_VOL_MULT,
+    SEAT_TRAIL_MAX_HOLD,
+    SEAT_TRAIL_HIGH,
+    SEAT_TRAIL_MID,
+    SEAT_TRAIL_LOW,
     marketScorecard,
     horizonOutlook,
     marketOutlook,
@@ -8907,7 +9057,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.11";
+const VERSION = "1.10.12";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -9975,6 +10125,10 @@ async function scanPhone() {
         const matched = Number(lesson && lesson.matched) || 0;
         const timing = PaperFrames.edge ? PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] }) : null;
         const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
+        const trail =
+          PaperFrames.seatTrailRead
+            ? PaperFrames.seatTrailRead(bars, { live: PaperFrames.liveBar(bars, crypto) })
+            : null;
         scored.push({
           symbol,
           seen,
@@ -9985,6 +10139,10 @@ async function scanPhone() {
           fire: fireOn,
           stage: timing && timing.stage ? timing.stage : "",
           big4: timing && timing.big4 && timing.big4.bias ? timing.big4.bias : "",
+          seatTrail: !!(trail && trail.ready && trail.armed),
+          seatTrailCall: trail && trail.ready ? trail.call : "",
+          seatLabel: trail && trail.seatLabel ? trail.seatLabel : "",
+          seat: trail && trail.seat ? trail.seat : "",
         });
       } catch (error) {
         errors += 1;
@@ -10457,7 +10615,7 @@ function pinLabel(symbol) {
 
 function renderScoreButtons(bar, rows, signal) {
   const current = (state.paper && state.paper.symbol) || "";
-  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + (row.edge || "") + ":" + (row.fire ? "F" : "") + ":" + row.matched + ":" + row.seen).join(",");
+  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + (row.edge || "") + ":" + (row.fire ? "F" : "") + ":" + (row.seatTrail ? "ST" : "") + ":" + row.matched + ":" + row.seen).join(",");
   if (sameStamp(bar, stamp)) return;
   bar.replaceChildren();
   (rows || []).forEach((row) => {
@@ -10465,17 +10623,18 @@ function renderScoreButtons(bar, rows, signal) {
     const button = document.createElement("button");
     button.type = "button";
     const fire = row.fire || row.edge === "BUY";
-    const ready = fire ? " · FIRE" : row.setup === "buy" ? " buy" : "";
-    const timing = !fire && row.edge ? " · " + row.edge : "";
+    const trail = !!row.seatTrail;
+    const ready = fire ? " · FIRE" : trail ? " · Seat Trail" : row.setup === "buy" ? " buy" : "";
+    const timing = !fire && !trail && row.edge ? " · " + row.edge : "";
     button.textContent = pinLabel(row.symbol) + " " + row.rate + "%" + ready + timing;
     button.title =
       row.matched +
       " of " +
       row.seen +
       " closed bars." +
-      (fire ? " Ready · Aim · Fire is Fire." : row.edge ? " Edge " + row.edge + "." : "") +
+      (fire ? " Ready · Aim · Fire is Fire." : trail ? " Seat Trail armed." : row.edge ? " Edge " + row.edge + "." : "") +
       " Tap to review. Not a forecast.";
-    if (signal || fire) button.classList.add("go");
+    if (signal || fire || trail) button.classList.add("go");
     if (row.symbol === current) {
       button.classList.add("on");
       button.setAttribute("aria-pressed", "true");
@@ -10813,6 +10972,13 @@ function todayFillRows(book) {
   });
 }
 
+function seatTrailScanRows() {
+  return (state.leaders || [])
+    .concat(state.picks || [])
+    .concat(state.fires || [])
+    .filter((row) => row && row.symbol && row.seatTrail);
+}
+
 function journalBuyRows(book) {
   const held = new Set((((book && book.positions) || []).map((item) => item.symbol)));
   const bought = dayBuySymbols().names;
@@ -10826,20 +10992,24 @@ function journalBuyRows(book) {
   []
     .concat(state.fires || [])
     .concat(state.picks || [])
+    .concat(seatTrailScanRows())
     .forEach((row) => {
       if (!row || !row.symbol || seen.has(row.symbol)) return;
       seen.add(row.symbol);
       const fire = !!(row.fire || row.edge === "BUY");
+      const trail = !!row.seatTrail;
       let status = "best";
       if (held.has(row.symbol)) status = "held";
       else if (bought.has(row.symbol) || filled.has(row.symbol)) status = "bought";
       else if (fire) status = "fire";
+      else if (trail) status = "trail";
       const lane = row.lane ? row : Object.assign({}, row, readLaneAlign(row.symbol, null));
       rows.push(
         Object.assign({}, row, {
           edge: row.edge || (fire ? "BUY" : row.edge),
-          setup: row.setup || (fire ? "buy" : row.setup),
+          setup: row.setup || (fire ? "buy" : trail ? "seat" : row.setup),
           fire,
+          seatTrail: trail,
           journalStatus: status,
           lane: row.lane || lane.lane || "",
           laneWhy: row.laneWhy || lane.why || "",
@@ -10856,9 +11026,9 @@ function paintJournalPins(bar, rows, mode) {
   const current = (state.paper && state.paper.symbol) || "";
   const emptyNote =
     mode === "buys"
-      ? "No buy signals yet. Fire 5 and today's best light here when Ready · Aim · Fire turns Fire on a strong name."
+      ? "No buy signals yet. Fire 5, today's best, and Seat Trail light here when closed-bar setups arm on a strong name."
       : mode === "sells"
-        ? state.journalSellNote || "No Edge exit signals on open paper longs right now."
+        ? state.journalSellNote || "No Edge or Seat Trail exit signals on open paper longs right now."
         : "No paper fills yet today (Denver).";
   const stamp =
     mode +
@@ -10867,7 +11037,7 @@ function paintJournalPins(bar, rows, mode) {
     "|" +
     ((rows || []).length ? "" : emptyNote + "|") +
     (rows || [])
-      .map((row) => row.symbol + ":" + (row.journalStatus || "") + ":" + (row.rate || "") + ":" + (row.side || "") + ":" + (row.reason || ""))
+      .map((row) => row.symbol + ":" + (row.journalStatus || "") + ":" + (row.rate || "") + ":" + (row.side || "") + ":" + (row.reason || "") + ":" + (row.seatTrail ? "st" : ""))
       .join(",");
   if (sameStamp(bar, stamp)) return;
   bar.replaceChildren();
@@ -10891,18 +11061,41 @@ function paintJournalPins(bar, rows, mode) {
     } else if (mode === "sells") {
       button.textContent = label + " · EXIT" + (row.reason ? " · " + row.reason : "");
       button.className = "exit";
-      button.title = "Edge exit on " + row.symbol + (row.reason ? ": " + row.reason : "") + ". Tap to review. Auto still asks Yes before a paper sell. Not a forecast.";
+      button.title =
+        (row.reason && String(row.reason).indexOf("Seat Trail") === 0 ? "Seat Trail" : "Edge") +
+        " exit on " +
+        row.symbol +
+        (row.reason ? ": " + row.reason : "") +
+        ". Tap to review. Auto still asks Yes before a paper sell. Not a forecast.";
     } else {
       const status = row.journalStatus || "best";
-      const tag = status === "fire" ? " · FIRE" : status === "held" ? " · held" : status === "bought" ? " · bought" : " · best";
+      const tag =
+        status === "fire"
+          ? " · FIRE"
+          : status === "trail"
+            ? " · Seat Trail"
+            : status === "held"
+              ? " · held"
+              : status === "bought"
+                ? " · bought"
+                : " · best";
       const laneTag =
         row.lane === "open" ? " · Lane Open" : row.lane === "soft" ? " · Lane Soft" : row.lane === "closed" ? " · Lane Closed" : "";
       const seatTag = row.seatLabel ? " · " + row.seatLabel : row.seat === "high" ? " · Seat High" : "";
-      button.textContent = label + (row.rate != null ? " " + row.rate + "%" : "") + tag + laneTag + seatTag;
-      if (status === "fire" || status === "best") button.classList.add("go");
+      const agreeTag = row.seatTrail && status === "fire" ? " · Trail agrees" : "";
+      button.textContent = label + (row.rate != null ? " " + row.rate + "%" : "") + tag + laneTag + seatTag + agreeTag;
+      if (status === "fire" || status === "best" || status === "trail") button.classList.add("go");
       else button.classList.add("done");
       button.title =
-        (status === "fire" ? "Fire buy signal. " : status === "best" ? "Today's best buy candidate. " : status === "held" ? "Already in a paper long. " : "Already bought today. ") +
+        (status === "fire"
+          ? "Fire buy signal. "
+          : status === "trail"
+            ? "Seat Trail armed. "
+            : status === "best"
+              ? "Today's best buy candidate. "
+              : status === "held"
+                ? "Already in a paper long. "
+                : "Already bought today. ") +
         (row.laneWhy ? row.laneWhy + " " : "") +
         (row.seatLabel ? row.seatLabel + ". " : "") +
         "Tap to review the chart. Auto asks Yes before any paper buy. Not a forecast.";
@@ -10936,12 +11129,16 @@ function renderJournalFilled(book) {
 
 function journalCheckNoteText(book) {
   const buys = journalBuyRows(book);
-  const actionable = buys.filter((row) => row.journalStatus === "fire" || row.journalStatus === "best").length;
+  const actionable = buys.filter(
+    (row) => row.journalStatus === "fire" || row.journalStatus === "best" || row.journalStatus === "trail"
+  ).length;
+  const trails = buys.filter((row) => row.seatTrail || row.journalStatus === "trail").length;
   const sells = (state.journalSells || []).length;
   const filled = todayFillRows(book).length;
   const open = ((book && book.positions) || []).length;
   const parts = [];
   parts.push(actionable ? actionable + " buy signal" + (actionable === 1 ? "" : "s") + " to review" : "No open buy signals");
+  if (trails) parts.push(trails + " Seat Trail");
   parts.push(sells ? sells + " sell / exit" + (sells === 1 ? "" : "s") : open ? open + " open · no Edge exit yet" : "No sell signals");
   parts.push(filled ? filled + " fill" + (filled === 1 ? "" : "s") + " today" : "No fills today");
   return parts.join(" · ") + ". Tap a product name to open the chart. Paper Yes still required. Not a forecast.";
@@ -11104,7 +11301,8 @@ async function refreshJournalSells(book) {
     }
     return state.journalSells;
   }
-  state.journalSellNote = "Checking Edge exits on " + positions.length + " open paper long" + (positions.length === 1 ? "" : "s") + "…";
+  state.journalSellNote =
+    "Checking Edge / Seat Trail exits on " + positions.length + " open paper long" + (positions.length === 1 ? "" : "s") + "…";
   renderJournalSells();
   const sells = [];
   for (let index = 0; index < positions.length; index += 1) {
@@ -11120,16 +11318,32 @@ async function refreshJournalSells(book) {
           : state.offline
             ? await sqDaily(symbol)
             : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
-      if (!bars || !bars.length || !PaperFrames.edge) continue;
+      if (!bars || !bars.length) continue;
       const crypto = phoneCrypto(symbol, row);
-      const timing = PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] });
-      if (timing && timing.ready && timing.call === "SELL") {
-        sells.push({
-          symbol,
-          reason: timing.reason || "Edge exit",
-          journalStatus: "exit",
-          rate: timing.score != null ? timing.score : "",
-        });
+      const live = PaperFrames.liveBar(bars, crypto);
+      if (PaperFrames.edge) {
+        const timing = PaperFrames.edge(bars, { live, vixBars: state.vixBars || [] });
+        if (timing && timing.ready && timing.call === "SELL") {
+          sells.push({
+            symbol,
+            reason: timing.reason || "Edge exit",
+            journalStatus: "exit",
+            rate: timing.score != null ? timing.score : "",
+          });
+          continue;
+        }
+      }
+      if (PaperFrames.strategies) {
+        const board = PaperFrames.strategies(bars, { live });
+        const trail = board && board.rows ? board.rows.find((item) => item.id === "seatrail") : null;
+        if (trail && trail.ready && trail.call === "SELL") {
+          sells.push({
+            symbol,
+            reason: "Seat Trail exit",
+            journalStatus: "exit",
+            rate: trail.trailMult != null ? "×" + trail.trailMult : "",
+          });
+        }
       }
     } catch (error) {
       // Keep honesty: skip inventing an exit when bars or Edge are unavailable.
@@ -11138,8 +11352,8 @@ async function refreshJournalSells(book) {
   if (state.journalSellGen !== gen) return state.journalSells;
   state.journalSells = sells;
   state.journalSellNote = sells.length
-    ? sells.length + " open long" + (sells.length === 1 ? "" : "s") + " due for Edge exit. Tap to review; Auto asks Yes before a paper sell."
-    : positions.length + " open long" + (positions.length === 1 ? "" : "s") + " · no Edge exit on the last closed bar.";
+    ? sells.length + " open long" + (sells.length === 1 ? "" : "s") + " due for exit (Edge or Seat Trail). Tap to review; Auto asks Yes before a paper sell."
+    : positions.length + " open long" + (positions.length === 1 ? "" : "s") + " · no Edge / Seat Trail exit on the last closed bar.";
   renderJournalSells();
   const note = $("journal-check-note");
   if (note) note.textContent = journalCheckNoteText(book || currentBook(state.paper));
@@ -12406,7 +12620,7 @@ function whenIdle() {
 }
 
 const STRAT_KEY = "paper_trader_strategy_v1";
-const STRAT_IDS = ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"];
+const STRAT_IDS = ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "seatrail", "weeklow"];
 const TRIG_KEY = "paper_trader_triggers_v1";
 
 function strategyIds() {
@@ -12596,6 +12810,22 @@ function bestSetupStatus() {
       : "Lane Align unread — run scorecard"
   );
 
+  // Seat Trail is Strategies Auto capable; Best setup stays Edge-gated. Show agree/wait without blocking.
+  const trail =
+    bars.length && typeof PaperFrames !== "undefined" && PaperFrames.seatTrailRead
+      ? PaperFrames.seatTrailRead(bars, { live: chartCrypto() })
+      : null;
+  const trailArmed = !!(trail && trail.ready && trail.armed);
+  gates.push({
+    label: "Seat Trail",
+    ok: trailArmed,
+    detail: trail && trail.ready
+      ? trailArmed
+        ? "Seat Trail armed · agrees (Strategies Auto can follow Seat Trail separately)"
+        : "Seat Trail waiting · Best setup still Edge-gated"
+      : "Seat Trail unread",
+  });
+
   const held = !!(state.paper && state.paper.shares > 0);
   if (held) waiting.unshift("Already in a paper long — Best setup buys wait; Edge SELL can still exit");
 
@@ -12669,7 +12899,7 @@ function renderBestSetup() {
   button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
   note.textContent = on
     ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Strictest paper buys only: Edge all six (incl. VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Still asks Yes. Not a forecast.";
+    : "Off. Strictest paper buys only: Edge all six (incl. VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Seat Trail shows agree/wait on the checklist and runs as its own Strategies Auto process — not a second Fire 5. Still asks Yes. Not a forecast.";
   if (list) {
     list.replaceChildren();
     list.hidden = !on;
@@ -16077,6 +16307,12 @@ function paintDeskClear(history) {
     lane && lane.lane === "open" ? "bull" : lane && lane.lane === "closed" ? "bear" : lane && lane.lane === "soft" ? "mixed" : "stage";
   const seatLabel = seat && seat.label ? seat.label.replace("Seat ", "") : seat && seat.seat ? seat.seat : "—";
   const seatKind = seat && seat.seat === "high" ? "bull" : seat && seat.seat === "low" ? "bear" : "mixed";
+  const trail =
+    history && history.length && typeof PaperFrames !== "undefined" && PaperFrames.seatTrailRead
+      ? PaperFrames.seatTrailRead(history, { live: chartCrypto() })
+      : null;
+  const trailLabel = !trail ? "—" : !trail.ready ? "—" : trail.armed ? "Armed" : trail.call === "WAIT" ? "Wait" : trail.call || "—";
+  const trailKind = trail && trail.armed ? "bull" : trail && trail.ready ? "mixed" : "stage";
   const openCycle =
     history && history.length && typeof PaperFrames !== "undefined" && PaperFrames.cycleMapRead
       ? PaperFrames.cycleMapRead(history)
@@ -16109,6 +16345,7 @@ function paintDeskClear(history) {
         { k: "Stage", v: read.stage, kind: "stage" },
         { k: "Lane Align", v: laneLabel, kind: laneKind },
         { k: "Range Seat", v: seatLabel, kind: seatKind },
+        { k: "Seat Trail", v: trailLabel, kind: trailKind },
         {
           k: "Cycle",
           v: cycleChipLabel,
@@ -16124,6 +16361,7 @@ function paintDeskClear(history) {
         { k: "Stage", v: "Waiting", kind: "stage" },
         { k: "Lane Align", v: laneLabel, kind: laneKind },
         { k: "Range Seat", v: seatLabel, kind: seatKind },
+        { k: "Seat Trail", v: trailLabel, kind: trailKind },
         { k: "Cycle", v: cycleChipLabel, kind: cycleChipKind },
       ];
   paintChipRow(node, chips);

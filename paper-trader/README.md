@@ -102,6 +102,15 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Live stays locked. Every paper buy/sell still asks Yes.
 
 
+## Seat Trail (1.10.12)
+
+Original Paper Trader Strategies process (own names only — not a third-party product):
+
+- **Seat Trail** — patience breakout on closed bars: prior 20-bar high break + relative volume surge + ATR expansion + Range Seat Mid/High + close above the 50 EMA.
+- **Twist:** trail width follows Range Seat (wider on Seat High, tighter on Mid/Low). Max hold 40 bars. Fail closed when volume is missing.
+- Strategies tab row · Auto-capable · desk box above charts · Daily scan tags · Journal buy/sell. Best setup stays Edge-gated and shows Seat Trail agree/wait without blocking.
+- Distinct from Edge / Fire 5 / Tide Alert / Go Long 5. Paper only. Live locked. Not a forecast.
+
 ## Volume Wave · Desk Waves (1.10.11)
 
 - Chart study pane under CCI: **Volume Wave · Desk Waves** — closed-bar accum/distrib volume waves gated by Hull ATR (default n=6, ATRmult=0.7).

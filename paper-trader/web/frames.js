@@ -2137,6 +2137,11 @@
     macdx: { name: "MACD cross", who: "Momentum cross", idea: "Buy when the MACD line crosses above its signal line. Exit when it crosses back below." },
     bollrev: { name: "Bollinger reversion", who: "Mean reversion", idea: "In an uptrend above the 200-bar average, buy a close under the lower Bollinger band. Exit when price closes back at or above the middle band." },
     atrtrail: { name: "EMA trend · ATR trail", who: "Volatility trail", idea: "Buy when the 20-bar EMA crosses above the 50-bar EMA. Exit when the close falls 2.5 ATR under the best high since entry." },
+    seatrail: {
+      name: "Seat Trail",
+      who: "Seat-aware breakout trail",
+      idea: "Patience breakout on closed bars only: close above the prior 20-bar high, relative volume ≥ 1.8× the 20-bar average, ATR(14) expanding vs its 20-bar average, Range Seat Mid or High, and close above the 50 EMA. Initial stop and trail width follow Range Seat (wider on Seat High, tighter on Mid/Low). Exit on the seat-aware ATR trail under the best high, or after 40 held bars. Own desk math — not a third-party product. Distinct from Edge / Fire 5 / Tide / Go Long. Paper only. Not a forecast.",
+    },
     weeklow: { name: "7-day low pullback", who: "Weekly pullback", idea: "Above the 200-bar average, buy a close that is the lowest of the last 7 bars. Exit on a close that is the highest of the last 7 bars." },
   };
   const STRATEGY_IDS = Object.keys(STRATEGY_INFO);
@@ -2437,6 +2442,51 @@
       });
       finish("atrtrail", run);
     } else notReady("atrtrail", "Needs at least 80 bars.");
+
+    if (end >= 80) {
+      const ranges = edgeAtr(list, SEAT_TRAIL_ATR);
+      const atrBase = simpleAverage(ranges, SEAT_TRAIL_ATR_BASE);
+      const volumes = list.map((bar) => Math.max(0, Number(bar.volume) || 0));
+      const volAvg = simpleAverage(volumes, SEAT_TRAIL_CHANNEL);
+      const ema50 = ema(closes, 50);
+      const hasVolume = volumes.some((value) => value > 0);
+      const run = runRule(list, end, 55, {
+        enter: (index) => {
+          if (!hasVolume) return null;
+          const seat = rangeSeatAt(list, index);
+          if (!seat || (seat.seat !== "high" && seat.seat !== "mid")) return null;
+          if (ema50[index] == null || closes[index] <= ema50[index]) return null;
+          if (ranges[index] == null || atrBase[index] == null || !(ranges[index] > atrBase[index])) return null;
+          if (volAvg[index] == null || !(volAvg[index] > 0) || !(volumes[index] >= SEAT_TRAIL_VOL_MULT * volAvg[index])) return null;
+          let top = -Infinity;
+          for (let back = 1; back <= SEAT_TRAIL_CHANNEL; back += 1) top = Math.max(top, list[index - back].high);
+          if (!(closes[index] > top)) return null;
+          const mult = seatTrailMult(seat.seat);
+          return { stop: closes[index] - mult * ranges[index], seat: seat.seat, mult };
+        },
+        exit: (index, open) => {
+          if (!open || ranges[index] == null) return false;
+          const held = index - open.entryIndex + 1;
+          if (held >= SEAT_TRAIL_MAX_HOLD) return true;
+          const seat = rangeSeatAt(list, index);
+          const mult = seatTrailMult(seat && seat.seat);
+          let peak = open.entry;
+          for (let back = open.entryIndex; back <= index; back += 1) peak = Math.max(peak, list[back].high);
+          return closes[index] < peak - mult * ranges[index];
+        },
+      });
+      const read = seatTrailRead(list, { live });
+      finish("seatrail", run, {
+        seat: read && read.seat,
+        seatLabel: read && read.seatLabel,
+        trailMult: read && read.trailMult,
+        breakout: !!(read && read.breakout),
+        volumeOk: !!(read && read.volumeOk),
+        expandOk: !!(read && read.expandOk),
+        structureOk: !!(read && read.structureOk),
+        armed: !!(read && read.armed),
+      });
+    } else notReady("seatrail", "Needs at least 80 bars.");
 
     if (end >= 220) {
       const long = simpleAverage(closes, 200);
@@ -3184,10 +3234,26 @@
   const SEAT_HIGH_PCT = 55;
   const SEAT_MID_PCT = 30;
 
-  function rangeSeat(bars) {
-    const list = closedBars(bars || [], false);
-    if (list.length < 60) return null;
-    const window = list.slice(-252);
+  // Seat Trail — original patience breakout with seat-aware ATR trail (Strategies Auto).
+  // Distinct from Edge / Fire 5 / Tide / Go Long. Closed bars only. Own names only.
+  const SEAT_TRAIL_CHANNEL = 20;
+  const SEAT_TRAIL_VOL_MULT = 1.8;
+  const SEAT_TRAIL_ATR = 14;
+  const SEAT_TRAIL_ATR_BASE = 20;
+  const SEAT_TRAIL_MAX_HOLD = 40;
+  const SEAT_TRAIL_HIGH = 3.0;
+  const SEAT_TRAIL_MID = 2.2;
+  const SEAT_TRAIL_LOW = 1.6;
+
+  function seatTrailMult(seat) {
+    if (seat === "high") return SEAT_TRAIL_HIGH;
+    if (seat === "mid") return SEAT_TRAIL_MID;
+    return SEAT_TRAIL_LOW;
+  }
+
+  function rangeSeatAt(list, index) {
+    if (!list || index < 59 || index >= list.length) return null;
+    const window = list.slice(Math.max(0, index - 251), index + 1);
     let hi = -Infinity;
     let lo = Infinity;
     window.forEach((bar) => {
@@ -3204,6 +3270,81 @@
       seat,
       label: seat === "high" ? "Seat High" : seat === "mid" ? "Seat Mid" : "Seat Low",
       asOf: window[window.length - 1].date,
+    };
+  }
+
+  function rangeSeat(bars) {
+    const list = closedBars(bars || [], false);
+    if (list.length < 60) return null;
+    return rangeSeatAt(list, list.length - 1);
+  }
+
+  function seatTrailRead(bars, options) {
+    const all = bars || [];
+    const live = !!(options && options.live) && all.length > 0;
+    const list = live ? all.slice(0, -1) : all;
+    const count = list.length;
+    if (count < 80) {
+      return {
+        ready: false,
+        armed: false,
+        call: "WAIT",
+        why: "Needs at least 80 closed bars for Seat Trail.",
+        seat: null,
+        seatLabel: "",
+        trailMult: SEAT_TRAIL_MID,
+      };
+    }
+    const last = count - 1;
+    const closes = list.map((bar) => bar.close);
+    const ranges = edgeAtr(list, SEAT_TRAIL_ATR);
+    const atrBase = simpleAverage(ranges, SEAT_TRAIL_ATR_BASE);
+    const volumes = list.map((bar) => Math.max(0, Number(bar.volume) || 0));
+    const volAvg = simpleAverage(volumes, SEAT_TRAIL_CHANNEL);
+    const ema50 = ema(closes, 50);
+    const seat = rangeSeatAt(list, last);
+    const hasVolume = volumes.some((value) => value > 0);
+    let top = -Infinity;
+    for (let back = 1; back <= SEAT_TRAIL_CHANNEL && last - back >= 0; back += 1) {
+      top = Math.max(top, list[last - back].high);
+    }
+    const breakout = closes[last] > top;
+    const volumeOk =
+      hasVolume && volAvg[last] != null && volAvg[last] > 0 && volumes[last] >= SEAT_TRAIL_VOL_MULT * volAvg[last];
+    const expandOk = ranges[last] != null && atrBase[last] != null && ranges[last] > atrBase[last];
+    const structureOk = ema50[last] != null && closes[last] > ema50[last];
+    const seatOk = !!(seat && (seat.seat === "high" || seat.seat === "mid"));
+    const trailMult = seatTrailMult(seat && seat.seat);
+    const armed = !!(hasVolume && breakout && volumeOk && expandOk && structureOk && seatOk);
+    const parts = [];
+    if (!hasVolume) parts.push("no volume — fail closed");
+    else {
+      parts.push(breakout ? "20-bar high break" : "no break");
+      parts.push(volumeOk ? "volume surge" : "thin volume");
+      parts.push(expandOk ? "ATR expanding" : "ATR quiet");
+      parts.push(structureOk ? "above 50 EMA" : "under 50 EMA");
+      parts.push(seat ? seat.label : "Seat unread");
+      parts.push("trail ×" + trailMult.toFixed(1));
+    }
+    return {
+      ready: true,
+      armed,
+      call: armed ? "BUY" : "WAIT",
+      why: (armed ? "Seat Trail armed · " : "Seat Trail waiting · ") + parts.join(" · ") + ". Closed bars only. Not a forecast.",
+      seat: seat ? seat.seat : null,
+      seatLabel: seat ? seat.label : "",
+      seatPct: seat ? seat.pct : null,
+      trailMult,
+      breakout,
+      volumeOk,
+      expandOk,
+      structureOk,
+      seatOk,
+      hasVolume,
+      stop: armed && ranges[last] != null ? closes[last] - trailMult * ranges[last] : null,
+      asOf: list[last].date,
+      relVol:
+        hasVolume && volAvg[last] > 0 ? Math.round((volumes[last] / volAvg[last]) * 10) / 10 : null,
     };
   }
 
@@ -4201,10 +4342,19 @@
     bestFades,
     FADE_FIVE_LIMIT,
     rangeSeat,
+    rangeSeatAt,
+    seatTrailMult,
+    seatTrailRead,
     laneAlign,
     laneAllowsAuto,
     LANE_SECTOR_MIN,
     SEAT_HIGH_PCT,
+    SEAT_TRAIL_CHANNEL,
+    SEAT_TRAIL_VOL_MULT,
+    SEAT_TRAIL_MAX_HOLD,
+    SEAT_TRAIL_HIGH,
+    SEAT_TRAIL_MID,
+    SEAT_TRAIL_LOW,
     marketScorecard,
     horizonOutlook,
     marketOutlook,
