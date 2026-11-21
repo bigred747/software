@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, seatTrailRead, seatTrailMult, rangeSeat, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -400,7 +400,10 @@ function walk(count, seed, drift) {
 test("strategies report classic public rows plus the four-study combo from closed bars only", () => {
   const bars = walk(600, 7, 0.0008);
   const board = JSON.parse(JSON.stringify(strategies(bars, { live: false })));
-  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "weeklow"]);
+  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "seatrail", "weeklow"]);
+  const seatrail = board.rows.find((row) => row.id === "seatrail");
+  assert.ok(seatrail);
+  assert.equal(seatrail.name, "Seat Trail");
   const quad = board.rows.find((row) => row.id === "quad");
   assert.ok(quad);
   assert.equal(quad.name, "Squeeze · TMO · big4indicator · stack · MTF");
@@ -782,4 +785,48 @@ test("Desk Waves fail closed without volume and build Hull ATR waves with volume
   const gate = hull([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 6);
   assert.ok(gate.some((value) => value != null));
   assert.ok(wma([1, 2, 3, 4, 5], 3)[4] != null);
+});
+
+test("Seat Trail seat-aware trail mult and fail-closed without volume", () => {
+  assert.equal(seatTrailMult("high"), 3);
+  assert.equal(seatTrailMult("mid"), 2.2);
+  assert.equal(seatTrailMult("low"), 1.6);
+  const blank = [];
+  let price = 50;
+  for (let index = 0; index < 120; index += 1) {
+    price = price * 1.004;
+    blank.push({
+      date: "2024-04-" + String((index % 27) + 1).padStart(2, "0"),
+      open: price - 0.4,
+      high: price + 0.8,
+      low: price - 0.8,
+      close: price,
+      volume: 0,
+    });
+  }
+  const noVol = seatTrailRead(blank, { live: false });
+  assert.equal(noVol.ready, true);
+  assert.equal(noVol.armed, false);
+  assert.equal(noVol.hasVolume, false);
+  assert.match(noVol.why, /no volume/i);
+
+  const bars = blank.map((bar, index) => {
+    const surge = index === blank.length - 1;
+    return {
+      ...bar,
+      high: surge ? bar.close * 1.08 : bar.high,
+      close: surge ? bar.close * 1.06 : bar.close,
+      volume: surge ? 50000 : 1000 + index,
+    };
+  });
+  const read = seatTrailRead(bars, { live: false });
+  assert.equal(read.ready, true);
+  assert.equal(read.hasVolume, true);
+  assert.ok(read.trailMult >= 1.6);
+  const seat = rangeSeat(bars);
+  assert.ok(seat && seat.ready);
+  const board = strategies(bars, { live: false });
+  const row = board.rows.find((item) => item.id === "seatrail");
+  assert.ok(row && row.ready);
+  assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(row.call));
 });
