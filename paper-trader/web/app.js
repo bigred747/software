@@ -110,7 +110,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.10";
+const VERSION = "1.10.11";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -533,6 +533,7 @@ function renderLocalSignals() {
     { name: "Squeeze", ok: !!(state.market && (state.market.squeeze || []).length), detail: "Ready" },
     { name: "TMO pane", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.trueMomentum, detail: "True momentum 14/5/3" },
     { name: "CCI pane", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.cciPane, detail: "CCI 50 / 14 / 5" },
+    { name: "Volume Wave", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.volumeWave, detail: "Desk Waves Hull ATR 6 · 0.7" },
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
     {
@@ -6705,9 +6706,14 @@ function drawCandles(retry) {
     ctx.fillText(formatPrice(price), 4, line - 2);
   }
   const big4 = PaperFrames.big4Indicator ? PaperFrames.big4Indicator(history) : null;
-  const candleColors = layers.big4 && big4
-    ? big4.bias.slice(dropped, dropped + bars.length)
-    : null;
+  const wavePrefs = readVolumeWavePrefs();
+  const waves = PaperFrames.volumeWave ? PaperFrames.volumeWave(history, wavePrefs) : null;
+  let candleColors = null;
+  if (wavePrefs.paint && waves && waves.ready) {
+    candleColors = waves.paint.slice(dropped, dropped + bars.length);
+  } else if (layers.big4 && big4) {
+    candleColors = big4.bias.slice(dropped, dropped + bars.length);
+  }
   PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candleColors);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
@@ -6820,11 +6826,13 @@ function drawCandles(retry) {
   if (paneOpen("tmo")) drawTmo();
   if (paneOpen("sqz")) drawSqueeze();
   if (paneOpen("cci")) drawCci();
+  if (paneOpen("vol")) drawVolumeWave();
   if (state.studiesWin && !state.studiesWin.closed) {
     try {
       drawTmo(state.studiesWin.document.getElementById("tmo"));
       drawSqueeze(state.studiesWin.document.getElementById("sqz"));
       drawCci(state.studiesWin.document.getElementById("cci"));
+      drawVolumeWave(state.studiesWin.document.getElementById("vol"));
     } catch (error) {
       state.studiesWin = null;
     }
@@ -7604,6 +7612,79 @@ function drawCci(target) {
   if (slow[last] != null) {
     ctx.fillStyle = "#f4f7fb";
     ctx.fillText(Number(slow[last]).toFixed(1), plotRight + 6, Math.max(28, Math.min(height - 6, y(slow[last]))));
+  }
+}
+
+function drawVolumeWave(target) {
+  const canvas = target || $("vol-chart");
+  if (!state.market || !canvas || !PaperFrames.volumeWave) return;
+  const history = sliceToCursor(state.market.bars);
+  if (!history.length) return;
+  const prefs = readVolumeWavePrefs();
+  const study = PaperFrames.volumeWave(history, prefs);
+  const view = PaperFrames.zoomBars(history, state.zoom);
+  const dropped = view.start;
+  const up = study.up.slice(dropped);
+  const dn = study.dn.slice(dropped);
+  const avg = study.avg.slice(dropped);
+  const ctx = prepare(canvas, 300, Math.max(118, canvas.clientHeight || 118));
+  const width = canvas.paperWidth;
+  const height = canvas.paperHeight;
+  const layout = studyLayout(width, up.length);
+  const pad = layout.pad;
+  const plotRight = layout.plotRight;
+  const slot = layout.slot;
+  if (!target) state.volMap = { bars: view.bars, pad, slot, symbol: state.paper && state.paper.symbol };
+  const histoTop = 22;
+  const histoBottom = height - 10;
+  const zero = (histoTop + histoBottom) / 2;
+  const scale = Math.max(
+    ...up.map((value) => Math.abs(value || 0)),
+    ...dn.map((value) => Math.abs(value || 0)),
+    ...avg.map((value) => Math.abs(value || 0)),
+    1e-9
+  );
+  ctx.strokeStyle = "#2d3640";
+  ctx.beginPath();
+  ctx.moveTo(pad, zero);
+  ctx.lineTo(plotRight, zero);
+  ctx.stroke();
+  up.forEach((value, index) => {
+    if (value == null || value === 0) return;
+    const x = pad + index * slot + slot / 2;
+    const room = Math.max(4, (histoBottom - histoTop) / 2 - 4);
+    const barHeight = (Math.abs(value) / scale) * room;
+    ctx.fillStyle = "#3ddc97";
+    ctx.fillRect(x - Math.max(1, slot * 0.28), zero - barHeight, Math.max(2, slot * 0.56), Math.max(1, barHeight));
+  });
+  dn.forEach((value, index) => {
+    if (value == null || value === 0) return;
+    const x = pad + index * slot + slot / 2;
+    const room = Math.max(4, (histoBottom - histoTop) / 2 - 4);
+    const barHeight = (Math.abs(value) / scale) * room;
+    ctx.fillStyle = "#ff4d4d";
+    ctx.fillRect(x - Math.max(1, slot * 0.28), zero, Math.max(2, slot * 0.56), Math.max(1, barHeight));
+  });
+  const avgY = (value) => zero - (value / scale) * Math.max(4, (histoBottom - histoTop) / 2 - 4);
+  drawLine(ctx, avg, avgY, pad, slot, "#22d3ee", 1.35);
+  const last = up.length - 1;
+  const lastUp = up[last];
+  const lastDn = dn[last];
+  const lastAvg = avg[last];
+  const side = lastUp != null && lastUp > 0 ? "UP" : lastDn != null && lastDn < 0 ? "DN" : "—";
+  const banner = study.hasVolume
+    ? ("Volume Wave  |  Hull ATR " + study.n + " × " + study.atrMult + "  |  " + side +
+      (lastAvg == null ? "" : "  |  avg " + Math.round(lastAvg)))
+    : "Volume Wave  |  No volume from this feed";
+  ctx.font = "11px Segoe UI, sans-serif";
+  ctx.fillStyle = "#1b2430";
+  ctx.fillRect(pad, 2, Math.min(plotRight - pad, ctx.measureText(banner).width + 16), 16);
+  ctx.fillStyle = "#d7e2ea";
+  ctx.fillText(banner, pad + 6, 14);
+  const tag = lastUp != null && lastUp > 0 ? lastUp : lastDn != null && lastDn < 0 ? lastDn : lastAvg;
+  if (tag != null) {
+    ctx.fillStyle = lastUp != null && lastUp > 0 ? "#3ddc97" : lastDn != null && lastDn < 0 ? "#ff4d4d" : "#22d3ee";
+    ctx.fillText(String(Math.round(tag)), plotRight + 6, zero + 4);
   }
 }
 
@@ -8949,16 +9030,90 @@ bindZoom($("candles"), "chart");
 bindZoom($("rsi-chart"), "chart");
 bindZoom($("sqz-chart"), "chart");
 bindZoom($("cci-chart"), "chart");
+bindZoom($("vol-chart"), "chart");
 bindZoom($("frame-preview"), "preview");
 
 const STUDY_PANE_KEY = "paperTraderStudyPanes";
+const VOLUME_WAVE_KEY = "paperTraderVolumeWave";
+
+function readVolumeWavePrefs() {
+  const chosen = { n: 6, atrMult: 0.7, avgLen: 6, avgType: "sma", paint: false };
+  try {
+    const saved = JSON.parse(localStorage.getItem(VOLUME_WAVE_KEY) || "{}");
+    if (saved && typeof saved === "object") {
+      const n = Math.round(Number(saved.n));
+      const atrMult = Number(saved.atrMult);
+      const avgLen = Math.round(Number(saved.avgLen));
+      if (Number.isFinite(n) && n >= 2 && n <= 80) chosen.n = n;
+      if (Number.isFinite(atrMult) && atrMult > 0 && atrMult <= 5) chosen.atrMult = atrMult;
+      if (Number.isFinite(avgLen) && avgLen >= 1 && avgLen <= 80) chosen.avgLen = avgLen;
+      if (saved.avgType === "ema" || saved.avgType === "sma") chosen.avgType = saved.avgType;
+      if (typeof saved.paint === "boolean") chosen.paint = saved.paint;
+    }
+  } catch (error) {
+    /* Defaults stay. */
+  }
+  return chosen;
+}
+
+function saveVolumeWavePrefs(next) {
+  try {
+    localStorage.setItem(VOLUME_WAVE_KEY, JSON.stringify(next));
+  } catch (error) {
+    /* Choice still holds for this page. */
+  }
+}
+
+function paintVolumeWavePrefs() {
+  const prefs = readVolumeWavePrefs();
+  const n = $("wave-n");
+  const atr = $("wave-atr");
+  const avg = $("wave-avg");
+  const avgType = $("wave-avg-type");
+  const paint = $("wave-paint");
+  if (n) n.value = String(prefs.n);
+  if (atr) atr.value = String(prefs.atrMult);
+  if (avg) avg.value = String(prefs.avgLen);
+  if (avgType) avgType.value = prefs.avgType;
+  if (paint) paint.checked = !!prefs.paint;
+}
+
+function bindVolumeWaveSettings() {
+  const apply = () => {
+    const next = {
+      n: Math.round(Number(($("wave-n") && $("wave-n").value) || 6)),
+      atrMult: Number(($("wave-atr") && $("wave-atr").value) || 0.7),
+      avgLen: Math.round(Number(($("wave-avg") && $("wave-avg").value) || 6)),
+      avgType: ($("wave-avg-type") && $("wave-avg-type").value) === "ema" ? "ema" : "sma",
+      paint: !!($("wave-paint") && $("wave-paint").checked),
+    };
+    if (!(next.n >= 2 && next.n <= 80)) next.n = 6;
+    if (!(next.atrMult > 0 && next.atrMult <= 5)) next.atrMult = 0.7;
+    if (!(next.avgLen >= 1 && next.avgLen <= 80)) next.avgLen = 6;
+    saveVolumeWavePrefs(next);
+    paintVolumeWavePrefs();
+    requestAnimationFrame(() => redrawStudies());
+  };
+  ["wave-n", "wave-atr", "wave-avg", "wave-avg-type", "wave-paint"].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener("change", apply);
+    if (el.tagName === "INPUT" && el.type === "number") el.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        apply();
+      }
+    });
+  });
+  paintVolumeWavePrefs();
+}
 
 function readStudyPanes() {
-  const chosen = { price: true, tmo: true, sqz: true, cci: true, big: true };
+  const chosen = { price: true, tmo: true, sqz: true, cci: true, vol: true, big: true };
   try {
     const saved = JSON.parse(localStorage.getItem(STUDY_PANE_KEY) || "{}");
     if (saved && typeof saved === "object") {
-      ["price", "tmo", "sqz", "cci"].forEach((id) => {
+      ["price", "tmo", "sqz", "cci", "vol"].forEach((id) => {
         if (typeof saved[id] === "boolean") chosen[id] = saved[id];
       });
       if (typeof saved.big === "boolean") chosen.big = saved.big;
@@ -8990,7 +9145,7 @@ function setStudyPane(id, open) {
 
 function paintStudyPanes() {
   const saved = readStudyPanes();
-  ["price", "tmo", "sqz", "cci"].forEach((id) => setStudyPane(id, saved[id] !== false));
+  ["price", "tmo", "sqz", "cci", "vol"].forEach((id) => setStudyPane(id, saved[id] !== false));
   document.querySelectorAll(".study-pane").forEach((pane) => {
     pane.classList.toggle("big", !!saved.big);
   });
@@ -9000,11 +9155,11 @@ function paintStudyPanes() {
 
 function openStudiesWindow(focus) {
   if (!state.market || !state.paper) {
-    setStatus("Open a market first, then open TMO · Squeeze · CCI.");
+    setStatus("Open a market first, then open TMO · Squeeze · CCI · Waves.");
     return;
   }
   const symbol = state.paper.symbol || "Chart";
-  const win = window.open("", "paper-studies", "popup=yes,width=980,height=860,left=48,top=48");
+  const win = window.open("", "paper-studies", "popup=yes,width=980,height=980,left=48,top=48");
   if (!win) {
     setStatus("The studies window was blocked. Allow popups for this desk, or expand the panes below the price chart.");
     return;
@@ -9021,16 +9176,17 @@ function openStudiesWindow(focus) {
     "<button id=\"out\" type=\"button\" style=\"min-height:34px;padding:4px 10px\">Zoom out</button>" +
     "</div>" +
     "<p style=\"margin:8px 14px 0;color:#9aa6b2;font-size:12px\">Same closed-bar studies as the chart. Public math only. Not a forecast.</p>" +
-    "<div style=\"display:flex;flex-direction:column;gap:10px;padding:10px 14px 18px;height:calc(100vh - 78px);box-sizing:border-box\">" +
-    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#67e8f9\">TMO 14/5/3</div><canvas id=\"tmo\" style=\"width:100%;height:28vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
-    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#facc15\">Squeeze momentum</div><canvas id=\"sqz\" style=\"width:100%;height:22vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
-    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#f4f7fb\">CCI 50 · 14 · 5</div><canvas id=\"cci\" style=\"width:100%;height:28vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "<div style=\"display:flex;flex-direction:column;gap:10px;padding:10px 14px 18px;height:calc(100vh - 78px);box-sizing:border-box;overflow:auto\">" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#67e8f9\">TMO 14/5/3</div><canvas id=\"tmo\" style=\"width:100%;height:22vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#facc15\">Squeeze momentum</div><canvas id=\"sqz\" style=\"width:100%;height:18vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#f4f7fb\">CCI 50 · 14 · 5</div><canvas id=\"cci\" style=\"width:100%;height:22vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
+    "<div><div style=\"margin:0 0 4px;font-size:12px;color:#3ddc97\">Volume Wave · Desk Waves</div><canvas id=\"vol\" style=\"width:100%;height:22vh;background:#000;border:1px solid #1a222c\"></canvas></div>" +
     "</div></body>"
   );
   win.document.close();
   win.document.title = symbol + " · Studies";
   const head = win.document.getElementById("studies-head");
-  if (head) head.textContent = symbol + " · TMO · Squeeze · CCI";
+  if (head) head.textContent = symbol + " · TMO · Squeeze · CCI · Waves";
   const paint = () => {
     const view = PaperFrames.zoomBars(sliceToCursor(state.market.bars), state.zoom);
     const note = win.document.getElementById("note");
@@ -9038,6 +9194,7 @@ function openStudiesWindow(focus) {
     drawTmo(win.document.getElementById("tmo"));
     drawSqueeze(win.document.getElementById("sqz"));
     drawCci(win.document.getElementById("cci"));
+    drawVolumeWave(win.document.getElementById("vol"));
   };
   const back = win.document.getElementById("back");
   if (back) back.addEventListener("click", () => win.close());
@@ -9060,7 +9217,8 @@ function openStudiesWindow(focus) {
   if (focus === "tmo") win.document.getElementById("tmo").scrollIntoView();
   if (focus === "sqz") win.document.getElementById("sqz").scrollIntoView();
   if (focus === "cci") win.document.getElementById("cci").scrollIntoView();
-  setStatus("Opened TMO · Squeeze · CCI in a separate window.");
+  if (focus === "vol") win.document.getElementById("vol").scrollIntoView();
+  setStatus("Opened TMO · Squeeze · CCI · Waves in a separate window.");
   state.studiesWin = win;
 }
 
@@ -9093,14 +9251,16 @@ if (studiesExpandBtn) {
     saved.tmo = true;
     saved.sqz = true;
     saved.cci = true;
+    saved.vol = true;
     saveStudyPanes(saved);
     paintStudyPanes();
     requestAnimationFrame(() => redrawStudies());
-    setStatus(saved.big ? "Study panes expanded. Use Open TMO · Squeeze · CCI for a full window." : "Study panes back to normal size.");
+    setStatus(saved.big ? "Study panes expanded. Use Open TMO · Squeeze · CCI · Waves for a full window." : "Study panes back to normal size.");
   });
 }
 
 paintStudyPanes();
+bindVolumeWaveSettings();
 paintChartToolBoxes([]);
 
 boot().then(() => {

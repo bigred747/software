@@ -1834,6 +1834,123 @@
     };
   }
 
+  // Weighted moving average for Hull range gates (Desk Waves).
+  function wma(values, length) {
+    const list = values || [];
+    const out = new Array(list.length).fill(null);
+    const window = Math.max(1, Math.round(Number(length) || 1));
+    const weight = (window * (window + 1)) / 2;
+    for (let index = window - 1; index < list.length; index += 1) {
+      let total = 0;
+      let ok = true;
+      for (let step = 0; step < window; step += 1) {
+        const value = list[index - window + 1 + step];
+        if (value == null || Number.isNaN(value)) {
+          ok = false;
+          break;
+        }
+        total += value * (step + 1);
+      }
+      if (ok) out[index] = total / weight;
+    }
+    return out;
+  }
+
+  // Hull moving average — used on ATR for Desk Waves / Volume Wave range gates.
+  function hull(values, length) {
+    const window = Math.max(2, Math.round(Number(length) || 6));
+    const half = Math.max(1, Math.round(window / 2));
+    const root = Math.max(1, Math.round(Math.sqrt(window)));
+    const fast = wma(values, half);
+    const slow = wma(values, window);
+    const mixed = (values || []).map((_, index) => {
+      if (fast[index] == null || slow[index] == null) return null;
+      return 2 * fast[index] - slow[index];
+    });
+    return wma(mixed, root);
+  }
+
+  function waveAverage(values, length, avgType) {
+    const window = Math.max(1, Math.round(Number(length) || 6));
+    if (String(avgType || "sma").toLowerCase() === "ema") return ema(values, window);
+    const list = values || [];
+    const out = new Array(list.length).fill(null);
+    for (let index = 0; index < list.length; index += 1) {
+      if (index + 1 < window) continue;
+      let total = 0;
+      let ok = true;
+      for (let cursor = index - window + 1; cursor <= index; cursor += 1) {
+        if (list[cursor] == null || Number.isNaN(list[cursor])) {
+          ok = false;
+          break;
+        }
+        total += list[cursor];
+      }
+      if (ok) out[index] = total / window;
+    }
+    return out;
+  }
+
+  // Desk Waves / Volume Wave — closed-bar accum/distrib volume waves gated by Hull ATR.
+  // Own desk math only. Fail closed when the feed has no volume (no invented tape).
+  function volumeWave(bars, options) {
+    const opt = options || {};
+    const n = Math.max(2, Math.min(80, Math.round(Number(opt.n) || 6)));
+    const atrMultRaw = Number(opt.atrMult);
+    const atrMult = Number.isFinite(atrMultRaw) && atrMultRaw > 0 ? atrMultRaw : 0.7;
+    const avgLen = Math.max(1, Math.min(80, Math.round(Number(opt.avgLen) || n)));
+    const avgType = String(opt.avgType || "sma").toLowerCase() === "ema" ? "ema" : "sma";
+    const list = bars || [];
+    const count = list.length;
+    const up = new Array(count).fill(null);
+    const dn = new Array(count).fill(null);
+    const avg = new Array(count).fill(null);
+    const dir = new Array(count).fill(null);
+    const wave = new Array(count).fill(null);
+    const paint = new Array(count).fill(null);
+    const hullAtr = new Array(count).fill(null);
+    if (!count) {
+      return { up, dn, avg, dir, wave, paint, hullAtr, n, atrMult, avgLen, avgType, ready: false, hasVolume: false };
+    }
+    let hasVolume = false;
+    for (let index = 0; index < count; index += 1) {
+      if (Number(list[index].volume) > 0) {
+        hasVolume = true;
+        break;
+      }
+    }
+    if (!hasVolume) {
+      return { up, dn, avg, dir, wave, paint, hullAtr, n, atrMult, avgLen, avgType, ready: false, hasVolume: false };
+    }
+    const atr = edgeAtr(list, n);
+    const hullGate = hull(atr, n);
+    for (let index = 0; index < count; index += 1) hullAtr[index] = hullGate[index];
+    const mid = list.map((bar) => (Number(bar.high) + Number(bar.low)) / 2);
+    let currentDir = 0;
+    let currentWave = 0;
+    for (let index = 1; index < count; index += 1) {
+      const band = hullGate[index] != null ? hullGate[index] * atrMult : null;
+      if (band == null || mid[index] == null || mid[index - 1] == null) continue;
+      if (mid[index] > mid[index - 1] + band) currentDir = 1;
+      else if (mid[index] < mid[index - 1] - band) currentDir = -1;
+      else if (currentDir === 0) currentDir = mid[index] >= mid[index - 1] ? 1 : -1;
+      // Missing or zero volume adds 0 — never invent tape.
+      const vol = Math.max(0, Number(list[index].volume) || 0);
+      if (dir[index - 1] == null || currentDir !== dir[index - 1]) currentWave = vol;
+      else currentWave += vol;
+      dir[index] = currentDir;
+      wave[index] = currentWave;
+      up[index] = currentDir === 1 ? currentWave : 0;
+      dn[index] = currentDir === -1 ? -currentWave : 0;
+      paint[index] = currentDir === 1 ? "bull" : "bear";
+    }
+    const magnitude = wave.map((value) => (value == null ? null : Math.abs(value)));
+    const average = waveAverage(magnitude, avgLen, avgType);
+    for (let index = 0; index < count; index += 1) avg[index] = average[index];
+    const ready = dir.some((value) => value != null);
+    return { up, dn, avg, dir, wave, paint, hullAtr, n, atrMult, avgLen, avgType, ready, hasVolume: true };
+  }
+
   function cciSnapState(fast, slow, index) {
     if (fast[index] == null || slow[index] == null) return { readyUp: false, readyDown: false, fireUp: false, fireDown: false, gap: null };
     const gap = slow[index] - fast[index];
@@ -4107,6 +4224,9 @@
     cci,
     cciPane,
     cciSnapState,
+    wma,
+    hull,
+    volumeWave,
     openingRange,
     pro,
     liveBar,

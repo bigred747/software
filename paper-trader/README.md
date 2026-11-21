@@ -101,6 +101,13 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
+
+## Volume Wave · Desk Waves (1.10.11)
+
+- Chart study pane under CCI: **Volume Wave · Desk Waves** — closed-bar accum/distrib volume waves gated by Hull ATR (default n=6, ATRmult=0.7).
+- Green up / red down histogram, cyan average; pane settings for n · ATRmult · Avg · AvgType (SMA/EMA) · optional candle paint.
+- Fail closed when the feed has no volume (no invented tape). Own desk names only.
+
 ## Market Forecaster (1.10.10)
 
 - **Tools · Next pages · Markets:** **Market Forecaster** — base · bull · bear cases on closed daily bars for open / pinned / scan names.
