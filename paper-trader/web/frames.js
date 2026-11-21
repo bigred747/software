@@ -1088,8 +1088,8 @@
   const EDGE_WARM = 50;
   const EDGE_DOTS = 5;
   const EDGE_TRAIL = 2.5;
-  // Six Fire checks: five chart-stack gates + closed-bar VIX falling (real ^VIX / .VIX only).
-  const EDGE_SCORE = 6;
+  // Seven Fire checks: chart-stack TMO · Squeeze · CCI · Desk Waves + closed-bar VIX falling (real ^VIX / .VIX only).
+  const EDGE_SCORE = 7;
   const PRO_RISK = 0.01;
 
   function dayKey(label) {
@@ -1457,6 +1457,8 @@
     const range = edgeAtr(list, 14);
     const big4 = big4Indicator(list);
     const vix = vixSeries(options && options.vixBars);
+    // Desk Waves (Volume Wave) — green/up wave agree on the chart stack under CCI. Fail closed without volume.
+    const waves = volumeWave(list, { n: 6, atrMult: 0.7, avgLen: 6, avgType: "sma" });
     const dots = new Array(count).fill(0);
     let run = 0;
     for (let index = 0; index < count; index += 1) {
@@ -1487,8 +1489,11 @@
         ((cciSlow[index - 1] != null && cciSlow[index - 1] <= 100 && cciSlow[index] > 100) ||
           (cciMid[index - 1] != null && cciMid[index - 1] <= 100 && cciMid[index] > 100) ||
           (cciFast[index - 1] != null && cciFast[index - 1] <= 100 && cciFast[index] > 100));
+      // Desk Waves green / up-wave: dir === 1 (large green hist). Fail closed when volume is missing.
+      const waveUp =
+        !!(waves && waves.hasVolume && waves.ready && waves.dir[index] === 1);
       const checks = {
-        // Chart stack: TMO · Squeeze · CCI (closed bars only). Optimized Fire gates for Squeeze scan / Fire 5.
+        // Chart stack: TMO · Squeeze · CCI · Desk Waves (closed bars only). Optimized Fire gates for Squeeze scan / Fire 5.
         tmoOs,
         // TMO turns green: main above signal (bullish green paint / cloud on the closed bar).
         tmo: main != null && signal != null && main > signal,
@@ -1497,15 +1502,17 @@
         above: now != null && now > 0,
         // CCI 50 · 14 · 5 all into +100 with a closed-bar cross into the zone.
         cci: cciCross,
+        // Desk Waves · Volume Wave green/up agree (pane under CCI). Own closed-bar math.
+        wave: waveUp,
         // Real VIX only: closed daily VIX falling vs prior close. Fail closed without a feed.
         vix: vixFallingOn(vix, list[index].date),
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
-      // Desk Ready · Aim · Fire staging (closed bars). Ready 4/6 · Aim 5/6 · Fire 6/6.
+      // Desk Ready · Aim · Fire staging (closed bars). Ready 5/7 · Aim 6/7 · Fire 7/7.
       if (score[index] >= EDGE_SCORE) stages[index] = "fire";
       else if (score[index] >= EDGE_SCORE - 1) stages[index] = "aim";
-      else if (score[index] >= 4) stages[index] = "ready";
+      else if (score[index] >= EDGE_SCORE - 2) stages[index] = "ready";
     }
     const trades = [];
     const marks = [];
@@ -1553,7 +1560,7 @@
       } else {
         if (equity > peak) peak = equity;
         const prior = index > EDGE_WARM ? score[index - 1] : 0;
-        // Fire: first closed bar where all six Edge checks turn on. big4indicator tags the most precise fires.
+        // Fire: first closed bar where all seven Edge checks turn on. big4indicator tags the most precise fires.
         if (score[index] === EDGE_SCORE && prior < EDGE_SCORE) pending = "buy";
       }
     }
@@ -2113,7 +2120,7 @@
   }
 
   const STRATEGY_INFO = {
-    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready at 4 of 6, Aim at 5, Fire when all six turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), 5 squeeze dots or in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, and VIX falling on its latest closed daily bar vs the prior close (real ^VIX / .VIX only; fail closed if missing). Same gates drive Squeeze scan, Fire 5, and desk scanners. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
+    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready at 5 of 7, Aim at 6, Fire when all seven turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), 5 squeeze dots or in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, Desk Waves green / up (Volume Wave pane under CCI; fail closed without volume), and VIX falling on its latest closed daily bar vs the prior close (real ^VIX / .VIX only; fail closed if missing). Same gates drive Squeeze scan, Fire 5, and desk scanners. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
       name: "Squeeze · TMO · big4indicator · stack · MTF",
@@ -2857,6 +2864,7 @@
     dots: "5 squeeze dots or in a squeeze",
     above: "squeeze momentum above 0",
     cci: "CCI 50 · 14 · 5 into zone +100",
+    wave: "Desk Waves green / up",
     vix: "VIX falling (closed daily vs prior)",
   };
 
@@ -4172,7 +4180,7 @@
     let deskScore = 45;
     const parts = [];
     if (timing && timing.ready) {
-      const edgePts = Math.round((Number(timing.score) || 0) * (100 / 6) * 0.35);
+      const edgePts = Math.round((Number(timing.score) || 0) * (100 / EDGE_SCORE) * 0.35);
       deskScore += edgePts - 10;
       parts.push("Edge " + timing.score + "/6");
     } else {

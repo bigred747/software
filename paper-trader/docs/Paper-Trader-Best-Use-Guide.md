@@ -82,23 +82,24 @@ Do this in order. Skip a buy when any gate says wait.
 1. Review up to five green **Fire** names (best Edge longs).
 2. Tap a name → chart. Tide on → Fire longs wait; Fire 5 is not Go Long 5.
 
-### Step F — Edge 6/6 (buy gates)
+### Step F — Edge 7/7 (buy gates)
 
-All six must be green for **Fire** (closed bars):
+All seven must be green for **Fire** (closed bars):
 
 1. TMO above −10  
 2. TMO turns green (main above signal)  
 3. Five squeeze dots **or** in a squeeze  
 4. Squeeze momentum above zero  
 5. CCI 50 · 14 · 5 into +100 on a closed-bar cross  
-6. **VIX falling** (real VIX only)
+6. **Desk Waves green / up** (Volume Wave under CCI; fail closed without volume)  
+7. **VIX falling** (real VIX only)
 
-Ready = 4/6 · Aim = 5/6 · Fire = 6/6. Fill is the next open. Same gates in Squeeze scan / Fire 5 / Big 3 A+.
+Ready = 5/7 · Aim = 6/7 · Fire = 7/7. Fill is the next open. Same gates in Squeeze scan / Fire 5 / Big 3 A+.
 
 ### Step G — Best setup Auto
 
 1. Keep **Best setup Auto** on — that is the system.
-2. It only allows the strictest paper buys: Edge 6/6, multi-TF lined up, internals supportive, desk Squeeze · TMO · big4indicator · stack · MTF, today’s green scan list, day buy cap.
+2. It only allows the strictest paper buys: Edge 7/7, multi-TF lined up, internals supportive, desk Squeeze · TMO · big4indicator · stack · MTF, today’s green scan list, day buy cap.
 3. Still asks **Yes**. If it says WAIT, leave Auto on and wait — do not turn Auto off to force a buy.
 
 ### Step H — Journal
