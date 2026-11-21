@@ -1023,10 +1023,43 @@ button.quiet { background: transparent; }
 .study-pane[data-pane="tmo"] #rsi-chart { height: 300px !important; min-height: 300px; }
 .study-pane[data-pane="sqz"] #sqz-chart { height: 260px !important; min-height: 260px; }
 .study-pane[data-pane="cci"] #cci-chart { height: 300px !important; min-height: 300px; }
+.study-pane[data-pane="vol"] #vol-chart { height: 280px !important; min-height: 280px; }
 .study-pane.big[data-pane="price"] #candles { height: 780px !important; min-height: 780px; }
 .study-pane.big[data-pane="tmo"] #rsi-chart,
 .study-pane.big[data-pane="cci"] #cci-chart { height: 420px !important; min-height: 420px; }
 .study-pane.big[data-pane="sqz"] #sqz-chart { height: 360px !important; min-height: 360px; }
+.study-pane.big[data-pane="vol"] #vol-chart { height: 380px !important; min-height: 380px; }
+.wave-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid #1a222c;
+  background: #0a0e13;
+  color: #9aa6b2;
+  font-size: 11px;
+}
+.wave-settings label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+.wave-settings input[type="number"],
+.wave-settings select {
+  width: 58px;
+  min-height: 26px;
+  padding: 2px 6px;
+  border: 1px solid #2d3640;
+  border-radius: 4px;
+  background: #07090b;
+  color: #e7edf3;
+  font-size: 11px;
+}
+.wave-settings select { width: 68px; }
+.wave-settings .wave-paint input { width: auto; }
+.study-pane[data-expanded="false"] .wave-settings { display: none !important; }
 .zoom-bar { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
 .zoom-bar button { width: auto; min-height: 30px; padding: 4px 10px; }
 .mood { font-weight: 650; }
@@ -1341,10 +1374,12 @@ footer { display: none; }
   body[data-tab="chart"] .study-pane[data-pane="tmo"] #rsi-chart { height: 280px !important; min-height: 280px; }
   body[data-tab="chart"] .study-pane[data-pane="sqz"] #sqz-chart { height: 240px !important; min-height: 240px; }
   body[data-tab="chart"] .study-pane[data-pane="cci"] #cci-chart { height: 280px !important; min-height: 280px; }
+  body[data-tab="chart"] .study-pane[data-pane="vol"] #vol-chart { height: 260px !important; min-height: 260px; }
   body[data-tab="chart"] .study-pane.big[data-pane="price"] #candles { height: 700px !important; min-height: 700px; }
   body[data-tab="chart"] .study-pane.big[data-pane="tmo"] #rsi-chart,
   body[data-tab="chart"] .study-pane.big[data-pane="cci"] #cci-chart { height: 380px !important; min-height: 380px; }
   body[data-tab="chart"] .study-pane.big[data-pane="sqz"] #sqz-chart { height: 320px !important; min-height: 320px; }
+  body[data-tab="chart"] .study-pane.big[data-pane="vol"] #vol-chart { height: 340px !important; min-height: 340px; }
   #mood-clock { width: 56px; height: 56px; }
   .tabbar {
     display: grid;

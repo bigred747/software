@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.10">
-  <meta name="paper-private-build" content="publish-20261121T001700Z">
+  <meta name="paper-build" content="1.10.11">
+  <meta name="paper-private-build" content="publish-20261121T021800Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -18,7 +18,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.10</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.11</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -224,7 +224,7 @@
         </div>
       </div>
       <div class="study-toolbar" role="toolbar" aria-label="Study panes">
-        <button id="studies-window" type="button">Open TMO · Squeeze · CCI</button>
+        <button id="studies-window" type="button">Open TMO · Squeeze · CCI · Waves</button>
         <button id="studies-expand-all" type="button" class="quiet">Expand studies ▾</button>
       </div>
       <div class="study-stack" aria-label="Price and study panes">
@@ -259,10 +259,30 @@
           </div>
           <canvas id="cci-chart" width="800" height="160" aria-label="CCI"></canvas>
         </section>
+        <section class="study-pane" data-pane="vol" data-expanded="true">
+          <div class="study-pane-head">
+            <button type="button" class="study-roll" aria-expanded="true" aria-controls="vol-chart" title="Roll up Volume Wave">▾</button>
+            <span>Volume Wave · Desk Waves</span>
+            <button type="button" class="study-pop quiet" data-study="vol">Open ▢</button>
+          </div>
+          <div class="wave-settings" aria-label="Volume Wave settings">
+            <label>n <input id="wave-n" type="number" min="2" max="80" step="1" value="6" inputmode="numeric"></label>
+            <label>ATRmult <input id="wave-atr" type="number" min="0.1" max="5" step="0.1" value="0.7" inputmode="decimal"></label>
+            <label>Avg <input id="wave-avg" type="number" min="1" max="80" step="1" value="6" inputmode="numeric"></label>
+            <label>AvgType
+              <select id="wave-avg-type">
+                <option value="sma" selected>SMA</option>
+                <option value="ema">EMA</option>
+              </select>
+            </label>
+            <label class="wave-paint"><input id="wave-paint" type="checkbox"> Paint candles</label>
+          </div>
+          <canvas id="vol-chart" width="800" height="160" aria-label="Volume Wave"></canvas>
+        </section>
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">With big4indicator on, candles paint all green in a bullish stretch and all red in a bearish stretch (mixed is gray). With that layer off, up candles are solid green and down candles are solid red. Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (pink), 9 (cyan), 21 (red), 50 (white), 100 (yellow), and 200 (peach) on this chart's own bars. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator paints candle color from EMA 50/200, MACD, and RSI on closed bars; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the three studies share. Not a forecast.</p>
+        <p class="muted chart-note">With big4indicator on, candles paint all green in a bullish stretch and all red in a bearish stretch (mixed is gray). With that layer off, up candles are solid green and down candles are solid red. Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (pink), 9 (cyan), 21 (red), 50 (white), 100 (yellow), and 200 (peach) on this chart's own bars. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses; then Volume Wave · Desk Waves — Hull ATR (n=6) × ATRmult (0.7) gates accum/distrib volume waves (green up / red down hist, cyan average); settings live on the pane; optional candle paint follows the active wave. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator paints candle color from EMA 50/200, MACD, and RSI on closed bars; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the study stack share. Not a forecast.</p>
       </details>
     </section>
 
