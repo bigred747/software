@@ -185,7 +185,7 @@ test("edge fills at the next open and later bars do not move closed trades", () 
   assert.equal(big4Indicator(bars).name, "big4indicator");
   assert.ok(full.trades.length > 0);
   assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(full.call));
-  assert.ok(full.score >= 0 && full.score <= 6);
+  assert.ok(full.score >= 0 && full.score <= 7);
   full.marks.forEach((mark) => {
     assert.equal(mark.price, bars[mark.index].open);
     assert.ok(mark.index >= 51);
@@ -198,22 +198,23 @@ test("edge fills at the next open and later bars do not move closed trades", () 
   const closedBefore = cut.trades.filter((trade) => trade.exitDate < bars[239].date);
   const sameInFull = full.trades.slice(0, closedBefore.length);
   assert.deepEqual(JSON.parse(JSON.stringify(sameInFull)), JSON.parse(JSON.stringify(closedBefore)));
-  assert.equal(full.checks, 6);
+  assert.equal(full.checks, 7);
   const sampleParts = full.allParts.find((row) => row);
   assert.ok(sampleParts);
-  assert.deepEqual(Object.keys(sampleParts).sort(), ["above", "cci", "dots", "tmo", "tmoOs", "vix"]);
+  assert.deepEqual(Object.keys(sampleParts).sort(), ["above", "cci", "dots", "tmo", "tmoOs", "vix", "wave"]);
   assert.equal("band" in sampleParts, false);
   assert.equal("rising" in sampleParts, false);
   const again = edgeWithVix(bars);
   full.marks.filter((mark) => mark.side === "buy").forEach((mark) => {
     const signal = edgeWithVix(bars.slice(0, mark.index));
     assert.equal(signal.call, "BUY");
-    assert.equal(signal.score, 6);
+    assert.equal(signal.score, 7);
     assert.equal(signal.stage, "fire");
     assert.ok(signal.big4);
     assert.ok(Object.values(signal.parts).every(Boolean));
     assert.equal(signal.parts.cci, true);
     assert.equal(signal.parts.tmo, true);
+    assert.equal(signal.parts.wave, true);
     assert.equal(signal.parts.vix, true);
   });
   assert.equal(again.trades.length, full.trades.length);
@@ -541,7 +542,7 @@ test("the price box lists open, high, low, close, change and the Edge checks for
   assert.equal(info.rows.slice(0, 4).map((row) => row[0]).join(","), "Open,High,Low,Close");
   assert.ok(info.rows.some((row) => row[0] === "Change"));
   assert.equal(info.title, bars[200].date);
-  assert.match(info.edgeNote, /^Edge on this bar: [0-6] of 6/);
+  assert.match(info.edgeNote, /^Edge on this bar: [0-7] of 7/);
   assert.equal(describeBar(bars, -1, {}), null);
   assert.equal(describeBar(bars, 300, {}), null);
   assert.equal(describeBar(bars, 0, { crypto: true }).rows.some((row) => row[0] === "Change"), false);
@@ -785,6 +786,31 @@ test("Desk Waves fail closed without volume and build Hull ATR waves with volume
   const gate = hull([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 6);
   assert.ok(gate.some((value) => value != null));
   assert.ok(wma([1, 2, 3, 4, 5], 3)[4] != null);
+});
+
+test("Edge Fire requires Desk Waves green / up when volume is present", () => {
+  const bars = [];
+  for (let index = 0; index < 260; index += 1) {
+    const close = 100 + index * 0.4 + Math.sin(index / 7) * 3;
+    bars.push({
+      date: new Date(Date.UTC(2024, 0, 1) + index * 86400000).toISOString().slice(0, 10),
+      open: close - 0.5,
+      high: close + 1.2,
+      low: close - 1.2,
+      close,
+      volume: 1000 + index * 5,
+    });
+  }
+  const withVol = edgeWithVix(bars);
+  assert.equal(withVol.checks, 7);
+  const blank = bars.map((bar) => ({ ...bar, volume: 0 }));
+  const noVol = edgeWithVix(blank);
+  const sample = noVol.allParts.find((row) => row);
+  assert.ok(sample);
+  assert.equal(sample.wave, false);
+  withVol.marks.filter((mark) => mark.side === "buy").forEach((mark) => {
+    assert.equal(withVol.allParts[mark.index - 1].wave, true);
+  });
 });
 
 test("Seat Trail seat-aware trail mult and fail-closed without volume", () => {

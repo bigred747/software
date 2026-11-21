@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.12">
+  <meta name="paper-build" content="1.10.13">
   <meta name="paper-private-build" content="publish-20261121T021800Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1887,7 +1887,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.12</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.13</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -2172,7 +2172,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <div id="edge-frames" class="edge-chips" aria-label="Edge on every timeframe"></div>
           <p id="edge-frames-line" class="muted"></p>
         </div>
-        <p class="muted edge-note-line">Edge buys when six checks turn on together on closed bars: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, and <strong>VIX falling</strong> on its latest closed daily bar vs the prior close (real ^VIX / .VIX only — fail closed if missing; TICK/ADD/TRIN/VOLD stay No feed and are never invented). Ready at 4 of 6, Aim at 5, Fire at 6. The same Fire gates drive Squeeze scan, Fire 5, and other desk scanners. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop 2.5 average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
+        <p class="muted edge-note-line">Edge buys when seven checks turn on together on closed bars: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, <strong>Desk Waves green / up</strong> (Volume Wave pane under CCI — fail closed without volume), and <strong>VIX falling</strong> on its latest closed daily bar vs the prior close (real ^VIX / .VIX only — fail closed if missing; TICK/ADD/TRIN/VOLD stay No feed and are never invented). Ready at 5 of 7, Aim at 6, Fire at 7. The same Fire gates drive Squeeze scan, Fire 5, and other desk scanners. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop 2.5 average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
       </section>
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>
@@ -5612,8 +5612,8 @@ plot Sell = close crosses below baseline;</textarea>
   const EDGE_WARM = 50;
   const EDGE_DOTS = 5;
   const EDGE_TRAIL = 2.5;
-  // Six Fire checks: five chart-stack gates + closed-bar VIX falling (real ^VIX / .VIX only).
-  const EDGE_SCORE = 6;
+  // Seven Fire checks: chart-stack TMO · Squeeze · CCI · Desk Waves + closed-bar VIX falling (real ^VIX / .VIX only).
+  const EDGE_SCORE = 7;
   const PRO_RISK = 0.01;
 
   function dayKey(label) {
@@ -5981,6 +5981,8 @@ plot Sell = close crosses below baseline;</textarea>
     const range = edgeAtr(list, 14);
     const big4 = big4Indicator(list);
     const vix = vixSeries(options && options.vixBars);
+    // Desk Waves (Volume Wave) — green/up wave agree on the chart stack under CCI. Fail closed without volume.
+    const waves = volumeWave(list, { n: 6, atrMult: 0.7, avgLen: 6, avgType: "sma" });
     const dots = new Array(count).fill(0);
     let run = 0;
     for (let index = 0; index < count; index += 1) {
@@ -6011,8 +6013,11 @@ plot Sell = close crosses below baseline;</textarea>
         ((cciSlow[index - 1] != null && cciSlow[index - 1] <= 100 && cciSlow[index] > 100) ||
           (cciMid[index - 1] != null && cciMid[index - 1] <= 100 && cciMid[index] > 100) ||
           (cciFast[index - 1] != null && cciFast[index - 1] <= 100 && cciFast[index] > 100));
+      // Desk Waves green / up-wave: dir === 1 (large green hist). Fail closed when volume is missing.
+      const waveUp =
+        !!(waves && waves.hasVolume && waves.ready && waves.dir[index] === 1);
       const checks = {
-        // Chart stack: TMO · Squeeze · CCI (closed bars only). Optimized Fire gates for Squeeze scan / Fire 5.
+        // Chart stack: TMO · Squeeze · CCI · Desk Waves (closed bars only). Optimized Fire gates for Squeeze scan / Fire 5.
         tmoOs,
         // TMO turns green: main above signal (bullish green paint / cloud on the closed bar).
         tmo: main != null && signal != null && main > signal,
@@ -6021,15 +6026,17 @@ plot Sell = close crosses below baseline;</textarea>
         above: now != null && now > 0,
         // CCI 50 · 14 · 5 all into +100 with a closed-bar cross into the zone.
         cci: cciCross,
+        // Desk Waves · Volume Wave green/up agree (pane under CCI). Own closed-bar math.
+        wave: waveUp,
         // Real VIX only: closed daily VIX falling vs prior close. Fail closed without a feed.
         vix: vixFallingOn(vix, list[index].date),
       };
       parts[index] = checks;
       score[index] = Object.values(checks).filter(Boolean).length;
-      // Desk Ready · Aim · Fire staging (closed bars). Ready 4/6 · Aim 5/6 · Fire 6/6.
+      // Desk Ready · Aim · Fire staging (closed bars). Ready 5/7 · Aim 6/7 · Fire 7/7.
       if (score[index] >= EDGE_SCORE) stages[index] = "fire";
       else if (score[index] >= EDGE_SCORE - 1) stages[index] = "aim";
-      else if (score[index] >= 4) stages[index] = "ready";
+      else if (score[index] >= EDGE_SCORE - 2) stages[index] = "ready";
     }
     const trades = [];
     const marks = [];
@@ -6077,7 +6084,7 @@ plot Sell = close crosses below baseline;</textarea>
       } else {
         if (equity > peak) peak = equity;
         const prior = index > EDGE_WARM ? score[index - 1] : 0;
-        // Fire: first closed bar where all six Edge checks turn on. big4indicator tags the most precise fires.
+        // Fire: first closed bar where all seven Edge checks turn on. big4indicator tags the most precise fires.
         if (score[index] === EDGE_SCORE && prior < EDGE_SCORE) pending = "buy";
       }
     }
@@ -6637,7 +6644,7 @@ plot Sell = close crosses below baseline;</textarea>
   }
 
   const STRATEGY_INFO = {
-    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready at 4 of 6, Aim at 5, Fire when all six turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), 5 squeeze dots or in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, and VIX falling on its latest closed daily bar vs the prior close (real ^VIX / .VIX only; fail closed if missing). Same gates drive Squeeze scan, Fire 5, and desk scanners. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
+    edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready at 5 of 7, Aim at 6, Fire when all seven turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), 5 squeeze dots or in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, Desk Waves green / up (Volume Wave pane under CCI; fail closed without volume), and VIX falling on its latest closed daily bar vs the prior close (real ^VIX / .VIX only; fail closed if missing). Same gates drive Squeeze scan, Fire 5, and desk scanners. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
       name: "Squeeze · TMO · big4indicator · stack · MTF",
@@ -7381,6 +7388,7 @@ plot Sell = close crosses below baseline;</textarea>
     dots: "5 squeeze dots or in a squeeze",
     above: "squeeze momentum above 0",
     cci: "CCI 50 · 14 · 5 into zone +100",
+    wave: "Desk Waves green / up",
     vix: "VIX falling (closed daily vs prior)",
   };
 
@@ -8696,7 +8704,7 @@ plot Sell = close crosses below baseline;</textarea>
     let deskScore = 45;
     const parts = [];
     if (timing && timing.ready) {
-      const edgePts = Math.round((Number(timing.score) || 0) * (100 / 6) * 0.35);
+      const edgePts = Math.round((Number(timing.score) || 0) * (100 / EDGE_SCORE) * 0.35);
       deskScore += edgePts - 10;
       parts.push("Edge " + timing.score + "/6");
     } else {
@@ -9057,7 +9065,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.12";
+const VERSION = "1.10.13";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -10838,7 +10846,7 @@ function fadeNoteText(tide, fades) {
       " New Edge longs wait. Not a forecast."
     );
   }
-  return (tide.why || "Tide Alert off.") + " Fire 5 / Best setup can still buy when Edge 6/6 is on. Not a forecast.";
+  return (tide.why || "Tide Alert off.") + " Fire 5 / Best setup can still buy when Edge 7/7 is on. Not a forecast.";
 }
 
 function renderTideFade() {
@@ -12085,6 +12093,7 @@ const EDGE_CHECKS = [
   ["dots", "5 squeeze dots or in a squeeze"],
   ["above", "Squeeze momentum above 0"],
   ["cci", "CCI 50 · 14 · 5 into zone +100"],
+  ["wave", "Desk Waves green / up"],
   ["vix", "VIX falling (closed daily vs prior)"],
 ];
 
@@ -12209,7 +12218,7 @@ function edgePlan(result) {
   if (result.call === "BUY") return "Fire buy on the " + result.signalDate + " close (Edge + big4indicator). A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + stage + big4 + today;
   if (result.call === "SELL") return "Fire sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
-  return "No Fire yet. Ready at 4 of 6, Aim at 5, Fire when all six turn on (incl. VIX falling) with big4indicator." + stage + big4 + today;
+  return "No Fire yet. Ready at 5 of 7, Aim at 6, Fire when all seven turn on (incl. Desk Waves green / up + VIX falling) with big4indicator." + stage + big4 + today;
 }
 
 
@@ -12716,12 +12725,12 @@ function bestSetupStatus() {
   };
   const bars = seenBars();
   const edge = bars.length ? currentEdge(bars) : null;
-  const edgeOk = !!(edge && edge.ready && edge.score === (edge.checks || 6) && edge.call === "BUY");
+  const edgeOk = !!(edge && edge.ready && edge.score === (edge.checks || PaperFrames.EDGE_SCORE || 7) && edge.call === "BUY");
   addGate(
-    "Edge 6/6 BUY",
+    "Edge 7/7 BUY",
     edgeOk,
     edge && edge.ready
-      ? "Edge " + (edge.call || "WAIT") + " · " + (edge.score == null ? "—" : edge.score + "/" + (PaperFrames.EDGE_SCORE || 6))
+      ? "Edge " + (edge.call || "WAIT") + " · " + (edge.score == null ? "—" : edge.score + "/" + (PaperFrames.EDGE_SCORE || 7))
       : "Edge not ready"
   );
 
@@ -12846,7 +12855,7 @@ function bestSetupStatus() {
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
-      ? "Ready · Edge 6/6 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · Tide clear · Lane Open · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
+      ? "Ready · Edge 7/7 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·CCI·Waves·big4·stack·MTF · Tide clear · Lane Open · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
       : "Armed · waiting: " + waiting.slice(0, 3).join("; ");
   return {
     ready,
@@ -12878,7 +12887,7 @@ function bestSetupStatus() {
 
 function bestBuyReason(symbol) {
   if (!(state.best && state.best.on)) return "";
-  if (state.strat.pick !== "edge") return "Best setup Auto only buys from Edge · six checks.";
+  if (state.strat.pick !== "edge") return "Best setup Auto only buys from Edge · seven checks.";
   const status = bestSetupStatus();
   if (status.ready && state.paper && state.paper.symbol === symbol) return "";
   if (!status.ready) return status.waiting[0] || "Best setup filters are not all green.";
@@ -12899,7 +12908,7 @@ function renderBestSetup() {
   button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
   note.textContent = on
     ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Strictest paper buys only: Edge all six (incl. VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Seat Trail shows agree/wait on the checklist and runs as its own Strategies Auto process — not a second Fire 5. Still asks Yes. Not a forecast.";
+    : "Off. Strictest paper buys only: Edge all seven (TMO · Squeeze · CCI · Desk Waves green/up · VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Seat Trail shows agree/wait on the checklist and runs as its own Strategies Auto process — not a second Fire 5. Still asks Yes. Not a forecast.";
   if (list) {
     list.replaceChildren();
     list.hidden = !on;
@@ -15473,7 +15482,7 @@ function renderEdgeFrames() {
     button.type = "button";
     button.className = row && row.ready ? row.call.toLowerCase() : "wait";
     button.textContent = frame.short + " " + (row ? (row.ready ? row.call : "—") : "…");
-    button.title = row ? (row.ready ? frame.label + ": Edge " + row.call + ", " + row.score + " of " + (row.checks || 6) : frame.label + ": " + row.why) : frame.label + ": reading";
+    button.title = row ? (row.ready ? frame.label + ": Edge " + row.call + ", " + row.score + " of " + (row.checks || PaperFrames.EDGE_SCORE || 7) : frame.label + ": " + row.why) : frame.label + ": reading";
     button.addEventListener("click", () => {
       state.frameId = frame.id;
       renderFrames();
@@ -15486,7 +15495,7 @@ function renderEdgeFrames() {
     tr.setAttribute("role", "button");
     tr.setAttribute("aria-label", "Show " + frame.label + " in the preview");
     if (row && row.ready) {
-      addCells(tr, [frame.label, "", row.score + " of " + (row.checks || 6), row.stop != null ? formatPrice(row.stop) : "—", String(row.record.trades), row.record.trades ? Math.round(row.record.winRate * 100) + "%" : "—", { text: signedPercent(row.record.total), cls: row.record.total > 0 ? "up" : row.record.total < 0 ? "down" : "" }]);
+      addCells(tr, [frame.label, "", row.score + " of " + (row.checks || PaperFrames.EDGE_SCORE || 7), row.stop != null ? formatPrice(row.stop) : "—", String(row.record.trades), row.record.trades ? Math.round(row.record.winRate * 100) + "%" : "—", { text: signedPercent(row.record.total), cls: row.record.total > 0 ? "up" : row.record.total < 0 ? "down" : "" }]);
       const pill = document.createElement("span");
       pill.className = "call-pill " + row.call.toLowerCase();
       pill.textContent = row.call;
@@ -15539,7 +15548,7 @@ function renderEdge() {
   if (sameStamp(box, stamp)) return;
   box.className = "edge " + call.toLowerCase();
   $("edge-call").textContent = call;
-  $("edge-score").textContent = result.score == null ? "—" : result.score + " of " + (result.checks || 6);
+  $("edge-score").textContent = result.score == null ? "—" : result.score + " of " + (result.checks || PaperFrames.EDGE_SCORE || 7);
   const checks = $("edge-checks");
   checks.replaceChildren();
   EDGE_CHECKS.forEach(([id, name]) => {
@@ -16884,7 +16893,7 @@ async function warnDesk() {
               date: timing.signalDate || closed,
               kind: "edge",
               side: "buy",
-              detail: "Buy warning. " + name + ". Edge six checks on the daily.",
+              detail: "Buy warning. " + name + ". Edge seven checks on the daily.",
             });
           }
         }
@@ -16932,7 +16941,7 @@ async function warnDesk() {
             date: timing.signalDate || closed,
             kind: "edge",
             side: "buy",
-            detail: "Buy warning. " + name + ". Edge six checks on the daily.",
+            detail: "Buy warning. " + name + ". Edge seven checks on the daily.",
           });
         }
       }

@@ -42,7 +42,7 @@ The desk is a wide layout on a computer: markets on the left, the daily chart in
 
 ## Edge
 
-Edge is the desk's buy and sell indicator. It matches the Open TMO · Squeeze · CCI chart stack plus a real VIX closed-bar gate. Edge buys at the next bar's open when six checks turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, and VIX falling vs its prior daily close (real ^VIX / .VIX only; fail closed if missing). Ready at 4 of 6, Aim at 5, Fire at 6. Squeeze scan, Fire 5, and Big 3 A+ use the same Fire gates. The starting stop is 2.5 average ranges under that open. While it holds, the stop trails 2.5 average ranges under the best close and never moves down. A close under that stop, or squeeze momentum dropping below zero, sells at the next open.
+Edge is the desk's buy and sell indicator. It matches the Open TMO · Squeeze · CCI · Desk Waves chart stack plus a real VIX closed-bar gate. Edge buys at the next bar's open when seven checks turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, Desk Waves green / up (Volume Wave under CCI; fail closed without volume), and VIX falling vs its prior daily close (real ^VIX / .VIX only; fail closed if missing). Ready at 5 of 7, Aim at 6, Fire at 7. Squeeze scan, Fire 5, and Big 3 A+ use the same Fire gates. The starting stop is 2.5 average ranges under that open. While it holds, the stop trails 2.5 average ranges under the best close and never moves down. A close under that stop, or squeeze momentum dropping below zero, sells at the next open.
 
 Earlier Edge settings (5-dot first bar, momentum rising, and an upper Bollinger filter) were tested on two years of real daily bars with 10 basis points each way for the fee and slippage. On BTC, ETH, XRP, XLM, SOL, SPY, QQQ, AAPL, NVDA, MSFT, TSLA, and ES, that older Edge averaged +14.3% while buy-and-hold averaged −2.2%, and it was positive on 10 of those 12. On 20 other markets that were not used to pick the settings, it averaged +28.1% while buy-and-hold averaged +19.3%, and it was positive on 17 of those 20. About one trade in three made money, so most of the gain came from a few large wins. The worst drop averaged about 22% to 25%. That is the past on the prior rule set. The live Edge buy gates now follow TMO · Squeeze · CCI. It is not a forecast.
 
@@ -101,6 +101,12 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Safe check: **Foreign bots kept out**. Paper book, breaker, and learn files stay with this desk only.
 - Live stays locked. Every paper buy/sell still asks Yes.
 
+
+## Edge · Desk Waves (1.10.13)
+
+- Edge Fire is **7/7**: adds **Desk Waves green / up** (Volume Wave pane under CCI) alongside TMO · Squeeze · CCI · VIX.
+- Ready **5/7** · Aim **6/7** · Fire **7/7**. Same Fire gates in Squeeze scan / Fire 5 / Big 3 A+ / Best setup Auto.
+- Trade panel Edge checklist lists **Desk Waves green / up**. Fail closed when volume is missing (no invented tape). Own names only. Paper only. Live locked.
 
 ## Seat Trail (1.10.12)
 
@@ -179,16 +185,7 @@ Original Paper Trader desk process (own names/copy — not a third-party signal 
 
 ## Edge VIX gate (1.9.90)
 
-Edge Ready · Aim · Fire is now **six** closed-bar checks. Fire needs all six:
-
-1. TMO above −10  
-2. TMO turns green  
-3. 5 squeeze dots or in a squeeze  
-4. Squeeze momentum above 0  
-5. CCI 50 · 14 · 5 into zone +100 (closed-bar cross)  
-6. **VIX falling** — latest closed daily VIX close on/before the signal bar is **strictly lower** than the prior daily VIX close (real Yahoo `^VIX` / CNBC `.VIX` only). **Fail closed** if the VIX series is missing.
-
-Ready at **4 of 6**, Aim at **5**, Fire at **6**. Same gates in Squeeze scan, Fire 5, Big 3 A+, Best setup Auto (Edge 6/6 BUY). Chart boxes still paint VIX green/red from the real quote. **TICK / ADD / TRIN / VOLD stay No feed** — will not invent; no TradingView scrape. Paper only. Live locked. Artex isolation unchanged.
+Added the closed-bar **VIX falling** Fire gate (real Yahoo `^VIX` / CNBC `.VIX` only; fail closed if missing). Chart boxes still paint VIX green/red from the real quote. **TICK / ADD / TRIN / VOLD stay No feed** — will not invent; no TradingView scrape. Superseded for full Fire count by **1.10.13** (seven checks incl. Desk Waves). Paper only. Live locked. Artex isolation unchanged.
 
 ## Chart breadth boxes (1.9.89)
 

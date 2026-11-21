@@ -110,7 +110,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.12";
+const VERSION = "1.10.13";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
@@ -1891,7 +1891,7 @@ function fadeNoteText(tide, fades) {
       " New Edge longs wait. Not a forecast."
     );
   }
-  return (tide.why || "Tide Alert off.") + " Fire 5 / Best setup can still buy when Edge 6/6 is on. Not a forecast.";
+  return (tide.why || "Tide Alert off.") + " Fire 5 / Best setup can still buy when Edge 7/7 is on. Not a forecast.";
 }
 
 function renderTideFade() {
@@ -3138,6 +3138,7 @@ const EDGE_CHECKS = [
   ["dots", "5 squeeze dots or in a squeeze"],
   ["above", "Squeeze momentum above 0"],
   ["cci", "CCI 50 · 14 · 5 into zone +100"],
+  ["wave", "Desk Waves green / up"],
   ["vix", "VIX falling (closed daily vs prior)"],
 ];
 
@@ -3262,7 +3263,7 @@ function edgePlan(result) {
   if (result.call === "BUY") return "Fire buy on the " + result.signalDate + " close (Edge + big4indicator). A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + stage + big4 + today;
   if (result.call === "SELL") return "Fire sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
-  return "No Fire yet. Ready at 4 of 6, Aim at 5, Fire when all six turn on (incl. VIX falling) with big4indicator." + stage + big4 + today;
+  return "No Fire yet. Ready at 5 of 7, Aim at 6, Fire when all seven turn on (incl. Desk Waves green / up + VIX falling) with big4indicator." + stage + big4 + today;
 }
 
 
@@ -3769,12 +3770,12 @@ function bestSetupStatus() {
   };
   const bars = seenBars();
   const edge = bars.length ? currentEdge(bars) : null;
-  const edgeOk = !!(edge && edge.ready && edge.score === (edge.checks || 6) && edge.call === "BUY");
+  const edgeOk = !!(edge && edge.ready && edge.score === (edge.checks || PaperFrames.EDGE_SCORE || 7) && edge.call === "BUY");
   addGate(
-    "Edge 6/6 BUY",
+    "Edge 7/7 BUY",
     edgeOk,
     edge && edge.ready
-      ? "Edge " + (edge.call || "WAIT") + " · " + (edge.score == null ? "—" : edge.score + "/" + (PaperFrames.EDGE_SCORE || 6))
+      ? "Edge " + (edge.call || "WAIT") + " · " + (edge.score == null ? "—" : edge.score + "/" + (PaperFrames.EDGE_SCORE || 7))
       : "Edge not ready"
   );
 
@@ -3899,7 +3900,7 @@ function bestSetupStatus() {
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
-      ? "Ready · Edge 6/6 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·big4·stack·MTF · Tide clear · Lane Open · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
+      ? "Ready · Edge 7/7 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·CCI·Waves·big4·stack·MTF · Tide clear · Lane Open · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
       : "Armed · waiting: " + waiting.slice(0, 3).join("; ");
   return {
     ready,
@@ -3931,7 +3932,7 @@ function bestSetupStatus() {
 
 function bestBuyReason(symbol) {
   if (!(state.best && state.best.on)) return "";
-  if (state.strat.pick !== "edge") return "Best setup Auto only buys from Edge · six checks.";
+  if (state.strat.pick !== "edge") return "Best setup Auto only buys from Edge · seven checks.";
   const status = bestSetupStatus();
   if (status.ready && state.paper && state.paper.symbol === symbol) return "";
   if (!status.ready) return status.waiting[0] || "Best setup filters are not all green.";
@@ -3952,7 +3953,7 @@ function renderBestSetup() {
   button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
   note.textContent = on
     ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Strictest paper buys only: Edge all six (incl. VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Seat Trail shows agree/wait on the checklist and runs as its own Strategies Auto process — not a second Fire 5. Still asks Yes. Not a forecast.";
+    : "Off. Strictest paper buys only: Edge all seven (TMO · Squeeze · CCI · Desk Waves green/up · VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Seat Trail shows agree/wait on the checklist and runs as its own Strategies Auto process — not a second Fire 5. Still asks Yes. Not a forecast.";
   if (list) {
     list.replaceChildren();
     list.hidden = !on;
@@ -6526,7 +6527,7 @@ function renderEdgeFrames() {
     button.type = "button";
     button.className = row && row.ready ? row.call.toLowerCase() : "wait";
     button.textContent = frame.short + " " + (row ? (row.ready ? row.call : "—") : "…");
-    button.title = row ? (row.ready ? frame.label + ": Edge " + row.call + ", " + row.score + " of " + (row.checks || 6) : frame.label + ": " + row.why) : frame.label + ": reading";
+    button.title = row ? (row.ready ? frame.label + ": Edge " + row.call + ", " + row.score + " of " + (row.checks || PaperFrames.EDGE_SCORE || 7) : frame.label + ": " + row.why) : frame.label + ": reading";
     button.addEventListener("click", () => {
       state.frameId = frame.id;
       renderFrames();
@@ -6539,7 +6540,7 @@ function renderEdgeFrames() {
     tr.setAttribute("role", "button");
     tr.setAttribute("aria-label", "Show " + frame.label + " in the preview");
     if (row && row.ready) {
-      addCells(tr, [frame.label, "", row.score + " of " + (row.checks || 6), row.stop != null ? formatPrice(row.stop) : "—", String(row.record.trades), row.record.trades ? Math.round(row.record.winRate * 100) + "%" : "—", { text: signedPercent(row.record.total), cls: row.record.total > 0 ? "up" : row.record.total < 0 ? "down" : "" }]);
+      addCells(tr, [frame.label, "", row.score + " of " + (row.checks || PaperFrames.EDGE_SCORE || 7), row.stop != null ? formatPrice(row.stop) : "—", String(row.record.trades), row.record.trades ? Math.round(row.record.winRate * 100) + "%" : "—", { text: signedPercent(row.record.total), cls: row.record.total > 0 ? "up" : row.record.total < 0 ? "down" : "" }]);
       const pill = document.createElement("span");
       pill.className = "call-pill " + row.call.toLowerCase();
       pill.textContent = row.call;
@@ -6592,7 +6593,7 @@ function renderEdge() {
   if (sameStamp(box, stamp)) return;
   box.className = "edge " + call.toLowerCase();
   $("edge-call").textContent = call;
-  $("edge-score").textContent = result.score == null ? "—" : result.score + " of " + (result.checks || 6);
+  $("edge-score").textContent = result.score == null ? "—" : result.score + " of " + (result.checks || PaperFrames.EDGE_SCORE || 7);
   const checks = $("edge-checks");
   checks.replaceChildren();
   EDGE_CHECKS.forEach(([id, name]) => {
@@ -7937,7 +7938,7 @@ async function warnDesk() {
               date: timing.signalDate || closed,
               kind: "edge",
               side: "buy",
-              detail: "Buy warning. " + name + ". Edge six checks on the daily.",
+              detail: "Buy warning. " + name + ". Edge seven checks on the daily.",
             });
           }
         }
@@ -7985,7 +7986,7 @@ async function warnDesk() {
             date: timing.signalDate || closed,
             kind: "edge",
             side: "buy",
-            detail: "Buy warning. " + name + ". Edge six checks on the daily.",
+            detail: "Buy warning. " + name + ". Edge seven checks on the daily.",
           });
         }
       }
