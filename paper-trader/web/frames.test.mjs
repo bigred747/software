@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -749,4 +749,37 @@ test("marketForecastRead builds base bull bear and desk score", () => {
   assert.equal(board.ready, true);
   assert.ok(board.rows.length >= 1);
   assert.equal(board.rows[0].symbol, "TEST");
+});
+
+
+test("Desk Waves fail closed without volume and build Hull ATR waves with volume", () => {
+  const blank = [];
+  for (let index = 0; index < 40; index += 1) {
+    const close = 100 + ((index % 7) - 3) * 1.4;
+    blank.push({
+      date: "2024-03-" + String((index % 27) + 1).padStart(2, "0"),
+      open: close - 0.5,
+      high: close + 1.5,
+      low: close - 1.5,
+      close,
+      volume: 0,
+    });
+  }
+  const empty = volumeWave(blank, { n: 6, atrMult: 0.7 });
+  assert.equal(empty.hasVolume, false);
+  assert.equal(empty.ready, false);
+  assert.ok(empty.up.every((value) => value == null));
+
+  const bars = blank.map((bar, index) => ({ ...bar, volume: 1000 + index * 10 }));
+  const study = volumeWave(bars, { n: 6, atrMult: 0.7, avgLen: 6, avgType: "sma" });
+  assert.equal(study.hasVolume, true);
+  assert.equal(study.ready, true);
+  assert.equal(study.n, 6);
+  assert.equal(study.atrMult, 0.7);
+  assert.ok(study.up.some((value) => value != null && value > 0) || study.dn.some((value) => value != null && value < 0));
+  assert.ok(study.avg.some((value) => value != null));
+  assert.ok(study.paint.some((value) => value === "bull" || value === "bear"));
+  const gate = hull([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 6);
+  assert.ok(gate.some((value) => value != null));
+  assert.ok(wma([1, 2, 3, 4, 5], 3)[4] != null);
 });
