@@ -102,6 +102,10 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Live stays locked. Every paper buy/sell still asks Yes.
 
 
+## Seal refresh (1.10.14)
+
+Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
+
 ## Edge · Desk Waves (1.10.13)
 
 - Edge Fire is **7/7**: adds **Desk Waves green / up** (Volume Wave pane under CCI) alongside TMO · Squeeze · CCI · VIX.

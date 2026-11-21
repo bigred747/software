@@ -997,7 +997,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.10.13", script)
+        self.assertIn(b"1.10.14", script)
         self.assertIn(b"seatrail", script)
         self.assertIn(b"seatTrailRead", script)
         self.assertIn(b"Seat Trail", script)
