@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.14">
-  <meta name="paper-private-build" content="publish-20261121T220019Z">
+  <meta name="paper-build" content="1.10.15">
+  <meta name="paper-private-build" content="publish-20261122T001024Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -1426,29 +1426,98 @@ footer { display: none; }
   }
 }
 
-.ticket-box {
-  margin: 8px 0;
-  padding: var(--pad);
+.ticket-mode-note {
+  margin: 2px 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+.edge-fold,
+.desk-extras {
+  margin: 6px 0;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 34%),
-    var(--panel-ink);
+  background: rgba(255, 255, 255, 0.015);
+}
+.edge-fold > summary,
+.desk-extras > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.edge-fold > summary::-webkit-details-marker,
+.desk-extras > summary::-webkit-details-marker { display: none; }
+.edge-fold > summary::before,
+.desk-extras > summary::before {
+  content: "▸ ";
+  color: var(--accent);
+}
+.edge-fold[open] > summary::before,
+.desk-extras[open] > summary::before { content: "▾ "; }
+.edge-fold .edge-note-line { margin: 0; padding: 0 10px 10px; }
+.desk-extras > .schwab-box,
+.desk-extras > .breaker,
+.desk-extras > .safe-box {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
 }
 
-.ticket-box h3 { margin: 0 0 4px; font-size: 13px; color: var(--accent); }
+.ticket-box {
+  margin: 8px 0;
+  padding: calc(var(--pad) + 2px);
+  border: 1px solid var(--line-strong, var(--line));
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, transparent 38%),
+    var(--panel-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ticket-box h3 { margin: 0 0 2px; font-size: 14px; color: var(--accent); letter-spacing: 0.02em; }
+.ticket-kicker {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 .ticket-box h3 + .table-wrap, .ticket-box .table-wrap + button { margin-top: 4px; }
 .ticket-box .tiny { font-size: 11px; margin: 4px 0; }
-.ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .ticket-grid label { margin: 0; font-size: 11px; }
 .ticket-grid label[hidden] { display: none; }
-.side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 6px; }
+.side-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+.side-row .buy,
+.side-row .sell {
+  min-height: 42px;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
 .side-row .buy { background: #163528; border-color: var(--up); color: var(--up); }
 .side-row .sell { background: #3a1820; border-color: var(--down); color: var(--down); }
-.side-row .on { box-shadow: inset 0 0 0 2px currentColor; font-weight: 700; }
-.ticket-box .confirm { display: flex; gap: 6px; align-items: center; margin: 6px 0 4px; color: var(--text); font-size: 13px; }
+.side-row .on { box-shadow: inset 0 0 0 2px currentColor; font-weight: 800; }
+.ticket-box .confirm { display: flex; gap: 6px; align-items: center; margin: 8px 0 6px; color: var(--text); font-size: 13px; }
 .ticket-box .confirm input { width: auto; }
-.ticket-box .send { width: 100%; background: #1d4d3a; border-color: var(--up); color: var(--up); margin-bottom: 8px; }
+.ticket-box .send {
+  width: 100%;
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 750;
+  background: #1d4d3a;
+  border-color: var(--up);
+  color: var(--up);
+  margin-bottom: 10px;
+}
 .ticket-box .send.sell-side { background: #3a1820; border-color: var(--down); color: var(--down); }
 .ticket-box table.working { font-size: 12px; }
 .ticket-box table.working th, .ticket-box table.working td { padding: 5px 4px; }
@@ -1887,7 +1956,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.14</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.15</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -2172,7 +2241,10 @@ body.ready #mood-clock { width: 88px; height: 88px; }
           <div id="edge-frames" class="edge-chips" aria-label="Edge on every timeframe"></div>
           <p id="edge-frames-line" class="muted"></p>
         </div>
-        <p class="muted edge-note-line">Edge buys when seven checks turn on together on closed bars: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, <strong>Desk Waves green / up</strong> (Volume Wave pane under CCI — fail closed without volume), and <strong>VIX falling</strong> on its latest closed daily bar vs the prior close (real ^VIX / .VIX only — fail closed if missing; TICK/ADD/TRIN/VOLD stay No feed and are never invented). Ready at 5 of 7, Aim at 6, Fire at 7. The same Fire gates drive Squeeze scan, Fire 5, and other desk scanners. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop 2.5 average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
+        <details class="edge-fold">
+          <summary>How Edge Fire works</summary>
+          <p class="muted edge-note-line">Edge buys when seven checks turn on together on closed bars: TMO above −10, TMO turns green (main above signal / bullish green paint), five squeeze dots or currently in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, <strong>Desk Waves green / up</strong> (Volume Wave pane under CCI — fail closed without volume), and <strong>VIX falling</strong> on its latest closed daily bar vs the prior close (real ^VIX / .VIX only — fail closed if missing; TICK/ADD/TRIN/VOLD stay No feed and are never invented). Ready at 5 of 7, Aim at 6, Fire at 7. The same Fire gates drive Squeeze scan, Fire 5, and other desk scanners. The fill is the next open. It sells at the next open when squeeze momentum drops below zero or the close breaks a trailing stop 2.5 average ranges under the best close. The record is this market's past bars with 10 basis points each way for the fee and slippage. It is not a forecast.</p>
+        </details>
       </section>
       <dl class="stats">
         <div><dt>Equity</dt><dd id="equity">—</dd></div>
@@ -2189,31 +2261,10 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         <button id="trade" type="button">Trade</button>
         <button id="voice" type="button" aria-pressed="true">Voice</button>
       </div>
-      <div class="schwab-box" id="schwab-box" aria-label="Schwab market and live">
-        <div class="schwab-actions" role="group" aria-label="Schwab market and live">
-          <button id="schwab-market" type="button" aria-pressed="false" disabled>Market Data</button>
-          <button id="schwab-live" type="button" aria-pressed="false" disabled>Live Trading</button>
-        </div>
-        <p id="schwab-note" class="breaker-note">Paper stays the default.</p>
-      </div>
-      <div class="breaker" id="breaker">
-        <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
-        <p id="breaker-note" class="breaker-note">Breaker armed. A 5% paper drop in one day sells everything and stops buys until tomorrow.</p>
-      </div>
-      <div class="safe-box" id="safe-box">
-        <button id="safe" type="button" class="safe-btn">Safe check</button>
-        <button id="internals-pill" type="button" class="internals-pill">Internals · reading…</button>
-        <p id="safe-note" class="breaker-note">Press to run the safety check. It runs by itself every minute.</p>
-        <ul id="safe-list" class="safe-list"></ul>
-        <div id="win-box" class="win-box" hidden>
-          <h4>Windows extras</h4>
-          <label><input id="win-startup" type="checkbox"> Start the score when I sign in to Windows</label>
-          <label><input id="win-desktop" type="checkbox"> Put Paper Trader.bat on my Desktop</label>
-          <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process — continuous 24/7 while Windows is on and you are signed in. It scores new markets and every desk section (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Market Forecaster, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) even when scrolled away or the desk window is closed. Tick Start the score for sign-in. Phone/browser alone pauses when you leave the tab. Not a broker. Not a forecast.</p>
-        </div>
-      </div>
+      <p class="ticket-mode-note muted tiny">Paper only. Live stays locked. Charts and desk boxes stay above the study stack.</p>
       <section id="ticket" class="ticket-box" aria-label="Order ticket">
         <h3>Order ticket</h3>
+        <p class="ticket-kicker">Paper send · Yes confirm</p>
         <div class="side-row" role="group" aria-label="Side">
           <button id="side-buy" type="button" class="buy on" aria-pressed="true">Buy</button>
           <button id="side-sell" type="button" class="sell" aria-pressed="false">Sell</button>
@@ -2249,6 +2300,32 @@ body.ready #mood-clock { width: 88px; height: 88px; }
         </div>
         <button id="cancel-all" type="button" class="quiet">Cancel all</button>
       </section>
+      <details class="desk-extras" open>
+        <summary>Desk extras · breaker · Safe</summary>
+        <div class="schwab-box" id="schwab-box" aria-label="Schwab market and live">
+          <div class="schwab-actions" role="group" aria-label="Schwab market and live">
+            <button id="schwab-market" type="button" aria-pressed="false" disabled>Market Data</button>
+            <button id="schwab-live" type="button" aria-pressed="false" disabled>Live Trading</button>
+          </div>
+          <p id="schwab-note" class="breaker-note">Paper stays the default.</p>
+        </div>
+        <div class="breaker" id="breaker">
+          <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
+          <p id="breaker-note" class="breaker-note">Breaker armed. A 5% paper drop in one day sells everything and stops buys until tomorrow.</p>
+        </div>
+        <div class="safe-box" id="safe-box">
+          <button id="safe" type="button" class="safe-btn">Safe check</button>
+          <button id="internals-pill" type="button" class="internals-pill">Internals · reading…</button>
+          <p id="safe-note" class="breaker-note">Press to run the safety check. It runs by itself every minute.</p>
+          <ul id="safe-list" class="safe-list"></ul>
+          <div id="win-box" class="win-box" hidden>
+            <h4>Windows extras</h4>
+            <label><input id="win-startup" type="checkbox"> Start the score when I sign in to Windows</label>
+            <label><input id="win-desktop" type="checkbox"> Put Paper Trader.bat on my Desktop</label>
+            <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process — continuous 24/7 while Windows is on and you are signed in. It scores new markets and every desk section (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Market Forecaster, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) even when scrolled away or the desk window is closed. Tick Start the score for sign-in. Phone/browser alone pauses when you leave the tab. Not a broker. Not a forecast.</p>
+          </div>
+        </div>
+      </details>
       <div class="actions">
         <button id="next" type="button">Next day</button>
         <button id="run" type="button">Run remaining days</button>
@@ -9065,7 +9142,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.14";
+const VERSION = "1.10.15";
 const DOCK_KEY = "paperTraderDock";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
