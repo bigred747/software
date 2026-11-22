@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.17">
+  <meta name="paper-build" content="1.10.18">
   <meta name="paper-publish" content="20261122T031900Z">
   <meta name="paper-private-build" content="publish-20261122T005558Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.17</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.18</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -150,12 +150,10 @@
         <div id="cycle-defensive" class="pins" aria-label="Defensive Shield names"></div>
         <div id="cycle-risk" class="pins" aria-label="Risk Rebound names"></div>
         <div class="scan-head fire-head">
-          <h3>Market Forecaster</h3>
-          <button id="forecast-run" type="button" class="quiet">Refresh Forecast</button>
+          <h3>Forecaster</h3>
+          <button type="button" class="quiet" data-open-dock="forecast">Open Forecaster</button>
         </div>
-        <p id="forecast-note" class="muted">Paper Trader Market Forecaster: base · bull · bear on closed bars, SPY compare, what would prove it wrong, paper size hint. Complements Market Outlook. Own desk score — not a third-party AI score. Not a crystal ball. Not a forecast guarantee. Edge still gates buys.</p>
-        <p id="forecast-open-sum" class="muted"></p>
-        <div id="forecast-pins" class="pins" aria-label="Forecaster ranked names"></div>
+        <p class="muted">One Tools tab · precise closed-bar price call (support · resistance · invalidate · base · bull · bear · confidence). Opens Forecaster — not a second panel.</p>
       </div>
       <label for="search">Find a market</label>
       <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
@@ -223,7 +221,7 @@
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
           <button type="button" data-open-dock="cycle">Cycle Desk</button>
-          <button type="button" data-open-dock="forecast">Market Forecaster</button>
+          <button type="button" data-open-dock="forecast">Forecaster</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
           <button type="button" data-open-dock="squeeze">Squeeze scan</button>
           <button type="button" data-open-dock="readings">big4indicator</button>
@@ -396,7 +394,7 @@
             <h4>Windows extras</h4>
             <label><input id="win-startup" type="checkbox"> Start the score when I sign in to Windows</label>
             <label><input id="win-desktop" type="checkbox"> Put Paper Trader.bat on my Desktop</label>
-            <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process — continuous 24/7 while Windows is on and you are signed in. It scores new markets and every desk section (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Market Forecaster, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) even when scrolled away or the desk window is closed. Tick Start the score for sign-in. Phone/browser alone pauses when you leave the tab. Not a broker. Not a forecast.</p>
+            <p id="win-note" class="breaker-note">Bot on = Paper Trader Learn score process — continuous 24/7 while Windows is on and you are signed in. It scores new markets and every desk section (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Forecaster, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) even when scrolled away or the desk window is closed. Tick Start the score for sign-in. Phone/browser alone pauses when you leave the tab. Not a broker. Not a forecast.</p>
           </div>
         </div>
       </details>
@@ -429,7 +427,7 @@
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="scorecard">Big 3 Scorecard</button>
         <button type="button" class="dock-tab" data-dock="cycle">Cycle Desk</button>
-        <button type="button" class="dock-tab" data-dock="forecast">Market Forecaster</button>
+        <button type="button" class="dock-tab" data-dock="forecast">Forecaster</button>
         <button type="button" class="dock-tab" data-dock="internals">Internals</button>
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">big4indicator</button>
@@ -450,7 +448,7 @@
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
           <button type="button" data-open-dock="cycle">Cycle Desk</button>
-          <button type="button" data-open-dock="forecast">Market Forecaster</button>
+          <button type="button" data-open-dock="forecast">Forecaster</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
           <button type="button" data-open-dock="squeeze">Squeeze scan</button>
           <button type="button" data-open-dock="readings">big4indicator</button>
@@ -939,17 +937,32 @@ plot Sell = close crosses below baseline;</textarea>
       <div class="dock-page" data-dock-page="forecast">
         <div class="dock-page-head">
           <button type="button" class="dock-back quiet">Back</button>
-          <h2>Market Forecaster</h2>
+          <h2>Forecaster</h2>
         </div>
-        <p class="muted">Original Paper Trader scenario board on closed daily bars. Base · bull · bear cases, about-3-month and about-1-year horizons, assumptions, SPY/benchmark compare, what would prove the case wrong, and a paper size / potential-loss hint. Desk rank blends Edge · Squeeze · Cycle · strength — our math only. Complements Market Outlook (does not replace it). Not a crystal ball. Not a forecast guarantee. Edge · Best setup · Auto still gate buys. Paper only. Live locked. No third-party product or scrape.</p>
+        <p class="muted">One Forecaster · precise closed-bar price call. Next support · resistance · invalidate, base · bull · bear with confidence, Swing Guard · Risk Seat · Name Pulse · Book Heat · Reclaim Cue · Season Lean. Near targets snap to real pivot levels when available. Confidence blends Edge · Squeeze · Cycle · stack · pivots · Lane · vol — our math only. Complements Market Outlook (does not replace it). Not a crystal ball. Not a forecast guarantee. Edge · Best setup · Auto still gate buys. Paper only. Live locked. Fail closed — no invented prints. No third-party product or scrape. No duplicate Forecaster panel.</p>
         <div class="strat-orb-inputs">
           <button id="forecast-scan" type="button">Run Forecaster</button>
+          <button id="forecast-run" type="button" class="quiet">Refresh</button>
           <button id="forecast-stop" type="button" class="quiet">Stop</button>
         </div>
-        <p id="forecast-board-note" class="muted">Press Run Forecaster. Reads the open market, pins, and top scan names.</p>
+        <p id="forecast-note" class="muted">Press Run Forecaster for one precise price call.</p>
+        <p id="forecast-board-note" class="muted">Reads the open market, pins, and top scan names.</p>
+        <p id="forecast-open-sum" class="muted"></p>
+        <div id="forecast-pins" class="pins" aria-label="Forecaster ranked names"></div>
         <div id="forecast-case" class="scorecard-day" aria-live="polite">
           <p id="forecast-case-bias" class="scorecard-bias">Open market · waiting</p>
           <p id="forecast-case-why" class="muted"></p>
+          <p id="forecast-confidence" class="muted"></p>
+        </div>
+        <div class="scorecard-grid">
+          <section class="scorecard-panel" aria-label="Price levels">
+            <h3>Price levels</h3>
+            <dl id="forecast-levels" class="strat-levels"></dl>
+          </section>
+          <section class="scorecard-panel" aria-label="Risk desk">
+            <h3>Risk desk</h3>
+            <dl id="forecast-risk" class="strat-levels"></dl>
+          </section>
         </div>
         <div class="scorecard-grid">
           <section class="scorecard-panel" aria-label="Near horizon">
@@ -965,16 +978,19 @@ plot Sell = close crosses below baseline;</textarea>
           <p id="forecast-vs" class="muted"></p>
           <p id="forecast-invalid" class="muted"></p>
           <p id="forecast-size" class="muted"></p>
+          <p id="forecast-book-heat" class="muted"></p>
+          <p id="forecast-reclaim" class="muted"></p>
+          <p id="forecast-season" class="muted"></p>
         </div>
         <section class="scorecard-panel" aria-label="Assumptions">
           <h3>Assumptions</h3>
           <ul id="forecast-assumptions" class="safe-list"></ul>
         </section>
         <section class="scorecard-panel" aria-label="Ranked names">
-          <h3>Desk rank · open · pins · scan</h3>
+          <h3>Price confidence · open · pins · scan</h3>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>#</th><th>Market</th><th>Score</th><th>Near base</th><th>Bull</th><th>Bear</th><th>vs SPY</th><th></th></tr></thead>
+              <thead><tr><th>#</th><th>Market</th><th>Conf</th><th>Base</th><th>Bull</th><th>Bear</th><th>Invalidate</th><th></th></tr></thead>
               <tbody id="forecast-rank-body"></tbody>
             </table>
           </div>
