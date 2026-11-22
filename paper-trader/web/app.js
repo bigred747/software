@@ -111,7 +111,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.18";
+const VERSION = "1.10.19";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -2914,22 +2914,70 @@ function paintIndexChip(chip, trade) {
   chip.classList.toggle("flat", tone === "flat");
 }
 
+function tradeFromBars(bars, livePrice) {
+  const list = bars || [];
+  if (list.length < 1) return null;
+  const last = list[list.length - 1];
+  const prev = list.length > 1 ? list[list.length - 2] : null;
+  const price = Number(livePrice) > 0 ? Number(livePrice) : Number(last && last.close);
+  if (!(price > 0)) return null;
+  let changePct = null;
+  if (prev && Number(prev.close) > 0) changePct = (price / Number(prev.close) - 1) * 100;
+  return {
+    price,
+    changePct,
+    open: Number(last.open) > 0 ? Number(last.open) : null,
+    asOf: null,
+  };
+}
+
+// YM · RUT(RTY) · NQ · ES — prefer the desk Yahoo path that already quotes ES; Private falls back to PaperLive.
+async function indexTapeTrade(symbol) {
+  const name = String(symbol || "").trim().toUpperCase();
+  if (!name) throw new Error("No index symbol");
+  if (!state.offline) {
+    try {
+      const market = await getJSON("/api/market?symbol=" + encodeURIComponent(name));
+      if (market && market.symbol && String(market.symbol).toUpperCase() !== name) {
+        throw new Error("Index tape quote mismatched for " + name);
+      }
+      const trade = tradeFromBars(market && market.bars, market && market.price);
+      if (trade) return trade;
+    } catch (error) {
+      /* Desk path failed — try the same public futures feed the phone chart uses. */
+    }
+  }
+  if (window.PaperLive && PaperLive.lastTrade) {
+    try {
+      return await PaperLive.lastTrade(name, "future");
+    } catch (error) {
+      /* lastTrade miss — derive from closed daily bars (same feed as ES chart on phone). */
+    }
+  }
+  if (window.PaperLive && PaperLive.daily) {
+    const bars = await PaperLive.daily(name, "future", true);
+    const trade = tradeFromBars(bars, null);
+    if (trade) return trade;
+  }
+  throw new Error("No index tape quote for " + name);
+}
+
 async function refreshIndexTape() {
   const root = $("index-tape");
-  if (!root || !window.PaperLive || !PaperLive.lastTrade) return;
+  if (!root) return;
   const chips = Array.from(root.querySelectorAll(".index-chip[data-index-symbol]"));
-  await Promise.all(
-    chips.map(async (chip) => {
-      const symbol = chip.dataset.indexSymbol;
-      if (!symbol) return;
-      try {
-        const trade = await PaperLive.lastTrade(symbol, "future");
-        paintIndexChip(chip, trade);
-      } catch (error) {
-        paintIndexChip(chip, null);
-      }
-    })
-  );
+  // Sequential so the desk quote cache is not slammed; fail closed per chip (no invented prints).
+  for (let index = 0; index < chips.length; index += 1) {
+    const chip = chips[index];
+    const symbol = chip.dataset.indexSymbol;
+    if (!symbol) continue;
+    try {
+      const trade = await indexTapeTrade(symbol);
+      paintIndexChip(chip, trade);
+    } catch (error) {
+      paintIndexChip(chip, null);
+    }
+  }
 }
 
 function chooseSymbol(symbol) {
