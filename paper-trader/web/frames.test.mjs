@@ -164,7 +164,7 @@ test("true momentum stays inside the length and confirms arrows on a closed bar"
   assert.equal(study.down[25], true);
   const stack = stackAverages(bars);
   assert.equal(stack.length, 6);
-  assert.equal(stack.map((row) => row.length).join(","), "5,9,21,50,100,200");
+  assert.equal(stack.map((row) => row.length).join(","), "5,9,15,50,100,200");
   assert.equal(stack[0].values[4] != null, true);
   assert.equal(stack[5].values[39], null);
 });
@@ -401,7 +401,7 @@ function walk(count, seed, drift) {
 test("strategies report classic public rows plus the four-study combo from closed bars only", () => {
   const bars = walk(600, 7, 0.0008);
   const board = JSON.parse(JSON.stringify(strategies(bars, { live: false })));
-  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "seatrail", "weeklow"]);
+  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "seatrail", "pulseband", "rangeflip", "anchorvwap", "stretchpivot", "confirmgate", "weeklow"]);
   const seatrail = board.rows.find((row) => row.id === "seatrail");
   assert.ok(seatrail);
   assert.equal(seatrail.name, "Seat Trail");

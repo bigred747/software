@@ -254,13 +254,14 @@
     return { main, signal, up, down, length: window, ob: bound, os: -bound };
   }
 
+  // Desk rails: 5 white · 15 yellow · 50 blue · 200 red (CCI-style whites/yellows). Keep 9/100 for stack order checks.
   const STACK_AVGS = [
-    { length: 5, color: "#d6dde5", name: "5" },
+    { length: 5, color: "#f4f7fb", name: "5" },
     { length: 9, color: "#22d3ee", name: "9" },
-    { length: 21, color: "#c9a000", name: "21" },
-    { length: 50, color: "#1565c0", name: "50" },
-    { length: 100, color: "#facc15", name: "100" },
-    { length: 200, color: "#b71c1c", name: "200" },
+    { length: 15, color: "#facc15", name: "15" },
+    { length: 50, color: "#1e5aa8", name: "50" },
+    { length: 100, color: "#c9a000", name: "100" },
+    { length: 200, color: "#c62828", name: "200" },
   ];
 
   function stackAverages(bars) {
@@ -2184,13 +2185,64 @@
     };
   }
 
+  // Own desk impulse / flip helpers for scorecard-style strategies (closed-bar only).
+  function pulseBandDir(list) {
+    const closes = list.map((bar) => bar.close);
+    const mid = ema(closes, 8);
+    const ranges = edgeAtr(list, 10);
+    const dir = new Array(list.length).fill(0);
+    let prior = 0;
+    for (let index = 0; index < list.length; index += 1) {
+      if (mid[index] == null || ranges[index] == null) {
+        dir[index] = prior;
+        continue;
+      }
+      const upper = mid[index] + 0.8 * ranges[index];
+      const lower = mid[index] - 0.8 * ranges[index];
+      if (closes[index] > upper) prior = 1;
+      else if (closes[index] < lower) prior = -1;
+      dir[index] = prior;
+    }
+    return dir;
+  }
+
+  function rangeFlipDir(list, mult) {
+    const factor = mult || 3;
+    const ranges = edgeAtr(list, 14);
+    const dir = new Array(list.length).fill(0);
+    const finalUpper = new Array(list.length).fill(null);
+    const finalLower = new Array(list.length).fill(null);
+    let prior = 0;
+    for (let index = 0; index < list.length; index += 1) {
+      if (ranges[index] == null) {
+        dir[index] = prior;
+        continue;
+      }
+      const basic = (list[index].high + list[index].low) / 2;
+      let upper = basic + factor * ranges[index];
+      let lower = basic - factor * ranges[index];
+      if (index > 0 && finalUpper[index - 1] != null) {
+        if (list[index - 1].close < finalUpper[index - 1]) upper = Math.min(upper, finalUpper[index - 1]);
+      }
+      if (index > 0 && finalLower[index - 1] != null) {
+        if (list[index - 1].close > finalLower[index - 1]) lower = Math.max(lower, finalLower[index - 1]);
+      }
+      finalUpper[index] = upper;
+      finalLower[index] = lower;
+      if (index > 0 && finalUpper[index - 1] != null && list[index].close > finalUpper[index - 1]) prior = 1;
+      else if (index > 0 && finalLower[index - 1] != null && list[index].close < finalLower[index - 1]) prior = -1;
+      dir[index] = prior;
+    }
+    return dir;
+  }
+
   const STRATEGY_INFO = {
     edge: { name: "Edge · Ready · Aim · Fire", who: "This bot", idea: "Ready at 5 of 7, Aim at 6, Fire when all seven turn on together on a closed bar: TMO above −10, TMO turns green (main above signal / bullish green paint), 5 squeeze dots or in a squeeze, squeeze momentum above zero, CCI 50 · 14 · 5 all into zone +100 on a closed-bar cross, Desk Waves green / up (Volume Wave pane under CCI; fail closed without volume), and VIX falling on its latest closed daily bar vs the prior close (real ^VIX / .VIX only; fail closed if missing). Same gates drive Squeeze scan, Fire 5, and desk scanners. Buy fills at the next open. Auto prefers Fire with bullish big4indicator. Exits on squeeze momentum under zero or a 2.5 ATR trail under the best close. Desk staging only — not a third-party product." },
     squeeze: { name: "Squeeze release", who: "Volatility compression", idea: "Buy the first bar after Bollinger Bands move back outside Keltner Channels when momentum is above zero and rising. Stop under the low of that bar. Exit after two falling momentum bars." },
     quad: {
       name: "Squeeze · TMO · big4indicator · stack · MTF",
       who: "Four desk studies · multi-TF",
-      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, big4indicator agrees (close above the 50 and 200 EMAs, MACD above signal, RSI between 30 and 70), the SMA stack is lined up 5 over 9 over 21 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
+      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, big4indicator agrees (close above the 50 and 200 EMAs, MACD above signal, RSI between 30 and 70), the SMA stack is lined up 5 over 9 over 15 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
     },
     ccizoom: {
       name: "CCI zoom zone",
@@ -2213,6 +2265,31 @@
       name: "Seat Trail",
       who: "Seat-aware breakout trail",
       idea: "Patience breakout on closed bars only: close above the prior 20-bar high, relative volume ≥ 1.8× the 20-bar average, ATR(14) expanding vs its 20-bar average, Range Seat Mid or High, and close above the 50 EMA. Initial stop and trail width follow Range Seat (wider on Seat High, tighter on Mid/Low). Exit on the seat-aware ATR trail under the best high, or after 40 held bars. Own desk math — not a third-party product. Distinct from Edge / Fire 5 / Tide / Go Long. Paper only. Not a forecast.",
+    },
+    pulseband: {
+      name: "Pulse Band Lock",
+      who: "Desk impulse bands",
+      idea: "Own closed-bar impulse bands: mid = EMA(8), band = mid ± 0.8×ATR(10). Direction locks bull when close finishes above the upper band and bear when close finishes below the lower band (holds prior otherwise). BUY on a bar-close bull lock; SELL on a bar-close bear lock. Zero look-ahead. Not a third-party heatmap product.",
+    },
+    rangeflip: {
+      name: "Range Flip Trail",
+      who: "Desk ATR flip",
+      idea: "Own ATR flip trail on closed bars: basic mid = (high+low)/2, bands at ±3×ATR(14) with sticky upper/lower. BUY when close flips the trail bullish; SELL when close flips it bearish. Long-only desk. Not a third-party Supertrend port.",
+    },
+    anchorvwap: {
+      name: "Anchor VWAP Rebound",
+      who: "Desk volume anchor",
+      idea: "Own rolling 50-bar VWAP rebound: BUY when close crosses back above VWAP after at least three closes below it, with volume ≥ 1.2× the 20-bar average. Exit when close crosses back below VWAP. Closed bars only. Not a forecast.",
+    },
+    stretchpivot: {
+      name: "Stretch Pivot",
+      who: "Desk RSI · band pivot",
+      idea: "Own stretch pivot: in an uptrend above the 200 SMA, BUY when close tags or undercuts the lower Bollinger(20,2) while RSI(14) is under 35 and rising vs three bars ago (price stretch with improving RSI). Exit when RSI clears 65 or close reaches the middle band. Closed bars only. Not a third-party divergence pack.",
+    },
+    confirmgate: {
+      name: "Confirm Gate",
+      who: "Desk multi-gate confirm",
+      idea: "Own confirmation stack: counts four closed-bar gates — Pulse Band bull, Range Flip bull, close above 50-bar VWAP, RSI(14) rising from under 45. BUY when gates cross from under 2 to 2+; SELL when gates fall back under 2. Bar-close locked. Own desk math — not a premium multi-algo product.",
     },
     weeklow: { name: "7-day low pullback", who: "Weekly pullback", idea: "Above the 200-bar average, buy a close that is the lowest of the last 7 bars. Exit on a close that is the highest of the last 7 bars." },
   };
@@ -2324,7 +2401,7 @@
       const stack = stackAverages(list);
       const s5 = stack[0].values;
       const s9 = stack[1].values;
-      const s21 = stack[2].values;
+      const s15 = stack[2].values;
       const s50 = stack[3].values;
       const mtfFlags = multiFrameLongFlags(list, end);
       const rising = (index) => mom[index] != null && mom[index - 1] != null && mom[index] > 0 && mom[index] > mom[index - 1];
@@ -2334,11 +2411,11 @@
       const stackOk = (index) =>
         s5[index] != null &&
         s9[index] != null &&
-        s21[index] != null &&
+        s15[index] != null &&
         s50[index] != null &&
         s5[index] > s9[index] &&
-        s9[index] > s21[index] &&
-        s21[index] > s50[index];
+        s9[index] > s15[index] &&
+        s15[index] > s50[index];
       const mtfOk = (index) => !!mtfFlags[index];
       const run = runRule(list, end, 240, {
         enter: (index) => {
@@ -2559,6 +2636,86 @@
         armed: !!(read && read.armed),
       });
     } else notReady("seatrail", "Needs at least 80 bars.");
+
+    if (end >= 40) {
+      const dir = pulseBandDir(list);
+      const run = runRule(list, end, 25, {
+        enter: (index) => (dir[index] === 1 && dir[index - 1] !== 1 ? { stop: list[index].low } : null),
+        exit: (index) => dir[index] === -1 && dir[index - 1] !== -1,
+      });
+      finish("pulseband", run);
+    } else notReady("pulseband", "Needs at least 40 bars.");
+
+    if (end >= 50) {
+      const dir = rangeFlipDir(list, 3);
+      const run = runRule(list, end, 30, {
+        enter: (index) => (dir[index] === 1 && dir[index - 1] !== 1 ? { stop: list[index].low } : null),
+        exit: (index) => dir[index] === -1 && dir[index - 1] !== -1,
+      });
+      finish("rangeflip", run);
+    } else notReady("rangeflip", "Needs at least 50 bars.");
+
+    if (end >= 80) {
+      const vwap = rollingVwap(list, 50);
+      const volumes = list.map((bar) => Math.max(0, Number(bar.volume) || 0));
+      const volAvg = simpleAverage(volumes, 20);
+      const hasVolume = volumes.some((value) => value > 0);
+      const run = runRule(list, end, 55, {
+        enter: (index) => {
+          if (!hasVolume || vwap[index] == null || vwap[index - 1] == null || volAvg[index] == null) return null;
+          if (!(closes[index] > vwap[index] && closes[index - 1] <= vwap[index - 1])) return null;
+          if (!(volumes[index] >= 1.2 * volAvg[index])) return null;
+          let below = 0;
+          for (let back = 1; back <= 3; back += 1) {
+            if (vwap[index - back] == null || !(closes[index - back] < vwap[index - back])) return null;
+            below += 1;
+          }
+          return below === 3 ? { stop: Math.min(list[index].low, vwap[index]) } : null;
+        },
+        exit: (index) => vwap[index] != null && vwap[index - 1] != null && closes[index] < vwap[index] && closes[index - 1] >= vwap[index - 1],
+      });
+      finish("anchorvwap", run);
+    } else notReady("anchorvwap", "Needs at least 80 bars.");
+
+    if (end >= 230) {
+      const long = simpleAverage(closes, 200);
+      const bands = bollinger(list, 20, 2);
+      const rsi = wilderRsi(closes, 14);
+      const run = runRule(list, end, 205, {
+        enter: (index) => {
+          if (long[index] == null || closes[index] <= long[index]) return null;
+          if (bands.lower[index] == null || rsi[index] == null || rsi[index - 3] == null) return null;
+          if (!(closes[index] <= bands.lower[index] * 1.002)) return null;
+          if (!(rsi[index] < 35 && rsi[index] > rsi[index - 3])) return null;
+          return { stop: list[index].low };
+        },
+        exit: (index) => {
+          if (rsi[index] != null && rsi[index] >= 65) return true;
+          return bands.mid[index] != null && closes[index] >= bands.mid[index];
+        },
+      });
+      finish("stretchpivot", run);
+    } else notReady("stretchpivot", "Needs at least 230 bars.");
+
+    if (end >= 80) {
+      const pulse = pulseBandDir(list);
+      const flip = rangeFlipDir(list, 3);
+      const vwap = rollingVwap(list, 50);
+      const rsi = wilderRsi(closes, 14);
+      const gateCount = (index) => {
+        let score = 0;
+        if (pulse[index] === 1) score += 1;
+        if (flip[index] === 1) score += 1;
+        if (vwap[index] != null && closes[index] > vwap[index]) score += 1;
+        if (rsi[index] != null && rsi[index - 1] != null && rsi[index] < 45 && rsi[index] > rsi[index - 1]) score += 1;
+        return score;
+      };
+      const run = runRule(list, end, 55, {
+        enter: (index) => (gateCount(index) >= 2 && gateCount(index - 1) < 2 ? { stop: list[index].low } : null),
+        exit: (index) => gateCount(index) < 2 && gateCount(index - 1) >= 2,
+      });
+      finish("confirmgate", run);
+    } else notReady("confirmgate", "Needs at least 80 bars.");
 
     if (end >= 220) {
       const long = simpleAverage(closes, 200);
@@ -2877,22 +3034,22 @@
     const stack = stackAverages(list);
     const s5 = stack[0].values;
     const s9 = stack[1].values;
-    const s21 = stack[2].values;
+    const s15 = stack[2].values;
     const s50 = stack[3].values;
     const stackOk =
       s5[last] != null &&
       s9[last] != null &&
-      s21[last] != null &&
+      s15[last] != null &&
       s50[last] != null &&
       s5[last] > s9[last] &&
-      s9[last] > s21[last] &&
-      s21[last] > s50[last];
+      s9[last] > s15[last] &&
+      s15[last] > s50[last];
     add(
       "stack",
-      "SMA stack 5·9·21·50",
+      "SMA stack 5·9·15·50",
       20,
       stackOk ? "good" : "bad",
-      stackOk ? "SMA stack lined up 5 over 9 over 21 over 50." : "SMA stack is not lined up on the last closed bar."
+      stackOk ? "SMA stack lined up 5 over 9 over 15 over 50." : "SMA stack is not lined up on the last closed bar."
     );
 
     const snap = end >= 260 ? multiFrameSnapshot(list, end) : { weekOk: false, monthOk: false, mtfOk: false };
