@@ -2,6 +2,10 @@ const state = {
   market: null,
   paper: null,
   busy: false,
+  autoBusy: false,
+  switching: false,
+  switchToken: 0,
+  pendingSymbol: "",
   auto: false,
   autoTimer: 0,
   decimals: 2,
@@ -84,12 +88,12 @@ function sameStamp(node, stamp) {
   return false;
 }
 
-// Polite bar gate: a few parallel Yahoo/desk bar reads, small spacing — scanners stay usable.
+// Fast bar gate: more parallel reads, short spacing — Tools stay snappy under load.
 let barInflight = 0;
 let barNextSlot = 0;
 const barWaiters = [];
-const BAR_PARALLEL = 8;
-const BAR_GAP_MS = 35;
+const BAR_PARALLEL = 12;
+const BAR_GAP_MS = 12;
 const deskBarCache = new Map();
 
 function oneBarRead(task) {
@@ -140,7 +144,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.23";
+const VERSION = "1.10.24";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -1658,7 +1662,7 @@ async function loadMarket(symbol) {
     state.market = PaperEngine.market(state.session);
     stampQuote(state.session.bars);
     rerunStudy();
-    return;
+    return state.market;
   }
   const params = new URLSearchParams(formParams());
   const chosen = symbol || (state.paper && state.paper.symbol) || params.get("symbol");
@@ -1668,6 +1672,7 @@ async function loadMarket(symbol) {
     throw new Error("The quote for " + chosen + " did not load");
   }
   rerunStudy();
+  return state.market;
 }
 
 function render(paper) {
@@ -3045,72 +3050,108 @@ async function refreshIndexTape() {
   }
 }
 
-function chooseSymbol(symbol) {
+function softStopAuto() {
+  state.auto = false;
+  if (state.autoTimer) {
+    clearTimeout(state.autoTimer);
+    state.autoTimer = 0;
+  }
+}
+
+function paintOpeningSymbol(symbol) {
   if (!symbol) return;
   if ($("status")) $("status").textContent = "Opening " + symbol + "…";
   if ($("quote-symbol")) $("quote-symbol").textContent = symbol;
-  if (state.busy) {
-    state.pendingSymbol = symbol;
-    return;
-  }
+  const list = $("symbol");
+  if (list) list.dataset.value = symbol;
+  if ($("chart-title")) $("chart-title").textContent = symbol + " · opening…";
+}
+
+function chooseSymbol(symbol) {
+  if (!symbol) return;
+  state.pendingSymbol = "";
+  paintOpeningSymbol(symbol);
+  softStopAuto();
+  const token = state.switchToken + 1;
+  state.switchToken = token;
+  state.switching = true;
   const same = state.paper && state.paper.symbol === symbol;
-  return withBusy(async () => {
-    if (same) {
-      if (state.offline && state.session) {
+  return (async () => {
+    try {
+      if (same) {
+        if (state.offline && state.session) {
+          const row = state.catalog.find((item) => item.symbol === symbol);
+          const bars = await PaperLive.daily(symbol, row ? row.category : "");
+          if (state.switchToken !== token) return;
+          PaperEngine.replaceBars(state.session, bars);
+          state.market = PaperEngine.market(state.session);
+          stampQuote(bars);
+          render(PaperEngine.view(state.session));
+          renderLocalSignals();
+        } else if (!state.offline) {
+          await loadMarket(symbol);
+          if (state.switchToken !== token) return;
+          render(state.paper);
+        }
+        if (state.switchToken !== token) return;
+        showChart();
+        showRead(symbol + " is on the chart.");
+        return;
+      }
+      state.chartRead = "";
+      state.ruler = null;
+      rememberSymbol(symbol);
+      if (state.offline) {
         const row = state.catalog.find((item) => item.symbol === symbol);
         const bars = await PaperLive.daily(symbol, row ? row.category : "");
-        PaperEngine.replaceBars(state.session, bars);
+        if (state.switchToken !== token) return;
+        openOfflineSession(symbol, bars, formParams(), false);
+        state.paper = PaperEngine.view(state.session);
         state.market = PaperEngine.market(state.session);
         stampQuote(bars);
-        render(PaperEngine.view(state.session));
-        renderLocalSignals();
-      } else if (!state.offline) {
-        await loadMarket(symbol);
+        refreshSymbols().catch(() => {});
+        rerunStudy();
         render(state.paper);
+        renderLocalSignals();
+        showChart();
+        if (state.paper.paper === true) {
+          state.auto = true;
+          setTimeout(() => {
+            if (state.auto && !state.autoTimer && state.switchToken === token) autoTick();
+          }, 0);
+        }
+        showRead("Opened " + symbol + " on the chart.");
+        return;
       }
+      // Computer: snap the chart first, then bind the paper session — never wait on Auto/busy.
+      const paperPromise = paperCall("/api/paper/reset", { ...formParams(), symbol, switch: true });
+      await loadMarket(symbol);
+      if (state.switchToken !== token) return;
+      if (state.paper) state.paper = Object.assign({}, state.paper, { symbol });
+      paintOpeningSymbol(symbol);
       showChart();
-      showRead(symbol + " is on the chart.");
-      return;
-    }
-    state.chartRead = "";
-    state.ruler = null;
-    stopAuto();
-    rememberSymbol(symbol);
-    if (state.offline) {
-      const row = state.catalog.find((item) => item.symbol === symbol);
-      const bars = await PaperLive.daily(symbol, row ? row.category : "");
-      openOfflineSession(symbol, bars, formParams(), false);
-      state.paper = PaperEngine.view(state.session);
-      state.market = PaperEngine.market(state.session);
-      stampQuote(bars);
-      await refreshSymbols();
-      rerunStudy();
-      render(state.paper);
-      renderLocalSignals();
+      redrawStudies();
+      const paper = await paperPromise;
+      if (state.switchToken !== token) return;
+      state.paper = paper;
+      refreshSymbols().catch(() => {});
+      render(paper);
       showChart();
-      if (state.paper.paper === true) {
+      if (paper.paper === true) {
         state.auto = true;
         setTimeout(() => {
-          if (state.auto && !state.autoTimer) autoTick();
+          if (state.auto && !state.autoTimer && state.switchToken === token) autoTick();
         }, 0);
       }
-      showRead("Opened " + symbol + " on the chart.");
-      return;
+      showRead("Opened " + paper.symbol + " on the chart.");
+    } catch (error) {
+      if (state.switchToken !== token) return;
+      if ($("status")) $("status").textContent = error.message || "Could not open " + symbol;
+      if (state.paper) render(state.paper);
+    } finally {
+      if (state.switchToken === token) state.switching = false;
     }
-    const paper = await paperCall("/api/paper/reset", { ...formParams(), symbol, switch: true });
-    state.paper = paper;
-    await refreshSymbols();
-    await loadMarket(paper.symbol);
-    render(paper);
-    showChart();
-    if (state.fireAuto && paper.paper === true) {
-      state.auto = true;
-      setTimeout(() => {
-        if (state.auto && !state.autoTimer) autoTick();
-      }, 0);
-    }
-    showRead("Opened " + paper.symbol + " on the chart.");
-  });
+  })();
 }
 
 function renderQuote(paper) {
@@ -9084,12 +9125,8 @@ async function withBusy(action) {
 }
 
 function stopAuto(message) {
-  state.auto = false;
-  if (state.autoTimer) {
-    clearTimeout(state.autoTimer);
-    state.autoTimer = 0;
-  }
-  if (state.paper) render(state.paper);
+  softStopAuto();
+  if (state.paper && !state.switching) render(state.paper);
   if (message) $("status").textContent = message;
 }
 
@@ -9252,9 +9289,11 @@ async function warnSqueeze() {
 }
 
 async function autoTick() {
-  if (!state.auto || state.busy) return;
-  state.busy = true;
+  // Auto must never take the paper busy lock — that made product clicks flash then revert.
+  if (!state.auto || state.autoBusy || state.switching) return;
+  state.autoBusy = true;
   let delay = 5000;
+  const openSymbol = () => (state.paper && state.paper.symbol) || (state.session && state.session.symbol) || "";
   try {
     if (state.offline && state.session) {
       const symbol = state.session.symbol;
@@ -9262,6 +9301,7 @@ async function autoTick() {
       if (bars && bars.length && PaperLive.lastTrade) {
         const row = state.catalog.find((item) => item.symbol === symbol);
         const trade = await PaperLive.lastTrade(symbol, row ? row.category : "");
+        if (!state.auto || state.switching) return;
         const last = bars[bars.length - 1];
         const live = Number(trade.price);
         if (trade.date && last.date.length === 10 && last.date < trade.date && trade.open > 0) {
@@ -9292,35 +9332,45 @@ async function autoTick() {
       } else {
         const row = state.catalog.find((item) => item.symbol === symbol);
         bars = await PaperLive.daily(symbol, row ? row.category : "");
+        if (!state.auto || state.switching) return;
         PaperEngine.replaceBars(state.session, bars);
       }
       const paper = PaperEngine.view(state.session);
       state.market = PaperEngine.market(state.session);
       stampQuote(bars);
-      render(paper);
-      renderLocalSignals();
+      if (!state.switching) {
+        render(paper);
+        renderLocalSignals();
+      }
     } else {
       const paper = await paperCall("/api/paper/step", { days: 1 });
-      if (!state.auto) return;
+      if (!state.auto || state.switching) return;
+      // Ignore stale Auto ticks that finished after the user switched markets.
+      if (paper && paper.symbol && openSymbol() && paper.symbol !== openSymbol()) return;
       state.paper = paper;
       await loadMarket(paper.symbol);
-      render(paper);
+      if (!state.auto || state.switching) return;
+      if (!state.switching) render(paper);
       try {
         await loadSignals();
       } catch (error) {
-        $("status").textContent = error.message;
+        if ($("status")) $("status").textContent = error.message;
       }
     }
+    if (!state.auto || state.switching) return;
     if (state.paper && state.paper.paper !== true) {
       state.auto = false;
       $("status").textContent = "Auto stopped. Paper is off.";
       return;
     }
     const traded = await autoTrade();
+    if (!state.auto || state.switching) return;
     const fired = await fireAutoTrade();
-    renderBestSetup();
-    renderFireFive();
-    if (state.offline) renderLocalSignals();
+    if (!state.switching) {
+      renderBestSetup();
+      renderFireFive();
+      if (state.offline) renderLocalSignals();
+    }
     $("status").textContent =
       traded ||
       fired ||
@@ -9329,16 +9379,17 @@ async function autoTick() {
         : state.fireAuto && (state.fires || []).length
           ? "Fire 5 Auto is watching " + state.fires.length + " green Fire trade" + (state.fires.length === 1 ? "" : "s") + "."
           : "Auto is on. Refreshing the market quote.");
-    await cycleScanLearn("auto");
+    // Learn in the background — never hold Auto / clicks hostage.
+    cycleScanLearn("auto").catch(() => {});
   } catch (error) {
     state.auto = false;
-    if (state.paper) render(state.paper);
-    $("status").textContent = error.message;
+    if (state.paper && !state.switching) render(state.paper);
+    if ($("status")) $("status").textContent = error.message;
     return;
   } finally {
-    releaseBusy();
+    state.autoBusy = false;
   }
-  if (state.auto) state.autoTimer = setTimeout(autoTick, delay);
+  if (state.auto && !state.switching) state.autoTimer = setTimeout(autoTick, delay);
 }
 
 const voiceButton = $("voice");
