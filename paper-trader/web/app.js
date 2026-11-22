@@ -111,7 +111,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.16";
+const VERSION = "1.10.17";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -5537,6 +5537,32 @@ function sqIndexOf(symbol) {
 }
 
 state.sq = { busy: false, stop: false, rows: [], skipped: [], at: 0 };
+state.dp = {
+  busy: false,
+  stop: false,
+  rows: [],
+  skipped: [],
+  at: 0,
+  forms: null,
+  civic: null,
+  gates: null,
+  attr: "",
+};
+
+const DESK_POOL_MEMBERS = [
+  "nancy-pelosi",
+  "tommy-tuberville",
+  "josh-gottheimer",
+  "ro-khanna",
+  "mark-warner",
+  "dan-crenshaw",
+  "michael-rulli",
+  "ted-cruz",
+  "thomas-massie",
+  "byron-donalds",
+  "french-hill",
+  "steve-cohen",
+];
 
 function sqSymbols() {
   const kind = $("sq-list").value;
@@ -5716,6 +5742,369 @@ function renderSqueeze() {
   const top = shown[0];
   $("sq-why").textContent = top ? "Top score " + top.score + " for " + top.symbol + (top.edgeFire ? " · Edge Fire" : "") + ": " + top.parts.map((item) => item[0] + " +" + item[1]).join(", ") + "." : "";
   $("sq-skip").textContent = sq.skipped.length ? "Not read: " + sq.skipped.join("; ") + "." : "";
+}
+
+function dpSymbols() {
+  const kind = ($("dp-list") && $("dp-list").value) || "starter";
+  let list;
+  if (kind === "custom") {
+    list = (($("dp-custom") && $("dp-custom").value) || "")
+      .toUpperCase()
+      .split(/[\s,;]+/)
+      .filter((item) => /^[A-Z0-9.^=-]{1,12}$/.test(item));
+  } else {
+    list = sqCatalogList(kind);
+  }
+  const seen = new Set();
+  const out = [];
+  list.forEach((symbol) => {
+    if (!seen.has(symbol)) {
+      seen.add(symbol);
+      out.push(symbol);
+    }
+  });
+  return kind === "custom" ? out.slice(0, 80) : out.slice(0, 120);
+}
+
+function dpEmptyGates() {
+  return {
+    darkPoolBook: {
+      ready: false,
+      label: "Pool Book",
+      status: "No feed",
+      note: "True dark-pool books are private. This desk does not invent resting hidden orders.",
+    },
+    icebergBook: {
+      ready: false,
+      label: "Iceberg Book",
+      status: "No feed",
+      note: "Resting iceberg size is private. Iceberg Proxy uses high volume with a tight closed-bar range.",
+    },
+    institutionalBlotter: {
+      ready: false,
+      label: "Blotter",
+      status: "No feed",
+      note: "Institutional blotters stay behind paid feeds. Big Prints use public relative volume only.",
+    },
+  };
+}
+
+function fillReadingsBox(node, rows) {
+  if (!node) return;
+  node.replaceChildren();
+  (rows || []).forEach((pair) => {
+    const row = document.createElement("div");
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = pair[0];
+    dd.textContent = pair[1];
+    row.appendChild(dt);
+    row.appendChild(dd);
+    node.appendChild(row);
+  });
+}
+
+function renderDeskPoolTape() {
+  const bars = typeof seenBars === "function" ? seenBars() : (state.bars || []);
+  const rows = bars && bars.length ? tapeRows(bars) : [["Hidden tape", "Open a market with daily bars first."]];
+  fillReadingsBox($("dp-tape"), rows);
+}
+
+function renderDeskPoolGates() {
+  const gates = (state.dp && state.dp.gates) || dpEmptyGates();
+  const rows = ["darkPoolBook", "icebergBook", "institutionalBlotter"].map((key) => {
+    const gate = gates[key] || {};
+    return [gate.label || key, (gate.status || "No feed") + " · " + (gate.note || "")];
+  });
+  fillReadingsBox($("dp-gates"), rows);
+}
+
+function renderDeskPoolScan() {
+  const body = $("dp-body");
+  if (!body) return;
+  body.replaceChildren();
+  const dp = state.dp || {};
+  const shown = (dp.rows || []).slice(0, 25);
+  shown.forEach((row, index) => {
+    const tr = document.createElement("tr");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "quiet";
+    open.textContent = "Open";
+    open.addEventListener("click", (event) => {
+      event.stopPropagation();
+      chooseSymbol(row.symbol);
+      refreshDeskPoolFeeds();
+    });
+    const rvol = row.rvol == null ? "—" : row.rvol.toFixed(2) + "×";
+    addCells(tr, [
+      String(index + 1),
+      row.symbol,
+      { text: row.label, cls: row.proxy === "absorption" || row.proxy === "initiative" ? "up" : "" },
+      rvol,
+      row.effort || "—",
+      { text: String(row.score), cls: row.score >= 55 ? "up" : "" },
+      "",
+    ]);
+    if (row.score >= 55) tr.classList.add("go");
+    tr.lastChild.appendChild(open);
+    body.appendChild(tr);
+  });
+  if (!shown.length && dp.at && !dp.progress) {
+    const tr = document.createElement("tr");
+    addCells(tr, ["", "No elevated Big Prints on this list right now. Quiet is a normal answer.", "", "", "", "", ""]);
+    body.appendChild(tr);
+  }
+  const note = $("dp-note");
+  if (note) {
+    if (dp.progress) note.textContent = dp.progress;
+    else if (dp.at) {
+      const when = new Date(dp.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
+      note.textContent =
+        "Read " +
+        (dp.scanned || 0) +
+        " markets at " +
+        when +
+        " Denver. " +
+        shown.length +
+        " elevated names shown. Closed daily bars only. Paper only.";
+    }
+  }
+}
+
+function renderDeskPoolForms() {
+  const body = $("dp-forms-body");
+  if (!body) return;
+  body.replaceChildren();
+  const forms = (state.dp && state.dp.forms) || null;
+  const note = $("dp-forms-note");
+  if (note) {
+    note.textContent = forms && forms.note
+      ? forms.note
+      : "SEC Form 4 for the open market. Lagged filings. Computer desk loads the feed; phone offline shows No feed unless a public CORS path answers.";
+  }
+  if (!forms || !forms.ready || !(forms.rows && forms.rows.length)) {
+    const tr = document.createElement("tr");
+    addCells(tr, ["", forms && forms.ready === false ? (forms.note || "No feed") : "No Form Prints yet.", "", "", "", ""]);
+    body.appendChild(tr);
+    return;
+  }
+  forms.rows.slice(0, 20).forEach((row) => {
+    const tr = document.createElement("tr");
+    const value = row.value != null ? formatMoney(row.value) : row.shares != null ? formatVolume(row.shares) + " sh" : "—";
+    addCells(tr, [
+      row.filed || "—",
+      (row.name || "—") + (row.title ? " · " + row.title : ""),
+      { text: row.side || "—", cls: row.side === "Buy" ? "up" : row.side === "Sell" ? "down" : "" },
+      row.shares != null ? formatVolume(row.shares) : "—",
+      value,
+      row.traded || "—",
+    ]);
+    body.appendChild(tr);
+  });
+}
+
+function renderDeskPoolCivic() {
+  const body = $("dp-civic-body");
+  if (!body) return;
+  body.replaceChildren();
+  const civic = (state.dp && state.dp.civic) || null;
+  const note = $("dp-civic-note");
+  if (note) {
+    note.textContent = civic && civic.note
+      ? civic.note
+      : "Public STOCK Act disclosures for the open ticker. Amounts are brackets as filed.";
+  }
+  if (!civic || !civic.ready || !(civic.rows && civic.rows.length)) {
+    const tr = document.createElement("tr");
+    addCells(tr, ["", civic && civic.note ? civic.note : "No Civic Trades yet.", "", "", "", ""]);
+    body.appendChild(tr);
+    return;
+  }
+  civic.rows.slice(0, 30).forEach((row) => {
+    const tr = document.createElement("tr");
+    addCells(tr, [
+      row.disclosed || "—",
+      row.member || "—",
+      row.symbol || "—",
+      { text: row.side || "—", cls: row.side === "Buy" ? "up" : row.side === "Sell" ? "down" : "" },
+      row.amount || "—",
+      row.traded || "—",
+    ]);
+    body.appendChild(tr);
+  });
+}
+
+function renderDeskPool() {
+  if (!$("dp-gates")) return;
+  renderDeskPoolGates();
+  renderDeskPoolTape();
+  renderDeskPoolScan();
+  renderDeskPoolForms();
+  renderDeskPoolCivic();
+  const attr = $("dp-attr");
+  if (attr) attr.textContent = (state.dp && state.dp.attr) || "";
+}
+
+function publishDeskPool(reads, skipped, listed, done, finished) {
+  const dp = state.dp;
+  const rows = Object.keys(reads)
+    .map((symbol) => Object.assign({ symbol }, reads[symbol]))
+    .filter((row) => row.ready && row.score >= 40)
+    .sort((a, b) => b.score - a.score || String(a.symbol).localeCompare(String(b.symbol)));
+  dp.rows = rows;
+  dp.skipped = skipped;
+  dp.scanned = Object.keys(reads).length;
+  dp.at = Date.now();
+  dp.listed = listed;
+  dp.progress = finished
+    ? ""
+    : "Reading daily bars: " + done + " of " + listed + ". " + rows.length + " elevated so far.";
+  renderDeskPoolScan();
+}
+
+async function scanDeskPool() {
+  const dp = state.dp;
+  if (dp.busy) return;
+  const symbols = dpSymbols();
+  if (!symbols.length) {
+    if ($("dp-note")) $("dp-note").textContent = "Type at least one symbol for your own list.";
+    return;
+  }
+  dp.busy = true;
+  dp.stop = false;
+  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(6000);
+  if ($("dp-note")) $("dp-note").textContent = "Reading daily bars: 0 of " + symbols.length + ".";
+  const reads = {};
+  const skipped = [];
+  let next = 0;
+  let done = 0;
+  const known = state.catalog && state.catalog.length ? new Set(state.catalog.map((item) => item.symbol)) : null;
+  while (!dp.stop && next < symbols.length) {
+    const symbol = symbols[next];
+    next += 1;
+    if (known && !known.has(symbol)) {
+      skipped.push(symbol + " (not in this bot's market list)");
+      done += 1;
+      publishDeskPool(reads, skipped, symbols.length, done, false);
+      continue;
+    }
+    try {
+      const bars = await sqDaily(symbol);
+      const crypto = phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol));
+      const settled = PaperFrames.closedBars ? PaperFrames.closedBars(bars, crypto) : bars;
+      const row = state.catalog.find((item) => item.symbol === symbol);
+      const extras = { crypto, kind: row ? row.category : crypto ? "crypto" : "" };
+      const read = PaperFrames.bigPrintRead(settled, extras);
+      if (read.ready) reads[symbol] = read;
+      else skipped.push(symbol + " (" + read.reason + ")");
+    } catch (error) {
+      skipped.push(symbol + " (" + error.message + ")");
+    }
+    done += 1;
+    publishDeskPool(reads, skipped, symbols.length, done, false);
+  }
+  dp.busy = false;
+  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+  publishDeskPool(reads, skipped, symbols.length, done, true);
+}
+
+function normalizeCivicBrowserRow(item, source) {
+  const ticker = String(item.ticker || "").trim().toUpperCase();
+  if (!ticker) return null;
+  const sideRaw = String(item.type || item.txn_type || "").trim().toLowerCase();
+  let side = "—";
+  if (sideRaw === "purchase" || sideRaw === "buy" || sideRaw === "p") side = "Buy";
+  else if (sideRaw === "sale" || sideRaw === "sell" || sideRaw === "partial_sale" || sideRaw === "s") side = "Sell";
+  else if (sideRaw === "exchange") side = "Exchange";
+  else if (sideRaw) side = sideRaw.charAt(0).toUpperCase() + sideRaw.slice(1);
+  return {
+    symbol: ticker,
+    member: item.memberName || item.politician || item.member || "—",
+    side,
+    amount: item.amountLabel || "",
+    traded: String(item.transactionDate || item.txn_date || "").slice(0, 10),
+    disclosed: String(item.disclosureDate || item.disclosure_date || "").slice(0, 10),
+    source,
+  };
+}
+
+async function deskPoolCivicOffline(symbol) {
+  const ticker = String(symbol || "").trim().toUpperCase();
+  const collected = [];
+  for (let index = 0; index < DESK_POOL_MEMBERS.length; index += 1) {
+    const slug = DESK_POOL_MEMBERS[index];
+    try {
+      const response = await fetch("https://tracefour.com/data/congress/" + encodeURIComponent(slug) + ".json", {
+        credentials: "omit",
+      });
+      if (!response.ok) continue;
+      const payload = await response.json();
+      const trades = payload && payload.data && payload.data.trades;
+      if (!Array.isArray(trades)) continue;
+      trades.forEach((item) => {
+        const row = normalizeCivicBrowserRow(item, "tracefour-congress");
+        if (row) collected.push(row);
+      });
+    } catch (error) {
+      /* One member miss does not kill the board. */
+    }
+  }
+  collected.sort((a, b) => String(b.disclosed || b.traded).localeCompare(String(a.disclosed || a.traded)));
+  let rows = ticker ? collected.filter((row) => row.symbol === ticker) : collected;
+  let note =
+    "Public STOCK Act member files (browser). Amounts are brackets as filed. Lagged, not live. Paper only.";
+  if (ticker && !rows.length && collected.length) {
+    note = "No Civic Trades for " + ticker + " in loaded member files. Showing newest desk-wide rows.";
+    rows = collected.slice(0, 30);
+  } else {
+    rows = rows.slice(0, 30);
+  }
+  if (!collected.length) {
+    return {
+      ready: false,
+      rows: [],
+      note: "Civic Trades No feed on this phone copy (member files did not answer). Use the computer desk for the full House year feed.",
+      attribution: "",
+    };
+  }
+  return {
+    ready: true,
+    rows,
+    note,
+    attribution: "Member files via Tracefour (CC BY 4.0). Underlying filings are public government works.",
+  };
+}
+
+async function refreshDeskPoolFeeds() {
+  const symbol = selectedSymbol() || (state.paper && state.paper.symbol) || "";
+  state.dp.gates = dpEmptyGates();
+  renderDeskPoolGates();
+  renderDeskPoolTape();
+  if (!state.offline) {
+    try {
+      const payload = await getJSON("/api/desk-pool?symbol=" + encodeURIComponent(symbol || ""));
+      state.dp.gates = payload.gates || dpEmptyGates();
+      state.dp.forms = payload.forms || { ready: false, rows: [], note: "No feed" };
+      state.dp.civic = payload.civic || { ready: false, rows: [], note: "No feed" };
+      state.dp.attr = [payload.forms && payload.forms.attribution, payload.civic && payload.civic.attribution]
+        .filter(Boolean)
+        .join(" ");
+    } catch (error) {
+      state.dp.forms = { ready: false, rows: [], note: "Form Prints No feed · " + error.message };
+      state.dp.civic = { ready: false, rows: [], note: "Civic Trades No feed · " + error.message };
+      state.dp.attr = "";
+    }
+  } else {
+    state.dp.forms = {
+      ready: false,
+      rows: [],
+      note: "Form Prints No feed on the phone copy (Form 4 JSON is not CORS-open). Open Desk Pool on the computer desk for insider Form Prints.",
+    };
+    state.dp.civic = await deskPoolCivicOffline(symbol);
+    state.dp.attr = (state.dp.civic && state.dp.civic.attribution) || "";
+  }
+  renderDeskPool();
 }
 
 
@@ -8624,6 +9013,13 @@ $("int-gate").addEventListener("change", () => {
   renderInternals();
 });
 $("sq-scan").addEventListener("click", scanSqueeze);
+if ($("dp-scan")) $("dp-scan").addEventListener("click", scanDeskPool);
+if ($("dp-stop")) {
+  $("dp-stop").addEventListener("click", () => {
+    if (state.dp) state.dp.stop = true;
+  });
+}
+if ($("dp-refresh")) $("dp-refresh").addEventListener("click", () => refreshDeskPoolFeeds());
 if ($("sc-run")) $("sc-run").addEventListener("click", runScorecard);
 if ($("sc-stop")) {
   $("sc-stop").addEventListener("click", () => {
@@ -9202,6 +9598,10 @@ function showDock(name) {
   if (name === "forecast") {
     renderForecast();
     if (!(state.forecast && state.forecast.at) && !(state.forecast && state.forecast.busy)) runForecast();
+  }
+  if (name === "deskpool") {
+    renderDeskPool();
+    refreshDeskPoolFeeds();
   }
   if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
     state.orbBusy = true;

@@ -102,6 +102,10 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Live stays locked. Every paper buy/sell still asks Yes.
 
 
+## Desk Pool (1.10.17)
+
+Tools → **Desk Pool**: public-tape **Big Prints** and **Iceberg Proxy** (closed-bar relative volume / absorption), **Form Prints** (SEC Form 4 via keyless public JSON on the computer desk), and **Civic Trades** (STOCK Act disclosures). True dark-pool books, resting icebergs, and institutional blotters stay **No feed** — never invented. Own names only. Paper only. Live locked.
+
 ## Precision desk (1.10.16)
 
 Original closed-bar precision after public marketing-site idea scan (own names only — no third-party AI scores, APIs, or scraped feeds):
