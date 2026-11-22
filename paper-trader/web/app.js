@@ -140,7 +140,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.21";
+const VERSION = "1.10.22";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -9935,19 +9935,49 @@ $("reset").addEventListener("click", () => withBusy(async () => {
   $("status").textContent = "Session reset on the latest quote.";
 }));
 
-$("full").addEventListener("click", () => withBusy(async () => {
+async function runBacktestReport() {
+  const symbol = selectedSymbol() || ((state.paper && state.paper.symbol) || "");
   if (state.offline) {
-    $("backtest-summary").textContent = "On the phone, the quote stays current. The full history report is on the computer copy.";
+    if ($("backtest-summary")) {
+      $("backtest-summary").textContent =
+        "On the phone, the quote stays current. Open " +
+        (symbol || "this market") +
+        " on the Windows desk and press Run full backtest (or Tools → Backtest) for the trade table.";
+    }
+    if ($("backtest-body")) $("backtest-body").innerHTML = "";
     showDock("backtest");
     return;
   }
+  if ($("backtest-summary")) {
+    $("backtest-summary").textContent = "Replaying " + (symbol || "market") + " history…";
+  }
   const report = await post("/api/backtest", formParams());
   const factor = report.profit_factor == null ? "—" : report.profit_factor.toFixed(2);
-  $("backtest-summary").textContent =
-    "Return " + report.return_pct.toFixed(2) + "% · drawdown " +
-    report.max_drawdown_pct.toFixed(2) + "% · trades " + report.trade_count +
-    " · win rate " + report.win_rate_pct.toFixed(1) + "% · profit factor " + factor;
+  if ($("backtest-summary")) {
+    $("backtest-summary").textContent =
+      (symbol || "Market") +
+      " · Return " +
+      report.return_pct.toFixed(2) +
+      "% · drawdown " +
+      report.max_drawdown_pct.toFixed(2) +
+      "% · trades " +
+      report.trade_count +
+      " · win rate " +
+      report.win_rate_pct.toFixed(1) +
+      "% · profit factor " +
+      factor +
+      ". Paper session stays on the latest quote.";
+  }
   fillTrades($("backtest-body"), report.trades || []);
+  showDock("backtest", { skipRun: true });
+  if ($("status")) {
+    $("status").textContent =
+      "Backtest " + (symbol || "") + ": " + report.trade_count + " trade" + (report.trade_count === 1 ? "" : "s") + ".";
+  }
+}
+
+$("full").addEventListener("click", () => withBusy(async () => {
+  await runBacktestReport();
 }));
 
 function storedStudies() {
@@ -10028,9 +10058,10 @@ function backFromToolPage() {
   hideTools();
 }
 
-function showDock(name) {
+function showDock(name, opts) {
   if (!name) name = "home";
   if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) name = "home";
+  const skipRun = !!(opts && opts.skipRun);
   if (name === "internals") loadInternals(false);
   if (name === "scorecard") {
     renderScorecard();
@@ -10066,6 +10097,14 @@ function showDock(name) {
   }
   if (name === "readings") {
     renderReadings();
+  }
+  if (name === "backtest" && !state.offline && !skipRun && !state.backtestBusy) {
+    state.backtestBusy = true;
+    withBusy(async () => {
+      await runBacktestReport();
+    }).finally(() => {
+      state.backtestBusy = false;
+    });
   }
   if (name === "strategies") {
     ensureCatalog().catch(() => {});

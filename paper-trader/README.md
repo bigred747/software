@@ -1,3 +1,7 @@
+## Version notes
+
+- **1.10.22** Tools → Backtest runs the chart market on the computer and fills the trade table (phone still points to the Windows desk).
+
 # Paper Trader
 
 A local paper desk. The computer copy loads market quotes for 7,500 stocks, ETFs, futures, and crypto names, including Bitcoin, XRP, and Stellar. It shows the quote time, a candle chart, buy and sell arrows, squeeze compression, four indicator readings, and a simulated account.
