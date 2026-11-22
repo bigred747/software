@@ -102,6 +102,10 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Live stays locked. Every paper buy/sell still asks Yes.
 
 
+## Tools hooks · scanners (1.10.21)
+
+Online desk loads the full market catalog for Squeeze / Desk Pool. Faster bar gate (3 parallel). Squeeze ready counts, Scan busy state, honest empty results. Live locked.
+
 ## Max Safe (1.10.20)
 
 Artex / foreign-bot isolation, hard Live lock (Schwab Live Trading cannot arm), localhost-only, paper-only Yes confirm, no invented breadth, Desk Pool fail-closed, foreign scripts refused, hook-health Safe greens. Live locked.

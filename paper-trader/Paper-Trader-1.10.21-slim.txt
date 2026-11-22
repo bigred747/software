@@ -1,0 +1,9 @@
+Paper Trader 1.10.21 — slim Windows zip
+
+File: Paper-Trader-1.10.21-slim.zip (~0.7 MB)
+
+Tools hooks polish: catalog load for Squeeze/Desk Pool, faster bar gate, scanner ready notes. Max Safe 1.10.20 kept. Live locked.
+
+1. Download Paper-Trader-1.10.21-slim.zip
+2. Unzip
+3. Run Start-Paper-Trader.bat
