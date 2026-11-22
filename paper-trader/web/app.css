@@ -1633,6 +1633,23 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
   border-radius: var(--radius);
   background: var(--panel-ink);
 }
+.cycle-graph-wrap {
+  margin: 0 0 10px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-ink);
+}
+.cycle-graph-wrap canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+#cycle-graph-note {
+  margin: 6px 2px 0;
+}
 .scorecard-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

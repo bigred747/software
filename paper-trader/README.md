@@ -1,5 +1,8 @@
 ## Version notes
 
+- **1.10.23** Faster Tools clicks (bar pool + no Squeeze blockade). Scorecard/Timeframes unstick. Backtest fills even while other scans run. Squeeze defaults to Starter. Cycle Desk graph in tab.
+
+
 - **1.10.22** Tools → Backtest runs the chart market on the computer and fills the trade table (phone still points to the Windows desk).
 
 # Paper Trader
