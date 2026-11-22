@@ -254,11 +254,11 @@
     return { main, signal, up, down, length: window, ob: bound, os: -bound };
   }
 
-  // Desk rails: 5 white · 15 yellow · 50 blue · 200 red (CCI-style whites/yellows). Keep 9/100 for stack order checks.
+  // Desk rails: 5 white · 14 yellow · 50 blue · 200 red (CCI palette). Keep 9/100 for stack order checks.
   const STACK_AVGS = [
     { length: 5, color: "#f4f7fb", name: "5" },
     { length: 9, color: "#22d3ee", name: "9" },
-    { length: 15, color: "#facc15", name: "15" },
+    { length: 14, color: "#facc15", name: "14" },
     { length: 50, color: "#1e5aa8", name: "50" },
     { length: 100, color: "#c9a000", name: "100" },
     { length: 200, color: "#c62828", name: "200" },
@@ -2242,7 +2242,7 @@
     quad: {
       name: "Squeeze · TMO · big4indicator · stack · MTF",
       who: "Four desk studies · multi-TF",
-      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, big4indicator agrees (close above the 50 and 200 EMAs, MACD above signal, RSI between 30 and 70), the SMA stack is lined up 5 over 9 over 15 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
+      idea: "Buys when this desk's squeeze just released with momentum above zero and rising, true momentum is above its signal, big4indicator agrees (close above the 50 and 200 EMAs, MACD above signal, RSI between 30 and 70), the SMA stack is lined up 5 over 9 over 14 over 50, and completed weekly plus monthly bars also agree (higher-TF true momentum above signal and close above the 20-bar EMA). Stop under that bar's low. Exit when true momentum crosses below its signal or the close falls under the 50 EMA. Own closed-bar math only — not a third-party or trademarked study.",
     },
     ccizoom: {
       name: "CCI zoom zone",
@@ -2401,7 +2401,7 @@
       const stack = stackAverages(list);
       const s5 = stack[0].values;
       const s9 = stack[1].values;
-      const s15 = stack[2].values;
+      const s14 = stack[2].values;
       const s50 = stack[3].values;
       const mtfFlags = multiFrameLongFlags(list, end);
       const rising = (index) => mom[index] != null && mom[index - 1] != null && mom[index] > 0 && mom[index] > mom[index - 1];
@@ -2411,11 +2411,11 @@
       const stackOk = (index) =>
         s5[index] != null &&
         s9[index] != null &&
-        s15[index] != null &&
+        s14[index] != null &&
         s50[index] != null &&
         s5[index] > s9[index] &&
-        s9[index] > s15[index] &&
-        s15[index] > s50[index];
+        s9[index] > s14[index] &&
+        s14[index] > s50[index];
       const mtfOk = (index) => !!mtfFlags[index];
       const run = runRule(list, end, 240, {
         enter: (index) => {
@@ -3034,22 +3034,22 @@
     const stack = stackAverages(list);
     const s5 = stack[0].values;
     const s9 = stack[1].values;
-    const s15 = stack[2].values;
+    const s14 = stack[2].values;
     const s50 = stack[3].values;
     const stackOk =
       s5[last] != null &&
       s9[last] != null &&
-      s15[last] != null &&
+      s14[last] != null &&
       s50[last] != null &&
       s5[last] > s9[last] &&
-      s9[last] > s15[last] &&
-      s15[last] > s50[last];
+      s9[last] > s14[last] &&
+      s14[last] > s50[last];
     add(
       "stack",
-      "SMA stack 5·9·15·50",
+      "SMA stack 5·9·14·50",
       20,
       stackOk ? "good" : "bad",
-      stackOk ? "SMA stack lined up 5 over 9 over 15 over 50." : "SMA stack is not lined up on the last closed bar."
+      stackOk ? "SMA stack lined up 5 over 9 over 14 over 50." : "SMA stack is not lined up on the last closed bar."
     );
 
     const snap = end >= 260 ? multiFrameSnapshot(list, end) : { weekOk: false, monthOk: false, mtfOk: false };

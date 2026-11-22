@@ -1,5 +1,7 @@
 ## Version notes
 
+- **1.10.30** Auto-install Desk EMA Fire 5 white · 14 yellow · 50 blue · 200 red on open (phone + computer).
+
 - **1.10.29** EMA rails 5 white · 15 yellow · 50 blue · 200 red (CCI palette). Volume profile on the right. Keltner layer removed. Five own Strategies: Pulse Band Lock, Range Flip Trail, Anchor VWAP Rebound, Stretch Pivot, Confirm Gate.
 
 - **1.10.28** Study / stack rails hardcoded: 5 white · 20 yellow · 50 blue · 200 red. Desk EMA Fire default. Layers Stack / Keltner / purple 200 off.

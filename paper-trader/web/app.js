@@ -63,6 +63,25 @@ const state = {
 };
 
 const STUDY_KEY = "paperTraderStudies";
+const DEFAULT_STUDY_NAME = "Desk EMA Fire";
+const DEFAULT_STUDY_CODE = [
+  "input fast = 5;",
+  "input mid = 14;",
+  "input slow = 50;",
+  "input rail = 200;",
+  "def ema5 = ExpAverage(close, fast);",
+  "def ema14 = ExpAverage(close, mid);",
+  "def ema50 = ExpAverage(close, slow);",
+  "def ema200 = ExpAverage(close, rail);",
+  "plot EMA5 = ema5;",
+  "plot EMA14 = ema14;",
+  "plot EMA50 = ema50;",
+  "plot EMA200 = ema200;",
+  "def buyFire = ema5 crosses above ema14 and close > ema50;",
+  "def sellFire = ema5 crosses below ema14 or close < ema200;",
+  "AddOrder(Buy, buyFire);",
+  "AddOrder(Sell, sellFire);",
+].join("\n");
 const PIN_KEY = "paperTraderPins";
 const SYMBOL_KEY = "paperTraderSymbol";
 const SECTORS = ["SMH", "VGT", "ARKW", "QQQ", "SPMO", "COPX", "ARKQ", "MGK", "CIBR", "UGA", "AIRR", "GRID"];
@@ -144,7 +163,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.29";
+const VERSION = "1.10.30";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -8684,7 +8703,7 @@ const LAYERS = [
   ["pivots", "Support · Resistance boxes", "pivots", true],
   ["vwap", "VWAP", "vwap", true],
   ["trend", "Green trend EMA 50", "trend", false],
-  ["stack", "SMA 5 · 9 · 15 · 50 · 100 · 200", "stack", false],
+  ["stack", "SMA 5 · 9 · 14 · 50 · 100 · 200", "stack", false],
   ["ema200", "200 EMA", "ema200", false],
   ["profile", "Volume + POC (right)", "poc", true],
   ["averages", "High · Close · Low", "close", false],
@@ -8692,7 +8711,7 @@ const LAYERS = [
   ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-// Bump key: volume profile right · no Keltner layer · EMA 5/15/50/200 rails.
+// Bump key keeps prior layer choices; Desk EMA Fire 5/14/50/200 seeds on restoreStudies.
 const LAYERS_KEY = "paperTraderLayers69";
 
 function readLayers() {
@@ -8756,14 +8775,14 @@ function paintLayers() {
   }
 }
 
-// EMA rails match CCI palette spirit: 5 white · 15 yellow · 50 blue · 200 red.
+// EMA rails match CCI palette: 5 white · 14 yellow · 50 blue · 200 red.
 const STUDY_RAIL_COLORS = ["#f4f7fb", "#facc15", "#1e5aa8", "#c62828"];
 
 function studyLineColor(name, fallbackIndex) {
   const key = String(name || "");
   if (/\b200\b/i.test(key)) return STUDY_RAIL_COLORS[3];
   if (/\b50\b/i.test(key)) return STUDY_RAIL_COLORS[2];
-  if (/\b15\b|\b20\b|\b14\b|\b21\b/i.test(key)) return STUDY_RAIL_COLORS[1];
+  if (/\b14\b|\b15\b|\b20\b|\b21\b/i.test(key)) return STUDY_RAIL_COLORS[1];
   if (/\b5\b/i.test(key)) return STUDY_RAIL_COLORS[0];
   return STUDY_RAIL_COLORS[fallbackIndex % STUDY_RAIL_COLORS.length];
 }
@@ -10571,12 +10590,15 @@ function fillStudyList() {
 }
 
 function restoreStudies() {
+  // Phone + computer: always keep Desk EMA Fire 5/14/50/200 installed and active.
+  let studies = storedStudies().filter((item) => item && item.name !== DEFAULT_STUDY_NAME);
+  studies.unshift({ name: DEFAULT_STUDY_NAME, code: DEFAULT_STUDY_CODE });
+  saveStudies(studies);
   fillStudyList();
-  const studies = storedStudies();
-  if (!studies.length) return;
-  $("study-name").value = studies[0].name;
-  $("study-code").value = studies[0].code;
-  state.studyCode = studies[0].code;
+  if ($("study-name")) $("study-name").value = DEFAULT_STUDY_NAME;
+  if ($("study-code")) $("study-code").value = DEFAULT_STUDY_CODE;
+  if ($("study-list")) $("study-list").value = DEFAULT_STUDY_NAME;
+  state.studyCode = DEFAULT_STUDY_CODE;
 }
 
 let toolsReturnTab = "chart";
