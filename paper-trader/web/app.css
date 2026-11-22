@@ -655,6 +655,7 @@ textarea {
 .edge.buy .edge-call, .edge.hold .edge-call { color: var(--up); }
 .edge.sell .edge-call { color: var(--down); }
 .edge.wait .edge-call { color: var(--text); }
+.edge.wait.aim .edge-call, .edge.wait.ready .edge-call { color: var(--warn); }
 .edge.buy { border-color: var(--up); }
 .edge.sell { border-color: var(--down); }
 .edge-checks { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 6px 0; padding: 0; list-style: none; font-size: 12px; }
@@ -662,7 +663,23 @@ textarea {
 .edge-checks li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #5c6770; }
 .edge-checks li.on { color: var(--text); }
 .edge-checks li.on::before { background: var(--up); }
+.gate-print { margin: 2px 0 6px; font-size: 12px; line-height: 1.35; }
 .edge-plan { margin: 4px 0; font-size: 14px; }
+.desk-cards { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.desk-card-btn {
+  border: 1px solid var(--line);
+  background: var(--panel-ink);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.desk-card-btn.on {
+  border-color: var(--fast);
+  color: var(--text);
+  background: var(--fast-deep);
+}
 .edge-record { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 6px 0 4px; }
 .edge-record div { padding: 6px; border-radius: 8px; background: var(--panel); }
 .edge-record dd { font-size: 14px; }

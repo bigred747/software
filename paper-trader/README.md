@@ -102,6 +102,16 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Live stays locked. Every paper buy/sell still asks Yes.
 
 
+## Precision desk (1.10.16)
+
+Original closed-bar precision after public marketing-site idea scan (own names only — no third-party AI scores, APIs, or scraped feeds):
+
+- **Gate Print** — Edge checklist missing/on line; Desk Call shows WAIT · Ready / WAIT · Aim / FIRE
+- **Fire Precision** — ranks Fire 5 by gates · stage · big4 · lane · seat · fresh flip
+- **Confirm Lock** — tighter Auto/Best paper-buy filter from **Desk Cards** (Stock Fire Card · Coin Seat Card · Auto by type)
+- **Journal Gate Print** — Fire pins carry precision + gate context
+- Charts unchanged. Paper only. Live locked. No broker automation.
+
 ## Trade ticket chrome (1.10.15)
 
 Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab / breaker / Safe (Desk extras fold), louder Buy · Sell · Send. Charts, boxes-above stack, Study, Strategies, Seat Trail, and Edge 7/7 Desk Waves unchanged. Paper only. Live locked.
