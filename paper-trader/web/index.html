@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.24">
-  <meta name="paper-publish" content="20261122T071955Z">
+  <meta name="paper-build" content="1.10.25">
+  <meta name="paper-publish" content="20261122T180845Z">
   <meta name="paper-private-build" content="publish-20261122T005558Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.24</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.25</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -654,7 +654,7 @@ plot Sell = close crosses below baseline;</textarea>
             <h3>Strongest indexes</h3>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>#</th><th>Index</th><th>Score</th><th>5d</th><th>Stack</th></tr></thead>
+                <thead><tr><th>#</th><th>Index</th><th>Score</th><th>5d</th><th>Stack</th><th></th></tr></thead>
                 <tbody id="sc-indexes"></tbody>
               </table>
             </div>
@@ -663,7 +663,7 @@ plot Sell = close crosses below baseline;</textarea>
             <h3>Strongest sectors</h3>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>#</th><th>Sector</th><th>Score</th><th>5d</th><th>Stack</th></tr></thead>
+                <thead><tr><th>#</th><th>Sector</th><th>Score</th><th>5d</th><th>Stack</th><th></th></tr></thead>
                 <tbody id="sc-sectors"></tbody>
               </table>
             </div>
@@ -754,7 +754,7 @@ plot Sell = close crosses below baseline;</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Desk Pool</h2>
         </div>
-        <p class="muted">Public-tape Big Prints and Iceberg Proxy, plus Form Prints (SEC Form 4) and Civic Trades (STOCK Act disclosures). True dark-pool books, resting icebergs, and institutional blotters stay <strong>No feed</strong> — this desk never invents them. Paper only. Live locked. Not a forecast.</p>
+        <p class="muted">Public-tape Big Prints and Iceberg Proxy, plus Form Prints (SEC Form 4), Civic Trades (STOCK Act), and Fund Seat (disclosed-style public watchlists under desk names). True dark-pool books, resting icebergs, and institutional blotters stay <strong>No feed</strong> — this desk never invents them. Paper only. Live locked. Not a forecast.</p>
         <div id="dp-gates" class="readings" aria-label="Private book gates"></div>
         <h3 class="journal-check-head">Hidden Tape · open market</h3>
         <div id="dp-tape" class="readings" aria-label="Hidden tape for open market"></div>
@@ -787,7 +787,7 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Filed</th><th>Name</th><th>Side</th><th>Shares</th><th>Value</th><th>Traded</th></tr>
+              <tr><th>Filed</th><th>Name</th><th>Side</th><th>Shares</th><th>Value</th><th>Traded</th><th></th></tr>
             </thead>
             <tbody id="dp-forms-body"></tbody>
           </table>
@@ -797,9 +797,19 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Disclosed</th><th>Member</th><th>Ticker</th><th>Side</th><th>Amount</th><th>Traded</th></tr>
+              <tr><th>Disclosed</th><th>Member</th><th>Ticker</th><th>Side</th><th>Amount</th><th>Traded</th><th></th></tr>
             </thead>
             <tbody id="dp-civic-body"></tbody>
+          </table>
+        </div>
+        <h3 class="journal-check-head">Fund Seat · disclosed ideas</h3>
+        <p id="dp-fund-note" class="muted">Desk Fund Seat lists — Value · Macro · Activist — public disclosed-style names only. Not a third-party product scrape. Guidance only.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Seat</th><th>Market</th><th>Role</th><th></th></tr>
+            </thead>
+            <tbody id="dp-fund-body"></tbody>
           </table>
         </div>
         <p id="dp-attr" class="muted"></p>
@@ -832,7 +842,7 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Market</th><th>Shares</th><th>Entry</th><th>Last</th><th>Open P/L</th><th>Opened by</th></tr>
+              <tr><th>Market</th><th>Shares</th><th>Entry</th><th>Last</th><th>Open P/L</th><th>Opened by</th><th></th></tr>
             </thead>
             <tbody id="positions-body"></tbody>
           </table>
@@ -843,7 +853,7 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Market</th><th>Id</th><th>Side</th><th>Type</th><th>Stop</th><th>Limit</th><th>TIF</th><th></th></tr>
+              <tr><th>Market</th><th>Id</th><th>Side</th><th>Type</th><th>Stop</th><th>Limit</th><th>TIF</th><th></th><th></th></tr>
             </thead>
             <tbody id="journal-working-body"></tbody>
           </table>
@@ -852,7 +862,7 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Time (Denver)</th><th>Market</th><th>Side</th><th>Shares</th><th>Price</th><th>Why</th><th>Result</th></tr>
+              <tr><th>Time (Denver)</th><th>Market</th><th>Side</th><th>Shares</th><th>Price</th><th>Why</th><th>Result</th><th></th></tr>
             </thead>
             <tbody id="fills-body"></tbody>
           </table>
@@ -900,8 +910,19 @@ plot Sell = close crosses below baseline;</textarea>
           <p id="cycle-open-why" class="muted"></p>
         </div>
         <div class="cycle-graph-wrap" aria-label="Cycle Desk graph">
-          <canvas id="cycle-graph" width="720" height="220"></canvas>
-          <p id="cycle-graph-note" class="muted">Closed bars vs the long mean. Own Cycle Desk stages only.</p>
+          <canvas id="cycle-graph" width="920" height="340"></canvas>
+          <p id="cycle-graph-note" class="muted">Cycle Map vs Mean — Takeoff · Bear trap · Enthusiasm · Public · Greed · Delusion · Denial · Bull trap · Fear · Capitulation · Despair · Return to mean. Buy before mania · Sell into greed. Own desk names only.</p>
+        </div>
+        <h3 class="journal-check-head">Fund Seat · disclosed ideas</h3>
+        <p id="cycle-fund-note" class="muted">Public disclosed-style watchlists under desk names (Value Seat · Macro Seat · Activist Seat). Ideas only — not a scrape, not a forecast. Open jumps to the chart.</p>
+        <div id="cycle-fund-pins" class="pins" aria-label="Fund Seat names"></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Seat</th><th>Market</th><th>Role</th><th></th></tr>
+            </thead>
+            <tbody id="cycle-fund-body"></tbody>
+          </table>
         </div>
         <div id="cycle-tank" class="scorecard-day" aria-live="polite">
           <p id="cycle-tank-bias" class="scorecard-bias">Market · waiting</p>

@@ -10,6 +10,7 @@ from paper_trader.desk_pool import (
     civic_trades,
     desk_pool_open,
     form_prints,
+    fund_seat,
     pool_gates,
 )
 
@@ -114,6 +115,19 @@ class DeskPoolTests(unittest.TestCase):
                 out = desk_pool_open("NVDA")
         self.assertEqual(out["symbol"], "NVDA")
         self.assertEqual(out["gates"]["darkPoolBook"]["status"], "No feed")
+        self.assertTrue(out["fundSeat"]["ready"])
+        self.assertGreaterEqual(len(out["fundSeat"]["rows"]), 3)
+        self.assertEqual(out["version"], "1.10.25")
+
+    def test_fund_seat_desk_names_only(self) -> None:
+        out = fund_seat(12)
+        self.assertTrue(out["ready"])
+        seats = {row["seat"] for row in out["rows"]}
+        self.assertTrue(seats.issubset({"Value Seat", "Macro Seat", "Activist Seat"}))
+        for row in out["rows"]:
+            self.assertTrue(row["symbol"])
+            self.assertNotIn("disclosed", row["seat"].lower())
+            self.assertNotIn("buffett", row["role"].lower())
 
 
 if __name__ == "__main__":

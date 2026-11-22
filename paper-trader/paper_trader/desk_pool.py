@@ -32,9 +32,58 @@ _CIVIC_MEMBERS = (
 )
 
 _UA = {
-    "User-Agent": "Mozilla/5.0 PaperTrader-DeskPool/1.10.24",
+    "User-Agent": "Mozilla/5.0 PaperTrader-DeskPool/1.10.25",
     "Accept": "application/json",
 }
+
+# Desk Fund Seat — public disclosed-style watchlists under our names only.
+# Ideas inspired by well-known public 13F / disclosed-portfolio themes; not a
+# scrape of any third-party investor site; not a forecast; Live locked.
+_FUND_SEATS = (
+    {
+        "seat": "Value Seat",
+        "role": "Long compounders · public mega-cap value tilt",
+        "symbols": ("BRK-B", "AAPL", "AXP", "KO", "BAC", "CVX", "OXY", "MCO", "AMT", "DVA"),
+    },
+    {
+        "seat": "Macro Seat",
+        "role": "Hard-asset / rates-aware disclosed tilt",
+        "symbols": ("SCCO", "CCJ", "GOLD", "NEM", "XOM", "COP", "FCX", "VALE", "SLV", "GDX"),
+    },
+    {
+        "seat": "Activist Seat",
+        "role": "Liquid catalyst names · public activist-style watch",
+        "symbols": ("CP", "CMI", "UBER", "HLT", "BN", "PARA", "CRM", "SNOW", "PDD", "CPNG"),
+    },
+)
+
+
+def fund_seat(limit: int = 36) -> dict[str, Any]:
+    """Static disclosed-style Fund Seat rows. Fail closed never invents filings."""
+    rows: list[dict[str, Any]] = []
+    for pack in _FUND_SEATS:
+        for symbol in pack["symbols"]:
+            rows.append(
+                {
+                    "seat": pack["seat"],
+                    "symbol": symbol,
+                    "role": pack["role"],
+                }
+            )
+            if len(rows) >= max(1, min(int(limit), 60)):
+                break
+        if len(rows) >= max(1, min(int(limit), 60)):
+            break
+    return {
+        "ready": True,
+        "rows": rows,
+        "note": (
+            "Fund Seat · Value · Macro · Activist — public disclosed-style ideas under desk names only. "
+            "Not a scrape. Not a forecast. Paper only. Live locked."
+        ),
+        "source": "desk-fund-seat",
+        "attribution": "Desk Fund Seat watchlists from public market themes. No third-party product branding.",
+    }
 
 _LOCK = threading.Lock()
 _CACHE: dict[str, tuple[float, Any]] = {}
@@ -346,5 +395,6 @@ def desk_pool_open(symbol: str) -> dict[str, Any]:
         "gates": pool_gates(),
         "forms": form_prints(ticker, 20),
         "civic": civic_trades(ticker, 30),
-        "version": "1.10.24",
+        "fundSeat": fund_seat(36),
+        "version": "1.10.25",
     }

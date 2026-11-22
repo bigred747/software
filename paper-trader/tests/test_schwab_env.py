@@ -122,9 +122,10 @@ class SchwabEnvTests(unittest.TestCase):
 
     def test_connect_button_is_in_the_page_header(self) -> None:
         page = (Path(__file__).resolve().parents[1] / "web" / "index.html").read_text(encoding="utf-8")
-        header = page.split("<header", 1)[1].split("</header>", 1)[0]
-        self.assertIn('id="schwab-connect"', header)
-        self.assertIn('id="schwab-top-dot"', header)
+        # Connect lives in the top desk rail (next to Outlook), not inside <header>.
+        rail = page.split('class="desk-rail"', 1)[1].split('id="market-outlook"', 1)[0]
+        self.assertIn('id="schwab-connect"', rail)
+        self.assertIn('id="schwab-top-dot"', rail)
         self.assertNotIn("Paste keys into Documents\\Paper Trader\\.env", page)
         self.assertNotIn("SCHWAB-KEYS.txt", page)
         self.assertNotIn("Documents\\Paper Trader\\.env", page)

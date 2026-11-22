@@ -781,6 +781,8 @@ button:focus-visible { outline: 2px solid var(--fast); outline-offset: 2px; }
 button:disabled { opacity: 0.45; cursor: default; }
 button.quiet { background: transparent; }
 
+.row-actions { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
 .status { min-height: 1.2em; color: var(--slow); font-size: 14px; }
 
 .signals-title { margin: 0 0 8px; font-size: 15px; }
