@@ -84,18 +84,47 @@ function sameStamp(node, stamp) {
   return false;
 }
 
-let barGate = Promise.resolve();
-let barNext = 0;
+// Polite bar gate: a few parallel Yahoo/desk bar reads, small spacing — scanners stay usable.
+let barInflight = 0;
+let barNextSlot = 0;
+const barWaiters = [];
+const BAR_PARALLEL = 3;
+const BAR_GAP_MS = 110;
+const deskBarCache = new Map();
 
 function oneBarRead(task) {
-  const run = barGate.then(async () => {
-    const wait = barNext - Date.now();
-    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
-    barNext = Date.now() + 300;
-    return task();
+  return new Promise((resolve, reject) => {
+    const launch = async () => {
+      barInflight += 1;
+      try {
+        const wait = barNextSlot - Date.now();
+        if (wait > 0) await new Promise((done) => setTimeout(done, wait));
+        barNextSlot = Date.now() + BAR_GAP_MS;
+        resolve(await task());
+      } catch (error) {
+        reject(error);
+      } finally {
+        barInflight -= 1;
+        const next = barWaiters.shift();
+        if (next) next();
+      }
+    };
+    if (barInflight < BAR_PARALLEL) launch();
+    else barWaiters.push(launch);
   });
-  barGate = run.then(() => {}, () => {});
-  return run;
+}
+
+function cachedDeskBars(symbol, frame, maxAgeMs) {
+  const hit = deskBarCache.get(String(symbol || "").toUpperCase() + "|" + String(frame || "1D"));
+  if (!hit) return null;
+  if (Date.now() - hit.at > (maxAgeMs || 180000)) return null;
+  return hit.bars;
+}
+
+function rememberDeskBars(symbol, frame, bars) {
+  if (!symbol || !bars || !bars.length) return bars;
+  deskBarCache.set(String(symbol).toUpperCase() + "|" + String(frame || "1D"), { at: Date.now(), bars });
+  return bars;
 }
 
 async function getJSON(url, options) {
@@ -111,7 +140,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.20";
+const VERSION = "1.10.21";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -1312,6 +1341,17 @@ async function loadCatalogText() {
   return phoneCatalogFallback();
 }
 
+async function ensureCatalog() {
+  if (Array.isArray(state.catalog) && state.catalog.length) return state.catalog;
+  try {
+    const text = await loadCatalogText();
+    state.catalog = PaperEngine.parseCatalog(text);
+  } catch (error) {
+    state.catalog = state.catalog || [];
+  }
+  return state.catalog;
+}
+
 async function bootOffline() {
   const text = await loadCatalogText();
   state.catalog = PaperEngine.parseCatalog(text);
@@ -1399,6 +1439,8 @@ async function boot() {
     return;
   }
   restoreType();
+  // Online desk used to skip the catalog — Squeeze / Desk Pool "All stocks" then scanned an empty list.
+  await ensureCatalog();
   const paper = await getJSON("/api/paper");
   state.paper = paper;
   await refreshSymbols();
@@ -1410,8 +1452,9 @@ async function boot() {
   deskLine("Desk is working.");
   refreshOutlook().catch(() => {});
   refreshIndexTape().catch(() => {});
-  runCycleDesk().catch(() => {});
-  runForecast().catch(() => {});
+  // Stagger heavy Tools scanners so the chart quote and tape stay snappy on open.
+  setTimeout(() => runCycleDesk().catch(() => {}), 900);
+  setTimeout(() => runForecast().catch(() => {}), 2200);
   if (paper.paper === true) {
     state.auto = true;
     render(paper);
@@ -5663,7 +5706,12 @@ function catalogByKind(kind) {
 }
 
 function sqCatalogList(kind) {
-  if (kind === "stocks") return catalogByKind("stock");
+  if (kind === "stocks") {
+    const all = catalogByKind("stock");
+    if (all.length) return all;
+    // Fail soft: starter names that are not crypto/futures until the full catalog loads.
+    return SQ_LISTS.starter.filter((symbol) => !symbol.includes("-") && !SQ_LISTS.futures.includes(symbol) && !MAIN_ETFS.includes(symbol));
+  }
   if (kind === "crypto") {
     const all = catalogByKind("crypto");
     return all.length ? all : SQ_LISTS.crypto.slice();
@@ -5742,38 +5790,88 @@ function sqSymbols() {
 }
 
 async function sqDaily(symbol) {
+  const cached = cachedDeskBars(symbol, "1D");
+  if (cached) return cached;
   if (state.offline) {
     const row = state.catalog.find((item) => item.symbol === symbol);
-    return PaperLive.daily(symbol, row ? row.category : "", true);
+    const bars = await PaperLive.daily(symbol, row ? row.category : "", true);
+    return rememberDeskBars(symbol, "1D", bars);
   }
-  return (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
+  const payload = await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D");
+  return rememberDeskBars(symbol, "1D", payload.bars || []);
+}
+
+function paintSqueezeControls() {
+  const scan = $("sq-scan");
+  const stop = $("sq-stop");
+  const busy = !!(state.sq && state.sq.busy);
+  if (scan) {
+    scan.disabled = busy;
+    scan.textContent = busy ? "Scanning…" : "Scan now";
+  }
+  if (stop) stop.disabled = !busy;
+}
+
+function paintSqueezeReadyNote() {
+  if (!$("sq-note") || (state.sq && state.sq.busy)) return;
+  const n = sqSymbols().length;
+  const kind = $("sq-list") && $("sq-list").value;
+  if (!n) {
+    $("sq-note").textContent =
+      kind === "custom"
+        ? "Type at least one symbol for your own list."
+        : "No markets in that list yet. Wait for the catalog, or pick Starter list / My own list.";
+    return;
+  }
+  $("sq-note").textContent =
+    "Ready · " +
+    n +
+    " markets in this list. Press Scan now." +
+    (kind === "stocks" && n > 400 ? " Large list — names fill as bars return; Stop anytime." : "");
 }
 
 async function scanSqueeze() {
   const sq = state.sq;
   if (sq.busy) return;
+  await ensureCatalog();
   const symbols = sqSymbols();
   if (!symbols.length) {
-    $("sq-note").textContent = "Type at least one symbol for your own list.";
+    const kind = $("sq-list") && $("sq-list").value;
+    $("sq-note").textContent =
+      kind === "custom"
+        ? "Type at least one symbol for your own list."
+        : "No markets in that list yet. Wait for the catalog, or pick Starter list / My own list.";
     return;
   }
   sq.busy = true;
   sq.stop = false;
+  paintSqueezeControls();
   if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(6000);
-  $("sq-note").textContent = "Reading daily bars: 0 of " + symbols.length + ". Names show up as each market comes back.";
+  // Pins + open market first so the board fills with useful names before a long All-stocks walk.
+  const priority = [];
+  const current = (state.paper && state.paper.symbol) || "";
+  if (current && symbols.includes(current)) priority.push(current);
+  readPins().forEach((symbol) => {
+    if (symbols.includes(symbol) && !priority.includes(symbol)) priority.push(symbol);
+  });
+  (SQ_LISTS.starter || []).forEach((symbol) => {
+    if (symbols.includes(symbol) && !priority.includes(symbol)) priority.push(symbol);
+  });
+  const ordered = priority.concat(symbols.filter((symbol) => !priority.includes(symbol)));
+  $("sq-note").textContent = "Reading daily bars: 0 of " + ordered.length + ". Names show up as each market comes back.";
   const reads = {};
   const skipped = [];
   let next = 0;
   let done = 0;
   const known = state.catalog && state.catalog.length ? new Set(state.catalog.map((item) => item.symbol)) : null;
   const worker = async () => {
-    while (!sq.stop && next < symbols.length) {
-      const symbol = symbols[next];
+    while (!sq.stop && next < ordered.length) {
+      const symbol = ordered[next];
       next += 1;
       if (known && !known.has(symbol)) {
         skipped.push(symbol + " (not in this bot's market list)");
         done += 1;
-        publishSqueeze(reads, skipped, symbols.length, done, false);
+        publishSqueeze(reads, skipped, ordered.length, done, false);
         continue;
       }
       try {
@@ -5792,19 +5890,21 @@ async function scanSqueeze() {
           });
         } else skipped.push(symbol + " (" + read.reason + ")");
       } catch (error) {
-        skipped.push(symbol + " (" + error.message + ")");
+        skipped.push(symbol + " (" + (error.message || error) + ")");
       }
       done += 1;
-      publishSqueeze(reads, skipped, symbols.length, done, false);
+      publishSqueeze(reads, skipped, ordered.length, done, false);
     }
   };
+  const lanes = Math.min(3, Math.max(1, ordered.length));
   try {
-    await worker();
+    await Promise.all(Array.from({ length: lanes }, () => worker()));
   } finally {
-    sq.busy = false;
     if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
   }
-  publishSqueeze(reads, skipped, symbols.length, done, true);
+  publishSqueeze(reads, skipped, ordered.length, done, true);
+  sq.busy = false;
+  paintSqueezeControls();
 }
 
 async function afterSqueeze() {
@@ -5843,7 +5943,38 @@ function publishSqueeze(reads, skipped, listed, done, finished) {
   sq.scanned = Object.keys(reads).length;
   sq.at = Date.now();
   sq.listed = listed;
-  sq.progress = finished ? "" : "Reading daily bars: " + done + " of " + listed + ". " + rows.length + " squeeze" + (rows.length === 1 ? "" : "s") + " so far.";
+  if (finished) {
+    const fireCount = rows.filter((row) => row.edgeFire).length;
+    sq.progress = rows.length
+      ? ""
+      : "No names in a squeeze or just fired on this pass (" +
+        done +
+        " read). Closed daily bars only. Try Show Both, another list, or My own list.";
+    if (rows.length) {
+      sq.progress =
+        "Read " +
+        done +
+        " of " +
+        listed +
+        " markets. " +
+        rows.length +
+        " in a squeeze or just fired" +
+        (fireCount ? ", " + fireCount + " Edge Fire" : "") +
+        ". Same TMO · Squeeze · CCI Fire gates as Fire 5. Closed daily bars only. " +
+        internalsLine();
+    }
+  } else {
+    sq.progress =
+      "Reading daily bars: " +
+      done +
+      " of " +
+      listed +
+      ". " +
+      rows.length +
+      " squeeze" +
+      (rows.length === 1 ? "" : "s") +
+      " so far.";
+  }
   renderSqueeze();
 }
 
@@ -5896,10 +6027,32 @@ function renderSqueeze() {
   }
   const when = new Date(sq.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" });
   const fireCount = sq.rows.filter((row) => row.edgeFire).length;
-  $("sq-note").textContent = sq.progress || ("Read " + sq.scanned + " of " + sq.listed + " markets at " + when + " Denver. " + sq.rows.length + " in a squeeze or just fired" + (fireCount ? ", " + fireCount + " Edge Fire" : "") + ". Same TMO · Squeeze · CCI Fire gates as Fire 5. Closed daily bars only. " + internalsLine());
+  let note =
+    sq.progress ||
+    ("Read " +
+      sq.scanned +
+      " of " +
+      sq.listed +
+      " markets at " +
+      when +
+      " Denver. " +
+      sq.rows.length +
+      " in a squeeze or just fired" +
+      (fireCount ? ", " + fireCount + " Edge Fire" : "") +
+      ". Same TMO · Squeeze · CCI Fire gates as Fire 5. Closed daily bars only. " +
+      internalsLine());
+  if (!sq.busy && side !== "all" && sq.rows.length && !shown.length) {
+    note +=
+      " Show filter hides them — switch Show to Both to see " +
+      sq.rows.length +
+      " name" +
+      (sq.rows.length === 1 ? "" : "s") +
+      ".";
+  }
+  $("sq-note").textContent = note;
   const top = shown[0];
   $("sq-why").textContent = top ? "Top score " + top.score + " for " + top.symbol + (top.edgeFire ? " · Edge Fire" : "") + ": " + top.parts.map((item) => item[0] + " +" + item[1]).join(", ") + "." : "";
-  $("sq-skip").textContent = sq.skipped.length ? "Not read: " + sq.skipped.join("; ") + "." : "";
+  $("sq-skip").textContent = sq.skipped.length ? "Not read: " + sq.skipped.slice(0, 12).join("; ") + (sq.skipped.length > 12 ? "…" : "") + "." : "";
 }
 
 function dpSymbols() {
@@ -5944,6 +6097,8 @@ function dpEmptyGates() {
       status: "No feed",
       note: "Institutional blotters stay behind paid feeds. Big Prints use public relative volume only.",
     },
+    paperOnly: true,
+    liveLocked: true,
   };
 }
 
@@ -6124,9 +6279,16 @@ function publishDeskPool(reads, skipped, listed, done, finished) {
 async function scanDeskPool() {
   const dp = state.dp;
   if (dp.busy) return;
+  await ensureCatalog();
   const symbols = dpSymbols();
   if (!symbols.length) {
-    if ($("dp-note")) $("dp-note").textContent = "Type at least one symbol for your own list.";
+    const kind = ($("dp-list") && $("dp-list").value) || "";
+    if ($("dp-note")) {
+      $("dp-note").textContent =
+        kind === "custom"
+          ? "Type at least one symbol for your own list."
+          : "No markets in that list yet. Wait for the catalog, or pick Starter list / My own list.";
+    }
     return;
   }
   dp.busy = true;
@@ -6138,32 +6300,39 @@ async function scanDeskPool() {
   let next = 0;
   let done = 0;
   const known = state.catalog && state.catalog.length ? new Set(state.catalog.map((item) => item.symbol)) : null;
-  while (!dp.stop && next < symbols.length) {
-    const symbol = symbols[next];
-    next += 1;
-    if (known && !known.has(symbol)) {
-      skipped.push(symbol + " (not in this bot's market list)");
+  const worker = async () => {
+    while (!dp.stop && next < symbols.length) {
+      const symbol = symbols[next];
+      next += 1;
+      if (known && !known.has(symbol)) {
+        skipped.push(symbol + " (not in this bot's market list)");
+        done += 1;
+        publishDeskPool(reads, skipped, symbols.length, done, false);
+        continue;
+      }
+      try {
+        const bars = await sqDaily(symbol);
+        const crypto = phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol));
+        const settled = PaperFrames.closedBars ? PaperFrames.closedBars(bars, crypto) : bars;
+        const row = state.catalog.find((item) => item.symbol === symbol);
+        const extras = { crypto, kind: row ? row.category : crypto ? "crypto" : "" };
+        const read = PaperFrames.bigPrintRead(settled, extras);
+        if (read.ready) reads[symbol] = read;
+        else skipped.push(symbol + " (" + read.reason + ")");
+      } catch (error) {
+        skipped.push(symbol + " (" + (error.message || error) + ")");
+      }
       done += 1;
       publishDeskPool(reads, skipped, symbols.length, done, false);
-      continue;
     }
-    try {
-      const bars = await sqDaily(symbol);
-      const crypto = phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol));
-      const settled = PaperFrames.closedBars ? PaperFrames.closedBars(bars, crypto) : bars;
-      const row = state.catalog.find((item) => item.symbol === symbol);
-      const extras = { crypto, kind: row ? row.category : crypto ? "crypto" : "" };
-      const read = PaperFrames.bigPrintRead(settled, extras);
-      if (read.ready) reads[symbol] = read;
-      else skipped.push(symbol + " (" + read.reason + ")");
-    } catch (error) {
-      skipped.push(symbol + " (" + error.message + ")");
-    }
-    done += 1;
-    publishDeskPool(reads, skipped, symbols.length, done, false);
+  };
+  const lanes = Math.min(4, Math.max(1, symbols.length));
+  try {
+    await Promise.all(Array.from({ length: lanes }, () => worker()));
+  } finally {
+    dp.busy = false;
+    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
   }
-  dp.busy = false;
-  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
   publishDeskPool(reads, skipped, symbols.length, done, true);
 }
 
@@ -9296,6 +9465,14 @@ $("int-gate").addEventListener("change", () => {
   renderInternals();
 });
 $("sq-scan").addEventListener("click", scanSqueeze);
+if ($("sq-list")) {
+  $("sq-list").addEventListener("change", () => {
+    ensureCatalog()
+      .then(() => paintSqueezeReadyNote())
+      .catch(() => paintSqueezeReadyNote());
+  });
+}
+paintSqueezeControls();
 if ($("dp-scan")) $("dp-scan").addEventListener("click", scanDeskPool);
 if ($("dp-stop")) {
   $("dp-stop").addEventListener("click", () => {
@@ -9868,14 +10045,36 @@ function showDock(name) {
     if (!(state.forecast && state.forecast.at) && !(state.forecast && state.forecast.busy)) runForecast();
   }
   if (name === "deskpool") {
+    ensureCatalog().catch(() => {});
     renderDeskPool();
     refreshDeskPoolFeeds();
   }
-  if (name === "strategies" && state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
-    state.orbBusy = true;
-    loadOrb().finally(() => {
-      state.orbBusy = false;
-    });
+  if (name === "squeeze") {
+    paintSqueezeControls();
+    ensureCatalog()
+      .then(() => {
+        if (!(state.sq && state.sq.busy) && !(state.sq && state.sq.rows && state.sq.rows.length && state.sq.at)) {
+          paintSqueezeReadyNote();
+        }
+      })
+      .catch(() => {});
+  }
+  if (name === "frames") {
+    renderFrames();
+    renderEdgeFrames();
+    if (state.paper && !(state.ef && state.ef.busy) && !(state.ef && state.ef.at)) loadEdgeFrames(false);
+  }
+  if (name === "readings") {
+    renderReadings();
+  }
+  if (name === "strategies") {
+    ensureCatalog().catch(() => {});
+    if (state.paper && (!state.orb || state.orb.symbol !== state.paper.symbol) && !state.orbBusy) {
+      state.orbBusy = true;
+      loadOrb().finally(() => {
+        state.orbBusy = false;
+      });
+    }
   }
   if (!document.body.dataset.tools) {
     const tab = document.body.dataset.tab || "chart";
