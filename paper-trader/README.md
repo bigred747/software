@@ -1,5 +1,7 @@
 ## Version notes
 
+- **1.10.27** Background Learn (no blank console window). Hourly pass scans and learns every desk page. Click Open keeps Opening/Opened status readable; learn notes stay short in Signals · Learning.
+
 - **1.10.26** Civic Seat · Fund Seat flow scan on Desk Pool. Learning green while desk/tab is open (honest page-open). Install copy count requires VERSION. Journal sells parallel. Faster learn loop + hourly pass. Live locked.
 
 - **1.10.25** Cycle Desk psychology map matches the emailed Cycle photo (own stage names). Fund Seat · Value/Macro/Activist disclosed ideas on Cycle Desk + Desk Pool. Civic + Form + Journal Open→chart. Faster bar pool (16 parallel). Auto still never blocks UI.

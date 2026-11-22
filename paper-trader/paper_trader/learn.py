@@ -653,16 +653,16 @@ def startup_folder() -> Path | None:
 
 
 def startup_script(python: Path, launch: Path) -> str:
-    """Sign-in launch in a normal window named Paper Trader Learn.
+    """Sign-in launch for the background score (no Learn console window).
 
-    It does not hide the window, and it does not change firewall, registry, or exclusions.
+    Uses start /B so Windows does not pop a blank Paper Trader Learn box.
+    It does not change firewall, registry, or exclusions.
     """
     root = launch.parent
     return (
         "@echo off\r\n"
         f'cd /d "{root}"\r\n'
-        "title Paper Trader Learn\r\n"
-        f'start "Paper Trader Learn" "{python}" "{launch}" learn\r\n'
+        f'start "" /B "{python}" "{launch}" learn\r\n'
     )
 
 
@@ -699,9 +699,12 @@ def remove_startup(folder: Path | None = None) -> bool:
         return False
     path = destination / STARTUP_NAME
     try:
-        if path.is_file() and "Paper Trader Learn" in path.read_text(encoding="utf-8", errors="ignore"):
-            path.unlink()
-            return True
+        if path.is_file():
+            body = path.read_text(encoding="utf-8", errors="ignore")
+            # Ours: bat named Paper Trader Learn, runs launch.py learn (windowed or /B background).
+            if "launch.py" in body and "learn" in body:
+                path.unlink()
+                return True
     except OSError:
         return False
     return False
@@ -1185,13 +1188,20 @@ def ask_learners_to_close(home: Path, source: Path | None = None, killer=None) -
 
 
 def learner_command(root: Path, windows: bool | None = None) -> list[str]:
-    """The score's launch command. On Windows the window is named Paper Trader Learn."""
+    """Background score command. No console window — learn runs quietly."""
     python = root / "runtime" / "python.exe"
     program = str(python if python.is_file() else Path(sys.executable))
     launch = str(root / "launch.py")
-    if os.name == "nt" if windows is None else windows:
-        return ["cmd", "/c", "start", "Paper Trader Learn", program, launch, "learn"]
+    # Same argv on Windows and elsewhere; spawn_learner hides the Windows console.
+    _ = windows
     return [program, launch, "learn"]
+
+
+def _learner_creation_flags() -> int:
+    """Hide the Windows console so Learn stays in the background."""
+    if os.name != "nt":
+        return 0
+    return int(getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000))
 
 
 def spawn_learner(root: Path) -> None:
@@ -1203,7 +1213,10 @@ def spawn_learner(root: Path) -> None:
         "stderr": subprocess.DEVNULL,
         "close_fds": True,
     }
-    if os.name != "nt":
+    flags = _learner_creation_flags()
+    if flags:
+        options["creationflags"] = flags
+    elif os.name != "nt":
         options["start_new_session"] = True
     subprocess.Popen(command, **options)
 
@@ -1227,9 +1240,29 @@ def ensure_learner(root: Path, state_path: Path, spawn=None, wait: float = 2.0) 
     return learner_healthy(state_path)
 
 
+def _console(message: str) -> None:
+    """One short line for the Paper Trader Learn window. Keep it readable."""
+    try:
+        print(str(message or "").replace("\n", " ").strip()[:160], flush=True)
+    except OSError:
+        return
+
+
+def learn_banner_lines() -> tuple[str, ...]:
+    """Short lines if Learn is started in a console (normal spawn stays hidden)."""
+    return (
+        "Paper Trader Learn · background score",
+        "Closed-bar lessons · hourly full page sweep on the desk.",
+        "Live locked · paper only · not a forecast.",
+        "No Learn box needed — this process can stay hidden.",
+        "",
+    )
+
+
 def run_learner(state_path: Path) -> int:
     watcher = Watcher(state_path)
     if not watcher.acquire():
+        _console("Paper Trader Learn · already running in another window.")
         return 0
     try:
         watcher.run_forever()
@@ -1260,6 +1293,7 @@ class Watcher:
         self._lock_fd: int | None = None
         self._kernel = _kernel()
         self._awake = ""
+        self._said_pass = -1
 
     def acquire(self) -> bool:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -1289,6 +1323,8 @@ class Watcher:
         self._lock_fd = None
 
     def run_forever(self) -> None:
+        for line in learn_banner_lines():
+            _console(line)
         self._beat()
         self._loop()
 
@@ -1298,6 +1334,18 @@ class Watcher:
             self._saved["updated"] = time.time()
             self._saved["awake"] = self._awake
             _store(self.path, self._saved)
+
+    def _heartbeat(self) -> None:
+        """Short pass line so the Learn window never looks empty or floods."""
+        with self._lock:
+            passes = int(self._saved.get("passes") or 0)
+            focus = str(self._focus or self._saved.get("last_symbol") or "markets")
+        if passes == self._said_pass:
+            return
+        if passes > 1 and passes % 12 != 0:
+            return
+        self._said_pass = passes
+        _console("Bot on · pass " + str(passes) + " · watching " + focus)
 
     def _keep_awake(self) -> None:
         if self._kernel is None:
@@ -1445,6 +1493,7 @@ class Watcher:
                 "timing": dict(self._saved.get("timing") or {}),
             }
             _store(self.path, self._saved)
+        self._heartbeat()
 
     def _catalog_names(self) -> list[str]:
         day = desk_day()
