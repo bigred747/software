@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.22">
+  <meta name="paper-build" content="1.10.23">
   <meta name="paper-publish" content="20261122T071955Z">
   <meta name="paper-private-build" content="publish-20261122T005558Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.22</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.23</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -599,11 +599,11 @@ plot Sell = close crosses below baseline;</textarea>
         <div class="strat-orb-inputs">
           <label for="sq-list">List</label>
           <select id="sq-list">
+            <option value="starter" selected>Starter list</option>
             <option value="stocks">All stocks</option>
             <option value="main_etfs">13 main ETFs</option>
             <option value="futures">All futures</option>
             <option value="crypto">All crypto</option>
-            <option value="starter">Starter list</option>
             <option value="sectors">Sector funds and big holdings</option>
             <option value="custom">My own list</option>
           </select>
@@ -898,6 +898,10 @@ plot Sell = close crosses below baseline;</textarea>
         <div id="cycle-open" class="scorecard-day" aria-live="polite">
           <p id="cycle-open-bias" class="scorecard-bias">Open market · waiting</p>
           <p id="cycle-open-why" class="muted"></p>
+        </div>
+        <div class="cycle-graph-wrap" aria-label="Cycle Desk graph">
+          <canvas id="cycle-graph" width="720" height="220"></canvas>
+          <p id="cycle-graph-note" class="muted">Closed bars vs the long mean. Own Cycle Desk stages only.</p>
         </div>
         <div id="cycle-tank" class="scorecard-day" aria-live="polite">
           <p id="cycle-tank-bias" class="scorecard-bias">Market · waiting</p>

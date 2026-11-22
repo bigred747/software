@@ -88,8 +88,8 @@ function sameStamp(node, stamp) {
 let barInflight = 0;
 let barNextSlot = 0;
 const barWaiters = [];
-const BAR_PARALLEL = 3;
-const BAR_GAP_MS = 110;
+const BAR_PARALLEL = 8;
+const BAR_GAP_MS = 35;
 const deskBarCache = new Map();
 
 function oneBarRead(task) {
@@ -140,7 +140,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.22";
+const VERSION = "1.10.23";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -3047,9 +3047,10 @@ async function refreshIndexTape() {
 
 function chooseSymbol(symbol) {
   if (!symbol) return;
+  if ($("status")) $("status").textContent = "Opening " + symbol + "…";
+  if ($("quote-symbol")) $("quote-symbol").textContent = symbol;
   if (state.busy) {
     state.pendingSymbol = symbol;
-    $("status").textContent = "Opening " + symbol + "…";
     return;
   }
   const same = state.paper && state.paper.symbol === symbol;
@@ -5896,7 +5897,7 @@ async function scanSqueeze() {
       publishSqueeze(reads, skipped, ordered.length, done, false);
     }
   };
-  const lanes = Math.min(3, Math.max(1, ordered.length));
+  const lanes = Math.min(state.offline ? 3 : 6, Math.max(1, ordered.length));
   try {
     await Promise.all(Array.from({ length: lanes }, () => worker()));
   } finally {
@@ -5908,9 +5909,9 @@ async function scanSqueeze() {
 }
 
 async function afterSqueeze() {
-  while (state.sq && state.sq.busy) {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-  }
+  // Do not block Timeframes / Internals / other Tools while Squeeze walks a long list.
+  // Share the bar pool instead of waiting for the whole scan.
+  return;
 }
 
 function publishSqueeze(reads, skipped, listed, done, finished) {
@@ -6738,7 +6739,7 @@ async function runScorecard() {
     const bars = {};
     let next = 0;
     let done = 0;
-    const workers = Math.min(state.offline ? 2 : 3, Math.max(1, need.length));
+    const workers = Math.min(state.offline ? 3 : 6, Math.max(1, need.length));
     const worker = async () => {
       while (!box.stop && next < need.length) {
         const symbol = need[next];
@@ -6756,7 +6757,6 @@ async function runScorecard() {
           renderScorecardCard();
           if ($("sc-note")) $("sc-note").textContent = box.progress;
         }
-        await new Promise((resolve) => setTimeout(resolve, state.offline ? 120 : 40));
       }
     };
     await Promise.all(Array.from({ length: workers }, () => worker()));
@@ -6877,6 +6877,94 @@ function paintCyclePins(nodeId, rows, emptyLabel) {
   });
 }
 
+function paintCycleGraph() {
+  const canvas = $("cycle-graph");
+  const note = $("cycle-graph-note");
+  if (!canvas || !canvas.getContext) return;
+  const box = state.cycle || {};
+  const bars = box.graphBars || [];
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#0f1714";
+  ctx.fillRect(0, 0, width, height);
+  if (!bars.length || typeof PaperFrames === "undefined" || !PaperFrames.cycleMapRead) {
+    if (note) note.textContent = "Run Cycle Desk to draw closed bars vs the long mean.";
+    ctx.fillStyle = "#8aa094";
+    ctx.font = "14px sans-serif";
+    ctx.fillText("Cycle graph waiting…", 16, height / 2);
+    return;
+  }
+  const read = box.open && box.open.ready ? box.open : PaperFrames.cycleMapRead(bars);
+  const closes = bars.map((bar) => Number(bar.close)).filter((value) => value > 0);
+  if (closes.length < 40) {
+    if (note) note.textContent = "Need more closed bars for the Cycle graph.";
+    return;
+  }
+  const meanLen = 100;
+  const means = [];
+  let sum = 0;
+  for (let index = 0; index < closes.length; index += 1) {
+    sum += closes[index];
+    if (index >= meanLen) sum -= closes[index - meanLen];
+    means.push(index >= meanLen - 1 ? sum / meanLen : null);
+  }
+  const slice = Math.min(180, closes.length);
+  const start = closes.length - slice;
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let index = start; index < closes.length; index += 1) {
+    lo = Math.min(lo, closes[index]);
+    hi = Math.max(hi, closes[index]);
+    if (means[index] != null) {
+      lo = Math.min(lo, means[index]);
+      hi = Math.max(hi, means[index]);
+    }
+  }
+  if (!(hi > lo)) return;
+  const pad = 14;
+  const xAt = (index) => pad + ((index - start) / Math.max(1, slice - 1)) * (width - pad * 2);
+  const yAt = (value) => height - pad - ((value - lo) / (hi - lo)) * (height - pad * 2);
+  const stretch = read && read.ready ? Number(read.stretch) : 0;
+  ctx.fillStyle = stretch <= -0.08 ? "rgba(180, 70, 70, 0.18)" : stretch >= 0.12 ? "rgba(70, 140, 90, 0.16)" : "rgba(80, 110, 100, 0.12)";
+  ctx.fillRect(pad, pad, width - pad * 2, height - pad * 2);
+  ctx.beginPath();
+  let meanStarted = false;
+  for (let index = start; index < closes.length; index += 1) {
+    if (means[index] == null) continue;
+    const x = xAt(index);
+    const y = yAt(means[index]);
+    if (!meanStarted) {
+      ctx.moveTo(x, y);
+      meanStarted = true;
+    } else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "#6f8f7c";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.beginPath();
+  for (let index = start; index < closes.length; index += 1) {
+    const x = xAt(index);
+    const y = yAt(closes[index]);
+    if (index === start) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = "#d7efe0";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  if (note) {
+    note.textContent =
+      (box.graphSymbol || "Market") +
+      " · close vs " +
+      meanLen +
+      "-bar mean · " +
+      (read && read.label ? read.label : "Cycle") +
+      (read && read.signalLabel ? " · " + read.signalLabel : "") +
+      ". Closed bars only.";
+  }
+}
+
 function renderCycleDesk() {
   const box = state.cycle || {};
   const market = box.market;
@@ -6890,6 +6978,7 @@ function renderCycleDesk() {
   const openWhy = $("cycle-open-why");
   const tankBias = $("cycle-tank-bias");
   const tankWhy = $("cycle-tank-why");
+  paintCycleGraph();
 
   if (openBias) {
     openBias.textContent = open && open.ready
@@ -7353,7 +7442,7 @@ async function runCycleDesk() {
     }
     const bars = {};
     let next = 0;
-    const workers = Math.min(state.offline ? 2 : 3, Math.max(1, need.length));
+    const workers = Math.min(state.offline ? 3 : 6, Math.max(1, need.length));
     const worker = async () => {
       while (!box.stop && next < need.length) {
         const symbol = need[next];
@@ -7392,6 +7481,8 @@ async function runCycleDesk() {
     box.defensive = defensive;
     box.risk = risk;
     box.open = open;
+    box.graphBars = openBars && openBars.length ? openBars : bars.SPY || [];
+    box.graphSymbol = openSym || "SPY";
     box.at = Date.now();
     box.note =
       (market && market.label ? market.label : "Cycle Desk") +
@@ -7455,7 +7546,6 @@ async function loadInternals(force) {
   let next = 0;
   const worker = async () => {
     while (next < symbols.length) {
-      await afterSqueeze();
       const symbol = symbols[next];
       next += 1;
       try {
@@ -7466,7 +7556,7 @@ async function loadInternals(force) {
     }
   };
   try {
-    await worker();
+    await Promise.all(Array.from({ length: Math.min(4, symbols.length) }, () => worker()));
     box.result = PaperFrames.internals(data);
     box.at = Date.now();
     box.error = "";
@@ -7587,7 +7677,6 @@ async function loadEdgeFrames(force) {
   let next = 0;
   const worker = async () => {
     while (next < frames.length && ef.token === token) {
-      await afterSqueeze();
       if (ef.token !== token) return;
       const frame = frames[next];
       next += 1;
@@ -7606,7 +7695,7 @@ async function loadEdgeFrames(force) {
     }
   };
   try {
-    await worker();
+    await Promise.all(Array.from({ length: Math.min(4, frames.length) }, () => worker()));
   } finally {
     if (ef.token === token) {
       ef.busy = false;
@@ -9976,9 +10065,19 @@ async function runBacktestReport() {
   }
 }
 
-$("full").addEventListener("click", () => withBusy(async () => {
-  await runBacktestReport();
-}));
+$("full").addEventListener("click", () => {
+  if (state.backtestBusy) return;
+  state.backtestBusy = true;
+  runBacktestReport()
+    .catch((error) => {
+      if ($("backtest-summary")) {
+        $("backtest-summary").textContent = error && error.message ? error.message : "Backtest did not finish.";
+      }
+    })
+    .finally(() => {
+      state.backtestBusy = false;
+    });
+});
 
 function storedStudies() {
   try {
@@ -10098,13 +10197,21 @@ function showDock(name, opts) {
   if (name === "readings") {
     renderReadings();
   }
-  if (name === "backtest" && !state.offline && !skipRun && !state.backtestBusy) {
+  if (name === "backtest" && !skipRun && !state.backtestBusy) {
     state.backtestBusy = true;
-    withBusy(async () => {
-      await runBacktestReport();
-    }).finally(() => {
-      state.backtestBusy = false;
-    });
+    if ($("backtest-summary") && !state.offline) {
+      $("backtest-summary").textContent =
+        "Replaying " + (selectedSymbol() || ((state.paper && state.paper.symbol) || "market")) + " history…";
+    }
+    runBacktestReport()
+      .catch((error) => {
+        if ($("backtest-summary")) {
+          $("backtest-summary").textContent = error && error.message ? error.message : "Backtest did not finish.";
+        }
+      })
+      .finally(() => {
+        state.backtestBusy = false;
+      });
   }
   if (name === "strategies") {
     ensureCatalog().catch(() => {});
