@@ -1,4 +1,4 @@
-Paper Trader 1.10.27 slim — Learn window banner + readable Open status.
+Paper Trader 1.10.27 slim — background Learn + hourly all-pages sweep.
 
-Paper Trader Learn shows short lines (not blank). Click Open keeps Opening/Opened readable;
-learn notes stay in Signals · Learning. Live locked.
+No blank Learn console. Score runs hidden. Desk hourly pass scans and learns every page.
+Open status stays readable. Live locked.

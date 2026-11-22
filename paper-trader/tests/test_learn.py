@@ -211,16 +211,18 @@ class AlwaysOnTests(unittest.TestCase):
         lines = learn_banner_lines()
         self.assertTrue(lines)
         self.assertIn("Paper Trader Learn", lines[0])
-        self.assertTrue(any("minimize" in line.lower() for line in lines if line))
+        self.assertTrue(any("background" in line.lower() for line in lines if line))
         for line in lines:
             self.assertLessEqual(len(line), 160)
 
     def test_sign_in_script_only_starts_the_score(self) -> None:
+        from paper_trader.learn import _learner_creation_flags
+
         python = Path(r"C:\Users\rick\Documents\Paper Trader\runtime\python.exe")
         launch = Path(r"C:\Users\rick\Documents\Paper Trader\launch.py")
         script = startup_script(python, launch)
         self.assertIn("learn", script)
-        self.assertIn("Paper Trader Learn", script)
+        self.assertIn("/B", script)
         self.assertIn(str(python), script)
         self.assertNotIn("wscript", script.lower())
         self.assertNotIn("powershell", script.lower())
@@ -230,8 +232,12 @@ class AlwaysOnTests(unittest.TestCase):
         source = (Path(__file__).resolve().parents[1] / "paper_trader" / "learn.py").read_text(encoding="utf-8")
         self.assertNotIn("WScript", source)
         self.assertNotIn("shell.Run", source)
-        self.assertNotIn("0x08000000", source)
+        self.assertIn("CREATE_NO_WINDOW", source)
         self.assertNotIn("/MIN", source)
+        if os.name == "nt":
+            self.assertEqual(_learner_creation_flags(), 0x08000000)
+        else:
+            self.assertEqual(_learner_creation_flags(), 0)
         with tempfile.TemporaryDirectory() as folder:
             folder_path = Path(folder)
             (folder_path / "Paper Trader Learn.vbs").write_text("old\r\n", encoding="utf-8")
@@ -239,11 +245,17 @@ class AlwaysOnTests(unittest.TestCase):
             self.assertIsNotNone(written)
             assert written is not None
             self.assertEqual(written.suffix, ".bat")
-            self.assertIn("learn", written.read_text(encoding="utf-8"))
+            self.assertEqual(written.name, "Paper Trader Learn.bat")
+            body = written.read_text(encoding="utf-8")
+            self.assertIn("learn", body)
+            self.assertIn("/B", body)
             self.assertFalse((folder_path / "Paper Trader Learn.vbs").exists())
+            self.assertTrue(remove_startup(folder_path))
+            self.assertFalse(written.exists())
         command = learner_command(Path(r"C:\Users\rick\Documents\Paper Trader"), windows=True)
-        self.assertIn("Paper Trader Learn", command)
-        self.assertIn("learn", command)
+        self.assertEqual(command[-1], "learn")
+        self.assertIn("launch.py", " ".join(command))
+        self.assertNotIn("start", command)
         self.assertNotIn("powershell", " ".join(command).lower())
 
     def test_watch_list_drops_bad_symbols(self) -> None:

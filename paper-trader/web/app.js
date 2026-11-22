@@ -5081,9 +5081,9 @@ function deskLearningStatus() {
       ok: true,
       detail:
         (touch ? touch + " · " : "") +
-        "Bot on · " +
+        "Bot on · background score · " +
         pageCount +
-        " pages · closed bars. Not a forecast.",
+        " pages · hourly full sweep. Not a forecast.",
     };
   }
   if (pageOn || document.visibilityState !== "hidden") {
@@ -5091,27 +5091,32 @@ function deskLearningStatus() {
       ok: true,
       detail:
         (touch ? touch + " · " : "") +
-        "Learning on · page open · " +
+        "Learning on · background score · hourly all " +
         pageCount +
         " pages. Not a forecast.",
     };
   }
   return {
     ok: false,
-    detail: "Learning paused (tab hidden). Open the desk again, or Start the score under Windows extras.",
+    detail: "Learning paused (tab hidden). Hourly full sweep resumes when the desk is open, or Start the score under Windows extras.",
   };
 }
 
-async function cycleDeskPageLearn() {
-  if (typeof document !== "undefined" && document.visibilityState === "hidden") return "";
+async function cycleDeskPageLearn(mode) {
+  const all = mode === "all" || (mode && mode.all);
+  // Hourly full sweep may run with the tab in the background; light passes need the tab open.
+  if (!all && typeof document !== "undefined" && document.visibilityState === "hidden") return "";
   const pages = deskLearnPages();
   if (!pages.length) return "";
   if (!state.pageLearn) state.pageLearn = { cursor: 0, lastAt: 0, lastPage: "", covered: [] };
   const now = Date.now();
-  if (now - (state.pageLearn.lastAt || 0) < Math.max(4000, SCAN_LEARN_GAP_MS / 2)) return state.pageLearn.lastPage || "";
-  // Warm two pages each pass so every Tools/Next page gets hit faster.
+  if (!all && now - (state.pageLearn.lastAt || 0) < Math.max(4000, SCAN_LEARN_GAP_MS / 2)) {
+    return state.pageLearn.lastPage || "";
+  }
+  // Light pass: two pages. Hourly / all: every desk page once.
   const batchPages = [];
-  for (let step = 0; step < 2 && pages.length; step += 1) {
+  const steps = all ? pages.length : 2;
+  for (let step = 0; step < steps && pages.length; step += 1) {
     const page = pages[state.pageLearn.cursor % pages.length];
     state.pageLearn.cursor += 1;
     if (page && batchPages.indexOf(page) < 0) batchPages.push(page);
@@ -5123,7 +5128,7 @@ async function cycleDeskPageLearn() {
     if (covered.indexOf(page) < 0) covered.push(page);
   });
   state.pageLearn.covered = covered.slice(-80);
-  const names = topScanLearnNames().slice(0, 2);
+  const names = topScanLearnNames().slice(0, all ? 8 : 2);
   for (let index = 0; index < batchPages.length; index += 1) {
     await nudgeLearn(batchPages[index], names);
   }
@@ -5157,14 +5162,9 @@ async function cycleDeskPageLearn() {
       /* Forecaster warm pass is best-effort. */
     }
   }
-  learnTouchNote =
-    "Desk page learn · " +
-    batchPages.join(", ") +
-    " (" +
-    covered.length +
-    "/" +
-    pages.length +
-    "). Closed bars only.";
+  learnTouchNote = all
+    ? "Hourly learn · all " + pages.length + " pages · " + (names.slice(0, 4).join(", ") || "scan") + " · closed bars."
+    : "Desk page learn · " + batchPages.join(", ") + " (" + covered.length + "/" + pages.length + "). Closed bars only.";
   refreshLearnSignal();
   return state.pageLearn.lastPage || "";
 }
@@ -5208,14 +5208,18 @@ function startScanLearnLoop() {
   if (!state.scanLearn.hourTimer) {
     const hourly = async () => {
       try {
-        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-        const names = topScanLearnNames().slice(0, 8);
-        for (let index = 0; index < Math.min(4, names.length); index += 1) {
+        // Background hourly: scan top names, re-score strategies, learn every desk page once.
+        const names = topScanLearnNames().slice(0, 10);
+        for (let index = 0; index < names.length; index += 1) {
           await nudgeLearn("scan", [names[index]]);
         }
-        await cycleDeskPageLearn();
-        learnTouchNote =
-          "Hourly learn · " + (names.slice(0, 4).join(", ") || "desk pages") + " · closed bars.";
+        await cycleStrategyLearn();
+        await cycleDeskPageLearn("all");
+        state.pageLearnOn = true;
+        if (!learnTouchNote) {
+          learnTouchNote =
+            "Hourly learn · all pages · " + (names.slice(0, 4).join(", ") || "scan") + " · closed bars.";
+        }
         refreshLearnSignal();
       } catch (error) {
         /* Hourly pass is best-effort. */

@@ -653,16 +653,16 @@ def startup_folder() -> Path | None:
 
 
 def startup_script(python: Path, launch: Path) -> str:
-    """Sign-in launch in a normal window named Paper Trader Learn.
+    """Sign-in launch for the background score (no Learn console window).
 
-    It does not hide the window, and it does not change firewall, registry, or exclusions.
+    Uses start /B so Windows does not pop a blank Paper Trader Learn box.
+    It does not change firewall, registry, or exclusions.
     """
     root = launch.parent
     return (
         "@echo off\r\n"
         f'cd /d "{root}"\r\n'
-        "title Paper Trader Learn\r\n"
-        f'start "Paper Trader Learn" "{python}" "{launch}" learn\r\n'
+        f'start "" /B "{python}" "{launch}" learn\r\n'
     )
 
 
@@ -699,9 +699,12 @@ def remove_startup(folder: Path | None = None) -> bool:
         return False
     path = destination / STARTUP_NAME
     try:
-        if path.is_file() and "Paper Trader Learn" in path.read_text(encoding="utf-8", errors="ignore"):
-            path.unlink()
-            return True
+        if path.is_file():
+            body = path.read_text(encoding="utf-8", errors="ignore")
+            # Ours: bat named Paper Trader Learn, runs launch.py learn (windowed or /B background).
+            if "launch.py" in body and "learn" in body:
+                path.unlink()
+                return True
     except OSError:
         return False
     return False
@@ -1185,13 +1188,20 @@ def ask_learners_to_close(home: Path, source: Path | None = None, killer=None) -
 
 
 def learner_command(root: Path, windows: bool | None = None) -> list[str]:
-    """The score's launch command. On Windows the window is named Paper Trader Learn."""
+    """Background score command. No console window — learn runs quietly."""
     python = root / "runtime" / "python.exe"
     program = str(python if python.is_file() else Path(sys.executable))
     launch = str(root / "launch.py")
-    if os.name == "nt" if windows is None else windows:
-        return ["cmd", "/c", "start", "Paper Trader Learn", program, launch, "learn"]
+    # Same argv on Windows and elsewhere; spawn_learner hides the Windows console.
+    _ = windows
     return [program, launch, "learn"]
+
+
+def _learner_creation_flags() -> int:
+    """Hide the Windows console so Learn stays in the background."""
+    if os.name != "nt":
+        return 0
+    return int(getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000))
 
 
 def spawn_learner(root: Path) -> None:
@@ -1203,7 +1213,10 @@ def spawn_learner(root: Path) -> None:
         "stderr": subprocess.DEVNULL,
         "close_fds": True,
     }
-    if os.name != "nt":
+    flags = _learner_creation_flags()
+    if flags:
+        options["creationflags"] = flags
+    elif os.name != "nt":
         options["start_new_session"] = True
     subprocess.Popen(command, **options)
 
@@ -1236,12 +1249,12 @@ def _console(message: str) -> None:
 
 
 def learn_banner_lines() -> tuple[str, ...]:
-    """Readable lines shown when the Learn window opens (not a blank console)."""
+    """Short lines if Learn is started in a console (normal spawn stays hidden)."""
     return (
-        "Paper Trader Learn · score running",
-        "Closed-bar lessons while this window is open.",
+        "Paper Trader Learn · background score",
+        "Closed-bar lessons · hourly full page sweep on the desk.",
         "Live locked · paper only · not a forecast.",
-        "You can minimize this window — leave it running.",
+        "No Learn box needed — this process can stay hidden.",
         "",
     )
 

@@ -1,6 +1,6 @@
 ## Version notes
 
-- **1.10.27** Paper Trader Learn window shows a short readable banner (not a blank console). Click Open keeps Opening/Opened status readable — learn notes stay in Signals · Learning, shortened.
+- **1.10.27** Background Learn (no blank console window). Hourly pass scans and learns every desk page. Click Open keeps Opening/Opened status readable; learn notes stay short in Signals · Learning.
 
 - **1.10.26** Civic Seat · Fund Seat flow scan on Desk Pool. Learning green while desk/tab is open (honest page-open). Install copy count requires VERSION. Journal sells parallel. Faster learn loop + hourly pass. Live locked.
 
