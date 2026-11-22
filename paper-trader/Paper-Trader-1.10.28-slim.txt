@@ -1,1 +1,1 @@
-Paper Trader 1.10.28 slim — red EMA200 study lines + Fire arrows.
+Paper Trader 1.10.28 slim — CCI colors on EMA 5·14·50·200 Fire study.

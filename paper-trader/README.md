@@ -1,6 +1,6 @@
 ## Version notes
 
-- **1.10.28** Install study paints EMA200 / red-named plots in red. Clean Fire arrows with EMA 5 · 14 · 50 · 200.
+- **1.10.28** Install study uses CCI pane colors (5 cyan · 14 yellow · 50 white · 200 red) for EMA Fire rails.
 
 - **1.10.27** Background Learn (no blank console window). Hourly pass scans and learns every desk page. Click Open keeps Opening/Opened status readable; learn notes stay short in Signals · Learning.
 

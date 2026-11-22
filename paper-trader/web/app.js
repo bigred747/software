@@ -8737,9 +8737,19 @@ function paintLayers() {
   }
 }
 
+function studyLineColor(name, fallbackIndex) {
+  // Match CCI pane rails: 50 white · 14 yellow · 5 cyan · 200 / sell red.
+  const key = String(name || "");
+  if (/\b200\b|red/i.test(key)) return "#ff4d4d";
+  if (/\b50\b/i.test(key)) return "#f4f7fb";
+  if (/\b14\b/i.test(key)) return "#facc15";
+  if (/\b5\b/i.test(key)) return "#22d3ee";
+  const colors = ["#22d3ee", "#facc15", "#f4f7fb", "#ff4d4d"];
+  return colors[fallbackIndex % colors.length];
+}
+
 function drawStudy(ctx, bars, y, pad, slot) {
   if (!state.study) return;
-  const colors = ["#d7e2ea", "#7dcec4", "#d2b4f0", "#e6c36a"];
   let line = 0;
   state.study.plots.forEach((plot) => {
     const values = visible(plot.values);
@@ -8753,15 +8763,14 @@ function drawStudy(ctx, bars, y, pad, slot) {
         if (!bar) return;
         const x = pad + index * slot + slot / 2;
         const up = side !== "sell";
-        ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
+        // Same Fire arrow colors as CCI pane crosses.
+        ctx.fillStyle = up ? "#3ddc97" : "#ff4d4d";
         drawArrow(ctx, x, up ? y(bar.low) + 28 : y(bar.high) - 28, up);
       });
       return;
     }
     if (binary) return;
-    // EMA200 / names with 200 or "red" stay a clear red rail on a clean candle chart.
-    const paint = /200|red/i.test(String(plot.name || "")) ? "#ff6b7a" : colors[line % colors.length];
-    drawLine(ctx, values, y, pad, slot, paint);
+    drawLine(ctx, values, y, pad, slot, studyLineColor(plot.name, line));
     line += 1;
   });
 }
