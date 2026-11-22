@@ -1,5 +1,7 @@
 ## Version notes
 
+- **1.10.27** Paper Trader Learn window shows a short readable banner (not a blank console). Click Open keeps Opening/Opened status readable — learn notes stay in Signals · Learning, shortened.
+
 - **1.10.26** Civic Seat · Fund Seat flow scan on Desk Pool. Learning green while desk/tab is open (honest page-open). Install copy count requires VERSION. Journal sells parallel. Faster learn loop + hourly pass. Live locked.
 
 - **1.10.25** Cycle Desk psychology map matches the emailed Cycle photo (own stage names). Fund Seat · Value/Macro/Activist disclosed ideas on Cycle Desk + Desk Pool. Civic + Form + Journal Open→chart. Faster bar pool (16 parallel). Auto still never blocks UI.

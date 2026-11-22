@@ -144,7 +144,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.26";
+const VERSION = "1.10.27";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -3049,11 +3049,27 @@ function softStopAuto() {
 
 function paintOpeningSymbol(symbol) {
   if (!symbol) return;
-  if ($("status")) $("status").textContent = "Opening " + symbol + "…";
+  const note = "Opening " + symbol + "…";
+  state.chartRead = note;
+  setStatus(note);
   if ($("quote-symbol")) $("quote-symbol").textContent = symbol;
   const list = $("symbol");
   if (list) list.dataset.value = symbol;
   if ($("chart-title")) $("chart-title").textContent = symbol + " · opening…";
+  paintChartRead(state.paper || { symbol: symbol });
+}
+
+function shortLearnStatus(text) {
+  const raw = String(text || "").replace(/\s+/g, " ").trim();
+  if (!raw) return "";
+  if (raw.length <= 96) return raw;
+  return raw.slice(0, 93).replace(/\s+\S*$/, "") + "…";
+}
+
+function statusLooksLikeOpen() {
+  const node = $("status");
+  const current = node ? String(node.textContent || "") : "";
+  return /^(Opening |Opened )/i.test(current);
 }
 
 function chooseSymbol(symbol) {
@@ -3087,7 +3103,6 @@ function chooseSymbol(symbol) {
         showRead(symbol + " is on the chart.");
         return;
       }
-      state.chartRead = "";
       state.ruler = null;
       rememberSymbol(symbol);
       if (state.offline) {
@@ -4662,8 +4677,9 @@ function stampPhoneFills(symbol, rule) {
 function announceNewProcess(symbol, rule, previous) {
   newProcessNote = rule + (symbol ? " on " + symbol : "");
   newProcessAt = Date.now();
-  learnTouchNote = "New process · " + newProcessNote + ". Paper fills updated. Closed bars only. Not a forecast.";
-  setStatus(learnTouchNote);
+  learnTouchNote = "New process · " + newProcessNote + ". Closed bars only.";
+  // Keep Opening/Opened chart text readable — learn notes live in Signals · Learning.
+  if (!statusLooksLikeOpen()) setStatus(shortLearnStatus(learnTouchNote));
   refreshLearnSignal();
   if (state.voice && state.triggers && state.triggers.process) {
     speakWarning({
@@ -4848,12 +4864,7 @@ async function cycleScanLearn(reason) {
       }
     }
     if (!learnTouchNote || reason === "scan" || reason === "auto") {
-      learnTouchNote =
-        "Scan learn " +
-        done.join(", ") +
-        " · " +
-        list.length +
-        " top names cycling (page open). Background score keeps those names after the desk closes. Closed bars only. Not a forecast.";
+      learnTouchNote = "Scan learn " + done.join(", ") + " · " + list.length + " names · closed bars.";
       refreshLearnSignal();
     }
   }
@@ -5064,35 +5075,30 @@ function deskLearningStatus() {
   const botOn = !!(state.learnBook && state.learnBook.bot_on);
   const pageOn = !!(state.pageLearnOn || (state.scanLearn && state.scanLearn.timer));
   const pageCount = deskLearnPages().length;
-  const touch = learnTouchNote || fillTimingNote() || "";
+  const touch = shortLearnStatus(learnTouchNote || fillTimingNote() || "");
   if (botOn) {
     return {
       ok: true,
       detail:
-        (touch ? touch + " " : "") +
-        "Bot on · all " +
+        (touch ? touch + " · " : "") +
+        "Bot on · " +
         pageCount +
-        " desk pages learn on closed bars (page-open + Windows score). After-close needs Start the score. Not a forecast.",
+        " pages · closed bars. Not a forecast.",
     };
   }
   if (pageOn || document.visibilityState !== "hidden") {
     return {
       ok: true,
       detail:
-        (touch ? touch + " " : "") +
-        "Learning green · page-open on · all " +
+        (touch ? touch + " · " : "") +
+        "Learning on · page open · " +
         pageCount +
-        " desk pages cycle while this tab stays open" +
-        (state.offline
-          ? ". Close the tab and phone learning pauses — Windows zip + Start the score for after-close."
-          : ". Windows score starts with the desk; tick Start the score under Windows extras for after-close.") +
-        " Not a forecast.",
+        " pages. Not a forecast.",
     };
   }
   return {
     ok: false,
-    detail:
-      "Learning paused (tab hidden). Open the desk tab again, or tick Start the score under Windows extras for after-close.",
+    detail: "Learning paused (tab hidden). Open the desk again, or Start the score under Windows extras.",
   };
 }
 
@@ -5158,7 +5164,7 @@ async function cycleDeskPageLearn() {
     covered.length +
     "/" +
     pages.length +
-    " sections this session). Every Tools and Next page stays in the loop while this tab is open. Closed bars only. Not a forecast.";
+    "). Closed bars only.";
   refreshLearnSignal();
   return state.pageLearn.lastPage || "";
 }
@@ -5209,9 +5215,7 @@ function startScanLearnLoop() {
         }
         await cycleDeskPageLearn();
         learnTouchNote =
-          "Hourly learn scan · " +
-          (names.slice(0, 4).join(", ") || "desk pages") +
-          " · closed bars. Page-open learning stays green while this tab is open.";
+          "Hourly learn · " + (names.slice(0, 4).join(", ") || "desk pages") + " · closed bars.";
         refreshLearnSignal();
       } catch (error) {
         /* Hourly pass is best-effort. */

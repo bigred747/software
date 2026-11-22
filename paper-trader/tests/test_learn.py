@@ -23,6 +23,7 @@ from paper_trader.learn import (
     score_row,
     ensure_learner,
     fit,
+    learn_banner_lines,
     learner_command,
     learning_report,
     mood,
@@ -205,6 +206,14 @@ class AlwaysOnTests(unittest.TestCase):
             self.assertTrue(startup_present(startup))
             self.assertTrue(remove_startup(startup))
             self.assertFalse(startup_present(startup))
+
+    def test_learn_banner_is_short_and_named(self) -> None:
+        lines = learn_banner_lines()
+        self.assertTrue(lines)
+        self.assertIn("Paper Trader Learn", lines[0])
+        self.assertTrue(any("minimize" in line.lower() for line in lines if line))
+        for line in lines:
+            self.assertLessEqual(len(line), 160)
 
     def test_sign_in_script_only_starts_the_score(self) -> None:
         python = Path(r"C:\Users\rick\Documents\Paper Trader\runtime\python.exe")

@@ -1227,9 +1227,29 @@ def ensure_learner(root: Path, state_path: Path, spawn=None, wait: float = 2.0) 
     return learner_healthy(state_path)
 
 
+def _console(message: str) -> None:
+    """One short line for the Paper Trader Learn window. Keep it readable."""
+    try:
+        print(str(message or "").replace("\n", " ").strip()[:160], flush=True)
+    except OSError:
+        return
+
+
+def learn_banner_lines() -> tuple[str, ...]:
+    """Readable lines shown when the Learn window opens (not a blank console)."""
+    return (
+        "Paper Trader Learn · score running",
+        "Closed-bar lessons while this window is open.",
+        "Live locked · paper only · not a forecast.",
+        "You can minimize this window — leave it running.",
+        "",
+    )
+
+
 def run_learner(state_path: Path) -> int:
     watcher = Watcher(state_path)
     if not watcher.acquire():
+        _console("Paper Trader Learn · already running in another window.")
         return 0
     try:
         watcher.run_forever()
@@ -1260,6 +1280,7 @@ class Watcher:
         self._lock_fd: int | None = None
         self._kernel = _kernel()
         self._awake = ""
+        self._said_pass = -1
 
     def acquire(self) -> bool:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -1289,6 +1310,8 @@ class Watcher:
         self._lock_fd = None
 
     def run_forever(self) -> None:
+        for line in learn_banner_lines():
+            _console(line)
         self._beat()
         self._loop()
 
@@ -1298,6 +1321,18 @@ class Watcher:
             self._saved["updated"] = time.time()
             self._saved["awake"] = self._awake
             _store(self.path, self._saved)
+
+    def _heartbeat(self) -> None:
+        """Short pass line so the Learn window never looks empty or floods."""
+        with self._lock:
+            passes = int(self._saved.get("passes") or 0)
+            focus = str(self._focus or self._saved.get("last_symbol") or "markets")
+        if passes == self._said_pass:
+            return
+        if passes > 1 and passes % 12 != 0:
+            return
+        self._said_pass = passes
+        _console("Bot on · pass " + str(passes) + " · watching " + focus)
 
     def _keep_awake(self) -> None:
         if self._kernel is None:
@@ -1445,6 +1480,7 @@ class Watcher:
                 "timing": dict(self._saved.get("timing") or {}),
             }
             _store(self.path, self._saved)
+        self._heartbeat()
 
     def _catalog_names(self) -> list[str]:
         day = desk_day()
