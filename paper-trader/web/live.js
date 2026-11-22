@@ -397,15 +397,27 @@
 
   async function cnbcQuote(symbol, category) {
     const feed = feedSymbol(symbol, category);
-    const payload = await pull(
-      "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=" +
-        encodeURIComponent(feed) +
-        "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json"
-    );
-    const rows = payload && payload.FormattedQuoteResult && payload.FormattedQuoteResult.FormattedQuote;
-    const quote = Array.isArray(rows) ? rows[0] : rows;
-    if (!quote || Number(quote.code) !== 0) throw new Error("No live quote for " + symbol);
-    return quote;
+    try {
+      const payload = await pull(
+        "https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=" +
+          encodeURIComponent(feed) +
+          "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json"
+      );
+      const rows = payload && payload.FormattedQuoteResult && payload.FormattedQuoteResult.FormattedQuote;
+      const quote = Array.isArray(rows) ? rows[0] : rows;
+      if (!quote || Number(quote.code) !== 0) throw new Error("No live quote for " + symbol);
+      return quote;
+    } catch (error) {
+      // QuickQuote fallback — same public feed, used when restQuote misses (tape / lastTrade).
+      const payload = await pull(
+        "https://quote.cnbc.com/quote-html-webservice/quote.htm?partnerId=2&requestMethod=quick&exthrs=1&noform=1&fund=1&output=json&symbols=" +
+          encodeURIComponent(feed)
+      );
+      const rows = payload && payload.QuickQuoteResult && payload.QuickQuoteResult.QuickQuote;
+      const quote = Array.isArray(rows) ? rows[0] : rows;
+      if (!quote || !(priceOf(quote.last) > 0)) throw new Error("No live quote for " + symbol);
+      return quote;
+    }
   }
 
   function changePctFromQuote(quote, live) {

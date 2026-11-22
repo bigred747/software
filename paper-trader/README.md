@@ -102,6 +102,10 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Live stays locked. Every paper buy/sell still asks Yes.
 
 
+## Index tape fix (1.10.19)
+
+Top **YM · RUT · NQ · ES** tape: green/red last + ±% from the same desk futures quotes that already load ES (Yahoo `=F` on computer; PaperLive / closed-bar fallback on phone). Fail closed per chip — no invented prints. Live locked.
+
 ## Forecaster · precise price call (1.10.18)
 
 Tools → **Forecaster** (single Tools tab — Markets only links in; old Market Forecaster label retired): closed-bar **price call** with concrete **next support · resistance · invalidate**, **base · bull · bear** targets with **confidence**, plus **Swing Guard · Risk Seat · Name Pulse · Book Heat · Reclaim Cue · Season Lean**. Near targets snap to real pivot levels when available. Confidence rises when Edge · Squeeze · stack · pivots · Lane · vol agree; unread pieces fail closed. Complements Market Outlook. Own names only — no third-party product labels. Not a crystal ball. Edge still gates buys. Paper only. Live locked.
