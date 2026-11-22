@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, seatTrailRead, seatTrailMult, rangeSeat, SCORECARD_INDEXES, SCORECARD_SECTORS } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, seatTrailRead, seatTrailMult, rangeSeat, SCORECARD_INDEXES, SCORECARD_SECTORS, gatePrint, edgeDeskCall, firePrecision, fireFreshFlip, confirmLock, resolveDeskCard, DESK_CARDS, EDGE_SCORE } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -811,6 +811,94 @@ test("Edge Fire requires Desk Waves green / up when volume is present", () => {
   withVol.marks.filter((mark) => mark.side === "buy").forEach((mark) => {
     assert.equal(withVol.allParts[mark.index - 1].wave, true);
   });
+});
+
+test("Gate Print · Desk Call · Fire Precision · Confirm Lock", () => {
+  const blank = gatePrint(null);
+  assert.equal(blank.onCount, 0);
+  assert.equal(blank.checks, EDGE_SCORE);
+  assert.ok(blank.missing.length === EDGE_SCORE);
+  const full = {
+    tmoOs: true,
+    tmo: true,
+    dots: true,
+    above: true,
+    cci: true,
+    wave: true,
+    vix: true,
+  };
+  const lit = gatePrint(full);
+  assert.equal(lit.onCount, EDGE_SCORE);
+  assert.equal(lit.missing.length, 0);
+  assert.match(lit.line, /all gates lit/);
+
+  const wait = edgeDeskCall({ ready: true, call: "WAIT", stage: "aim", parts: { tmoOs: true, tmo: true, dots: true, above: true, cci: true, wave: false, vix: true } });
+  assert.equal(wait.call, "WAIT");
+  assert.equal(wait.label, "WAIT · Aim");
+  assert.match(wait.why, /Desk Waves|missing/i);
+
+  const fire = edgeDeskCall({ ready: true, call: "BUY", stage: "fire", parts: full });
+  assert.equal(fire.call, "FIRE");
+  assert.equal(fire.label, "FIRE");
+
+  const high = firePrecision({
+    score: 7,
+    checks: 7,
+    call: "BUY",
+    stage: "fire",
+    big4: "bull",
+    lane: "open",
+    seat: "high",
+    freshFire: true,
+  });
+  const low = firePrecision({ score: 3, checks: 7, call: "WAIT", stage: null });
+  assert.ok(high > low);
+  assert.ok(high >= 80);
+
+  assert.equal(resolveDeskCard("auto", false).id, "stockfire");
+  assert.equal(resolveDeskCard("auto", true).id, "coinseat");
+  assert.ok(DESK_CARDS.stockfire && DESK_CARDS.coinseat);
+
+  const lockOk = confirmLock({
+    cardId: "stockfire",
+    crypto: false,
+    fire: true,
+    call: "BUY",
+    stage: "fire",
+    precision: 88,
+    big4: "bull",
+    lane: "open",
+    seat: "high",
+  });
+  assert.equal(lockOk.ok, true);
+
+  const lockWait = confirmLock({
+    cardId: "stockfire",
+    crypto: false,
+    fire: true,
+    call: "BUY",
+    stage: "fire",
+    precision: 50,
+    big4: "bull",
+    lane: "open",
+    seat: "high",
+  });
+  assert.equal(lockWait.ok, false);
+  assert.match(lockWait.why, /Precision/i);
+
+  const coin = confirmLock({
+    cardId: "coinseat",
+    crypto: true,
+    fire: true,
+    call: "BUY",
+    stage: "fire",
+    precision: 78,
+    lane: "closed",
+    seat: "mid",
+  });
+  assert.equal(coin.ok, true);
+
+  assert.equal(typeof fireFreshFlip, "function");
 });
 
 test("Seat Trail seat-aware trail mult and fail-closed without volume", () => {

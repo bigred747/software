@@ -26,6 +26,7 @@ const state = {
   fireNote: "",
   fireAuto: false,
   fireCursor: 0,
+  deskCard: "auto",
   journalSells: [],
   journalSellNote: "",
   journalSellGen: 0,
@@ -110,8 +111,9 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.15";
+const VERSION = "1.10.16";
 const DOCK_KEY = "paperTraderDock";
+const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
 const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
 const FILL_LEARN_KEY = "paper_trader_fill_learn_v1";
@@ -759,17 +761,28 @@ function seatRank(row) {
   return 0;
 }
 
+function rowPrecision(row) {
+  if (!row) return 0;
+  if (row.precision != null && Number.isFinite(Number(row.precision))) return Number(row.precision);
+  if (typeof PaperFrames === "undefined" || !PaperFrames.firePrecision) {
+    return (row.fire || row.edge === "BUY" ? 60 : 0) + laneRank(row) * 5 + seatRank(row) * 4;
+  }
+  return PaperFrames.firePrecision(row);
+}
+
 function bestFires(rows) {
-  // Top Fire BUY setups from the scan: Edge Fire (Ready · Aim · Fire) on strong closed-bar scores.
-  // Lane Align open + Range Seat high lift rank; still the same Fire 5 list (no duplicate scanner).
+  // Top Fire BUY setups: Edge Fire on strong closed-bar scores, ranked by Fire Precision.
+  // Same Fire 5 list (no duplicate scanner). Lane / Seat / big4 fold into precision.
   return (rows || [])
     .filter((row) => row && row.symbol && (row.fire === true || row.edge === "BUY") && row.seen >= 20 && row.rate >= 60)
+    .map((row) => Object.assign({}, row, { precision: rowPrecision(row) }))
     .sort((a, b) => {
       const aPlus = a.setup === "buy" ? 1 : 0;
       const bPlus = b.setup === "buy" ? 1 : 0;
       const aBull = a.big4 === "bull" ? 1 : 0;
       const bBull = b.big4 === "bull" ? 1 : 0;
       return (
+        (b.precision || 0) - (a.precision || 0) ||
         laneRank(b) - laneRank(a) ||
         seatRank(b) - seatRank(a) ||
         b.rate - a.rate ||
@@ -785,16 +798,19 @@ function bestFires(rows) {
 function fireNoteText(fires, scanning) {
   const rows = fires || [];
   if (scanning && !rows.length) {
-    return "Scanning for Fire. When Edge turns Fire (TMO · Squeeze · CCI · VIX falling on closed bars) on a strong name, it lights green here (up to five). Tap to review, then buy if you want.";
+    return "Scanning for Fire. When Edge turns FIRE on closed bars (TMO · Squeeze · CCI · Desk Waves · VIX), Fire Precision ranks up to five names here. Desk Cards tighten Auto confirm. Tap to review.";
   }
   if (!rows.length) {
-    return "No Fire 5 signals right now. Waiting for Edge Fire on the TMO · Squeeze · CCI · VIX gates on a strong scan name. Paper only. Not a forecast.";
+    return "No Fire 5 signals right now. Desk Call is WAIT until Edge FIRE on a strong scan name. Paper only. Not a forecast.";
   }
+  const top = rows[0] && rows[0].precision != null ? " Top Fire Precision " + rows[0].precision + "." : "";
   return (
     rows.length +
     " Fire trade" +
     (rows.length === 1 ? "" : "s") +
-    " lit green. Tap each to review the chart and decide. Fire 5 Auto asks Yes before each paper buy. Not a forecast."
+    " lit green, ranked by Fire Precision." +
+    top +
+    " Fire 5 Auto asks Yes and needs Confirm Lock. Not a forecast."
   );
 }
 
@@ -859,6 +875,19 @@ function phoneBuyReason(symbol) {
   if (names.has(symbol)) return "This market already has a paper buy today.";
   const bestBlock = bestBuyReason(symbol);
   if (bestBlock) return bestBlock;
+  // Confirm Lock (Desk Cards) — tighter Auto path only when Fire 5 Auto or Best setup is armed.
+  if ((state.fireAuto || (state.best && state.best.on)) && symbol === ((state.paper && state.paper.symbol) || "")) {
+    const bars = seenBars();
+    const edgeNow = currentEdge(bars);
+    const fireRow = (state.fires || []).find((row) => row.symbol === symbol);
+    const lock = confirmLockForSymbol(symbol, edgeNow, {
+      bars,
+      seat: fireRow && fireRow.seat,
+      precision: fireRow && fireRow.precision,
+      seatTrail: fireRow && fireRow.seatTrail,
+    });
+    if (!lock.ok) return "Confirm Lock: " + (lock.why || "Desk Card waiting");
+  }
   return "";
 }
 
@@ -1182,6 +1211,23 @@ async function scanPhone() {
           PaperFrames.seatTrailRead
             ? PaperFrames.seatTrailRead(bars, { live: PaperFrames.liveBar(bars, crypto) })
             : null;
+        const print = timing && timing.parts && PaperFrames.gatePrint ? PaperFrames.gatePrint(timing.parts) : null;
+        const freshFire = timing && PaperFrames.fireFreshFlip ? PaperFrames.fireFreshFlip(timing) : false;
+        const seatVal = trail && trail.seat ? trail.seat : "";
+        const precision = PaperFrames.firePrecision
+          ? PaperFrames.firePrecision({
+              score: timing && timing.score,
+              checks: timing && timing.checks,
+              call: timing && timing.call,
+              stage: timing && timing.stage,
+              big4: timing && timing.big4 && timing.big4.bias,
+              big4Ok: timing && timing.big4 && timing.big4.ok,
+              seat: seatVal,
+              freshFire,
+              parts: timing && timing.parts,
+              seatTrail: !!(trail && trail.ready && trail.armed),
+            })
+          : null;
         scored.push({
           symbol,
           seen,
@@ -1195,7 +1241,13 @@ async function scanPhone() {
           seatTrail: !!(trail && trail.ready && trail.armed),
           seatTrailCall: trail && trail.ready ? trail.call : "",
           seatLabel: trail && trail.seatLabel ? trail.seatLabel : "",
-          seat: trail && trail.seat ? trail.seat : "",
+          seat: seatVal,
+          precision,
+          freshFire,
+          gateLine: print ? print.line : "",
+          gateShort: print ? print.shortMiss || print.line : "",
+          score: timing && timing.score != null ? timing.score : null,
+          checks: timing && timing.checks != null ? timing.checks : null,
         });
       } catch (error) {
         errors += 1;
@@ -1668,7 +1720,35 @@ function pinLabel(symbol) {
 
 function renderScoreButtons(bar, rows, signal) {
   const current = (state.paper && state.paper.symbol) || "";
-  const stamp = (signal ? "go" : "wait") + "|" + current + "|" + (rows || []).map((row) => row.symbol + ":" + row.rate + ":" + (row.setup || "") + ":" + (row.edge || "") + ":" + (row.fire ? "F" : "") + ":" + (row.seatTrail ? "ST" : "") + ":" + row.matched + ":" + row.seen).join(",");
+  const stamp =
+    (signal ? "go" : "wait") +
+    "|" +
+    current +
+    "|" +
+    (rows || [])
+      .map(
+        (row) =>
+          row.symbol +
+          ":" +
+          row.rate +
+          ":" +
+          (row.setup || "") +
+          ":" +
+          (row.edge || "") +
+          ":" +
+          (row.fire ? "F" : "") +
+          ":" +
+          (row.seatTrail ? "ST" : "") +
+          ":" +
+          (row.precision != null ? row.precision : "") +
+          ":" +
+          (row.gateShort || "") +
+          ":" +
+          row.matched +
+          ":" +
+          row.seen
+      )
+      .join(",");
   if (sameStamp(bar, stamp)) return;
   bar.replaceChildren();
   (rows || []).forEach((row) => {
@@ -1677,7 +1757,8 @@ function renderScoreButtons(bar, rows, signal) {
     button.type = "button";
     const fire = row.fire || row.edge === "BUY";
     const trail = !!row.seatTrail;
-    const ready = fire ? " · FIRE" : trail ? " · Seat Trail" : row.setup === "buy" ? " buy" : "";
+    const prec = row.precision != null ? " · P" + row.precision : "";
+    const ready = fire ? " · FIRE" + prec : trail ? " · Seat Trail" : row.setup === "buy" ? " buy" : "";
     const timing = !fire && !trail && row.edge ? " · " + row.edge : "";
     button.textContent = pinLabel(row.symbol) + " " + row.rate + "%" + ready + timing;
     button.title =
@@ -1685,7 +1766,14 @@ function renderScoreButtons(bar, rows, signal) {
       " of " +
       row.seen +
       " closed bars." +
-      (fire ? " Ready · Aim · Fire is Fire." : trail ? " Seat Trail armed." : row.edge ? " Edge " + row.edge + "." : "") +
+      (fire
+        ? " Desk Call FIRE" + (row.precision != null ? " · Fire Precision " + row.precision : "") + "."
+        : trail
+          ? " Seat Trail armed."
+          : row.edge
+            ? " Edge " + row.edge + "."
+            : "") +
+      (row.gateShort ? " Gate Print: " + row.gateShort + "." : "") +
       " Tap to review. Not a forecast.";
     if (signal || fire || trail) button.classList.add("go");
     if (row.symbol === current) {
@@ -1694,6 +1782,112 @@ function renderScoreButtons(bar, rows, signal) {
     }
     button.addEventListener("click", () => chooseSymbol(row.symbol));
     bar.appendChild(button);
+  });
+}
+
+function readDeskCardId() {
+  try {
+    const raw = localStorage.getItem(DESK_CARD_KEY) || "auto";
+    if (raw === "stockfire" || raw === "coinseat" || raw === "auto") return raw;
+  } catch (error) {
+    /* ignore */
+  }
+  return "auto";
+}
+
+function writeDeskCardId(id) {
+  const next = id === "stockfire" || id === "coinseat" || id === "auto" ? id : "auto";
+  try {
+    localStorage.setItem(DESK_CARD_KEY, next);
+  } catch (error) {
+    /* ignore */
+  }
+  state.deskCard = next;
+  return next;
+}
+
+function activeDeskCard(crypto) {
+  const id = state.deskCard || readDeskCardId();
+  if (typeof PaperFrames === "undefined" || !PaperFrames.resolveDeskCard) {
+    return { id: crypto ? "coinseat" : "stockfire", name: crypto ? "Coin Seat Card" : "Stock Fire Card", floor: crypto ? 75 : 80 };
+  }
+  return PaperFrames.resolveDeskCard(id, !!crypto);
+}
+
+function deskCardNoteText() {
+  const id = state.deskCard || readDeskCardId();
+  const cards = (typeof PaperFrames !== "undefined" && PaperFrames.DESK_CARDS) || {};
+  const picked = cards[id] || cards.auto;
+  const openCrypto = chartCrypto();
+  const active = activeDeskCard(openCrypto);
+  return (
+    (picked && picked.idea ? picked.idea + " " : "") +
+    "Open market uses " +
+    (active.name || "Desk Card") +
+    " (floor " +
+    (active.floor || "—") +
+    "). Confirm Lock gates Fire 5 Auto / Best setup paper buys. Not broker automation. Live locked. Not a forecast."
+  );
+}
+
+function renderDeskCards() {
+  const note = $("desk-card-note");
+  const id = state.deskCard || readDeskCardId();
+  if (note) note.textContent = deskCardNoteText();
+  const buttons = [
+    ["auto", $("card-auto")],
+    ["stockfire", $("card-stockfire")],
+    ["coinseat", $("card-coinseat")],
+  ];
+  buttons.forEach(([key, button]) => {
+    if (!button) return;
+    const on = id === key;
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+    button.className = "desk-card-btn" + (on ? " on" : "");
+  });
+}
+
+function confirmLockForSymbol(symbol, timing, extras) {
+  const row = state.catalog.find((item) => item.symbol === symbol);
+  const crypto = phoneCrypto(symbol, row);
+  const cardId = state.deskCard || readDeskCardId();
+  const parts = timing && timing.parts ? timing.parts : null;
+  const print = typeof PaperFrames !== "undefined" && PaperFrames.gatePrint ? PaperFrames.gatePrint(parts) : null;
+  const lane = (extras && extras.lane) || readLaneAlign(symbol, extras && extras.bars ? extras.bars : null);
+  const seat = extras && extras.seat != null ? extras.seat : lane && lane.seat ? lane.seat : "";
+  const precision =
+    extras && extras.precision != null
+      ? extras.precision
+      : typeof PaperFrames !== "undefined" && PaperFrames.firePrecision
+        ? PaperFrames.firePrecision({
+            score: timing && timing.score,
+            checks: timing && timing.checks,
+            call: timing && timing.call,
+            stage: timing && timing.stage,
+            big4: timing && timing.big4 && timing.big4.bias,
+            big4Ok: timing && timing.big4 && timing.big4.ok,
+            lane: lane && lane.lane,
+            seat: typeof seat === "string" ? seat : seat && seat.seat,
+            freshFire: timing && PaperFrames.fireFreshFlip ? PaperFrames.fireFreshFlip(timing) : false,
+            parts,
+            seatTrail: !!(extras && extras.seatTrail),
+          })
+        : null;
+  if (typeof PaperFrames === "undefined" || !PaperFrames.confirmLock) {
+    return { ok: !!(timing && timing.call === "BUY" && timing.stage === "fire"), why: "Confirm Lock unread", precision, print };
+  }
+  return PaperFrames.confirmLock({
+    cardId,
+    crypto,
+    fire: !!(timing && timing.call === "BUY" && timing.stage === "fire"),
+    call: timing && timing.call,
+    stage: timing && timing.stage,
+    precision,
+    big4: timing && timing.big4 && timing.big4.bias,
+    big4Ok: timing && timing.big4 && timing.big4.ok,
+    lane: lane && lane.lane,
+    seat: typeof seat === "string" ? seat : seat && seat.seat,
+    seatTrail: !!(extras && extras.seatTrail),
   });
 }
 
@@ -1730,6 +1924,23 @@ async function refreshFireFive() {
       const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
       const seat = PaperFrames.rangeSeat ? PaperFrames.rangeSeat(bars) : null;
       const lane = readLaneAlign(symbol, bars);
+      const print = timing && timing.parts && PaperFrames.gatePrint ? PaperFrames.gatePrint(timing.parts) : null;
+      const freshFire = timing && PaperFrames.fireFreshFlip ? PaperFrames.fireFreshFlip(timing) : false;
+      const precision = PaperFrames.firePrecision
+        ? PaperFrames.firePrecision({
+            score: timing && timing.score,
+            checks: timing && timing.checks,
+            call: timing && timing.call,
+            stage: timing && timing.stage,
+            big4: timing && timing.big4 && timing.big4.bias,
+            big4Ok: timing && timing.big4 && timing.big4.ok,
+            lane: lane.lane || "",
+            seat: seat && seat.seat ? seat.seat : "",
+            freshFire,
+            parts: timing && timing.parts,
+            seatTrail: !!base.seatTrail,
+          })
+        : null;
       scored.push({
         symbol,
         seen: Number(base.seen) || 0,
@@ -1745,6 +1956,12 @@ async function refreshFireFive() {
         seat: seat && seat.seat ? seat.seat : "",
         seatPct: seat && seat.pct != null ? seat.pct : null,
         seatLabel: seat && seat.label ? seat.label : "",
+        precision,
+        freshFire,
+        gateLine: print ? print.line : "",
+        gateShort: print ? print.shortMiss || print.line : "",
+        score: timing && timing.score != null ? timing.score : null,
+        checks: timing && timing.checks != null ? timing.checks : null,
       });
     } catch (error) {
       scored.push(Object.assign({}, base, { fire: false }));
@@ -1802,6 +2019,18 @@ async function fireAutoTrade() {
     renderFireFive();
     return state.fireNote;
   }
+  const lock = confirmLockForSymbol(row.symbol, edgeNow, {
+    bars,
+    lane: { lane: row.lane, seat: row.seat ? { seat: row.seat } : null },
+    seat: row.seat,
+    precision: row.precision,
+    seatTrail: row.seatTrail,
+  });
+  if (!lock.ok) {
+    state.fireNote = "Fire 5 Auto Confirm Lock on " + row.symbol + ": " + (lock.why || "waiting") + " · " + (lock.card && lock.card.name ? lock.card.name : "Desk Card");
+    renderFireFive();
+    return state.fireNote;
+  }
   if (state.paper.shares > 0) return "";
   const blocked = phoneBuyReason(row.symbol) || internalsGate(row.symbol);
   // Fire 5 Auto still requires the name to be on today's best / Fire list; ignore "not in today's best" only if it is on Fire 5.
@@ -1856,6 +2085,7 @@ function renderFireFive() {
       Object.assign({}, row, {
         edge: row.edge || (row.fire ? "BUY" : row.edge),
         setup: row.setup || (row.fire ? "buy" : row.setup),
+        precision: row.precision != null ? row.precision : rowPrecision(row),
       })
     );
     // Green as soon as Fire is on — do not wait for the full scan to finish.
@@ -1872,6 +2102,7 @@ function renderFireFive() {
         : "Fire 5 Auto · waiting for Fire"
       : "Fire 5 Auto";
   }
+  renderDeskCards();
   renderTideFade();
   paintJournalCheckSync();
 }
@@ -2068,6 +2299,9 @@ function journalBuyRows(book) {
           laneWhy: row.laneWhy || lane.why || "",
           seat: row.seat || (lane.seat && lane.seat.seat) || "",
           seatLabel: row.seatLabel || (lane.seat && lane.seat.label) || "",
+          precision: row.precision != null ? row.precision : rowPrecision(row),
+          gateShort: row.gateShort || row.gateLine || "",
+          gateLine: row.gateLine || "",
         })
       );
     });
@@ -2090,7 +2324,24 @@ function paintJournalPins(bar, rows, mode) {
     "|" +
     ((rows || []).length ? "" : emptyNote + "|") +
     (rows || [])
-      .map((row) => row.symbol + ":" + (row.journalStatus || "") + ":" + (row.rate || "") + ":" + (row.side || "") + ":" + (row.reason || "") + ":" + (row.seatTrail ? "st" : ""))
+      .map(
+        (row) =>
+          row.symbol +
+          ":" +
+          (row.journalStatus || "") +
+          ":" +
+          (row.rate || "") +
+          ":" +
+          (row.side || "") +
+          ":" +
+          (row.reason || "") +
+          ":" +
+          (row.seatTrail ? "st" : "") +
+          ":" +
+          (row.precision != null ? row.precision : "") +
+          ":" +
+          (row.gateShort || "")
+      )
       .join(",");
   if (sameStamp(bar, stamp)) return;
   bar.replaceChildren();
@@ -2122,9 +2373,10 @@ function paintJournalPins(bar, rows, mode) {
         ". Tap to review. Auto still asks Yes before a paper sell. Not a forecast.";
     } else {
       const status = row.journalStatus || "best";
+      const prec = row.precision != null ? " · P" + row.precision : "";
       const tag =
         status === "fire"
-          ? " · FIRE"
+          ? " · FIRE" + prec
           : status === "trail"
             ? " · Seat Trail"
             : status === "held"
@@ -2141,7 +2393,7 @@ function paintJournalPins(bar, rows, mode) {
       else button.classList.add("done");
       button.title =
         (status === "fire"
-          ? "Fire buy signal. "
+          ? "Fire buy signal" + (row.precision != null ? " · Fire Precision " + row.precision : "") + ". "
           : status === "trail"
             ? "Seat Trail armed. "
             : status === "best"
@@ -2149,6 +2401,7 @@ function paintJournalPins(bar, rows, mode) {
               : status === "held"
                 ? "Already in a paper long. "
                 : "Already bought today. ") +
+        (row.gateLine || row.gateShort ? "Gate Print: " + (row.gateLine || row.gateShort) + ". " : "") +
         (row.laneWhy ? row.laneWhy + " " : "") +
         (row.seatLabel ? row.seatLabel + ". " : "") +
         "Tap to review the chart. Auto asks Yes before any paper buy. Not a forecast.";
@@ -2186,15 +2439,18 @@ function journalCheckNoteText(book) {
     (row) => row.journalStatus === "fire" || row.journalStatus === "best" || row.journalStatus === "trail"
   ).length;
   const trails = buys.filter((row) => row.seatTrail || row.journalStatus === "trail").length;
+  const fires = buys.filter((row) => row.journalStatus === "fire");
+  const topPrec = fires.reduce((best, row) => (row.precision != null && row.precision > best ? row.precision : best), -1);
   const sells = (state.journalSells || []).length;
   const filled = todayFillRows(book).length;
   const open = ((book && book.positions) || []).length;
   const parts = [];
   parts.push(actionable ? actionable + " buy signal" + (actionable === 1 ? "" : "s") + " to review" : "No open buy signals");
   if (trails) parts.push(trails + " Seat Trail");
+  if (fires.length) parts.push(fires.length + " FIRE" + (topPrec >= 0 ? " · top P" + topPrec : ""));
   parts.push(sells ? sells + " sell / exit" + (sells === 1 ? "" : "s") : open ? open + " open · no Edge exit yet" : "No sell signals");
   parts.push(filled ? filled + " fill" + (filled === 1 ? "" : "s") + " today" : "No fills today");
-  return parts.join(" · ") + ". Tap a product name to open the chart. Paper Yes still required. Not a forecast.";
+  return parts.join(" · ") + ". Gate Print is on each Fire pin title. Paper Yes still required. Not a forecast.";
 }
 
 const WEEK_BOARD_KEY = "paperTraderWeekBoard";
@@ -3263,7 +3519,7 @@ function edgePlan(result) {
   if (result.call === "BUY") return "Fire buy on the " + result.signalDate + " close (Edge + big4indicator). A paper buy fills at the next open. Starting stop " + stop + risk + "." + size + stage + big4 + today;
   if (result.call === "SELL") return "Fire sell on the " + result.signalDate + " close: " + (result.reason || "exit") + ". A paper sell fills at the next open." + today;
   if (result.call === "HOLD") return "In since " + formatPrice(result.entry) + " · " + signedPercent(result.openPct) + " · trailing stop " + stop + risk + "." + today;
-  return "No Fire yet. Ready at 5 of 7, Aim at 6, Fire when all seven turn on (incl. Desk Waves green / up + VIX falling) with big4indicator." + stage + big4 + today;
+  return "Desk Call WAIT. Ready at 5 of 7, Aim at 6, FIRE when all seven turn on (incl. Desk Waves green / up + VIX falling) with big4indicator. Gate Print lists what is still missing." + stage + big4 + today;
 }
 
 
@@ -3880,6 +4136,19 @@ function bestSetupStatus() {
       : "Seat Trail unread",
   });
 
+  const lock = confirmLockForSymbol(symbol || "", edge, {
+    bars,
+    seat: lane && lane.seat ? lane.seat.seat || lane.seat : "",
+    seatTrail: trailArmed,
+  });
+  addGate(
+    "Confirm Lock · " + ((lock.card && lock.card.name) || "Desk Card"),
+    !!(lock && lock.ok),
+    lock && lock.ok
+      ? "Fire Precision " + (lock.precision != null ? lock.precision : "—") + " · " + (lock.card && lock.card.name)
+      : (lock && lock.why) || "Confirm Lock waiting"
+  );
+
   const held = !!(state.paper && state.paper.shares > 0);
   if (held) waiting.unshift("Already in a paper long — Best setup buys wait; Edge SELL can still exit");
 
@@ -3896,11 +4165,12 @@ function bestSetupStatus() {
     moodOk &&
     tideOk &&
     laneOk &&
+    !!(lock && lock.ok) &&
     !held;
   const detail = !(state.best && state.best.on)
     ? "Off"
     : ready
-      ? "Ready · Edge 7/7 BUY · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·CCI·Waves·big4·stack·MTF · Tide clear · Lane Open · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
+      ? "Ready · Edge 7/7 BUY · Confirm Lock · MTF " + frames.long + "/" + frames.total + " · Internals " + internals.label + " " + internals.score + " · desk Squeeze·TMO·CCI·Waves·big4·stack·MTF · Tide clear · Lane Open · " + day.count + "/" + BEST_MAX_BUYS + " buys today"
       : "Armed · waiting: " + waiting.slice(0, 3).join("; ");
   return {
     ready,
@@ -3919,6 +4189,7 @@ function bestSetupStatus() {
     moodOk,
     tideOk,
     laneOk,
+    lockOk: !!(lock && lock.ok),
     held,
     waiting,
     gates,
@@ -3953,7 +4224,7 @@ function renderBestSetup() {
   button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
   note.textContent = on
     ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Strictest paper buys only: Edge all seven (TMO · Squeeze · CCI · Desk Waves green/up · VIX falling), multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Seat Trail shows agree/wait on the checklist and runs as its own Strategies Auto process — not a second Fire 5. Still asks Yes. Not a forecast.";
+    : "Off. Strictest paper buys only: Edge all seven (TMO · Squeeze · CCI · Desk Waves green/up · VIX falling), Confirm Lock from Desk Cards, multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Seat Trail shows agree/wait on the checklist and runs as its own Strategies Auto process — not a second Fire 5. Still asks Yes. Not a forecast.";
   if (list) {
     list.replaceChildren();
     list.hidden = !on;
@@ -6588,12 +6859,34 @@ function renderEdge() {
   const bars = seenBars();
   const result = currentEdge(bars);
   if (!result) return;
-  const call = result.ready ? result.call : "WAIT";
-  const stamp = [call, result.score, result.stop, result.openPct, result.record.trades, result.record.total, bars.length].join("|");
+  const desk =
+    typeof PaperFrames !== "undefined" && PaperFrames.edgeDeskCall
+      ? PaperFrames.edgeDeskCall(result)
+      : { call: result.ready ? result.call : "WAIT", label: result.ready ? result.call : "WAIT", tone: (result.call || "WAIT").toLowerCase(), why: "", print: null };
+  const call = desk.label || (result.ready ? result.call : "WAIT");
+  const tone = desk.tone || (result.call || "WAIT").toLowerCase();
+  const print = desk.print || (result.parts && PaperFrames.gatePrint ? PaperFrames.gatePrint(result.parts) : null);
+  const precision =
+    typeof PaperFrames !== "undefined" && PaperFrames.firePrecision
+      ? PaperFrames.firePrecision({
+          score: result.score,
+          checks: result.checks,
+          call: result.call,
+          stage: result.stage,
+          big4: result.big4 && result.big4.bias,
+          big4Ok: result.big4 && result.big4.ok,
+          freshFire: PaperFrames.fireFreshFlip ? PaperFrames.fireFreshFlip(result) : false,
+          parts: result.parts,
+        })
+      : null;
+  const stamp = [call, result.score, result.stop, result.openPct, result.record.trades, result.record.total, bars.length, precision, print && print.line].join("|");
   if (sameStamp(box, stamp)) return;
-  box.className = "edge " + call.toLowerCase();
+  box.className = "edge " + (tone === "buy" || tone === "hold" ? tone : tone === "sell" ? "sell" : tone === "aim" || tone === "ready" ? "wait " + tone : "wait");
   $("edge-call").textContent = call;
-  $("edge-score").textContent = result.score == null ? "—" : result.score + " of " + (result.checks || PaperFrames.EDGE_SCORE || 7);
+  $("edge-score").textContent =
+    result.score == null
+      ? "—"
+      : result.score + " of " + (result.checks || PaperFrames.EDGE_SCORE || 7) + (precision != null ? " · P" + precision : "");
   const checks = $("edge-checks");
   checks.replaceChildren();
   EDGE_CHECKS.forEach(([id, name]) => {
@@ -6602,6 +6895,12 @@ function renderEdge() {
     if (result.parts && result.parts[id]) item.className = "on";
     checks.appendChild(item);
   });
+  const gateLine = $("gate-print");
+  if (gateLine) {
+    gateLine.textContent = print
+      ? "Gate Print · " + print.line + (desk.why && desk.call === "WAIT" ? " · Desk Call " + call : desk.call === "FIRE" ? " · Desk Call FIRE" : "")
+      : "Gate Print · waiting for closed bars.";
+  }
   $("edge-plan").textContent = edgePlan(result);
   const record = $("edge-record");
   record.replaceChildren();
@@ -8693,6 +8992,7 @@ if (scanToggle) {
 const fireAutoBtn = $("fire-auto");
 if (fireAutoBtn) {
   state.fireAuto = loadFireAuto();
+  state.deskCard = readDeskCardId();
   renderFireFive();
   fireAutoBtn.addEventListener("click", () => {
     const next = !state.fireAuto;
@@ -8705,13 +9005,33 @@ if (fireAutoBtn) {
         autoTick();
       }
       $("status").textContent =
-        "Fire 5 Auto is on. Green Fire trades get a Yes warning before each paper buy. Scanner should stay on.";
+        "Fire 5 Auto is on. Confirm Lock (Desk Cards) gates paper buys. Green Fire trades still ask Yes. Scanner should stay on.";
       refreshFireFive().catch(() => {});
     } else {
       $("status").textContent = "Fire 5 Auto is off. Green Fire signals still show for review.";
     }
   });
 }
+
+function wireDeskCardButton(button, key) {
+  if (!button) return;
+  button.addEventListener("click", () => {
+    writeDeskCardId(key);
+    renderDeskCards();
+    renderBestSetup();
+    const card = activeDeskCard(chartCrypto());
+    $("status").textContent =
+      "Desk Card · " +
+      ((typeof PaperFrames !== "undefined" && PaperFrames.DESK_CARDS && PaperFrames.DESK_CARDS[key] && PaperFrames.DESK_CARDS[key].name) || key) +
+      ". Open market Confirm Lock uses " +
+      (card.name || "Desk Card") +
+      ". Paper only. Live locked.";
+  });
+}
+wireDeskCardButton($("card-auto"), "auto");
+wireDeskCardButton($("card-stockfire"), "stockfire");
+wireDeskCardButton($("card-coinseat"), "coinseat");
+state.deskCard = readDeskCardId();
 
 const tideRunBtn = $("tide-run");
 if (tideRunBtn) {

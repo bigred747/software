@@ -2868,6 +2868,160 @@
     vix: "VIX falling (closed daily vs prior)",
   };
 
+  // Gate Print — closed-bar Edge component strip (own names). No third-party AI score.
+  function gatePrint(parts) {
+    const list = parts || {};
+    const keys = Object.keys(EDGE_NAMES);
+    const on = keys.filter((key) => !!list[key]);
+    const missing = keys.filter((key) => !list[key]).map((key) => EDGE_NAMES[key]);
+    const onCount = on.length;
+    return {
+      onCount,
+      checks: EDGE_SCORE,
+      on: on.map((key) => EDGE_NAMES[key]),
+      missing,
+      line:
+        missing.length
+          ? onCount + "/" + EDGE_SCORE + " on · missing " + missing.join(", ")
+          : EDGE_SCORE + "/" + EDGE_SCORE + " on · all gates lit",
+      shortMiss: missing.length ? missing.slice(0, 2).join("; ") + (missing.length > 2 ? " +" + (missing.length - 2) : "") : "",
+    };
+  }
+
+  // Desk Call — loud WAIT vs FIRE from Edge result (closed bars).
+  function edgeDeskCall(result) {
+    if (!result || !result.ready) {
+      return { call: "WAIT", label: "WAIT", stage: null, tone: "wait", why: "Edge needs more closed bars.", print: gatePrint(null) };
+    }
+    const print = gatePrint(result.parts);
+    const stage = result.stage || null;
+    if (result.call === "BUY" && stage === "fire") {
+      return { call: "FIRE", label: "FIRE", stage: "fire", tone: "buy", why: print.line, print };
+    }
+    if (result.call === "SELL") {
+      return { call: "SELL", label: "SELL", stage, tone: "sell", why: result.reason || "Exit armed", print };
+    }
+    if (result.call === "HOLD") {
+      return { call: "HOLD", label: "HOLD", stage, tone: "hold", why: "In an Edge long · trail active", print };
+    }
+    if (stage === "aim") {
+      return { call: "WAIT", label: "WAIT · Aim", stage: "aim", tone: "aim", why: print.line, print };
+    }
+    if (stage === "ready") {
+      return { call: "WAIT", label: "WAIT · Ready", stage: "ready", tone: "ready", why: print.line, print };
+    }
+    return { call: "WAIT", label: "WAIT", stage, tone: "wait", why: print.line, print };
+  }
+
+  // Fire Precision — 0–100 closed-bar rank for Fire 5 (gates · stage · big4 · lane · seat · fresh flip).
+  function firePrecision(input) {
+    const row = input || {};
+    let pts = 0;
+    const score = Number(row.score);
+    const checks = Number(row.checks) || EDGE_SCORE;
+    if (Number.isFinite(score) && checks > 0) pts += Math.round((score / checks) * 40);
+    if (row.call === "BUY" && row.stage === "fire") pts += 25;
+    else if (row.stage === "aim") pts += 12;
+    else if (row.stage === "ready") pts += 6;
+    if (row.big4 === "bull" || row.big4Ok) pts += 12;
+    if (row.lane === "open") pts += 10;
+    else if (row.lane === "soft") pts += 4;
+    if (row.seat === "high") pts += 8;
+    else if (row.seat === "mid") pts += 4;
+    if (row.freshFire) pts += 5;
+    if (row.wave || (row.parts && row.parts.wave)) pts += 0; // already in gate score
+    if (row.seatTrail) pts += 3;
+    return Math.max(0, Math.min(100, pts));
+  }
+
+  function fireFreshFlip(result) {
+    if (!result || !result.ready || !result.scores) return false;
+    const scores = result.scores;
+    let last = -1;
+    for (let index = scores.length - 1; index >= 0; index -= 1) {
+      if (scores[index] != null) {
+        last = index;
+        break;
+      }
+    }
+    if (last < 1) return false;
+    return scores[last] === EDGE_SCORE && scores[last - 1] < EDGE_SCORE;
+  }
+
+  // Desk Cards — paper confirm templates we invent (equity vs crypto). Not broker automation.
+  const DESK_CARDS = {
+    auto: {
+      id: "auto",
+      name: "Auto by type",
+      idea: "Picks Stock Fire Card for stocks/ETFs/futures and Coin Seat Card for crypto. Paper confirm only. Live locked.",
+    },
+    stockfire: {
+      id: "stockfire",
+      name: "Stock Fire Card",
+      kind: "equity",
+      floor: 80,
+      needBig4: true,
+      needLaneOpen: true,
+      seats: ["mid", "high"],
+      idea: "Equities · ETF · futures Auto confirm: Edge FIRE + big4 bull + Lane Open + Seat Mid/High + Fire Precision ≥ 80.",
+    },
+    coinseat: {
+      id: "coinseat",
+      name: "Coin Seat Card",
+      kind: "crypto",
+      floor: 75,
+      needBig4: false,
+      needLaneOpen: false,
+      seats: ["mid", "high"],
+      preferSeatTrail: true,
+      idea: "Crypto Auto confirm: Edge FIRE + Seat Mid/High + Fire Precision ≥ 75. Seat Trail armed lifts the rank. Paper only.",
+    },
+  };
+
+  function resolveDeskCard(cardId, crypto) {
+    const id = cardId || "auto";
+    if (id === "stockfire" || id === "coinseat") return DESK_CARDS[id];
+    return crypto ? DESK_CARDS.coinseat : DESK_CARDS.stockfire;
+  }
+
+  // Confirm Lock — tighter Auto/Best paper-buy filter from the active Desk Card.
+  function confirmLock(input) {
+    const ctx = input || {};
+    const card = resolveDeskCard(ctx.cardId, !!ctx.crypto);
+    const reasons = [];
+    if (!(ctx.fire || (ctx.call === "BUY" && ctx.stage === "fire"))) {
+      reasons.push("Edge not FIRE");
+    }
+    const precision = Number(ctx.precision);
+    const floor = Number(card.floor) || 80;
+    if (!(Number.isFinite(precision) && precision >= floor)) {
+      reasons.push("Fire Precision " + (Number.isFinite(precision) ? precision : "—") + " < " + floor);
+    }
+    if (card.needBig4 && !(ctx.big4 === "bull" || ctx.big4Ok)) {
+      reasons.push("big4indicator not bull");
+    }
+    if (card.needLaneOpen && ctx.lane !== "open") {
+      reasons.push(ctx.lane === "unread" ? "Lane Align unread" : "Lane Align not open");
+    }
+    const seats = card.seats || ["mid", "high"];
+    if (ctx.seat && seats.indexOf(ctx.seat) < 0) {
+      reasons.push("Range Seat " + ctx.seat + " (need Mid/High)");
+    } else if (!ctx.seat && seats.length) {
+      reasons.push("Range Seat unread");
+    }
+    if (card.preferSeatTrail && ctx.seatTrail) {
+      // Agree lift only — already reflected in precision; no extra fail.
+    }
+    return {
+      ok: reasons.length === 0,
+      why: reasons.length ? reasons[0] : card.name + " confirm clear",
+      reasons,
+      card,
+      floor,
+      precision: Number.isFinite(precision) ? precision : null,
+    };
+  }
+
   function plainPrice(value) {
     if (value == null || !Number.isFinite(Number(value))) return "—";
     const number = Number(value);
@@ -4328,6 +4482,13 @@
     vixSeries,
     EDGE_SCORE,
     EDGE_NAMES,
+    gatePrint,
+    edgeDeskCall,
+    firePrecision,
+    fireFreshFlip,
+    DESK_CARDS,
+    resolveDeskCard,
+    confirmLock,
     drawEdgeCalls,
     describeBar,
     showTip,
