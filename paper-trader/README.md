@@ -102,6 +102,10 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Live stays locked. Every paper buy/sell still asks Yes.
 
 
+## Forecaster · precise price call (1.10.18)
+
+Tools → **Forecaster** (single Tools tab — Markets only links in; old Market Forecaster label retired): closed-bar **price call** with concrete **next support · resistance · invalidate**, **base · bull · bear** targets with **confidence**, plus **Swing Guard · Risk Seat · Name Pulse · Book Heat · Reclaim Cue · Season Lean**. Near targets snap to real pivot levels when available. Confidence rises when Edge · Squeeze · stack · pivots · Lane · vol agree; unread pieces fail closed. Complements Market Outlook. Own names only — no third-party product labels. Not a crystal ball. Edge still gates buys. Paper only. Live locked.
+
 ## Desk Pool (1.10.17)
 
 Tools → **Desk Pool**: public-tape **Big Prints** and **Iceberg Proxy** (closed-bar relative volume / absorption), **Form Prints** (SEC Form 4 via keyless public JSON on the computer desk), and **Civic Trades** (STOCK Act disclosures). True dark-pool books, resting icebergs, and institutional blotters stay **No feed** — never invented. Own names only. Paper only. Live locked.
@@ -145,16 +149,16 @@ Original Paper Trader Strategies process (own names only — not a third-party p
 - Green up / red down histogram, cyan average; pane settings for n · ATRmult · Avg · AvgType (SMA/EMA) · optional candle paint.
 - Fail closed when the feed has no volume (no invented tape). Own desk names only.
 
-## Market Forecaster (1.10.10)
+## Forecaster (1.10.10 → renamed 1.10.18)
 
-- **Tools · Next pages · Markets:** **Market Forecaster** — base · bull · bear cases on closed daily bars for open / pinned / scan names.
+- **Tools · Next pages:** **Forecaster** (was Market Forecaster) — base · bull · bear on closed daily bars; 1.10.18 unifies into one Tools tab price call.
 - Horizons ~3 months and ~1 year, assumptions, SPY/benchmark compare, what would prove the case wrong, paper size / potential-loss hint.
 - Desk rank blends Edge · Squeeze · Cycle · strength (own math only — not a third-party AI score).
 - Complements **Market Outlook** (does not replace it). **Not a crystal ball. Not a forecast guarantee.** Edge · Best setup · Auto still gate buys. Live locked · Artex · paper only. No third-party product branding or scrapes.
 
 ## Continuous 24/7 learning (1.10.9 / 1.10.10)
 
-- **Windows desk:** Bot-on Learn score runs continuously — every desk page (incl. Cycle Desk · Market Forecaster · Outlook · Tools home), rotating markets, faster passes. Tick **Start the score** so it keeps going after the window closes while you are signed in.
+- **Windows desk:** Bot-on Learn score runs continuously — every desk page (incl. Cycle Desk · Forecaster · Outlook · Tools home), rotating markets, faster passes. Tick **Start the score** so it keeps going after the window closes while you are signed in.
 - **Phone / Private web:** page-open bot cycles scan + strategies + every Tools/Next page while the tab stays open (wake lock when Auto is on). Leaving the tab pauses phone learning — use the Windows zip for true after-close 24/7.
 - Closed bars only. Paper only. Live locked. Not a forecast.
 

@@ -111,7 +111,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.17";
+const VERSION = "1.10.18";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -421,9 +421,9 @@ function withHooks(items) {
   const learnDetail = learnTouchNote
     || fillTimingNote()
     || (botOn
-      ? "Bot on · all " + pageCount + " desk pages (incl. Cycle Desk · Market Forecaster · Outlook · Tools) learn on closed bars even when scrolled away; Windows score keeps going after the desk closes. Not a forecast."
+      ? "Bot on · all " + pageCount + " desk pages (incl. Cycle Desk · Forecaster · Outlook · Tools) learn on closed bars even when scrolled away; Windows score keeps going after the desk closes. Not a forecast."
       : state.offline
-        ? "Page-open bot · all " + pageCount + " desk pages cycle while this tab stays open (Cycle Desk · Market Forecaster included). Close the tab and phone learning pauses — use the Windows zip + Start the score for after-close. Not a forecast."
+        ? "Page-open bot · all " + pageCount + " desk pages cycle while this tab stays open (Cycle Desk · Forecaster included). Close the tab and phone learning pauses — use the Windows zip + Start the score for after-close. Not a forecast."
         : "Bot score off for after-close learning. Open the desk or tick Start the score under Windows extras. Page-open cycles still cover every Tools page here.");
   if (!next.some((item) => item.name === "Learning")) {
     setSignal(next, "Learning", true, learnDetail);
@@ -4949,10 +4949,13 @@ async function cycleDeskPageLearn() {
           state.forecast = { busy: false, stop: false, open: null, board: null, at: 0, note: "" };
         }
         const cash = state.paper && Number(state.paper.equity) > 0 ? Number(state.paper.equity) : 10000;
+        const warmSym = (state.paper && state.paper.symbol) || "";
         state.forecast.open = PaperFrames.marketForecastRead(seenBars(), {
-          symbol: (state.paper && state.paper.symbol) || "",
+          symbol: warmSym,
+          spyBars: state.spyBars || [],
           vixBars: state.vixBars || [],
           cash,
+          lane: warmSym ? readLaneAlign(warmSym, seenBars()) : null,
         });
       }
     } catch (error) {
@@ -5411,7 +5414,7 @@ async function phoneSafe() {
     botOn
       ? "Bot on · all " +
         pageCount +
-        " desk sections (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Market Forecaster, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) learn on closed bars even when scrolled away. New shipped pages auto-join. Windows score keeps going after close. Not a broker."
+        " desk sections (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Forecaster, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) learn on closed bars even when scrolled away. New shipped pages auto-join. Windows score keeps going after close. Not a broker."
       : state.offline
         ? "Page-open bot · all " +
           pageCount +
@@ -6674,6 +6677,27 @@ function fillForecastHorizon(nodeId, band) {
   });
 }
 
+function fillForecastDl(nodeId, rows) {
+  const node = $(nodeId);
+  if (!node) return;
+  node.replaceChildren();
+  if (!rows || !rows.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Waiting…";
+    node.appendChild(empty);
+    return;
+  }
+  rows.forEach((pair) => {
+    const dt = document.createElement("dt");
+    dt.textContent = pair[0];
+    const dd = document.createElement("dd");
+    dd.textContent = pair[1];
+    if (pair[2]) dd.className = pair[2];
+    node.append(dt, dd);
+  });
+}
+
 function renderForecast() {
   const box = state.forecast || {};
   const open = box.open;
@@ -6683,23 +6707,92 @@ function renderForecast() {
   const openSum = $("forecast-open-sum");
   const caseBias = $("forecast-case-bias");
   const caseWhy = $("forecast-case-why");
+  const confNode = $("forecast-confidence");
   if (caseBias) {
     caseBias.textContent = open && open.ready
-      ? (open.symbol || "Open") + " · desk " + open.deskScore + "/100 · " + (open.deskTone || "")
+      ? (open.symbol || "Open") +
+        " · last " +
+        open.close +
+        " · conf " +
+        open.confidence +
+        "/100 · " +
+        (open.deskTone || "")
       : "Open market · waiting";
     caseBias.className =
       "scorecard-bias" +
-      (open && open.deskScore >= 65 ? " up" : open && open.deskScore <= 40 ? " down" : "");
+      (open && open.confidence >= 65 ? " up" : open && open.confidence <= 40 ? " down" : "");
   }
-  if (caseWhy) caseWhy.textContent = open && open.deskWhy ? open.deskWhy : open && open.why ? open.why : "";
+  if (caseWhy) caseWhy.textContent = open && open.why ? open.why : open && open.deskWhy ? open.deskWhy : "";
+  if (confNode) {
+    confNode.textContent =
+      open && open.ready
+        ? (open.confidenceWhy || "") +
+          (open.namePulse && open.namePulse.why ? " · " + open.namePulse.why : "")
+        : "";
+  }
+  const levels = open && open.levels;
+  fillForecastDl(
+    "forecast-levels",
+    levels && levels.ready
+      ? [
+          ["Last", String(levels.last)],
+          ["Next support", levels.support != null ? String(levels.support) : "Unread", "down"],
+          ["Next resistance", levels.resistance != null ? String(levels.resistance) : "Unread", "up"],
+          ["Invalidate", levels.invalidate != null ? String(levels.invalidate) : "Unread", "down"],
+          ["Mid average", levels.midAvg != null ? String(levels.midAvg) : "Unread"],
+        ]
+      : null
+  );
+  fillForecastDl(
+    "forecast-risk",
+    open && open.ready
+      ? [
+          [
+            "Swing Guard",
+            open.swingGuard && open.swingGuard.ready
+              ? plainForecastPrice(open.swingGuard.guard) + " · " + open.swingGuard.band
+              : "Unread",
+          ],
+          ["Name Pulse", open.namePulse && open.namePulse.pulse ? open.namePulse.pulse : "Unread"],
+          [
+            "Risk Seat",
+            open.riskSeat && open.riskSeat.maxShares != null
+              ? "~" + open.riskSeat.maxShares + " sh · " + (open.riskSeat.band || "")
+              : "Unread",
+          ],
+          [
+            "Reclaim Cue",
+            open.reclaimCue && open.reclaimCue.cue ? open.reclaimCue.cue : "Unread",
+          ],
+        ]
+      : null
+  );
   fillForecastHorizon("forecast-near", open && open.near);
   fillForecastHorizon("forecast-far", open && open.far);
   const vs = $("forecast-vs");
   if (vs) vs.textContent = open && open.vsSpy ? open.vsSpy.why || open.vsSpy.label : "";
   const inv = $("forecast-invalid");
-  if (inv) inv.textContent = open && open.invalidation ? "Prove wrong · " + open.invalidation : "";
+  if (inv) inv.textContent = open && open.invalidation ? open.invalidation : "";
   const size = $("forecast-size");
   if (size) size.textContent = open && open.size ? open.size.note : "";
+  const bookHeat = $("forecast-book-heat");
+  if (bookHeat) {
+    bookHeat.textContent =
+      board && board.bookHeat && board.bookHeat.why
+        ? board.bookHeat.why
+        : open && open.ready
+          ? "Book Heat waits on ranked names."
+          : "";
+  }
+  const reclaim = $("forecast-reclaim");
+  if (reclaim) reclaim.textContent = open && open.reclaimCue && open.reclaimCue.why ? open.reclaimCue.why : "";
+  const season = $("forecast-season");
+  if (season) {
+    season.textContent =
+      open && open.seasonLean && (open.seasonLean.why || open.seasonLean.label)
+        ? open.seasonLean.why || open.seasonLean.label
+        : "";
+  }
   const assumptions = $("forecast-assumptions");
   if (assumptions) {
     assumptions.replaceChildren();
@@ -6736,11 +6829,14 @@ function renderForecast() {
         addCells(tr, [
           String(index + 1),
           row.symbol,
-          { text: String(row.deskScore), cls: row.deskScore >= 65 ? "up" : row.deskScore <= 40 ? "down" : "" },
+          {
+            text: String(row.confidence != null ? row.confidence : row.deskScore),
+            cls: (row.confidence != null ? row.confidence : row.deskScore) >= 65 ? "up" : (row.confidence != null ? row.confidence : row.deskScore) <= 40 ? "down" : "",
+          },
           String(row.nearBase),
           { text: String(row.nearBull), cls: "up" },
           { text: String(row.nearBear), cls: "down" },
-          row.vsSpy || "—",
+          row.invalidate != null ? String(row.invalidate) : "—",
           openBtn,
         ]);
         body.appendChild(tr);
@@ -6751,9 +6847,14 @@ function renderForecast() {
     "forecast-pins",
     ((board && board.rows) || []).slice(0, 8).map((row) => ({
       symbol: row.symbol,
-      stage: String(row.deskScore),
-      signal: row.deskScore >= 65 ? "buy_before_mania" : row.deskScore <= 40 ? "sell_into_greed" : "none",
-      signalLabel: row.deskTone,
+      stage: String(row.confidence != null ? row.confidence : row.deskScore),
+      signal:
+        (row.confidence != null ? row.confidence : row.deskScore) >= 65
+          ? "buy_before_mania"
+          : (row.confidence != null ? row.confidence : row.deskScore) <= 40
+            ? "sell_into_greed"
+            : "none",
+      signalLabel: row.pulse || row.deskTone,
       why: row.why,
     })),
     ""
@@ -6761,11 +6862,17 @@ function renderForecast() {
   if (openSum) {
     openSum.textContent = open && open.ready
       ? (open.symbol || "Open") +
-        " · " +
-        open.deskTone +
-        " " +
-        open.deskScore +
-        "/100 · near base " +
+        " · conf " +
+        open.confidence +
+        "/100 · last " +
+        open.close +
+        " · support " +
+        (open.levels && open.levels.support != null ? open.levels.support : "—") +
+        " · resist " +
+        (open.levels && open.levels.resistance != null ? open.levels.resistance : "—") +
+        " · invalidate " +
+        (open.invalidatePx != null ? open.invalidatePx : "—") +
+        " · base " +
         open.near.base +
         " · bull " +
         open.near.bull +
@@ -6776,26 +6883,39 @@ function renderForecast() {
   }
   const summary =
     box.busy
-      ? box.note || "Reading Market Forecaster…"
+      ? box.note || "Reading Forecaster…"
       : box.note ||
         (open && open.ready
-          ? open.symbol + " desk " + open.deskScore + "/100 · " + ((board && board.rows && board.rows.length) || 0) + " ranked. Not a crystal ball."
-          : "Press Refresh Forecast or Run Forecaster. Complements Market Outlook. Edge still gates buys.");
+          ? open.symbol +
+            " conf " +
+            open.confidence +
+            "/100 · last " +
+            open.close +
+            " · " +
+            ((board && board.rows && board.rows.length) || 0) +
+            " ranked. Not a crystal ball."
+          : "Press Refresh Forecast or Run Forecaster. Concrete levels · confidence. Edge still gates buys.");
   if (note) note.textContent = summary;
   if (boardNote) boardNote.textContent = summary;
+}
+
+function plainForecastPrice(value) {
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  if (typeof PaperFrames !== "undefined" && PaperFrames.plainPrice) return PaperFrames.plainPrice(value);
+  return String(value);
 }
 
 async function runForecast() {
   const box = state.forecast;
   if (!box || box.busy) return;
   if (typeof PaperFrames === "undefined" || !PaperFrames.marketForecastRead) {
-    box.note = "Market Forecaster is not on this build.";
+    box.note = "Forecaster is not on this build.";
     renderForecast();
     return;
   }
   box.busy = true;
   box.stop = false;
-  box.note = "Reading closed bars for Market Forecaster…";
+  box.note = "Reading closed bars for Forecaster…";
   renderForecast();
   if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(5000);
   try {
@@ -6829,7 +6949,7 @@ async function runForecast() {
     };
     await Promise.all(Array.from({ length: workers }, () => worker()));
     if (box.stop) {
-      box.note = "Market Forecaster stopped.";
+      box.note = "Forecaster stopped.";
       return;
     }
     const cash = state.paper && Number(state.paper.equity) > 0 ? Number(state.paper.equity) : 10000;
@@ -6840,6 +6960,7 @@ async function runForecast() {
           spyBars: bars.SPY,
           vixBars: state.vixBars || [],
           cash,
+          lane: openSym ? readLaneAlign(openSym, openBars) : null,
         })
       : null;
     const boardSymbols = [];
@@ -6857,12 +6978,19 @@ async function runForecast() {
     box.board = board;
     box.at = Date.now();
     box.note =
-      (open && open.ready ? open.symbol + " · " + open.deskTone + " " + open.deskScore + "/100" : "Forecaster") +
+      (open && open.ready
+        ? open.symbol +
+          " · conf " +
+          open.confidence +
+          "/100 · last " +
+          open.close +
+          (open.invalidatePx != null ? " · inv " + open.invalidatePx : "")
+        : "Forecaster") +
       " · " +
       ((board && board.rows && board.rows.length) || 0) +
       " ranked. Not a crystal ball.";
   } catch (error) {
-    box.note = error && error.message ? error.message : "Market Forecaster did not finish.";
+    box.note = error && error.message ? error.message : "Forecaster did not finish.";
   } finally {
     box.busy = false;
     if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
