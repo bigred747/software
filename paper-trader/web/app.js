@@ -92,8 +92,8 @@ function sameStamp(node, stamp) {
 let barInflight = 0;
 let barNextSlot = 0;
 const barWaiters = [];
-const BAR_PARALLEL = 12;
-const BAR_GAP_MS = 12;
+const BAR_PARALLEL = 16;
+const BAR_GAP_MS = 8;
 const deskBarCache = new Map();
 
 function oneBarRead(task) {
@@ -144,7 +144,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.24";
+const VERSION = "1.10.25";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -3867,12 +3867,14 @@ function renderBook(paper) {
       item.last != null ? formatPrice(item.last) : "—",
       { text: moneyText(item.pnl), cls: tone },
       (item.source === "replay" ? "History replay" : "Your fill or Auto") + (item.opened ? " · " + item.opened : ""),
+      "",
     ]);
+    if (item.symbol) row.lastChild.appendChild(openChartButton(item.symbol));
     positions.appendChild(row);
   });
   if (!book.positions.length) {
     const row = document.createElement("tr");
-    addCells(row, ["No open positions. A buy appears here at once, in every market you traded.", "", "", "", "", ""]);
+    addCells(row, ["No open positions. A buy appears here at once, in every market you traded.", "", "", "", "", "", ""]);
     positions.appendChild(row);
   }
   if (workingBody) {
@@ -3888,7 +3890,11 @@ function renderBook(paper) {
         order.limit > 0 ? formatPrice(order.limit) : "—",
         order.tif || "—",
         "",
+        "",
       ]);
+      const actions = document.createElement("span");
+      actions.className = "row-actions";
+      if (order.symbol) actions.appendChild(openChartButton(order.symbol));
       const cancel = document.createElement("button");
       cancel.type = "button";
       cancel.className = "quiet";
@@ -3898,12 +3904,13 @@ function renderBook(paper) {
         render(next);
         $("status").textContent = "Canceled working paper order " + order.id + " on " + (order.symbol || "this market") + ".";
       }));
-      row.lastChild.appendChild(cancel);
+      actions.appendChild(cancel);
+      row.lastChild.appendChild(actions);
       workingBody.appendChild(row);
     });
     if (!working.length) {
       const row = document.createElement("tr");
-      addCells(row, ["No working limit, stop, or stop-limit orders. They show here for every market.", "", "", "", "", "", "", ""]);
+      addCells(row, ["No working limit, stop, or stop-limit orders. They show here for every market.", "", "", "", "", "", "", "", ""]);
       workingBody.appendChild(row);
     }
   }
@@ -3919,12 +3926,14 @@ function renderBook(paper) {
       formatPrice(item.price),
       why,
       item.side === "sell" ? { text: moneyText(item.pnl), cls: tone } : "—",
+      "",
     ]);
+    if (item.symbol) row.lastChild.appendChild(openChartButton(item.symbol));
     fills.appendChild(row);
   });
   if (!book.fills.length) {
     const row = document.createElement("tr");
-    addCells(row, ["No fills yet. Every buy, sell, ticket fill and Sell all is listed here with its time.", "", "", "", "", "", ""]);
+    addCells(row, ["No fills yet. Every buy, sell, ticket fill and Sell all is listed here with its time.", "", "", "", "", "", "", ""]);
     fills.appendChild(row);
   }
   const total = $("book-total");
@@ -6233,6 +6242,7 @@ function renderDeskPoolForms() {
   body.replaceChildren();
   const forms = (state.dp && state.dp.forms) || null;
   const note = $("dp-forms-note");
+  const openSymbol = selectedSymbol() || (state.paper && state.paper.symbol) || "";
   if (note) {
     note.textContent = forms && forms.note
       ? forms.note
@@ -6240,13 +6250,14 @@ function renderDeskPoolForms() {
   }
   if (!forms || !forms.ready || !(forms.rows && forms.rows.length)) {
     const tr = document.createElement("tr");
-    addCells(tr, ["", forms && forms.ready === false ? (forms.note || "No feed") : "No Form Prints yet.", "", "", "", ""]);
+    addCells(tr, ["", forms && forms.ready === false ? (forms.note || "No feed") : "No Form Prints yet.", "", "", "", "", ""]);
     body.appendChild(tr);
     return;
   }
   forms.rows.slice(0, 20).forEach((row) => {
     const tr = document.createElement("tr");
     const value = row.value != null ? formatMoney(row.value) : row.shares != null ? formatVolume(row.shares) + " sh" : "—";
+    const symbol = row.symbol || openSymbol;
     addCells(tr, [
       row.filed || "—",
       (row.name || "—") + (row.title ? " · " + row.title : ""),
@@ -6254,7 +6265,9 @@ function renderDeskPoolForms() {
       row.shares != null ? formatVolume(row.shares) : "—",
       value,
       row.traded || "—",
+      "",
     ]);
+    if (symbol) tr.lastChild.appendChild(openChartButton(symbol, refreshDeskPoolFeeds));
     body.appendChild(tr);
   });
 }
@@ -6272,7 +6285,7 @@ function renderDeskPoolCivic() {
   }
   if (!civic || !civic.ready || !(civic.rows && civic.rows.length)) {
     const tr = document.createElement("tr");
-    addCells(tr, ["", civic && civic.note ? civic.note : "No Civic Trades yet.", "", "", "", ""]);
+    addCells(tr, ["", civic && civic.note ? civic.note : "No Civic Trades yet.", "", "", "", "", ""]);
     body.appendChild(tr);
     return;
   }
@@ -6285,9 +6298,75 @@ function renderDeskPoolCivic() {
       { text: row.side || "—", cls: row.side === "Buy" ? "up" : row.side === "Sell" ? "down" : "" },
       row.amount || "—",
       row.traded || "—",
+      "",
     ]);
+    if (row.symbol) tr.lastChild.appendChild(openChartButton(row.symbol, refreshDeskPoolFeeds));
     body.appendChild(tr);
   });
+}
+
+function fundSeatRows() {
+  const fromApi = state.dp && state.dp.fundSeat && state.dp.fundSeat.rows;
+  if (fromApi && fromApi.length) return fromApi;
+  // Offline / phone fallback — same desk seats, no scrape.
+  const seats = [
+    { seat: "Value Seat", role: "Long compounders · public mega-cap value tilt", symbols: ["BRK-B", "AAPL", "AXP", "KO", "BAC", "CVX", "OXY", "MCO"] },
+    { seat: "Macro Seat", role: "Hard-asset / rates-aware disclosed tilt", symbols: ["SCCO", "CCJ", "GOLD", "NEM", "XOM", "COP", "FCX", "SLV"] },
+    { seat: "Activist Seat", role: "Liquid catalyst names · public activist-style watch", symbols: ["CP", "CMI", "UBER", "HLT", "BN", "CRM", "SNOW", "PDD"] },
+  ];
+  const rows = [];
+  seats.forEach((pack) => {
+    pack.symbols.forEach((symbol) => rows.push({ seat: pack.seat, symbol, role: pack.role }));
+  });
+  return rows;
+}
+
+function renderFundSeatBody(bodyId, noteId) {
+  const body = $(bodyId);
+  if (!body) return;
+  body.replaceChildren();
+  const rows = fundSeatRows();
+  const note = noteId ? $(noteId) : null;
+  const apiNote = state.dp && state.dp.fundSeat && state.dp.fundSeat.note;
+  if (note) {
+    note.textContent =
+      apiNote ||
+      "Fund Seat · Value · Macro · Activist — public disclosed-style ideas under desk names only. Not a scrape. Not a forecast.";
+  }
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    addCells(tr, ["", "Fund Seat unread.", "", ""]);
+    body.appendChild(tr);
+    return;
+  }
+  rows.slice(0, 36).forEach((row) => {
+    const tr = document.createElement("tr");
+    addCells(tr, [row.seat || "—", row.symbol || "—", row.role || "—", ""]);
+    if (row.symbol) tr.lastChild.appendChild(openChartButton(row.symbol));
+    body.appendChild(tr);
+  });
+}
+
+function renderDeskPoolFund() {
+  renderFundSeatBody("dp-fund-body", "dp-fund-note");
+}
+
+function paintCycleFund() {
+  renderFundSeatBody("cycle-fund-body", "cycle-fund-note");
+  const pins = $("cycle-fund-pins");
+  if (!pins) return;
+  const rows = fundSeatRows().slice(0, 12);
+  paintCyclePins(
+    "cycle-fund-pins",
+    rows.map((row) => ({
+      symbol: row.symbol,
+      stage: row.seat,
+      signal: "none",
+      signalLabel: row.role,
+      why: row.role,
+    })),
+    "Fund Seat quiet."
+  );
 }
 
 function renderDeskPool() {
@@ -6297,8 +6376,14 @@ function renderDeskPool() {
   renderDeskPoolScan();
   renderDeskPoolForms();
   renderDeskPoolCivic();
+  renderDeskPoolFund();
   const attr = $("dp-attr");
-  if (attr) attr.textContent = (state.dp && state.dp.attr) || "";
+  if (attr) {
+    const bits = [];
+    if (state.dp && state.dp.attr) bits.push(state.dp.attr);
+    if (state.dp && state.dp.fundSeat && state.dp.fundSeat.attribution) bits.push(state.dp.fundSeat.attribution);
+    attr.textContent = bits.join(" ");
+  }
 }
 
 function publishDeskPool(reads, skipped, listed, done, finished) {
@@ -6456,12 +6541,18 @@ async function refreshDeskPoolFeeds() {
       state.dp.gates = payload.gates || dpEmptyGates();
       state.dp.forms = payload.forms || { ready: false, rows: [], note: "No feed" };
       state.dp.civic = payload.civic || { ready: false, rows: [], note: "No feed" };
-      state.dp.attr = [payload.forms && payload.forms.attribution, payload.civic && payload.civic.attribution]
+      state.dp.fundSeat = payload.fundSeat || { ready: true, rows: fundSeatRows(), note: "" };
+      state.dp.attr = [
+        payload.forms && payload.forms.attribution,
+        payload.civic && payload.civic.attribution,
+        payload.fundSeat && payload.fundSeat.attribution,
+      ]
         .filter(Boolean)
         .join(" ");
     } catch (error) {
       state.dp.forms = { ready: false, rows: [], note: "Form Prints No feed · " + error.message };
       state.dp.civic = { ready: false, rows: [], note: "Civic Trades No feed · " + error.message };
+      state.dp.fundSeat = { ready: true, rows: fundSeatRows(), note: "Fund Seat offline fallback · desk names only." };
       state.dp.attr = "";
     }
   } else {
@@ -6471,9 +6562,11 @@ async function refreshDeskPoolFeeds() {
       note: "Form Prints No feed on the phone copy (Form 4 JSON is not CORS-open). Open Desk Pool on the computer desk for insider Form Prints.",
     };
     state.dp.civic = await deskPoolCivicOffline(symbol);
+    state.dp.fundSeat = { ready: true, rows: fundSeatRows(), note: "Fund Seat · phone copy · desk names only." };
     state.dp.attr = (state.dp.civic && state.dp.civic.attribution) || "";
   }
   renderDeskPool();
+  paintCycleFund();
 }
 
 
@@ -6603,7 +6696,7 @@ function fillScorecardRankBody(bodyId, rows) {
   body.replaceChildren();
   if (!(rows && rows.length)) {
     const empty = document.createElement("tr");
-    addCells(empty, ["", "No closed-bar ranking yet.", "", "", ""]);
+    addCells(empty, ["", "No closed-bar ranking yet.", "", "", "", ""]);
     body.appendChild(empty);
     return;
   }
@@ -6616,7 +6709,9 @@ function fillScorecardRankBody(bodyId, rows) {
       String(row.score),
       { text: ret, cls: row.ret5 > 0 ? "up" : row.ret5 < 0 ? "down" : "" },
       row.stacked ? "Up" : "Off",
+      "",
     ]);
+    tr.lastChild.appendChild(openChartButton(row.symbol));
     tr.addEventListener("click", () => chooseSymbol(row.symbol));
     body.appendChild(tr);
   });
@@ -6918,91 +7013,184 @@ function paintCyclePins(nodeId, rows, emptyLabel) {
   });
 }
 
+function openChartButton(symbol, after) {
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "quiet";
+  open.textContent = "Open";
+  open.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (symbol) chooseSymbol(symbol);
+    if (typeof after === "function") after();
+  });
+  return open;
+}
+
 function paintCycleGraph() {
   const canvas = $("cycle-graph");
   const note = $("cycle-graph-note");
   if (!canvas || !canvas.getContext) return;
   const box = state.cycle || {};
-  const bars = box.graphBars || [];
   const ctx = canvas.getContext("2d");
   const width = canvas.width;
   const height = canvas.height;
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#0f1714";
+  // Desk Cycle Map schematic — our stage names only (matches the emailed Cycle Desk photo layout).
+  ctx.fillStyle = "#e8ece8";
   ctx.fillRect(0, 0, width, height);
-  if (!bars.length || typeof PaperFrames === "undefined" || !PaperFrames.cycleMapRead) {
-    if (note) note.textContent = "Run Cycle Desk to draw closed bars vs the long mean.";
-    ctx.fillStyle = "#8aa094";
-    ctx.font = "14px sans-serif";
-    ctx.fillText("Cycle graph waiting…", 16, height / 2);
-    return;
-  }
-  const read = box.open && box.open.ready ? box.open : PaperFrames.cycleMapRead(bars);
-  const closes = bars.map((bar) => Number(bar.close)).filter((value) => value > 0);
-  if (closes.length < 40) {
-    if (note) note.textContent = "Need more closed bars for the Cycle graph.";
-    return;
-  }
-  const meanLen = 100;
-  const means = [];
-  let sum = 0;
-  for (let index = 0; index < closes.length; index += 1) {
-    sum += closes[index];
-    if (index >= meanLen) sum -= closes[index - meanLen];
-    means.push(index >= meanLen - 1 ? sum / meanLen : null);
-  }
-  const slice = Math.min(180, closes.length);
-  const start = closes.length - slice;
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (let index = start; index < closes.length; index += 1) {
-    lo = Math.min(lo, closes[index]);
-    hi = Math.max(hi, closes[index]);
-    if (means[index] != null) {
-      lo = Math.min(lo, means[index]);
-      hi = Math.max(hi, means[index]);
-    }
-  }
-  if (!(hi > lo)) return;
-  const pad = 14;
-  const xAt = (index) => pad + ((index - start) / Math.max(1, slice - 1)) * (width - pad * 2);
-  const yAt = (value) => height - pad - ((value - lo) / (hi - lo)) * (height - pad * 2);
-  const stretch = read && read.ready ? Number(read.stretch) : 0;
-  ctx.fillStyle = stretch <= -0.08 ? "rgba(180, 70, 70, 0.18)" : stretch >= 0.12 ? "rgba(70, 140, 90, 0.16)" : "rgba(80, 110, 100, 0.12)";
-  ctx.fillRect(pad, pad, width - pad * 2, height - pad * 2);
-  ctx.beginPath();
-  let meanStarted = false;
-  for (let index = start; index < closes.length; index += 1) {
-    if (means[index] == null) continue;
-    const x = xAt(index);
-    const y = yAt(means[index]);
-    if (!meanStarted) {
-      ctx.moveTo(x, y);
-      meanStarted = true;
-    } else ctx.lineTo(x, y);
-  }
-  ctx.strokeStyle = "#6f8f7c";
+  const padL = 28;
+  const padR = 18;
+  const padT = 28;
+  const padB = 36;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+  const meanY = padT + plotH * 0.58;
+  // Dashed Mean
+  ctx.setLineDash([6, 5]);
+  ctx.strokeStyle = "#6a736c";
   ctx.lineWidth = 1.5;
-  ctx.stroke();
   ctx.beginPath();
-  for (let index = start; index < closes.length; index += 1) {
-    const x = xAt(index);
-    const y = yAt(closes[index]);
-    if (index === start) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.strokeStyle = "#d7efe0";
-  ctx.lineWidth = 2;
+  ctx.moveTo(padL, meanY);
+  ctx.lineTo(width - padR, meanY - plotH * 0.04);
   ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#4a524c";
+  ctx.font = "bold 12px sans-serif";
+  ctx.fillText("Mean", width - padR - 42, meanY - 8);
+  // Soft vertical stage guides (photo layout)
+  const guides = [0.1, 0.18, 0.26, 0.36, 0.44, 0.5, 0.55, 0.6, 0.64, 0.68, 0.76, 0.82, 0.88, 0.96];
+  ctx.setLineDash([2, 4]);
+  ctx.strokeStyle = "#b0b8b2";
+  ctx.lineWidth = 1;
+  guides.forEach((t) => {
+    const x = padL + t * plotW;
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, height - padB);
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  // Psychology cycle path (normalized 0..1 x, stretch vs mean)
+  const path = [
+    [0.0, 0.02],
+    [0.08, 0.08],
+    [0.14, 0.18],
+    [0.2, 0.12],
+    [0.26, 0.1],
+    [0.34, 0.28],
+    [0.42, 0.48],
+    [0.5, 0.72],
+    [0.56, 0.88],
+    [0.6, 1.0],
+    [0.63, 0.7],
+    [0.68, 0.78],
+    [0.74, 0.35],
+    [0.8, -0.05],
+    [0.86, -0.28],
+    [0.92, -0.12],
+    [1.0, 0.0],
+  ];
+  const xAt = (t) => padL + t * plotW;
+  const yAt = (stretch) => meanY - stretch * (plotH * 0.48);
+  ctx.beginPath();
+  path.forEach((pt, index) => {
+    const x = xAt(pt[0]);
+    const y = yAt(pt[1]);
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = "#c62828";
+  ctx.lineWidth = 3.2;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  const stages = [
+    { t: 0.1, label: "Takeoff", y: 0.14 },
+    { t: 0.18, label: "First sell-off", y: 0.2 },
+    { t: 0.26, label: "Bear trap", y: 0.05 },
+    { t: 0.36, label: "Media attention", y: 0.32 },
+    { t: 0.44, label: "Enthusiasm", y: 0.52 },
+    { t: 0.5, label: "Public", y: 0.74 },
+    { t: 0.55, label: "Greed", y: 0.9 },
+    { t: 0.6, label: "Delusion", y: 1.02 },
+    { t: 0.64, label: "Denial", y: 0.66 },
+    { t: 0.68, label: "Bull trap", y: 0.82 },
+    { t: 0.76, label: "Fear", y: 0.28 },
+    { t: 0.82, label: "Capitulation", y: -0.08 },
+    { t: 0.88, label: "Despair", y: -0.3 },
+    { t: 0.96, label: "Return to mean", y: -0.04 },
+  ];
+  ctx.font = "11px sans-serif";
+  ctx.fillStyle = "#1c2420";
+  stages.forEach((stage) => {
+    const x = xAt(stage.t);
+    const y = yAt(stage.y);
+    ctx.beginPath();
+    ctx.arc(x, y, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    const above = stage.y >= 0;
+    ctx.fillText(stage.label, Math.min(x - 18, width - 110), y + (above ? -8 : 14));
+  });
+  // Desk callouts (our copy)
+  ctx.fillStyle = "#1b7a3a";
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillText("BUY before mania", xAt(0.18), yAt(0.1) + 32);
+  ctx.strokeStyle = "#1b7a3a";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(xAt(0.26), yAt(0.1) + 6);
+  ctx.lineTo(xAt(0.26), yAt(0.1) + 24);
+  ctx.stroke();
+  ctx.fillStyle = "#b71c1c";
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillText("SELL into greed", xAt(0.46), yAt(0.78) - 20);
+  ctx.strokeStyle = "#b71c1c";
+  ctx.beginPath();
+  ctx.moveTo(xAt(0.54), yAt(0.86));
+  ctx.lineTo(xAt(0.54), yAt(0.86) - 16);
+  ctx.stroke();
+  ctx.fillStyle = "#455a64";
+  ctx.font = "11px sans-serif";
+  ctx.fillText("Fund Seat · early rise", xAt(0.06), yAt(0.08) - 12);
+  // Highlight current open-market stage when ready
+  const read = box.open && box.open.ready ? box.open : null;
+  const stageMap = {
+    takeoff: 0.1,
+    bear_trap: 0.26,
+    enthusiasm: 0.44,
+    mania: 0.5,
+    public: 0.5,
+    greed: 0.55,
+    delusion: 0.6,
+    denial: 0.64,
+    bull_trap: 0.68,
+    fear: 0.76,
+    capitulation: 0.82,
+    despair: 0.88,
+    return_mean: 0.96,
+    cycle_done: 0.98,
+    steady: 0.5,
+  };
+  if (read && read.stage && stageMap[read.stage] != null) {
+    const t = stageMap[read.stage];
+    const x = xAt(t);
+    ctx.strokeStyle = "#0d47a1";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, height - padB);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#0d47a1";
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText("Now · " + (read.label || read.stage), Math.min(x + 6, width - 160), padT + 14);
+  }
   if (note) {
     note.textContent =
-      (box.graphSymbol || "Market") +
-      " · close vs " +
-      meanLen +
-      "-bar mean · " +
-      (read && read.label ? read.label : "Cycle") +
+      (box.graphSymbol ? box.graphSymbol + " · " : "") +
+      (read && read.label ? read.label : "Cycle Map") +
       (read && read.signalLabel ? " · " + read.signalLabel : "") +
-      ". Closed bars only.";
+      " · Own desk stages vs Mean. Guidance only. Not a forecast.";
   }
 }
 
@@ -7083,6 +7271,7 @@ function renderCycleDesk() {
     risk && risk.active ? risk.rows : [],
     market && market.mode !== "tank" ? "Risk Rebound waits for a tank." : ""
   );
+  paintCycleFund();
 
   if (marketNote) {
     marketNote.textContent = market && market.why
