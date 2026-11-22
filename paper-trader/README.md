@@ -102,6 +102,10 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Live stays locked. Every paper buy/sell still asks Yes.
 
 
+## Trade ticket chrome (1.10.15)
+
+Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab / breaker / Safe (Desk extras fold), louder Buy · Sell · Send. Charts, boxes-above stack, Study, Strategies, Seat Trail, and Edge 7/7 Desk Waves unchanged. Paper only. Live locked.
+
 ## Seal refresh (1.10.14)
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
