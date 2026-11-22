@@ -68,6 +68,7 @@ _DESK_PAGES: list[tuple[str, str]] = [
     ("internals", "Internals · market gauges"),
     ("frames", "Timeframes · multi-TF Edge"),
     ("readings", "big4indicator · tape proxies"),
+    ("deskpool", "Desk Pool · Big Prints · Form Prints · Civic Trades"),
     ("journal", "Journal · paper fills and timing"),
     ("backtest", "Backtest · closed-bar replay"),
     ("signals", "Signals · desk checks"),

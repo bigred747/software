@@ -1442,6 +1442,71 @@
     };
   }
 
+  // Big Prints · Iceberg Proxy — closed-bar public tape only. Not a dark-pool book.
+  function bigPrintRead(bars, extras) {
+    const tape = hiddenTape(bars, extras);
+    if (!tape.ready) {
+      return {
+        ready: false,
+        reason: "Need 21 closed bars with volume",
+        rvol: null,
+        absorption: "",
+        effort: "",
+        volume: null,
+        score: 0,
+        label: "—",
+        proxy: "",
+      };
+    }
+    const rvol = tape.feedRelVol || tape.rvol;
+    let score = 0;
+    let label = "Quiet tape";
+    let proxy = "";
+    if (rvol != null) {
+      if (rvol >= 2.5) score += 40;
+      else if (rvol >= 1.8) score += 28;
+      else if (rvol >= 1.5) score += 18;
+      else if (rvol >= 1.2) score += 8;
+    }
+    if (tape.absorption === "absorption") {
+      score += 35;
+      label = "Iceberg Proxy";
+      proxy = "absorption";
+    } else if (tape.absorption === "initiative") {
+      score += 30;
+      label = "Big Print";
+      proxy = "initiative";
+    } else if (tape.absorption === "normal" && rvol != null && rvol >= 1.5) {
+      score += 12;
+      label = "Elevated volume";
+      proxy = "elevated";
+    } else if (tape.absorption === "quiet") {
+      label = "Quiet tape";
+      proxy = "quiet";
+    } else {
+      label = "Normal tape";
+      proxy = "normal";
+    }
+    if (tape.effort === "buyers") score += 10;
+    else if (tape.effort === "sellers") score += 10;
+    if (tape.afterVolume && tape.volume && tape.afterVolume > tape.volume * 0.15) score += 5;
+    score = Math.max(0, Math.min(100, score));
+    return {
+      ready: true,
+      reason: "",
+      rvol,
+      absorption: tape.absorption || "",
+      effort: tape.effort || "",
+      volume: tape.volume,
+      closeLoc: tape.closeLoc,
+      upShare: tape.upShare,
+      score,
+      label,
+      proxy,
+      note: tape.note,
+    };
+  }
+
   function edge(bars, options) {
     const list = bars || [];
     const count = list.length;
@@ -4552,6 +4617,7 @@
     closedBars,
     barIndexAt,
     hiddenTape,
+    bigPrintRead,
     volatility,
     bollinger,
     macd,

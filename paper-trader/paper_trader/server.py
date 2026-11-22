@@ -58,6 +58,7 @@ from paper_trader.learn import (
     remember_focus,
     remember_scan_switch,
     remember_symbols,
+    register_desk_page,
     scan_report,
     score_row,
     stamp_process_on_fills,
@@ -66,9 +67,12 @@ from paper_trader.learn import (
     symbol_rows,
     touch_symbol,
 )
+
+register_desk_page("deskpool", "Desk Pool · Big Prints · Form Prints · Civic Trades")
 from paper_trader.model import params_from_dict
 from paper_trader.indicators import squeeze, squeeze_alert
 from paper_trader import quotes
+from paper_trader.desk_pool import civic_trades, desk_pool_open, form_prints, pool_gates
 from paper_trader.samples import catalog_size, search_symbols, warm
 from paper_trader.schwab_auth import (
     authorize_url as schwab_authorize_url,
@@ -1411,6 +1415,29 @@ class DeskHandler(BaseHTTPRequestHandler):
         if method == "GET" and path == "/api/backtest":
             raw = {**self.desk.journal.params.to_dict(), **query, "symbol": query.get("symbol", self.desk.journal.symbol)}
             self._json(self.desk.backtest(raw))
+            return
+        if method == "GET" and path == "/api/desk-pool":
+            symbol = query.get("symbol") or self.desk.journal.symbol
+            self._json(desk_pool_open(str(symbol or "")))
+            return
+        if method == "GET" and path == "/api/desk-pool/forms":
+            symbol = query.get("symbol") or self.desk.journal.symbol
+            try:
+                limit = int(query.get("limit", "20"))
+            except ValueError:
+                limit = 20
+            self._json(form_prints(str(symbol or ""), limit))
+            return
+        if method == "GET" and path == "/api/desk-pool/civic":
+            symbol = query.get("symbol") or ""
+            try:
+                limit = int(query.get("limit", "40"))
+            except ValueError:
+                limit = 40
+            self._json(civic_trades(str(symbol or ""), limit))
+            return
+        if method == "GET" and path == "/api/desk-pool/gates":
+            self._json(pool_gates())
             return
         body = self._body() if method == "POST" else {}
         if method == "POST" and path in CONFIRM_PATHS and body.get("confirmed") is not True:
