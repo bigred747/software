@@ -1,5 +1,8 @@
 ## Version notes
 
+- **1.10.24** Product clicks no longer flash-then-revert to BTC. Auto no longer holds the busy lock. Chart snaps first on switch. Faster bar pool.
+
+
 - **1.10.23** Faster Tools clicks (bar pool + no Squeeze blockade). Scorecard/Timeframes unstick. Backtest fills even while other scans run. Squeeze defaults to Starter. Cycle Desk graph in tab.
 
 
