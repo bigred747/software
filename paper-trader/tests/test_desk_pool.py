@@ -118,7 +118,7 @@ class DeskPoolTests(unittest.TestCase):
         self.assertEqual(out["gates"]["darkPoolBook"]["status"], "No feed")
         self.assertTrue(out["fundSeat"]["ready"])
         self.assertGreaterEqual(len(out["fundSeat"]["rows"]), 3)
-        self.assertEqual(out["version"], "1.10.27")
+        self.assertEqual(out["version"], "1.10.29")
 
     def test_fund_seat_desk_names_only(self) -> None:
         out = fund_seat(12)

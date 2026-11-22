@@ -144,7 +144,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.27";
+const VERSION = "1.10.29";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -4098,7 +4098,27 @@ function whenIdle() {
 }
 
 const STRAT_KEY = "paper_trader_strategy_v1";
-const STRAT_IDS = ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "seatrail", "weeklow"];
+const STRAT_IDS = [
+  "edge",
+  "squeeze",
+  "quad",
+  "ccizoom",
+  "ccisnap",
+  "pulseband",
+  "rangeflip",
+  "anchorvwap",
+  "stretchpivot",
+  "confirmgate",
+  "donchian",
+  "rsi2",
+  "golden",
+  "dualema",
+  "macdx",
+  "bollrev",
+  "atrtrail",
+  "seatrail",
+  "weeklow",
+];
 const TRIG_KEY = "paper_trader_triggers_v1";
 
 function strategyIds() {
@@ -8618,6 +8638,7 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
   ctx.clip();
   const layers = state.layers;
   const profile = desk.profile;
+  // Volume profile + POC sit on the right of the price pane (not the left).
   if (layers.profile && profile.poc != null) {
     const most = Math.max(...profile.rows.map((row) => row.volume), 1e-9);
     const room = (plotRight - pad) * 0.22;
@@ -8625,14 +8646,10 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
       const top = y(row.high);
       const bottom = y(row.low);
       const inside = row.low >= profile.low - 1e-12 && row.high <= profile.high + 1e-12;
+      const barW = (row.volume / most) * room;
       ctx.fillStyle = inside ? "rgba(127, 150, 175, 0.30)" : "rgba(127, 150, 175, 0.14)";
-      ctx.fillRect(pad, top + 0.5, (row.volume / most) * room, Math.max(1, bottom - top - 1));
+      ctx.fillRect(plotRight - barW, top + 0.5, barW, Math.max(1, bottom - top - 1));
     });
-  }
-  if (layers.bands) {
-    ctx.setLineDash([2, 3]);
-    drawLine(ctx, desk.bands.upper.slice(dropped, dropped + count), y, pad, slot, "#6b7785", 1);
-    drawLine(ctx, desk.bands.lower.slice(dropped, dropped + count), y, pad, slot, "#6b7785", 1);
   }
   if (layers.vwap) {
     ctx.setLineDash([6, 4]);
@@ -8640,7 +8657,7 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
   }
   ctx.setLineDash([]);
   if (layers.trend) drawLine(ctx, desk.ema50.slice(dropped, dropped + count), y, pad, slot, "#3ddc97", 1.85);
-  if (layers.ema200) drawLine(ctx, desk.ema200.slice(dropped, dropped + count), y, pad, slot, "#b48cff", 1.75);
+  if (layers.ema200) drawLine(ctx, desk.ema200.slice(dropped, dropped + count), y, pad, slot, "#c62828", 1.75);
   if (layers.profile && profile.poc != null) {
     const level = y(profile.poc);
     ctx.setLineDash([8, 4]);
@@ -8653,7 +8670,9 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
     ctx.setLineDash([]);
     ctx.font = "11px Segoe UI, sans-serif";
     ctx.fillStyle = "#ffd166";
-    ctx.fillText("POC", pad + 4, Math.max(18, level - 3));
+    const label = "POC";
+    const textW = ctx.measureText(label).width;
+    ctx.fillText(label, Math.max(pad + 4, plotRight - textW - 6), Math.max(18, level - 3));
   }
   ctx.restore();
 }
@@ -8664,17 +8683,17 @@ const LAYERS = [
   ["big4", "big4indicator candle color", "big4", true],
   ["pivots", "Support · Resistance boxes", "pivots", true],
   ["vwap", "VWAP", "vwap", true],
-  ["trend", "Green trend EMA 50", "trend", true],
-  ["stack", "SMA 5 · 9 · 21 · 50 · 100 · 200", "stack", true],
+  ["trend", "Green trend EMA 50", "trend", false],
+  ["stack", "SMA 5 · 9 · 15 · 50 · 100 · 200", "stack", false],
   ["ema200", "200 EMA", "ema200", false],
-  ["profile", "Volume + POC", "poc", false],
-  ["bands", "Bands", "band", false],
+  ["profile", "Volume + POC (right)", "poc", true],
   ["averages", "High · Close · Low", "close", false],
   ["fastslow", "Fast · Slow", "fast", false],
   ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-const LAYERS_KEY = "paperTraderLayers67";
+// Bump key: volume profile right · no Keltner layer · EMA 5/15/50/200 rails.
+const LAYERS_KEY = "paperTraderLayers69";
 
 function readLayers() {
   const chosen = {};
@@ -8737,9 +8756,20 @@ function paintLayers() {
   }
 }
 
+// EMA rails match CCI palette spirit: 5 white · 15 yellow · 50 blue · 200 red.
+const STUDY_RAIL_COLORS = ["#f4f7fb", "#facc15", "#1e5aa8", "#c62828"];
+
+function studyLineColor(name, fallbackIndex) {
+  const key = String(name || "");
+  if (/\b200\b/i.test(key)) return STUDY_RAIL_COLORS[3];
+  if (/\b50\b/i.test(key)) return STUDY_RAIL_COLORS[2];
+  if (/\b15\b|\b20\b|\b14\b|\b21\b/i.test(key)) return STUDY_RAIL_COLORS[1];
+  if (/\b5\b/i.test(key)) return STUDY_RAIL_COLORS[0];
+  return STUDY_RAIL_COLORS[fallbackIndex % STUDY_RAIL_COLORS.length];
+}
+
 function drawStudy(ctx, bars, y, pad, slot) {
   if (!state.study) return;
-  const colors = ["#d7e2ea", "#7dcec4", "#d2b4f0", "#e6c36a"];
   let line = 0;
   state.study.plots.forEach((plot) => {
     const values = visible(plot.values);
@@ -8753,13 +8783,14 @@ function drawStudy(ctx, bars, y, pad, slot) {
         if (!bar) return;
         const x = pad + index * slot + slot / 2;
         const up = side !== "sell";
-        ctx.fillStyle = up ? "#3ddc97" : "#ff6b7a";
+        ctx.fillStyle = up ? "#3ddc97" : "#c62828";
         drawArrow(ctx, x, up ? y(bar.low) + 28 : y(bar.high) - 28, up);
       });
       return;
     }
     if (binary) return;
-    drawLine(ctx, values, y, pad, slot, colors[line % colors.length]);
+    // Fixed order: 1st white, 2nd yellow, 3rd blue, 4th red (also keyed by EMA5/20/50/200 names).
+    drawLine(ctx, values, y, pad, slot, studyLineColor(plot.name, line), 2.1);
     line += 1;
   });
 }

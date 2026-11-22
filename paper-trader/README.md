@@ -1,5 +1,9 @@
 ## Version notes
 
+- **1.10.29** EMA rails 5 white · 15 yellow · 50 blue · 200 red (CCI palette). Volume profile on the right. Keltner layer removed. Five own Strategies: Pulse Band Lock, Range Flip Trail, Anchor VWAP Rebound, Stretch Pivot, Confirm Gate.
+
+- **1.10.28** Study / stack rails hardcoded: 5 white · 20 yellow · 50 blue · 200 red. Desk EMA Fire default. Layers Stack / Keltner / purple 200 off.
+
 - **1.10.27** Background Learn (no blank console window). Hourly pass scans and learns every desk page. Click Open keeps Opening/Opened status readable; learn notes stay short in Signals · Learning.
 
 - **1.10.26** Civic Seat · Fund Seat flow scan on Desk Pool. Learning green while desk/tab is open (honest page-open). Install copy count requires VERSION. Journal sells parallel. Faster learn loop + hourly pass. Live locked.
