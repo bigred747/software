@@ -527,11 +527,16 @@ class ServerTests(unittest.TestCase):
         for name in (
             "This computer only",
             "Strangers blocked",
+            "Artex blocked",
             "Foreign bots kept out",
+            "Temp zips blocked",
+            "Desk files alone",
+            "Foreign scripts refused",
             "Live locked",
             "Paper only",
             "Second warning",
             "No invented breadth",
+            "Desk Pool fail-closed",
             "Quote hosts",
             "Circuit breaker",
             "Order rules",
@@ -542,6 +547,11 @@ class ServerTests(unittest.TestCase):
             "Schwab credentials",
         ):
             self.assertIn(name, names)
+        live = next(item for item in report["items"] if item["name"] == "Live locked")
+        self.assertTrue(live["ok"])
+        self.assertIn("cannot arm", live["detail"])
+        scripts = next(item for item in report["items"] if item["name"] == "Foreign scripts refused")
+        self.assertTrue(scripts["ok"])
         schwab = next(item for item in report["items"] if item["name"] == "Schwab credentials")
         self.assertEqual(schwab["kind"], "health")
         self.assertTrue(schwab["ok"])
@@ -870,7 +880,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.open("/api/health", host="example.test")[0], 404)
 
     def test_refuses_a_temporary_zip_folder_and_a_low_port(self) -> None:
-        from paper_trader.guard import path_looks_foreign
+        from paper_trader.guard import foreign_scripts_status, path_looks_foreign
 
         temp_zip = Path(r"C:\Users\rick\AppData\Local\Temp\abc_pack.zip.43d\app")
         self.assertTrue(is_temp_zip_extract(temp_zip))
@@ -885,6 +895,18 @@ class ServerTests(unittest.TestCase):
         with self.assertRaises(ValueError) as blocked:
             assert_safe_launch([artex])
         self.assertIn("artex", str(blocked.exception).lower())
+        quantum = Path(r"C:\Users\rick\Documents\QuantumTrade\paper-trader")
+        self.assertTrue(path_looks_foreign(quantum))
+        with self.assertRaises(ValueError):
+            assert_safe_launch([quantum])
+        clean = foreign_scripts_status(ROOT)
+        self.assertTrue(clean["ok"], clean)
+        with tempfile.TemporaryDirectory() as folder:
+            dirty_root = Path(folder)
+            (dirty_root / "hack.ps1").write_text("Write-Host bad", encoding="utf-8")
+            dirty = foreign_scripts_status(dirty_root)
+            self.assertFalse(dirty["ok"])
+            self.assertIn("hack.ps1", str(dirty["detail"]))
         self.assertEqual(main(["serve", "--port", "80", "--no-browser"]), 2)
 
     def test_serve_leaves_the_shell_folder_before_it_starts(self) -> None:
@@ -998,7 +1020,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.10.19", script)
+        self.assertIn(b"1.10.20", script)
         self.assertIn(b"indexTapeTrade", script)
         self.assertIn(b"tradeFromBars", script)
         self.assertIn(b"/api/market?symbol=", script)
@@ -1112,6 +1134,12 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"No invented breadth", script)
         self.assertIn(b"Live locked", script)
         self.assertIn(b"Foreign bots kept out", script)
+        self.assertIn(b"deskHookHealthItems", script)
+        self.assertIn(b"Artex blocked", script)
+        self.assertIn(b"Foreign scripts refused", script)
+        self.assertIn(b"Desk Pool fail-closed", script)
+        self.assertIn("Safe · green".encode("utf-8"), script)
+        self.assertIn(b"Live Trading is locked", Path(__file__).resolve().parents[1].joinpath("paper_trader", "schwab_auth.py").read_bytes())
         self.assertIn(b"studies-head", script)
         self.assertIn(b'id="chart-tools"', page)
         self.assertIn(b'id="chart-boxes"', page)

@@ -102,6 +102,10 @@ The desk only answers programs on this computer. It refuses any client that is n
 - Live stays locked. Every paper buy/sell still asks Yes.
 
 
+## Max Safe (1.10.20)
+
+Artex / foreign-bot isolation, hard Live lock (Schwab Live Trading cannot arm), localhost-only, paper-only Yes confirm, no invented breadth, Desk Pool fail-closed, foreign scripts refused, hook-health Safe greens. Live locked.
+
 ## Index tape fix (1.10.19)
 
 Top **YM · RUT · NQ · ES** tape: green/red last + ±% from the same desk futures quotes that already load ES (Yahoo `=F` on computer; PaperLive / closed-bar fallback on phone). Fail closed per chip — no invented prints. Live locked.
