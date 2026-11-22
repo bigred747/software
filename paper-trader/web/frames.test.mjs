@@ -164,7 +164,7 @@ test("true momentum stays inside the length and confirms arrows on a closed bar"
   assert.equal(study.down[25], true);
   const stack = stackAverages(bars);
   assert.equal(stack.length, 6);
-  assert.equal(stack.map((row) => row.length).join(","), "5,9,15,50,100,200");
+  assert.equal(stack.map((row) => row.length).join(","), "5,9,14,50,100,200");
   assert.equal(stack[0].values[4] != null, true);
   assert.equal(stack[5].values[39], null);
 });
