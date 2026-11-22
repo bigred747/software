@@ -163,7 +163,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.30";
+const VERSION = "1.10.31";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -1411,6 +1411,8 @@ async function bootOffline() {
   fillForm(state.paper.params);
   state.market = PaperEngine.market(state.session);
   stampQuote(bars);
+  // Phone Private path never called loadMarket — run Desk EMA Fire before first paint.
+  rerunStudy();
   render(state.paper);
   renderLocalSignals();
   rememberSymbol(state.paper.symbol);
@@ -8703,7 +8705,7 @@ const LAYERS = [
   ["pivots", "Support · Resistance boxes", "pivots", true],
   ["vwap", "VWAP", "vwap", true],
   ["trend", "Green trend EMA 50", "trend", false],
-  ["stack", "SMA 5 · 9 · 14 · 50 · 100 · 200", "stack", false],
+  ["stack", "SMA 5 · 9 · 14 · 50 · 100 · 200", "stack", true],
   ["ema200", "200 EMA", "ema200", false],
   ["profile", "Volume + POC (right)", "poc", true],
   ["averages", "High · Close · Low", "close", false],
@@ -8711,8 +8713,8 @@ const LAYERS = [
   ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-// Bump key keeps prior layer choices; Desk EMA Fire 5/14/50/200 seeds on restoreStudies.
-const LAYERS_KEY = "paperTraderLayers69";
+// Bump key so phone picks up Stack on + Desk EMA Fire paint on open.
+const LAYERS_KEY = "paperTraderLayers70";
 
 function readLayers() {
   const chosen = {};
