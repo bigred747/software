@@ -78,14 +78,28 @@ class SchwabAuthTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             schwab_auth.set_live_trading(True, confirmed=True, path=self.token_path)
         schwab_auth.set_market_data(True, path=self.token_path)
-        with self.assertRaises(ValueError):
-            schwab_auth.set_live_trading(True, confirmed=False, path=self.token_path)
-        armed = schwab_auth.set_live_trading(True, confirmed=True, path=self.token_path)
-        self.assertTrue(armed["live_trading"])
+        with self.assertRaises(ValueError) as blocked:
+            schwab_auth.set_live_trading(True, confirmed=True, path=self.token_path)
+        self.assertIn("locked", str(blocked.exception).lower())
+        cleared = schwab_auth.set_live_trading(False, confirmed=True, path=self.token_path)
+        self.assertFalse(cleared["live_trading"])
+        # Stale armed preference is cleared on status read (Max Safe).
+        schwab_auth.save_store(
+            {
+                "access_token": "access-1",
+                "refresh_token": "refresh-1",
+                "expires_at": 9_999_999_999,
+                "market_data": True,
+                "live_trading": True,
+            },
+            self.token_path,
+        )
         status = schwab_auth.connection_status(self.token_path)
         self.assertTrue(status["market_data"])
-        self.assertTrue(status["live_trading"])
+        self.assertFalse(status["live_trading"])
         self.assertFalse(status["live_orders"])
+        self.assertTrue(status["live_locked"])
+        self.assertFalse(schwab_auth.load_store(self.token_path)["live_trading"])
 
     def test_disconnect_clears_session_and_signal_goes_red(self) -> None:
         schwab_auth.save_store(
@@ -192,16 +206,21 @@ class SchwabApiRouteTests(unittest.TestCase):
         status, raw = self.open("/api/schwab/live-trading", "POST", {"enabled": True})
         self.assertEqual(status, 400)
         status, raw = self.open("/api/schwab/live-trading", "POST", {"enabled": True, "confirmed": True})
+        self.assertEqual(status, 400)
+        self.assertIn(b"locked", raw.lower())
+        status, raw = self.open("/api/schwab/live-trading", "POST", {"enabled": False, "confirmed": True})
         self.assertEqual(status, 200)
-        armed = json.loads(raw)
-        self.assertTrue(armed["live_trading"])
-        self.assertFalse(armed["live_orders"])
+        cleared = json.loads(raw)
+        self.assertFalse(cleared["live_trading"])
+        self.assertFalse(cleared["live_orders"])
+        self.assertTrue(cleared["live_locked"])
         status, checks = self.open("/api/checks")
         self.assertEqual(status, 200)
         report = json.loads(checks)
         schwab = next(item for item in report["items"] if item["name"] == "Schwab")
         self.assertTrue(schwab["ok"])
         self.assertIn("connected", schwab["detail"])
+        self.assertIn("Live locked", schwab["detail"])
 
 
 if __name__ == "__main__":

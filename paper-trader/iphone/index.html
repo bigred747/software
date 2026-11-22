@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.19">
-  <meta name="paper-publish" content="20261122T031900Z">
+  <meta name="paper-build" content="1.10.20">
+  <meta name="paper-publish" content="20261122T064937Z">
   <meta name="paper-private-build" content="publish-20261122T005558Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1599,8 +1599,10 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 .best-setup-gates li.off::before{background:var(--down)}
 .safe-list{list-style:none;margin:6px 0 0;padding:0;font-size:12px;display:grid;gap:3px}
 .safe-list li::before{content:"OK  ";font-weight:700;color:var(--up)}
+.safe-list li.ok::before{content:"GREEN  ";font-weight:700;color:var(--up)}
 .safe-list li.warn::before{content:"CHECK  ";color:var(--warn)}
 .safe-list li.bad::before{content:"FAIL  ";color:var(--down)}
+.safe-list li.ok{color:var(--text)}
 
 .internals-pill{width:100%;margin:4px 0;text-align:left;border:1px solid var(--line-strong);background:var(--button);color:var(--text);padding:6px 10px;border-radius:var(--radius);font-weight:600}
 .internals-pill.supportive{border-color:var(--up);color:#bff5db;background:var(--up-deep)}
@@ -1974,7 +1976,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.19</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.20</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -9887,7 +9889,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.19";
+const VERSION = "1.10.20";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -10238,6 +10240,29 @@ function withHooks(items) {
       ? "Trading preference on · orders still paper"
       : "Locked. Paper only"
   );
+  const safe = state.safe;
+  const safeOk = !!(safe && safe.safe);
+  setSignal(
+    next,
+    "Artex blocked",
+    safeOk || !safe,
+    safe
+      ? safeOk
+        ? "GREEN · will not share files or place trades from Artex"
+        : "Safe check failed — press Safe check"
+      : "Press Safe check"
+  );
+  setSignal(
+    next,
+    "Foreign bots",
+    safeOk || !safe,
+    safe
+      ? safeOk
+        ? "GREEN · foreign bots kept out of this desk"
+        : "Safe check failed — press Safe check"
+      : "Press Safe check"
+  );
+  deskHookHealthItems().forEach((item) => setSignal(next, item.name, item.ok, item.detail));
   const zoomOk = !!($("zoom-in") && $("zoom-out"));
   setSignal(next, "Zoom", zoomOk, zoomOk ? "In and out" : "The zoom buttons are missing");
   return next;
@@ -11201,22 +11226,21 @@ function paintSchwabButtons(status) {
   market.disabled = !linked;
   market.setAttribute("aria-pressed", status && status.market_data ? "true" : "false");
   market.textContent = status && status.market_data ? "Market Data on" : "Market Data";
-  live.disabled = !linked || !(status && status.market_data);
-  live.setAttribute("aria-pressed", status && status.live_trading ? "true" : "false");
-  live.textContent = status && status.live_trading ? "Live Trading on" : "Live Trading";
+  // Max Safe: Live Trading button stays visible but cannot arm — only confirms the lock.
+  live.disabled = false;
+  live.setAttribute("aria-pressed", "false");
+  live.textContent = "Live locked";
   if (!note) return;
   if (!creds) {
-    note.textContent = "Paper stays the default.";
+    note.textContent = "Paper stays the default. Live locked.";
   } else if (!linked) {
     note.textContent = status && status.detail
       ? String(status.detail)
-      : "Paper stays the default.";
-  } else if (status.live_trading) {
-    note.textContent = "Market Data on · Live preference on · paper fills only.";
+      : "Paper stays the default. Live locked.";
   } else if (status.market_data) {
-    note.textContent = "Market Data on · Live off · paper default.";
+    note.textContent = "Market Data on · Live locked · paper only.";
   } else {
-    note.textContent = "Connected · Market Data off · paper default.";
+    note.textContent = "Connected · Market Data off · Live locked · paper only.";
   }
 }
 
@@ -15174,6 +15198,68 @@ async function armOrb(kind) {
 }
 
 
+function deskHookHealthItems() {
+  const items = [];
+  const add = (name, ok, detail) => items.push({ name, ok: !!ok, detail, kind: "health" });
+  const tape = $("index-tape");
+  const chips = tape ? Array.from(tape.querySelectorAll(".index-chip[data-index-symbol]")) : [];
+  const tapeReady = chips.length === 4;
+  const tapeLive = chips.filter((chip) => {
+    const last = chip.querySelector(".index-chip-last");
+    return last && last.textContent && last.textContent !== "—";
+  }).length;
+  add(
+    "Index tape",
+    tapeReady && (tapeLive > 0 || !state.market),
+    tapeReady
+      ? tapeLive
+        ? "YM · RUT · NQ · ES · " + tapeLive + "/4 showing last ±%"
+        : "YM · RUT · NQ · ES chips wired · waiting on quote"
+      : "Index tape chips missing"
+  );
+  const fear = currentMood(seenBars());
+  add(
+    "Fear quote",
+    !!(fear && fear.score != null) || !!(state.market && state.market.price),
+    fear && fear.score != null
+      ? fear.label + " " + fear.score
+      : state.market && state.market.price
+        ? "Quote loaded · mood waiting"
+        : "Waiting on the quote"
+  );
+  const edgeOk = typeof PaperFrames !== "undefined" && !!PaperFrames.edge && !!PaperFrames.EDGE_SCORE;
+  add("Edge Fire", edgeOk, edgeOk ? "Edge " + PaperFrames.EDGE_SCORE + "/7 stack ready" : "Edge stack missing");
+  const scanOk =
+    typeof bestFires === "function" ||
+    (typeof PaperFrames !== "undefined" && (!!PaperFrames.squeezeRead || !!PaperFrames.bestFades));
+  add("Scanners", !!scanOk, scanOk ? "Fire / Squeeze / Tide scanners wired" : "Scanner hooks missing");
+  const forecastOk = typeof PaperFrames !== "undefined" && !!PaperFrames.marketForecastRead;
+  add(
+    "Forecaster",
+    forecastOk,
+    forecastOk ? "Forecaster price call wired" : "Forecaster missing on this build"
+  );
+  const poolGates = state.dp && state.dp.gates;
+  const poolKeys = ["darkPoolBook", "icebergBook", "institutionalBlotter"];
+  const poolFailClosed =
+    !poolGates ||
+    poolKeys.every((key) => {
+      const gate = poolGates[key];
+      return !gate || gate.status === "No feed" || gate.ready === false;
+    });
+  const poolLiveLocked = !poolGates || poolGates.liveLocked === true || poolGates.paperOnly === true;
+  add(
+    "Desk Pool",
+    !!poolLiveLocked,
+    poolFailClosed
+      ? "Pool Book · Iceberg Book · Blotter fail closed (No feed — never invent) · Live locked"
+      : poolLiveLocked
+        ? "Desk Pool gates readable · Live locked · paper only"
+        : "Desk Pool Live lock missing"
+  );
+  return items;
+}
+
 async function phoneSafe() {
   const items = [];
   const add = (name, ok, detail, kind) => items.push({ name, ok: !!ok, detail, kind: kind || "safety" });
@@ -15184,18 +15270,33 @@ async function phoneSafe() {
   } catch (error) {
     locked = true;
   }
-  add("Live locked", locked, "No broker or bank link. Every order is paper");
-  add("Paper only", !state.paper || state.paper.paper === true, "Paper mode is on");
+  add("Artex blocked", true, "Phone copy has no Artex folder share. Paper book stays in this browser only");
+  add("Live locked", locked, "No broker or bank link. Every order is paper. Foreign bots cannot unlock Live");
+  add(
+    "Paper only",
+    locked && (!state.paper || (state.paper.paper === true && state.paper.live !== true && state.paper.mode !== "live")),
+    "Paper mode is on. Foreign bots cannot place live trades"
+  );
   add(
     "Foreign bots kept out",
     true,
-    "Artex and other foreign bots cannot share this desk's files. Paper book stays in this browser only"
+    "Artex and other foreign bots cannot share this desk's files or place trades. Paper book stays in this browser only"
   );
-  add("Second warning", true, "Every paper buy and sell still asks Yes, including Auto");
+  add("Temp zips blocked", true, "Phone page is not a Temp unzip fold");
+  add("Desk files alone", true, "Paper book stays in this browser only — not shared with foreign bots");
+  add("Foreign scripts refused", true, "Phone page ships no PowerShell, VBS, or HTA side scripts");
+  add("Strangers blocked", true, "No remote desk. Orders stay on this device");
+  const confirmOk = CONFIRM_PATHS.includes("/api/paper/trade") && CONFIRM_PATHS.includes("/api/paper/ticket") && CONFIRM_PATHS.includes("/api/paper/halt");
+  add("Second warning", confirmOk, confirmOk ? "Every paper buy and sell still asks Yes, including Auto" : "Confirm paths missing on this build");
   add(
     "No invented breadth",
     true,
     "TICK/ADD/TRIN/VOLD stay No feed (will not invent). VIX only from a real quote. No TradingView scrape"
+  );
+  add(
+    "Desk Pool fail-closed",
+    true,
+    "Pool Book · Iceberg Book · Blotter stay No feed on phone — never invent. Live locked"
   );
   let rules = true;
   try {
@@ -15246,6 +15347,7 @@ async function phoneSafe() {
         : "Bot score off. Open Paper Trader to start it, or tick Start the score under Windows extras. Page-open learning still covers every Tools page in this tab.",
     "health"
   );
+  deskHookHealthItems().forEach((item) => items.push(item));
   return { safe: items.filter((item) => item.kind === "safety").every((item) => item.ok), items };
 }
 
@@ -15287,20 +15389,27 @@ async function runSafe(manual) {
   try {
     const report = state.offline ? await phoneSafe() : await getJSON("/api/safe");
     report.items.push({ name: "Internals", ok: !!(state.int.result && state.int.result.ready), detail: state.int.result ? internalsLine() : "Not read yet", kind: "health" });
+    if (!state.offline) deskHookHealthItems().forEach((item) => report.items.push(item));
     const bad = report.items.filter((item) => item.kind === "safety" && !item.ok);
     const warn = report.items.filter((item) => item.kind !== "safety" && !item.ok);
     button.className = "safe-btn " + (bad.length ? "bad" : warn.length ? "warn" : "ok");
-    button.textContent = bad.length ? "Not safe" : warn.length ? "Safe · " + warn.length + " to check" : "Safe";
+    button.textContent = bad.length ? "Not safe" : warn.length ? "Safe · " + warn.length + " to check" : "Safe · green";
     const stamp = new Date().toLocaleTimeString("en-US", { timeZone: "America/Denver" });
     $("safe-note").textContent = bad.length
       ? "Fix first: " + bad.map((item) => item.name).join(", ") + ". Auto is stopped."
-      : "All " + report.items.filter((item) => item.kind === "safety").length + " safety checks passed at " + stamp + " Denver." + (warn.length ? " Check: " + warn.map((item) => item.name).join(", ") + "." : "");
+      : "GREEN · all " +
+        report.items.filter((item) => item.kind === "safety").length +
+        " safety checks passed at " +
+        stamp +
+        " Denver (Artex blocked · strangers blocked · foreign bots out · Live locked · paper only)." +
+        (warn.length ? " Check: " + warn.map((item) => item.name).join(", ") + "." : "");
     const list = $("safe-list");
     list.replaceChildren();
     report.items.forEach((item) => {
       const row = document.createElement("li");
       row.textContent = item.name + " · " + item.detail;
       if (!item.ok) row.className = item.kind === "safety" ? "bad" : "warn";
+      else row.className = "ok";
       list.appendChild(row);
     });
     state.safe = report;
@@ -19106,7 +19215,7 @@ $("halt").addEventListener("click", async () => {
 });
 
 $("live").addEventListener("click", () => {
-  $("status").textContent = LIVE_NOTE + " To trade real money, use your broker's own app. Use Live Trading under Schwab only after Connect and Market Data.";
+  $("status").textContent = LIVE_NOTE + " To trade real money, use your broker's own app. Schwab Live Trading stays locked on this desk.";
 });
 
 $("paper").addEventListener("click", () => withBusy(async () => {
@@ -19180,32 +19289,17 @@ $("schwab-market").addEventListener("click", () => withBusy(async () => {
 }));
 
 $("schwab-live").addEventListener("click", () => withBusy(async () => {
-  if (!(state.schwab && state.schwab.connected && state.schwab.market_data)) {
-    $("status").textContent = "Connect and turn Market Data on before Live Trading.";
-    return;
-  }
-  if (state.schwab && state.schwab.live_trading) {
-    const status = await postJSON("/api/schwab/live-trading", { enabled: false, confirmed: true });
-    paintSchwabButtons(status);
-    await loadSignals();
-    $("status").textContent = "Live Trading off. Paper stays the default. No broker orders were sent.";
-    return;
-  }
-  const ok = window.confirm(
-    "Turn Live Trading preference ON?\n\nPaper stays the default on this desk. This does not send broker orders. Real fills stay paper until a future Trader API step. Press Cancel to keep Live Trading off."
-  );
-  if (!ok) {
-    $("status").textContent = "Live Trading stays off.";
-    return;
-  }
+  // Max Safe: refuse arming. Clear any stale preference, then report Live locked.
   try {
-    const status = await postJSON("/api/schwab/live-trading", { enabled: true, confirmed: true });
-    paintSchwabButtons(status);
-    await loadSignals();
-    $("status").textContent = "Live Trading preference on. Orders still fill on paper. No broker link was used.";
+    if (state.schwab && state.schwab.live_trading) {
+      const status = await postJSON("/api/schwab/live-trading", { enabled: false, confirmed: true });
+      paintSchwabButtons(status);
+      await loadSignals();
+    }
   } catch (error) {
-    $("status").textContent = error.message;
+    /* disarm may 400 when already off — still locked */
   }
+  $("status").textContent = LIVE_NOTE + " Schwab Live Trading cannot arm on this desk. Paper only.";
 }));
 
 $("quote").addEventListener("click", () => {

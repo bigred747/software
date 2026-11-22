@@ -265,16 +265,15 @@ def set_market_data(enabled: bool, path: Path | None = None) -> dict[str, Any]:
 
 
 def set_live_trading(enabled: bool, *, confirmed: bool = False, path: Path | None = None) -> dict[str, Any]:
-    """Arm/disarm Live Trading preference. Does not place broker orders; Paper stays default."""
-    if enabled and not confirmed:
-        raise ValueError("Confirm first. Live Trading stays off until you press Yes.")
-    status = connection_status(path)
-    if enabled and not status["connected"]:
-        raise ValueError("Connect to Schwab before turning Live Trading on")
-    if enabled and not status["market_data"]:
-        raise ValueError("Turn Market Data on before Live Trading")
+    """Live Trading stays locked off. Enabling is refused; only disarm is allowed."""
+    del confirmed  # kept for API shape; ON is never allowed
+    if enabled:
+        raise ValueError(
+            "Live Trading is locked. This desk stays paper only. No broker orders. "
+            "Use your broker's own app for real money."
+        )
     store = load_store(path)
-    store["live_trading"] = bool(enabled)
+    store["live_trading"] = False
     return save_store(store, path)
 
 
@@ -287,10 +286,7 @@ def _detail_for(store: dict[str, Any], connected: bool, credentials: bool) -> st
         bits = ["connected"]
         if store.get("market_data"):
             bits.append("market data on")
-        if store.get("live_trading"):
-            bits.append("live trading armed (orders still paper)")
-        else:
-            bits.append("session valid")
+        bits.append("Live locked · paper only")
         return " · ".join(bits)
     if store.get("last_error"):
         return "not connected · " + str(store["last_error"])
@@ -306,9 +302,15 @@ def connection_status(path: Path | None = None) -> dict[str, Any]:
     credentials = credentials_ready()
     store = ensure_session(path)
     connected = bool(store.get("access_token") and int(store.get("expires_at") or 0) > int(time.time()))
+    dirty = False
+    # Max Safe: clear any stale Live preference so the flag can never stick on.
+    if store.get("live_trading"):
+        store["live_trading"] = False
+        dirty = True
     if not connected and store.get("market_data"):
         store["market_data"] = False
-        store["live_trading"] = False
+        dirty = True
+    if dirty:
         store = save_store(store, path)
     detail = _detail_for(store, connected, credentials)
     return {
@@ -319,12 +321,13 @@ def connection_status(path: Path | None = None) -> dict[str, Any]:
         "connected": connected,
         "credentials": credentials,
         "market_data": bool(store.get("market_data")) and connected,
-        "live_trading": bool(store.get("live_trading")) and connected,
+        "live_trading": False,
         "env_path": str(ENV_PATH),
         "token_path": str(path or TOKEN_PATH),
         "callback": _callback_url(),
         "live_orders": False,
         "paper_default": True,
+        "live_locked": True,
     }
 
 

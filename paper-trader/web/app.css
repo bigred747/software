@@ -1582,8 +1582,10 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 .best-setup-gates li.off::before{background:var(--down)}
 .safe-list{list-style:none;margin:6px 0 0;padding:0;font-size:12px;display:grid;gap:3px}
 .safe-list li::before{content:"OK  ";font-weight:700;color:var(--up)}
+.safe-list li.ok::before{content:"GREEN  ";font-weight:700;color:var(--up)}
 .safe-list li.warn::before{content:"CHECK  ";color:var(--warn)}
 .safe-list li.bad::before{content:"FAIL  ";color:var(--down)}
+.safe-list li.ok{color:var(--text)}
 
 .internals-pill{width:100%;margin:4px 0;text-align:left;border:1px solid var(--line-strong);background:var(--button);color:var(--text);padding:6px 10px;border-radius:var(--radius);font-weight:600}
 .internals-pill.supportive{border-color:var(--up);color:#bff5db;background:var(--up-deep)}

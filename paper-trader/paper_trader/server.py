@@ -16,7 +16,13 @@ from urllib.parse import parse_qs, unquote, urlparse
 from paper_trader import __version__
 from paper_trader.breadth import snapshot as breadth_snapshot
 from paper_trader.backtest import present, run_backtest
-from paper_trader.guard import isolation_status
+from paper_trader.guard import (
+    artex_blocked_status,
+    desk_files_alone_status,
+    foreign_scripts_status,
+    isolation_status,
+    temp_zip_blocked_status,
+)
 from paper_trader.install import (
     desktop_opener_present,
     other_copies,
@@ -833,20 +839,88 @@ class Desk:
         refused = not _local_client(("8.8.8.8", 0)) and not _local_origin("https://evil.example") and _local_origin("http://127.0.0.1:8765")
         add("Strangers blocked", refused, "Other computers and other web pages are refused")
         root = Path(__file__).resolve().parents[1]
-        alone = isolation_status([root, self.state_path, self.learn_path, self.shelf_path, self.breaker_path])
+        watched = [root, self.state_path, self.learn_path, self.shelf_path, self.breaker_path]
+        artex = artex_blocked_status(watched)
+        add(str(artex["name"]), bool(artex["ok"]), str(artex["detail"]))
+        alone = isolation_status(watched)
         add(str(alone["name"]), bool(alone["ok"]), str(alone["detail"]))
+        temp = temp_zip_blocked_status(watched)
+        add(str(temp["name"]), bool(temp["ok"]), str(temp["detail"]))
+        files = desk_files_alone_status(root, [self.state_path, self.learn_path, self.shelf_path, self.breaker_path])
+        add(str(files["name"]), bool(files["ok"]), str(files["detail"]))
+        scripts = foreign_scripts_status(root)
+        add(str(scripts["name"]), bool(scripts["ok"]), str(scripts["detail"]))
         try:
             mode_guard("live")
             locked = False
         except ValueError:
             locked = True
-        add("Live locked", locked, "No broker or bank link. Every order is paper")
-        add("Paper only", True, "No live orders. Folded zip extracts and foreign bots cannot place trades")
-        add("Second warning", True, "Every paper buy and sell still asks Yes, including Auto")
+        link = schwab_connection_status()
+        live_pref_off = (
+            link.get("live_trading") is not True
+            and link.get("live_orders") is False
+            and link.get("live_locked") is True
+            and link.get("paper_default") is True
+        )
+        add(
+            "Live locked",
+            locked and live_pref_off,
+            "No broker or bank link. Every order is paper. Schwab Live Trading cannot arm. Foreign bots cannot unlock Live",
+        )
+        paper_ok = locked and live_pref_off
+        try:
+            with self.lock:
+                view = view_journal(self.journal)
+            paper_ok = (
+                paper_ok
+                and view.get("live") is False
+                and view.get("paper") is True
+                and view.get("mode") == "paper"
+            )
+        except ValueError:
+            # Quote miss does not weaken the structural Live lock / paper-default probes.
+            pass
+        add(
+            "Paper only",
+            paper_ok,
+            "No live orders. Folded zip extracts and foreign bots cannot place trades"
+            if paper_ok
+            else "Paper mode check failed — reopen the desk",
+        )
+        confirm_need = {"/api/paper/trade", "/api/paper/ticket", "/api/paper/halt"}
+        confirm_ok = confirm_need <= CONFIRM_PATHS
+        add(
+            "Second warning",
+            confirm_ok,
+            "Every paper buy and sell still asks Yes, including Auto"
+            if confirm_ok
+            else "Confirm paths missing — reopen this build",
+        )
+        breadth = breadth_snapshot()
+        nyse_blank = all(breadth.get("values", {}).get(key) is None for key in ("TICK", "ADD", "TRIN", "VOLD"))
+        invent_ok = breadth.get("will_not_invent") is True and nyse_blank
         add(
             "No invented breadth",
-            True,
-            "TICK/ADD/TRIN/VOLD stay No feed (will not invent). VIX only from a real quote. No TradingView scrape",
+            invent_ok,
+            "TICK/ADD/TRIN/VOLD stay No feed (will not invent). VIX only from a real quote. No TradingView scrape"
+            if invent_ok
+            else "Breadth fail-closed check failed",
+        )
+        pool = pool_gates()
+        pool_ok = (
+            pool.get("liveLocked") is True
+            and pool.get("paperOnly") is True
+            and all(
+                (pool.get(key) or {}).get("status") == "No feed" or (pool.get(key) or {}).get("ready") is False
+                for key in ("darkPoolBook", "icebergBook", "institutionalBlotter")
+            )
+        )
+        add(
+            "Desk Pool fail-closed",
+            pool_ok,
+            "Pool Book · Iceberg Book · Blotter stay No feed — never invent. Live locked"
+            if pool_ok
+            else "Desk Pool gates drifted — reopen this build",
         )
         hosts = {_url_host(quotes._URL)}
         add("Quote hosts", hosts <= QUOTE_HOSTS, "Prices come from " + ", ".join(sorted(hosts)) + " only")

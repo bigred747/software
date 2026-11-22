@@ -32,7 +32,7 @@ _CIVIC_MEMBERS = (
 )
 
 _UA = {
-    "User-Agent": "Mozilla/5.0 PaperTrader-DeskPool/1.10.19",
+    "User-Agent": "Mozilla/5.0 PaperTrader-DeskPool/1.10.20",
     "Accept": "application/json",
 }
 
@@ -346,5 +346,5 @@ def desk_pool_open(symbol: str) -> dict[str, Any]:
         "gates": pool_gates(),
         "forms": form_prints(ticker, 20),
         "civic": civic_trades(ticker, 30),
-        "version": "1.10.19",
+        "version": "1.10.20",
     }
