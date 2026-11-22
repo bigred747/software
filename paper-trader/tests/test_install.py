@@ -17,6 +17,7 @@ from paper_trader.install import (
     is_install,
     other_copies,
     remove_desktop_opener,
+    single_copy_status,
     write_desktop_opener,
 )
 
@@ -93,6 +94,24 @@ class InstallTests(unittest.TestCase):
             self.assertTrue(is_install(setup))
             self.assertTrue(is_install(dest))
             self.assertEqual((notes / "keep.txt").read_text(encoding="utf-8"), "leave\n")
+
+    def test_incomplete_extracts_without_version_do_not_inflate_copy_count(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            dest = canonical_folder(home)
+            junk = home / "Downloads" / "paper-trader"
+            make_install(dest, "1.10.26")
+            junk.mkdir(parents=True)
+            (junk / "Start-Paper-Trader.bat").write_text("@echo off\r\n", encoding="utf-8")
+            package = junk / "paper_trader"
+            package.mkdir()
+            (package / "__init__.py").write_text('__version__ = "1.0.0"\n', encoding="utf-8")
+            # No VERSION file — leftover unzip debris.
+            self.assertFalse(is_install(junk))
+            status = single_copy_status(home)
+            self.assertTrue(status["ok"])
+            self.assertIn("Newest copy only", str(status["detail"]))
+            self.assertEqual(find_installs(home), [dest.resolve()])
 
     def test_installing_never_ends_programs_or_deletes_other_folders(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

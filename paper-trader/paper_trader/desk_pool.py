@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 import urllib.error
@@ -32,7 +33,7 @@ _CIVIC_MEMBERS = (
 )
 
 _UA = {
-    "User-Agent": "Mozilla/5.0 PaperTrader-DeskPool/1.10.25",
+    "User-Agent": "Mozilla/5.0 PaperTrader-DeskPool/1.10.26",
     "Accept": "application/json",
 }
 
@@ -387,6 +388,107 @@ def civic_trades(symbol: str = "", limit: int = 40) -> dict[str, Any]:
     }
 
 
+def _amount_high(text: str) -> int:
+    """Upper end of a STOCK Act amount bracket. Fail closed at 0 when unread."""
+    nums = [int(piece.replace(",", "")) for piece in re.findall(r"([\d,]+)", str(text or ""))]
+    return max(nums) if nums else 0
+
+
+def seat_flow_scan(limit: int = 36) -> dict[str, Any]:
+    """Rank big Civic Seat buys/sells + Fund Seat Form 4 flow. Own desk names only."""
+    cap = max(1, min(int(limit), 60))
+    civic = civic_trades("", 80)
+    rows: list[dict[str, Any]] = []
+    for item in civic.get("rows") or []:
+        if not isinstance(item, dict):
+            continue
+        side = str(item.get("side") or "")
+        if side not in {"Buy", "Sell"}:
+            continue
+        size = _amount_high(str(item.get("amount") or ""))
+        if size < 15000 and side == "Buy":
+            # Keep mid brackets for sells; buys need meaningful size.
+            if size < 1001:
+                continue
+        score = min(99, 40 + size // 25000)
+        if side == "Buy":
+            score += 8
+        rows.append(
+            {
+                "seat": "Civic Seat",
+                "symbol": item.get("symbol"),
+                "side": side,
+                "size": item.get("amount") or "—",
+                "sizeRank": size,
+                "who": item.get("member") or "—",
+                "traded": item.get("traded") or item.get("disclosed") or "—",
+                "score": score,
+                "why": "STOCK Act disclosure · public filing",
+            }
+        )
+    fund = fund_seat(36)
+    fund_symbols = [str(row.get("symbol") or "") for row in (fund.get("rows") or []) if row.get("symbol")]
+    for symbol in fund_symbols[:18]:
+        forms = form_prints(symbol, 8)
+        if not forms.get("ready"):
+            continue
+        seat_name = next((row.get("seat") for row in (fund.get("rows") or []) if row.get("symbol") == symbol), "Fund Seat")
+        for item in forms.get("rows") or []:
+            if not isinstance(item, dict):
+                continue
+            side = str(item.get("side") or "")
+            if side not in {"Buy", "Sell"}:
+                continue
+            value = item.get("value")
+            try:
+                size = int(float(value)) if value is not None else 0
+            except (TypeError, ValueError):
+                size = 0
+            if size < 25000 and not item.get("shares"):
+                continue
+            score = min(99, 45 + (size // 50000))
+            if side == "Buy":
+                score += 6
+            rows.append(
+                {
+                    "seat": seat_name or "Fund Seat",
+                    "symbol": symbol,
+                    "side": side,
+                    "size": f"${size:,}" if size else (str(item.get("shares") or "—") + " sh"),
+                    "sizeRank": size or int(item.get("shares") or 0),
+                    "who": (item.get("name") or "—") + ((" · " + item.get("title")) if item.get("title") else ""),
+                    "traded": item.get("traded") or item.get("filed") or "—",
+                    "score": score,
+                    "why": "Form 4 · public insider filing · Fund Seat watch",
+                }
+            )
+    rows.sort(key=lambda row: (-int(row.get("score") or 0), -int(row.get("sizeRank") or 0), str(row.get("symbol") or "")))
+    trimmed = rows[:cap]
+    ready = bool(trimmed) or bool(civic.get("ready")) or bool(fund.get("ready"))
+    note = (
+        "Civic Seat · Fund Seat scan — big public Buys/Sells from STOCK Act + Form 4 on Fund Seat names. "
+        "Desk names only. Lagged filings. Not a scrape of any investor product. Paper only. Live locked."
+    )
+    if not trimmed:
+        note = (
+            "Civic Seat · Fund Seat quiet right now (no elevated public Buys/Sells in the loaded filings). "
+            "Empty is a normal fail-closed answer. Not a forecast."
+        )
+    return {
+        "ready": ready,
+        "rows": trimmed,
+        "note": note,
+        "source": "desk-seat-flow",
+        "attribution": (
+            (civic.get("attribution") or "")
+            + " "
+            + (fund.get("attribution") or "")
+        ).strip(),
+        "asOf": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "scanned": len(rows),
+    }
+
+
 def desk_pool_open(symbol: str) -> dict[str, Any]:
     """One payload for the Desk Pool Tools page on the open market."""
     ticker = str(symbol or "").strip().upper()
@@ -396,5 +498,5 @@ def desk_pool_open(symbol: str) -> dict[str, Any]:
         "forms": form_prints(ticker, 20),
         "civic": civic_trades(ticker, 30),
         "fundSeat": fund_seat(36),
-        "version": "1.10.25",
+        "version": "1.10.26",
     }

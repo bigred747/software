@@ -45,9 +45,20 @@ def search_roots(home: Path) -> list[Path]:
 
 
 def is_install(folder: Path) -> bool:
+    """A real desk copy: launcher + package + VERSION. Half-deleted extracts do not count."""
     if path_looks_foreign(folder):
         return False
-    return (folder / LAUNCHER).is_file() and (folder / PACKAGE).is_file()
+    name = folder.name.lower()
+    if name in {"__macosx", "runtime", "node_modules", "tests", ".git"}:
+        return False
+    if not (folder / LAUNCHER).is_file():
+        return False
+    if not (folder / PACKAGE).is_file():
+        return False
+    # VERSION marks a finished install. Incomplete unzip leftovers inflate the old count.
+    if not (folder / "VERSION").is_file():
+        return False
+    return True
 
 
 def find_installs(home: Path) -> list[Path]:
@@ -57,7 +68,10 @@ def find_installs(home: Path) -> list[Path]:
         for folder in _nearby_dirs(root):
             if not is_install(folder):
                 continue
-            resolved = folder.resolve()
+            try:
+                resolved = folder.resolve()
+            except OSError:
+                continue
             if resolved in seen:
                 continue
             seen.add(resolved)
@@ -163,12 +177,38 @@ def other_copies(home: Path, running: Path) -> list[Path]:
     return found
 
 
+def _copy_label(folder: Path) -> str:
+    version = "—"
+    version_file = folder / "VERSION"
+    if version_file.is_file():
+        try:
+            version = version_file.read_text(encoding="utf-8").strip() or "—"
+        except OSError:
+            version = "—"
+    try:
+        home = Path.home().resolve()
+        shown = str(folder.resolve().relative_to(home))
+    except (OSError, ValueError):
+        shown = folder.name
+    return f"{shown} ({version})"
+
+
 def single_copy_status(home: Path) -> dict[str, str | bool]:
-    copies = find_installs(home)
-    if len(copies) <= 1:
-        detail = "Newest copy only" if copies else "No extra copies"
-        return {"name": "Install", "ok": True, "detail": detail}
-    return {"name": "Install", "ok": False, "detail": f"{len(copies)} copies found"}
+    """Accurate install count. Never deletes. Guides keep Documents\\Paper Trader only."""
+    copies = sorted(find_installs(home), key=_installed_version, reverse=True)
+    if not copies:
+        return {"name": "Install", "ok": True, "detail": "No extra copies"}
+    if len(copies) == 1:
+        return {"name": "Install", "ok": True, "detail": "Newest copy only · " + _copy_label(copies[0])}
+    newest = copies[0]
+    extras = copies[1:]
+    shown = ", ".join(_copy_label(path) for path in extras[:4])
+    more = f" +{len(extras) - 4} more" if len(extras) > 4 else ""
+    detail = (
+        f"{len(copies)} copies · keep latest Documents\\Paper Trader · newest {_copy_label(newest)} · also {shown}{more}. "
+        "Nothing is deleted for you — remove older Downloads/Desktop extracts yourself."
+    )
+    return {"name": "Install", "ok": False, "detail": detail}
 
 
 def _installed_version(folder: Path) -> tuple[int, ...]:
