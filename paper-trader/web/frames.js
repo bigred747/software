@@ -255,12 +255,12 @@
   }
 
   const STACK_AVGS = [
-    { length: 5, color: "#ff4db8", name: "5" },
+    { length: 5, color: "#d6dde5", name: "5" },
     { length: 9, color: "#22d3ee", name: "9" },
-    { length: 21, color: "#ff4d4d", name: "21" },
-    { length: 50, color: "#f4f7fb", name: "50" },
+    { length: 21, color: "#c9a000", name: "21" },
+    { length: 50, color: "#1565c0", name: "50" },
     { length: 100, color: "#facc15", name: "100" },
-    { length: 200, color: "#d4a574", name: "200" },
+    { length: 200, color: "#b71c1c", name: "200" },
   ];
 
   function stackAverages(bars) {

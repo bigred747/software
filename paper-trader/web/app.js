@@ -8738,13 +8738,13 @@ function paintLayers() {
 }
 
 function studyLineColor(name, fallbackIndex) {
-  // Match CCI pane rails: 50 white · 14 yellow · 5 cyan · 200 / sell red.
+  // Desk Fire rails (darker): 5 white · 20 yellow · 50 blue · 200 red.
   const key = String(name || "");
-  if (/\b200\b|red/i.test(key)) return "#ff4d4d";
-  if (/\b50\b/i.test(key)) return "#f4f7fb";
-  if (/\b14\b/i.test(key)) return "#facc15";
-  if (/\b5\b/i.test(key)) return "#22d3ee";
-  const colors = ["#22d3ee", "#facc15", "#f4f7fb", "#ff4d4d"];
+  if (/\b200\b/i.test(key)) return "#b71c1c";
+  if (/\b50\b/i.test(key)) return "#1565c0";
+  if (/\b20\b|\b14\b/i.test(key)) return "#c9a000";
+  if (/\b5\b/i.test(key)) return "#d6dde5";
+  const colors = ["#d6dde5", "#c9a000", "#1565c0", "#b71c1c"];
   return colors[fallbackIndex % colors.length];
 }
 

@@ -2267,7 +2267,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">With big4indicator on, candles paint all green in a bullish stretch and all red in a bearish stretch (mixed is gray). With that layer off, up candles are solid green and down candles are solid red. Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (pink), 9 (cyan), 21 (red), 50 (white), 100 (yellow), and 200 (peach) on this chart's own bars. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses; then Volume Wave · Desk Waves — Hull ATR (n=6) × ATRmult (0.7) gates accum/distrib volume waves (green up / red down hist, cyan average); settings live on the pane; optional candle paint follows the active wave. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator paints candle color from EMA 50/200, MACD, and RSI on closed bars; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the study stack share. Not a forecast.</p>
+        <p class="muted chart-note">With big4indicator on, candles paint all green in a bullish stretch and all red in a bearish stretch (mixed is gray). With that layer off, up candles are solid green and down candles are solid red. Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (white), 9 (cyan), 21 (yellow), 50 (blue), 100 (gold), and 200 (red) on this chart's own bars. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses; then Volume Wave · Desk Waves — Hull ATR (n=6) × ATRmult (0.7) gates accum/distrib volume waves (green up / red down hist, cyan average); settings live on the pane; optional candle paint follows the active wave. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator paints candle color from EMA 50/200, MACD, and RSI on closed bars; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the study stack share. Not a forecast.</p>
       </details>
     </section>
 
@@ -5028,12 +5028,12 @@ plot Sell = close crosses below baseline;</textarea>
   }
 
   const STACK_AVGS = [
-    { length: 5, color: "#ff4db8", name: "5" },
+    { length: 5, color: "#d6dde5", name: "5" },
     { length: 9, color: "#22d3ee", name: "9" },
-    { length: 21, color: "#ff4d4d", name: "21" },
-    { length: 50, color: "#f4f7fb", name: "50" },
+    { length: 21, color: "#c9a000", name: "21" },
+    { length: 50, color: "#1565c0", name: "50" },
     { length: 100, color: "#facc15", name: "100" },
-    { length: 200, color: "#d4a574", name: "200" },
+    { length: 200, color: "#b71c1c", name: "200" },
   ];
 
   function stackAverages(bars) {
@@ -18571,13 +18571,13 @@ function paintLayers() {
 }
 
 function studyLineColor(name, fallbackIndex) {
-  // Match CCI pane rails: 50 white · 14 yellow · 5 cyan · 200 / sell red.
+  // Desk Fire rails (darker): 5 white · 20 yellow · 50 blue · 200 red.
   const key = String(name || "");
-  if (/\b200\b|red/i.test(key)) return "#ff4d4d";
-  if (/\b50\b/i.test(key)) return "#f4f7fb";
-  if (/\b14\b/i.test(key)) return "#facc15";
-  if (/\b5\b/i.test(key)) return "#22d3ee";
-  const colors = ["#22d3ee", "#facc15", "#f4f7fb", "#ff4d4d"];
+  if (/\b200\b/i.test(key)) return "#b71c1c";
+  if (/\b50\b/i.test(key)) return "#1565c0";
+  if (/\b20\b|\b14\b/i.test(key)) return "#c9a000";
+  if (/\b5\b/i.test(key)) return "#d6dde5";
+  const colors = ["#d6dde5", "#c9a000", "#1565c0", "#b71c1c"];
   return colors[fallbackIndex % colors.length];
 }
 

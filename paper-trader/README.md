@@ -1,6 +1,6 @@
 ## Version notes
 
-- **1.10.28** Install study uses CCI pane colors (5 cyan · 14 yellow · 50 white · 200 red) for EMA Fire rails.
+- **1.10.28** Study / stack rails: 5 white · 20 yellow · 50 blue · 200 red (darker). Install study + Layers stack.
 
 - **1.10.27** Background Learn (no blank console window). Hourly pass scans and learns every desk page. Click Open keeps Opening/Opened status readable; learn notes stay short in Signals · Learning.
 
