@@ -144,7 +144,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.27";
+const VERSION = "1.10.28";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -8759,7 +8759,9 @@ function drawStudy(ctx, bars, y, pad, slot) {
       return;
     }
     if (binary) return;
-    drawLine(ctx, values, y, pad, slot, colors[line % colors.length]);
+    // EMA200 / names with 200 or "red" stay a clear red rail on a clean candle chart.
+    const paint = /200|red/i.test(String(plot.name || "")) ? "#ff6b7a" : colors[line % colors.length];
+    drawLine(ctx, values, y, pad, slot, paint);
     line += 1;
   });
 }
