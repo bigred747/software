@@ -14721,73 +14721,85 @@ function writeStratLearn(book) {
   }
 }
 
-async function cycleStrategyLearn() {
-  if (typeof document !== "undefined" && document.visibilityState === "hidden") return "";
+async function cycleStrategyLearn(mode) {
+  const all = mode === "all" || (mode && mode.all);
+  // Light passes need the tab open; hourly/all may run in the background.
+  if (!all && typeof document !== "undefined" && document.visibilityState === "hidden") return "";
   if (typeof PaperFrames === "undefined" || !PaperFrames.strategies) return "";
   const now = Date.now();
   if (!state.stratLearn) state.stratLearn = { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 };
-  if (now - (state.stratLearn.lastAt || 0) < STRAT_LEARN_GAP_MS) return "";
+  if (!all && now - (state.stratLearn.lastAt || 0) < STRAT_LEARN_GAP_MS) return "";
   const list = topScanLearnNames();
   const open = (state.paper && state.paper.symbol) || "";
   const queue = list.length ? list.slice() : open ? [open] : [];
   if (!queue.length) {
-    learnTouchNote = "Strategy learn waits for a market or Daily scan names. Page open only. Closed bars only. Not a forecast.";
+    learnTouchNote = "Strategy learn waits for a market or Daily scan names. Closed bars only. Not a forecast.";
     refreshLearnSignal();
     return "";
   }
-  const symbol = queue[state.stratLearn.cursor % queue.length];
-  state.stratLearn.cursor += 1;
+  const targets = all ? queue.slice(0, 10) : [queue[state.stratLearn.cursor % queue.length]];
+  if (!all) state.stratLearn.cursor += 1;
   state.stratLearn.lastAt = now;
-  state.stratLearn.lastSymbol = symbol;
-  const bars = await barsForLearn(symbol);
-  if (!bars || !bars.length) return "";
-  const row = state.catalog.find((item) => item.symbol === symbol);
-  const settled = PaperFrames.closedBars(bars, phoneCrypto(symbol, row));
-  if (settled.length < 2) return "";
-  const board = PaperFrames.strategies(settled, { live: false });
-  const snapshot = {
-    at: now,
-    best: board.best || "",
-    rows: (board.rows || []).map((item) => ({
-      id: item.id,
-      name: item.name,
-      call: item.call,
-      ready: !!item.ready,
-      trades: item.trades || 0,
-      winRate: item.winRate || 0,
-      total: item.total || 0,
-      hold: item.hold || 0,
-      worst: item.worst || 0,
-    })),
-  };
+  let lastBest = "";
+  let scored = 0;
   const book = readStratLearn();
-  book.symbols[symbol] = snapshot;
-  book.passes = (Number(book.passes) || 0) + 1;
-  book.updated = now;
-  book.last_symbol = symbol;
+  for (let index = 0; index < targets.length; index += 1) {
+    const symbol = targets[index];
+    state.stratLearn.lastSymbol = symbol;
+    const bars = await barsForLearn(symbol);
+    if (!bars || !bars.length) continue;
+    const row = state.catalog.find((item) => item.symbol === symbol);
+    const settled = PaperFrames.closedBars(bars, phoneCrypto(symbol, row));
+    if (settled.length < 2) continue;
+    const board = PaperFrames.strategies(settled, { live: false });
+    const snapshot = {
+      at: now,
+      best: board.best || "",
+      rows: (board.rows || []).map((item) => ({
+        id: item.id,
+        name: item.name,
+        call: item.call,
+        ready: !!item.ready,
+        trades: item.trades || 0,
+        winRate: item.winRate || 0,
+        total: item.total || 0,
+        hold: item.hold || 0,
+        worst: item.worst || 0,
+      })),
+    };
+    book.symbols[symbol] = snapshot;
+    book.passes = (Number(book.passes) || 0) + 1;
+    book.updated = now;
+    book.last_symbol = symbol;
+    lastBest = snapshot.best || lastBest;
+    scored += 1;
+  }
+  if (!scored) return "";
   writeStratLearn(book);
   state.stratLearn.passes = book.passes;
-  state.stratLearn.lastId = snapshot.best || "";
-  if (open && symbol === open) {
+  state.stratLearn.lastId = lastBest || "";
+  const symbol = state.stratLearn.lastSymbol;
+  const lastSnap = book.symbols[symbol] || { rows: [], best: "" };
+  if (open && symbol === open && lastSnap.rows) {
     state.boardKey = "";
-    state.board = board;
+    state.board = { best: lastSnap.best || "", rows: lastSnap.rows };
     try {
       renderStrategies();
     } catch (error) {
       /* Chart can refresh on the next paint. */
     }
   }
-  const best = (board.rows || []).find((item) => item.id === board.best);
-  learnTouchNote =
-    "Strategy learn " +
-    symbol +
-    " · " +
-    snapshot.rows.length +
-    " strategies on closed bars" +
-    (best ? " · best " + best.name : "") +
-    ". Page open for strategy table. Background score covers scan names after the desk closes. Not a forecast.";
+  learnTouchNote = all
+    ? "Hourly strategy learn · " + scored + " names · all strategy rows · closed bars."
+    : "Strategy learn " +
+      symbol +
+      " · " +
+      (lastSnap.rows || []).length +
+      " strategies on closed bars" +
+      (lastSnap.best ? " · best " + lastSnap.best : "") +
+      ". Closed bars only.";
   refreshLearnSignal();
-  nudgeLearn("strategies", [symbol]);
+  nudgeLearn("strategies", targets);
   return symbol;
 }
 
@@ -14891,12 +14903,33 @@ function learnFromPaperFill(paper) {
 }
 
 function deskLearnPages() {
-  // Auto-includes every dock tab, phone tab, and fixed desk boards in the shipped UI.
+  // Every shipped page/tab: fixed board list + dock tabs + phone tabs + Tools openers + Windows book.
   const pages = [];
   const push = (id) => {
-    if (id && pages.indexOf(id) < 0) pages.push(id);
+    const key = String(id || "").trim().toLowerCase();
+    if (key && pages.indexOf(key) < 0) pages.push(key);
   };
-  ["markets", "chart", "trade", "study", "outlook", "cycle", "forecast", "home"].forEach(push);
+  // Same set as paper_trader.learn._DESK_PAGES — do not drop a section if the DOM is late.
+  [
+    "markets",
+    "chart",
+    "trade",
+    "study",
+    "strategies",
+    "squeeze",
+    "scorecard",
+    "cycle",
+    "forecast",
+    "home",
+    "outlook",
+    "internals",
+    "frames",
+    "readings",
+    "deskpool",
+    "journal",
+    "backtest",
+    "signals",
+  ].forEach(push);
   document.querySelectorAll(".dock-tab[data-dock]").forEach((button) => push(button.dataset.dock));
   document.querySelectorAll(".tabbar [data-tab]").forEach((button) => push(button.dataset.tab));
   document.querySelectorAll("[data-open-dock]").forEach((button) => push(button.dataset.openDock));
@@ -15046,13 +15079,16 @@ function startScanLearnLoop() {
         for (let index = 0; index < names.length; index += 1) {
           await nudgeLearn("scan", [names[index]]);
         }
-        await cycleStrategyLearn();
+        await cycleStrategyLearn("all");
+        const pageCount = deskLearnPages().length;
         await cycleDeskPageLearn("all");
         state.pageLearnOn = true;
-        if (!learnTouchNote) {
-          learnTouchNote =
-            "Hourly learn · all pages · " + (names.slice(0, 4).join(", ") || "scan") + " · closed bars.";
-        }
+        learnTouchNote =
+          "Hourly learn · all " +
+          pageCount +
+          " pages/tabs · strategies · " +
+          (names.slice(0, 4).join(", ") || "scan") +
+          " · closed bars.";
         refreshLearnSignal();
       } catch (error) {
         /* Hourly pass is best-effort. */
