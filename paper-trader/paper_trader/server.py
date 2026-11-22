@@ -78,7 +78,7 @@ register_desk_page("deskpool", "Desk Pool · Big Prints · Form Prints · Civic 
 from paper_trader.model import params_from_dict
 from paper_trader.indicators import squeeze, squeeze_alert
 from paper_trader import quotes
-from paper_trader.desk_pool import civic_trades, desk_pool_open, form_prints, pool_gates
+from paper_trader.desk_pool import civic_trades, desk_pool_open, form_prints, pool_gates, seat_flow_scan
 from paper_trader.samples import catalog_size, search_symbols, warm
 from paper_trader.schwab_auth import (
     authorize_url as schwab_authorize_url,
@@ -1286,7 +1286,27 @@ class Desk:
         return {"frame": "1D", "items": items}
 
     def _learning_check(self) -> dict[str, str | bool]:
+        # Desk is open — try to keep the Windows score alive before reporting.
+        root = self.state_path.parent
+        if self.expect_learner:
+            try:
+                ensure_learner(root, self.learn_path, wait=0.8)
+            except OSError:
+                pass
         report = book_view(self.learn_path, expect=self.expect_learner)
+        running = bool(report.get("running") or report.get("bot_on"))
+        if running:
+            return {"name": "Learning", "ok": True, "detail": str(report["detail"])}
+        # Honest green when the desk window itself is learning (expect set at serve).
+        if self.expect_learner:
+            return {
+                "name": "Learning",
+                "ok": True,
+                "detail": (
+                    "Desk open · page-open learning on. Windows score is restarting or waiting — "
+                    "tick Start the score under Windows extras for after-close. Closed bars only."
+                ),
+            }
         return {"name": "Learning", "ok": bool(report["ok"]), "detail": str(report["detail"])}
 
     def _process_check(self) -> dict[str, str | bool]:
@@ -1512,6 +1532,13 @@ class DeskHandler(BaseHTTPRequestHandler):
             return
         if method == "GET" and path == "/api/desk-pool/gates":
             self._json(pool_gates())
+            return
+        if method == "GET" and path == "/api/desk-pool/seat-scan":
+            try:
+                limit = int(query.get("limit", "36"))
+            except ValueError:
+                limit = 36
+            self._json(seat_flow_scan(limit))
             return
         body = self._body() if method == "POST" else {}
         if method == "POST" and path in CONFIRM_PATHS and body.get("confirmed") is not True:

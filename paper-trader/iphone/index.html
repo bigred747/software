@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.25">
-  <meta name="paper-publish" content="20261122T180845Z">
+  <meta name="paper-build" content="1.10.26">
+  <meta name="paper-publish" content="20261122T184844Z">
   <meta name="paper-private-build" content="publish-20261122T005558Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1995,7 +1995,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.25</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.26</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -2746,6 +2746,7 @@ plot Sell = close crosses below baseline;</textarea>
           </select>
           <input id="dp-custom" type="text" maxlength="400" placeholder="NVDA, AAPL, JPM" aria-label="Your own list of symbols, separated by commas">
           <button id="dp-scan" type="button">Scan Big Prints</button>
+          <button id="dp-seat-scan" type="button" class="quiet">Scan Civic · Fund Seat</button>
           <button id="dp-stop" type="button" class="quiet">Stop</button>
           <button id="dp-refresh" type="button" class="quiet">Refresh Form · Civic</button>
         </div>
@@ -2756,6 +2757,16 @@ plot Sell = close crosses below baseline;</textarea>
               <tr><th>#</th><th>Market</th><th>Label</th><th>RelVol</th><th>Effort</th><th>Score</th><th></th></tr>
             </thead>
             <tbody id="dp-body"></tbody>
+          </table>
+        </div>
+        <h3 class="journal-check-head">Civic Seat · Fund Seat flow</h3>
+        <p id="dp-seat-note" class="muted">Big public Buys/Sells from STOCK Act (Civic Seat) and Form 4 on Fund Seat names. Desk names only — not a third-party investor product. Lagged filings. Open jumps to the chart. Guidance only.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Seat</th><th>Market</th><th>Side</th><th>Size</th><th>Who</th><th>Score</th><th></th></tr>
+            </thead>
+            <tbody id="dp-seat-body"></tbody>
           </table>
         </div>
         <h3 class="journal-check-head">Form Prints · insiders</h3>
@@ -9966,7 +9977,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.25";
+const VERSION = "1.10.26";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -9974,9 +9985,10 @@ const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
 const FILL_LEARN_KEY = "paper_trader_fill_learn_v1";
 const FEE_BPS = 5;
 const SLIP_BPS = 5;
-const SCAN_LEARN_GAP_MS = 12000;
+const SCAN_LEARN_GAP_MS = 10000;
 const SCAN_LEARN_BATCH = 2;
-const STRAT_LEARN_GAP_MS = 14000;
+const STRAT_LEARN_GAP_MS = 12000;
+const HOUR_LEARN_MS = 3600000;
 let learnTouchAt = 0;
 let learnTouchTab = "";
 let learnTouchNote = "";
@@ -10271,19 +10283,11 @@ function withHooks(items) {
   const edge = inMicrosoftEdge();
   const webPage = state.offline && location.protocol !== "file:";
   applyHook(next, "Edge", edge || webPage, edge ? "This page is in Microsoft Edge" : webPage ? "This browser loads the quotes" : (state.offline ? "Open this file in the Edge app" : "This window is not Microsoft Edge"));
-  const botOn = !!(state.learnBook && state.learnBook.bot_on);
-  const pageCount = deskLearnPages().length;
-  const learnDetail = learnTouchNote
-    || fillTimingNote()
-    || (botOn
-      ? "Bot on · all " + pageCount + " desk pages (incl. Cycle Desk · Forecaster · Outlook · Tools) learn on closed bars even when scrolled away; Windows score keeps going after the desk closes. Not a forecast."
-      : state.offline
-        ? "Page-open bot · all " + pageCount + " desk pages cycle while this tab stays open (Cycle Desk · Forecaster included). Close the tab and phone learning pauses — use the Windows zip + Start the score for after-close. Not a forecast."
-        : "Bot score off for after-close learning. Open the desk or tick Start the score under Windows extras. Page-open cycles still cover every Tools page here.");
+  const learnStatus = deskLearningStatus();
   if (!next.some((item) => item.name === "Learning")) {
-    setSignal(next, "Learning", true, learnDetail);
+    setSignal(next, "Learning", learnStatus.ok, learnStatus.detail);
   } else {
-    applyHook(next, "Learning", true, learnDetail);
+    applyHook(next, "Learning", learnStatus.ok, learnStatus.detail);
   }
   const processFresh = newProcessNote && (Date.now() - newProcessAt) < 3600000;
   setSignal(next, "New process", true, processFresh ? newProcessNote : (newProcessNote ? "Current · " + newProcessNote : "Waiting for a closed-bar process change"));
@@ -10416,16 +10420,10 @@ function renderLocalSignals() {
     { name: "Volume Wave", ok: typeof PaperFrames !== "undefined" && !!PaperFrames.volumeWave, detail: "Desk Waves Hull ATR 6 · 0.7" },
     { name: "Arrows", ok: true, detail: "Ready" },
     { name: "Study", ok: typeof PaperStudy !== "undefined", detail: "On this device" },
-    {
-      name: "Learning",
-      ok: true,
-      detail:
-        learnTouchNote ||
-        fillTimingNote() ||
-        (state.learnBook && state.learnBook.bot_on
-          ? "Bot on · all pages while score runs"
-          : "Page open cycles · turn bot score on for closed pages"),
-    },
+    (() => {
+      const learnStatus = deskLearningStatus();
+      return { name: "Learning", ok: learnStatus.ok, detail: learnStatus.detail };
+    })(),
     { name: "New process", ok: true, detail: newProcessNote || "Waiting for a closed-bar process change" },
     { name: "Fear and greed", ok: !!(state.market && state.market.bars && state.market.bars.length >= 20), detail: phoneMood() },
     { name: "Zoom", ok: !!($("zoom-in") && $("zoom-out")), detail: "In and out" },
@@ -12505,53 +12503,55 @@ async function refreshJournalSells(book) {
   state.journalSellNote =
     "Checking Edge / Seat Trail exits on " + positions.length + " open paper long" + (positions.length === 1 ? "" : "s") + "…";
   renderJournalSells();
-  const sells = [];
-  for (let index = 0; index < positions.length; index += 1) {
-    if (state.journalSellGen !== gen) return state.journalSells;
-    const item = positions[index];
+  const readOne = async (item) => {
     const symbol = item && item.symbol;
-    if (!symbol) continue;
+    if (!symbol) return null;
     try {
       const row = state.catalog.find((entry) => entry.symbol === symbol);
+      const cached = cachedDeskBars(symbol, "1D", 120000);
       const bars =
         state.paper && state.paper.symbol === symbol && seenBars().length
           ? seenBars()
-          : state.offline
-            ? await sqDaily(symbol)
-            : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
-      if (!bars || !bars.length) continue;
+          : cached && cached.length
+            ? cached
+            : state.offline
+              ? await sqDaily(symbol)
+              : (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=1D")).bars;
+      if (bars && bars.length) rememberDeskBars(symbol, "1D", bars);
+      if (!bars || !bars.length) return null;
       const crypto = phoneCrypto(symbol, row);
       const live = PaperFrames.liveBar(bars, crypto);
       if (PaperFrames.edge) {
         const timing = PaperFrames.edge(bars, { live, vixBars: state.vixBars || [] });
         if (timing && timing.ready && timing.call === "SELL") {
-          sells.push({
+          return {
             symbol,
             reason: timing.reason || "Edge exit",
             journalStatus: "exit",
             rate: timing.score != null ? timing.score : "",
-          });
-          continue;
+          };
         }
       }
       if (PaperFrames.strategies) {
         const board = PaperFrames.strategies(bars, { live });
-        const trail = board && board.rows ? board.rows.find((item) => item.id === "seatrail") : null;
+        const trail = board && board.rows ? board.rows.find((entry) => entry.id === "seatrail") : null;
         if (trail && trail.ready && trail.call === "SELL") {
-          sells.push({
+          return {
             symbol,
             reason: "Seat Trail exit",
             journalStatus: "exit",
             rate: trail.trailMult != null ? "×" + trail.trailMult : "",
-          });
+          };
         }
       }
     } catch (error) {
       // Keep honesty: skip inventing an exit when bars or Edge are unavailable.
     }
-  }
+    return null;
+  };
+  const settled = await Promise.all(positions.map((item) => readOne(item)));
   if (state.journalSellGen !== gen) return state.journalSells;
-  state.journalSells = sells;
+  const sells = settled.filter(Boolean);
   state.journalSellNote = sells.length
     ? sells.length + " open long" + (sells.length === 1 ? "" : "s") + " due for exit (Edge or Seat Trail). Tap to review; Auto asks Yes before a paper sell."
     : positions.length + " open long" + (positions.length === 1 ? "" : "s") + " · no Edge / Seat Trail exit on the last closed bar.";
@@ -14893,6 +14893,42 @@ function deskLearnPages() {
   return pages;
 }
 
+function deskLearningStatus() {
+  const botOn = !!(state.learnBook && state.learnBook.bot_on);
+  const pageOn = !!(state.pageLearnOn || (state.scanLearn && state.scanLearn.timer));
+  const pageCount = deskLearnPages().length;
+  const touch = learnTouchNote || fillTimingNote() || "";
+  if (botOn) {
+    return {
+      ok: true,
+      detail:
+        (touch ? touch + " " : "") +
+        "Bot on · all " +
+        pageCount +
+        " desk pages learn on closed bars (page-open + Windows score). After-close needs Start the score. Not a forecast.",
+    };
+  }
+  if (pageOn || document.visibilityState !== "hidden") {
+    return {
+      ok: true,
+      detail:
+        (touch ? touch + " " : "") +
+        "Learning green · page-open on · all " +
+        pageCount +
+        " desk pages cycle while this tab stays open" +
+        (state.offline
+          ? ". Close the tab and phone learning pauses — Windows zip + Start the score for after-close."
+          : ". Windows score starts with the desk; tick Start the score under Windows extras for after-close.") +
+        " Not a forecast.",
+    };
+  }
+  return {
+    ok: false,
+    detail:
+      "Learning paused (tab hidden). Open the desk tab again, or tick Start the score under Windows extras for after-close.",
+  };
+}
+
 async function cycleDeskPageLearn() {
   if (typeof document !== "undefined" && document.visibilityState === "hidden") return "";
   const pages = deskLearnPages();
@@ -14976,7 +15012,8 @@ async function holdLearnAwake() {
 
 function startScanLearnLoop() {
   if (state.scanLearn && state.scanLearn.timer) return;
-  if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
+  if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0, hourTimer: 0 };
+  state.pageLearnOn = true;
   const tick = async () => {
     try {
       // Continuous while this tab stays open: scan + strategies + every desk page each pass.
@@ -14985,14 +15022,37 @@ function startScanLearnLoop() {
         await cycleScanLearn(state.auto ? "auto" : "scan");
         await cycleStrategyLearn();
         await cycleDeskPageLearn();
+        state.pageLearnOn = true;
+        refreshLearnSignal();
       }
     } catch (error) {
       /* Keep the page-open cycle alive. */
     }
-    const wait = state.auto ? Math.max(8000, SCAN_LEARN_GAP_MS - 2000) : SCAN_LEARN_GAP_MS;
+    const wait = state.auto ? Math.max(7000, SCAN_LEARN_GAP_MS - 2000) : SCAN_LEARN_GAP_MS;
     state.scanLearn.timer = setTimeout(tick, wait);
   };
-  state.scanLearn.timer = setTimeout(tick, 2500);
+  state.scanLearn.timer = setTimeout(tick, 1800);
+  if (!state.scanLearn.hourTimer) {
+    const hourly = async () => {
+      try {
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+        const names = topScanLearnNames().slice(0, 8);
+        for (let index = 0; index < Math.min(4, names.length); index += 1) {
+          await nudgeLearn("scan", [names[index]]);
+        }
+        await cycleDeskPageLearn();
+        learnTouchNote =
+          "Hourly learn scan · " +
+          (names.slice(0, 4).join(", ") || "desk pages") +
+          " · closed bars. Page-open learning stays green while this tab is open.";
+        refreshLearnSignal();
+      } catch (error) {
+        /* Hourly pass is best-effort. */
+      }
+    };
+    state.scanLearn.hourTimer = setInterval(hourly, HOUR_LEARN_MS);
+    setTimeout(hourly, 20000);
+  }
 }
 
 function renderStratDetail(board) {
@@ -15469,22 +15529,8 @@ async function phoneSafe() {
   }
   add("Paper book saves", saves, saves ? "This browser keeps positions and fills" : "This browser blocks saving. Positions last until the page closes");
   add("Quotes", !!state.market, state.market ? "A real quote is loaded" : "Waiting on the quote", "health");
-  const botOn = !!(state.learnBook && state.learnBook.bot_on);
-  const pageCount = deskLearnPages().length;
-  add(
-    "Learning",
-    true,
-    botOn
-      ? "Bot on · all " +
-        pageCount +
-        " desk sections (Markets, Chart, Trade, Study, Strategies, Squeeze, Big 3, Cycle Desk, Forecaster, Outlook, Tools home, Internals, Timeframes, big4indicator, Journal, Backtest, Signals) learn on closed bars even when scrolled away. New shipped pages auto-join. Windows score keeps going after close. Not a broker."
-      : state.offline
-        ? "Page-open bot · all " +
-          pageCount +
-          " desk sections cycle while this tab stays open. Close the tab and phone learning pauses. For after-close learning use the Windows zip and tick Start the score."
-        : "Bot score off. Open Paper Trader to start it, or tick Start the score under Windows extras. Page-open learning still covers every Tools page in this tab.",
-    "health"
-  );
+  const learnStatus = deskLearningStatus();
+  add("Learning", learnStatus.ok, learnStatus.detail, "health");
   deskHookHealthItems().forEach((item) => items.push(item));
   return { safe: items.filter((item) => item.kind === "safety").every((item) => item.ok), items };
 }
@@ -16173,6 +16219,108 @@ function renderDeskPoolFund() {
   renderFundSeatBody("dp-fund-body", "dp-fund-note");
 }
 
+function renderDeskPoolSeatFlow() {
+  const body = $("dp-seat-body");
+  if (!body) return;
+  body.replaceChildren();
+  const box = (state.dp && state.dp.seatFlow) || null;
+  const note = $("dp-seat-note");
+  if (note) {
+    note.textContent =
+      (box && box.note) ||
+      "Big public Buys/Sells from STOCK Act (Civic Seat) and Form 4 on Fund Seat names. Desk names only. Lagged filings. Open jumps to the chart.";
+  }
+  const rows = (box && box.rows) || [];
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    addCells(tr, [
+      "",
+      box && box.progress
+        ? box.progress
+        : box && box.ready === false
+          ? box.note || "No feed"
+          : "Press Scan Civic · Fund Seat. Empty is a normal answer.",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ]);
+    body.appendChild(tr);
+    return;
+  }
+  rows.slice(0, 36).forEach((row, index) => {
+    const tr = document.createElement("tr");
+    addCells(tr, [
+      String(index + 1),
+      row.seat || "—",
+      row.symbol || "—",
+      { text: row.side || "—", cls: row.side === "Buy" ? "up" : row.side === "Sell" ? "down" : "" },
+      row.size || "—",
+      row.who || "—",
+      { text: String(row.score != null ? row.score : "—"), cls: (row.score || 0) >= 60 ? "up" : "" },
+      "",
+    ]);
+    if ((row.score || 0) >= 70) tr.classList.add("go");
+    if (row.symbol) tr.lastChild.appendChild(openChartButton(row.symbol));
+    body.appendChild(tr);
+  });
+}
+
+async function scanDeskPoolSeats() {
+  const dp = state.dp || (state.dp = {});
+  if (dp.seatBusy) return;
+  dp.seatBusy = true;
+  dp.seatFlow = { ready: false, rows: [], progress: "Reading Civic Seat · Fund Seat public filings…", note: "" };
+  renderDeskPoolSeatFlow();
+  try {
+    if (state.offline) {
+      const civic = await deskPoolCivicOffline("");
+      const fund = fundSeatRows();
+      const rows = [];
+      (civic.rows || []).forEach((row) => {
+        if (row.side !== "Buy" && row.side !== "Sell") return;
+        rows.push({
+          seat: "Civic Seat",
+          symbol: row.symbol,
+          side: row.side,
+          size: row.amount || "—",
+          who: row.member || "—",
+          score: row.side === "Buy" ? 62 : 55,
+          why: "STOCK Act · phone member files",
+        });
+      });
+      fund.slice(0, 12).forEach((row) => {
+        rows.push({
+          seat: row.seat,
+          symbol: row.symbol,
+          side: "—",
+          size: "watch",
+          who: row.role || "Fund Seat",
+          score: 48,
+          why: "Fund Seat watch · Form 4 on computer desk",
+        });
+      });
+      rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+      dp.seatFlow = {
+        ready: true,
+        rows: rows.slice(0, 36),
+        note:
+          "Civic Seat · Fund Seat (phone). Civic from public member files; Form 4 detail needs the computer desk. Desk names only.",
+      };
+    } else {
+      const payload = await getJSON("/api/desk-pool/seat-scan?limit=36");
+      dp.seatFlow = payload || { ready: false, rows: [], note: "No feed" };
+    }
+  } catch (error) {
+    dp.seatFlow = { ready: false, rows: [], note: "Civic · Fund Seat scan failed · " + (error.message || error) };
+  } finally {
+    dp.seatBusy = false;
+    renderDeskPoolSeatFlow();
+  }
+}
+
 function paintCycleFund() {
   renderFundSeatBody("cycle-fund-body", "cycle-fund-note");
   const pins = $("cycle-fund-pins");
@@ -16196,6 +16344,7 @@ function renderDeskPool() {
   renderDeskPoolGates();
   renderDeskPoolTape();
   renderDeskPoolScan();
+  renderDeskPoolSeatFlow();
   renderDeskPoolForms();
   renderDeskPoolCivic();
   renderDeskPoolFund();
@@ -16204,6 +16353,7 @@ function renderDeskPool() {
     const bits = [];
     if (state.dp && state.dp.attr) bits.push(state.dp.attr);
     if (state.dp && state.dp.fundSeat && state.dp.fundSeat.attribution) bits.push(state.dp.fundSeat.attribution);
+    if (state.dp && state.dp.seatFlow && state.dp.seatFlow.attribution) bits.push(state.dp.seatFlow.attribution);
     attr.textContent = bits.join(" ");
   }
 }
@@ -19625,6 +19775,7 @@ if ($("sq-list")) {
 }
 paintSqueezeControls();
 if ($("dp-scan")) $("dp-scan").addEventListener("click", scanDeskPool);
+if ($("dp-seat-scan")) $("dp-seat-scan").addEventListener("click", () => scanDeskPoolSeats());
 if ($("dp-stop")) {
   $("dp-stop").addEventListener("click", () => {
     if (state.dp) state.dp.stop = true;

@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.25">
-  <meta name="paper-publish" content="20261122T180845Z">
+  <meta name="paper-build" content="1.10.26">
+  <meta name="paper-publish" content="20261122T184844Z">
   <meta name="paper-private-build" content="publish-20261122T005558Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.25</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.26</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -770,6 +770,7 @@ plot Sell = close crosses below baseline;</textarea>
           </select>
           <input id="dp-custom" type="text" maxlength="400" placeholder="NVDA, AAPL, JPM" aria-label="Your own list of symbols, separated by commas">
           <button id="dp-scan" type="button">Scan Big Prints</button>
+          <button id="dp-seat-scan" type="button" class="quiet">Scan Civic · Fund Seat</button>
           <button id="dp-stop" type="button" class="quiet">Stop</button>
           <button id="dp-refresh" type="button" class="quiet">Refresh Form · Civic</button>
         </div>
@@ -780,6 +781,16 @@ plot Sell = close crosses below baseline;</textarea>
               <tr><th>#</th><th>Market</th><th>Label</th><th>RelVol</th><th>Effort</th><th>Score</th><th></th></tr>
             </thead>
             <tbody id="dp-body"></tbody>
+          </table>
+        </div>
+        <h3 class="journal-check-head">Civic Seat · Fund Seat flow</h3>
+        <p id="dp-seat-note" class="muted">Big public Buys/Sells from STOCK Act (Civic Seat) and Form 4 on Fund Seat names. Desk names only — not a third-party investor product. Lagged filings. Open jumps to the chart. Guidance only.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Seat</th><th>Market</th><th>Side</th><th>Size</th><th>Who</th><th>Score</th><th></th></tr>
+            </thead>
+            <tbody id="dp-seat-body"></tbody>
           </table>
         </div>
         <h3 class="journal-check-head">Form Prints · insiders</h3>

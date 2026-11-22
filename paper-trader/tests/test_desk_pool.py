@@ -12,6 +12,7 @@ from paper_trader.desk_pool import (
     form_prints,
     fund_seat,
     pool_gates,
+    seat_flow_scan,
 )
 
 
@@ -117,7 +118,7 @@ class DeskPoolTests(unittest.TestCase):
         self.assertEqual(out["gates"]["darkPoolBook"]["status"], "No feed")
         self.assertTrue(out["fundSeat"]["ready"])
         self.assertGreaterEqual(len(out["fundSeat"]["rows"]), 3)
-        self.assertEqual(out["version"], "1.10.25")
+        self.assertEqual(out["version"], "1.10.26")
 
     def test_fund_seat_desk_names_only(self) -> None:
         out = fund_seat(12)
@@ -128,6 +129,35 @@ class DeskPoolTests(unittest.TestCase):
             self.assertTrue(row["symbol"])
             self.assertNotIn("disclosed", row["seat"].lower())
             self.assertNotIn("buffett", row["role"].lower())
+
+    def test_seat_flow_scan_desk_names(self) -> None:
+        with mock.patch(
+            "paper_trader.desk_pool.civic_trades",
+            return_value={
+                "ready": True,
+                "rows": [
+                    {
+                        "symbol": "NVDA",
+                        "member": "Example Member",
+                        "side": "Buy",
+                        "amount": "$50,001 – $100,000",
+                        "traded": "2026-01-02",
+                        "disclosed": "2026-01-10",
+                    }
+                ],
+                "attribution": "test",
+            },
+        ):
+            with mock.patch(
+                "paper_trader.desk_pool.form_prints",
+                return_value={"ready": False, "rows": [], "note": "x"},
+            ):
+                out = seat_flow_scan(10)
+        self.assertTrue(out["ready"])
+        self.assertEqual(out["rows"][0]["seat"], "Civic Seat")
+        self.assertEqual(out["rows"][0]["symbol"], "NVDA")
+        self.assertNotIn("pelosi tracker", out["note"].lower())
+        self.assertNotIn("disclosedhq", out["note"].lower())
 
 
 if __name__ == "__main__":
