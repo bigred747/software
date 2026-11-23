@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.35">
+  <meta name="paper-build" content="1.10.36">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T072000Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.35</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.36</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -122,9 +122,8 @@
         <div id="today" class="pins" aria-label="Today's five"></div>
         <div class="scan-head fire-head">
           <h3>Fire 5 · best trades</h3>
-          <button id="fire-auto" type="button" class="fire-auto-btn" aria-pressed="false">Fire 5 Auto</button>
         </div>
-        <p id="fire-note" class="muted">When Desk Call turns FIRE on a strong scan name, Fire Precision ranks up to five greens here. Tap to review. Fire 5 Auto asks Yes and needs Confirm Lock. Paper only. Not a forecast.</p>
+        <p id="fire-note" class="muted">When Desk Call turns FIRE on a strong scan name, Fire Precision ranks up to five greens here. Tap to review. Fire 5 Auto lives under Auto (turn Auto on). Paper Yes · Confirm Lock. Paper only. Not a forecast.</p>
         <div id="fire-five" class="pins" aria-label="Fire five green signals"></div>
         <div class="scan-head fire-head">
           <h3>Desk Cards</h3>
@@ -340,6 +339,17 @@
         <button id="trade" type="button">Trade</button>
         <button id="voice" type="button" aria-pressed="true">Voice</button>
       </div>
+      <section id="auto-desk" class="auto-desk" hidden aria-label="Auto buy controls">
+        <h3>Auto</h3>
+        <p class="muted tiny">All Auto buy controls live here. Fire 5 Auto · Best setup Auto · Journal Auto buy reuse the same gated paths. Paper Yes still required. Soft · Hold Auto holds Auto buys. Live locked. Not a forecast.</p>
+        <div class="auto-desk-row" role="group" aria-label="Auto buy paths">
+          <button id="fire-auto" type="button" class="fire-auto-btn" aria-pressed="false">Fire 5 Auto</button>
+          <button id="best-setup-desk" type="button" class="best-setup-btn" aria-pressed="false">Best setup Auto</button>
+          <button id="journal-auto" type="button" class="fire-auto-btn" aria-pressed="false">Journal Auto buy</button>
+          <button id="journal-buy-click" type="button">Buy top signal</button>
+        </div>
+        <p id="auto-desk-note" class="muted tiny"></p>
+      </section>
       <p class="ticket-mode-note muted tiny">Paper only. Live stays locked. Charts and desk boxes stay above the study stack.</p>
       <section id="ticket" class="ticket-box" aria-label="Order ticket">
         <h3>Order ticket</h3>
@@ -862,6 +872,17 @@ AddOrder(Sell, sellFire);</textarea>
         <p id="week-board-note" class="muted">This Denver week’s Fire names plus Lane Align · Range Seat · Tide. Review only — not a second Fire 5 list. Paper only. Not a forecast.</p>
         <div id="week-board" class="pins" aria-label="Week Board"></div>
         <h3 class="journal-check-head">Buy signals</h3>
+        <section id="auto-desk-journal" class="auto-desk" hidden aria-label="Journal Auto buy controls">
+          <h3>Auto</h3>
+          <p class="muted tiny">Same Auto buy controls as the front page. Turn Auto on first. Journal Auto buy watches these buy signals; Buy top signal lets you test one Yes confirm. Soft · Hold Auto holds Auto buys. Live locked.</p>
+          <div class="auto-desk-row" role="group" aria-label="Journal Auto buy paths">
+            <button id="fire-auto-journal" type="button" class="fire-auto-btn" aria-pressed="false">Fire 5 Auto</button>
+            <button id="best-setup-journal" type="button" class="best-setup-btn" aria-pressed="false">Best setup Auto</button>
+            <button id="journal-auto-journal" type="button" class="fire-auto-btn" aria-pressed="false">Journal Auto buy</button>
+            <button id="journal-buy-click-journal" type="button">Buy top signal</button>
+          </div>
+          <p id="auto-desk-note-journal" class="muted tiny"></p>
+        </section>
         <div id="journal-buys" class="pins" aria-label="Today buy signals"></div>
         <h3 class="journal-check-head">Sell signals</h3>
         <div id="journal-sells" class="pins" aria-label="Today sell signals"></div>

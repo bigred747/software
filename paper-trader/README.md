@@ -1,5 +1,7 @@
 ## Version notes
 
+- **1.10.36** Journal + front Auto desk: Fire 5 Auto · Best setup Auto · Journal Auto buy · Buy top signal live under Auto (no scatter). Reuses Fire/Best paths; Paper Yes · Soft · Hold Auto · Live locked. After Share paper book 1.10.35.
+
 - **1.10.35** Journal Share paper book download hardened for Edge/Windows (Save As picker when available, anchor attached to the page, delayed revoke; Copy fallback if blocked). Extends Journal. Own names only. Live locked. After Strat Health 1.10.34.
 
 - **1.10.34** Strat Health · Factor · Incubate on Strategies (recent closed-bar Factor holds Soft Auto buys; Learning snapshots health). Extends Strategies / Learning / Journal. Own names only. Live locked. Stacked after Product Scan 1.10.33.
