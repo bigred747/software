@@ -592,18 +592,13 @@ class Desk:
                         pass
                 entry = snap.get("entryPrice")
                 opened = str(snap.get("entryDate") or "")
+                # Trust the book file for shares/entry/dates. Do not call quotes.load_bars /
+                # view_journal here — each market quote can block ~12s and made Journal →
+                # Load paper book spin for a minute+ on slow networks.
                 if shares > 0 and entry:
                     try:
                         price = float(entry)
                         day = opened
-                        try:
-                            bars = quotes.load_bars(str(symbol))
-                        except ValueError:
-                            bars = []
-                        if bars:
-                            dates = {bar.date for bar in bars}
-                            if day not in dates:
-                                day = bars[-1].date
                         fee = float(journal.params.fee_bps) / 10000.0
                         start = float(cash) + shares * price * (1.0 + fee)
                         if start > 0:
@@ -625,18 +620,25 @@ class Desk:
                 journal.fills = fills[-500:]
                 journal.next_order_id = max(1, int(snap.get("nextId") or 1))
                 try:
-                    view = view_journal(journal)
-                except ValueError:
-                    view = {
-                        "cash": cash,
-                        "shares": shares,
-                        "entry_price": entry,
-                        "entry_date": opened,
-                        "last_close": snap.get("last"),
-                        "equity": cash + (shares * float(snap.get("last") or entry or 0)),
-                        "start_cash": journal.params.cash,
-                    }
-                shelf_shares = float(view.get("shares") or 0) or shares
+                    last_close = float(snap["last"]) if snap.get("last") is not None else None
+                except (TypeError, ValueError):
+                    last_close = None
+                try:
+                    entry_f = float(entry) if entry is not None else None
+                except (TypeError, ValueError):
+                    entry_f = None
+                mark = last_close if last_close is not None else entry_f
+                equity = float(cash) + (shares * float(mark) if shares > 0 and mark is not None else 0.0)
+                view = {
+                    "cash": cash,
+                    "shares": shares,
+                    "entry_price": entry_f if entry_f is not None else entry,
+                    "entry_date": opened or None,
+                    "last_close": last_close,
+                    "equity": equity,
+                    "start_cash": journal.params.cash,
+                }
+                shelf_shares = shares
                 rows[str(symbol)] = {
                     "at": int(time.time()),
                     "summary": {
@@ -644,7 +646,7 @@ class Desk:
                         "shares": shelf_shares,
                         "entry": view.get("entry_price") or entry,
                         "opened": view.get("entry_date") or opened,
-                        "last": view.get("last_close") or snap.get("last"),
+                        "last": view.get("last_close") if view.get("last_close") is not None else snap.get("last"),
                         "equity": view.get("equity"),
                         "cash": view.get("cash") if view.get("cash") is not None else cash,
                         "start": view.get("start_cash") or journal.params.cash,

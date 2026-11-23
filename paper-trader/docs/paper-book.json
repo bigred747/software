@@ -1,0 +1,213 @@
+{
+  "version": 1,
+  "sessions": {
+    "AAPL": {
+      "symbol": "AAPL",
+      "params": {
+        "fast": 10,
+        "slow": 30,
+        "rsi_period": 14,
+        "rsi_buy_max": 70.0,
+        "rsi_sell_min": 75.0,
+        "cash": 10000.0,
+        "fee_bps": 5.0,
+        "stop_pct": 8.0
+      },
+      "cash": 0.0,
+      "shares": 28.1599,
+      "entryPrice": 354.94,
+      "entryDate": "2026-11-12",
+      "cost": 10000.072443,
+      "trades": [],
+      "working": [],
+      "nextId": 1,
+      "fills": [
+        {
+          "at": 1794532601,
+          "symbol": "AAPL",
+          "side": "buy",
+          "qty": 28.1599,
+          "price": 354.94,
+          "quote": 354.94,
+          "fee_bps": 5.0,
+          "pnl": 0.0,
+          "reason": "ticket \u00b7 True momentum 8/3 with the cand"
+        }
+      ],
+      "ticketFills": [],
+      "lastAction": "buy",
+      "last": 353.21
+    },
+    "RTY": {
+      "symbol": "RTY",
+      "params": {
+        "fast": 10,
+        "slow": 30,
+        "rsi_period": 14,
+        "rsi_buy_max": 70.0,
+        "rsi_sell_min": 75.0,
+        "cash": 10000.0,
+        "fee_bps": 5.0,
+        "stop_pct": 8.0
+      },
+      "cash": 0.0,
+      "shares": 3.5528,
+      "entryPrice": 2813.31,
+      "entryDate": "2026-11-12",
+      "cost": 10000.125332,
+      "trades": [],
+      "working": [],
+      "nextId": 1,
+      "fills": [
+        {
+          "at": 1794537193,
+          "symbol": "RTY",
+          "side": "buy",
+          "qty": 3.5528,
+          "price": 2813.31,
+          "quote": 2813.31,
+          "fee_bps": 5.0,
+          "pnl": 0.0,
+          "reason": "ticket \u00b7 Squeeze 30"
+        }
+      ],
+      "ticketFills": [],
+      "lastAction": "buy",
+      "last": 2733.8
+    },
+    "AMZN": {
+      "symbol": "AMZN",
+      "params": {
+        "fast": 10,
+        "slow": 30,
+        "rsi_period": 14,
+        "rsi_buy_max": 70.0,
+        "rsi_sell_min": 75.0,
+        "cash": 10000.0,
+        "fee_bps": 5.0,
+        "stop_pct": 8.0
+      },
+      "cash": 0.089363,
+      "shares": 37.7594,
+      "entryPrice": 264.7,
+      "entryDate": "2026-11-13",
+      "cost": 9999.910637,
+      "trades": [],
+      "working": [],
+      "nextId": 1,
+      "fills": [
+        {
+          "at": 1794587472,
+          "symbol": "AMZN",
+          "side": "buy",
+          "qty": 37.7594,
+          "price": 264.7,
+          "quote": 264.7,
+          "fee_bps": 5.0,
+          "pnl": 0.0,
+          "reason": "ticket \u00b7 Squeeze 14 with the candle"
+        }
+      ],
+      "ticketFills": [],
+      "lastAction": "buy",
+      "last": 266.66
+    },
+    "AVGO": {
+      "symbol": "AVGO",
+      "params": {
+        "fast": 10,
+        "slow": 30,
+        "rsi_period": 14,
+        "rsi_buy_max": 70.0,
+        "rsi_sell_min": 75.0,
+        "cash": 10000.0,
+        "fee_bps": 5.0,
+        "stop_pct": 8.0
+      },
+      "cash": 0.0,
+      "shares": 30.2407,
+      "entryPrice": 330.52,
+      "entryDate": "2026-11-16",
+      "cost": 10000.153742,
+      "trades": [],
+      "working": [],
+      "nextId": 1,
+      "fills": [
+        {
+          "at": 1794908248,
+          "symbol": "AVGO",
+          "side": "buy",
+          "qty": 30.2407,
+          "price": 330.52,
+          "quote": 330.52,
+          "fee_bps": 5.0,
+          "pnl": 0.0,
+          "reason": "ticket"
+        }
+      ],
+      "ticketFills": [],
+      "lastAction": "buy",
+      "last": 330.35
+    },
+    "ES": {
+      "symbol": "ES",
+      "params": {
+        "fast": 10,
+        "slow": 30,
+        "rsi_period": 14,
+        "rsi_buy_max": 70.0,
+        "rsi_sell_min": 75.0,
+        "cash": 10000.0,
+        "fee_bps": 5.0,
+        "stop_pct": 8.0
+      },
+      "cash": 9980.35,
+      "shares": 0,
+      "entryPrice": null,
+      "entryDate": null,
+      "cost": 0,
+      "trades": [
+        {
+          "entry_date": "2026-11-12",
+          "exit_date": "2026-11-12",
+          "entry_price": 7638.07,
+          "exit_price": 7630.68,
+          "shares": 1.3086,
+          "pnl": -19.65,
+          "reason": "ticket \u00b7 Average 55"
+        }
+      ],
+      "working": [],
+      "nextId": 1,
+      "fills": [
+        {
+          "at": 1794531600,
+          "symbol": "ES",
+          "side": "buy",
+          "qty": 1.3086,
+          "price": 7638.07,
+          "quote": 7638.07,
+          "fee_bps": 5.0,
+          "pnl": 0.0,
+          "reason": "ticket \u00b7 Average 55"
+        },
+        {
+          "at": 1794532336,
+          "symbol": "ES",
+          "side": "sell",
+          "qty": 1.3086,
+          "price": 7630.68,
+          "quote": 7630.68,
+          "fee_bps": 5.0,
+          "pnl": -19.65,
+          "reason": "ticket \u00b7 Average 55"
+        }
+      ],
+      "ticketFills": [],
+      "lastAction": "sell",
+      "last": 7630.68
+    }
+  },
+  "markets": 5,
+  "note": "Paper book rebuilt from Rick Journal UI paste (~Paper 1.9.86/87). Open AAPL/RTY/AMZN/AVGO + closed ES pair. cash/params/fee_bps/quote GUESSED as desk defaults; shares/prices/dates/reasons from paste. Nothing goes to a broker."
+}
