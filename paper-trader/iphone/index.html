@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.33">
+  <meta name="paper-build" content="1.10.34">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T072000Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1571,11 +1571,16 @@ footer { display: none; }
 .call-pill.sell{background:#7a1f2b;color:#ffe0e4}
 .call-pill.hold{background:#1d4f8a;color:#dcebff}
 .call-pill.wait{background:#3a4250;color:#d7dde8}
+.call-pill.health-desk{background:#12663f;color:#d8ffe9}
+.call-pill.health-incubate{background:#5a4a18;color:#ffe9b0}
+.call-pill.health-soft{background:#7a1f2b;color:#ffe0e4}
+.call-pill.health-unread{background:#3a4250;color:#d7dde8}
 tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 #strat-board td,#strat-sweep-body td{vertical-align:middle}
 #strat-board td:first-child,#strat-sweep-body td:first-child{min-width:11.5rem}
-#strat-board td:nth-child(2),#strat-sweep-body td:nth-child(2){text-align:center;white-space:nowrap}
-#strat-board td:nth-child(n+3),#strat-sweep-body td:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#strat-board td:nth-child(2),#strat-sweep-body td:nth-child(2),#strat-board td:nth-child(9){text-align:center;white-space:nowrap}
+#strat-board td:nth-child(n+3):not(:nth-child(9)),#strat-sweep-body td:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#strat-health{margin:.35rem 0 .55rem}
 
 .safe-box{
   margin:4px 0;
@@ -1995,7 +2000,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.33</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.34</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -2484,15 +2489,16 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Strategies</h2>
         </div>
-        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. While this page is open, Learning re-scores each strategy on top Daily scan names and learns from paper buy/sell fills to refine Fire timing. Scored on closed bars only. The ranking looks backward. Not a forecast.</p>
+        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Factor, Result, Hold, Worst, Health. Strat Health watches recent closed-bar Factor vs the full book — Incubate until enough trades, Soft · Hold Auto when recent edge drifts, Desk when healthy. Learning re-scores on top Daily scan names and paper fills. Closed bars only. Not a forecast. Live locked.</p>
         <div class="table-wrap strat-board-wrap">
           <table class="strat-board-table">
             <thead>
-              <tr><th>Strategy</th><th>Now</th><th>Trades</th><th>Wins</th><th>Result</th><th>Hold</th><th>Worst trade</th></tr>
+              <tr><th>Strategy</th><th>Now</th><th>Trades</th><th>Wins</th><th>Factor</th><th>Result</th><th>Hold</th><th>Worst</th><th>Health</th></tr>
             </thead>
             <tbody id="strat-board"></tbody>
           </table>
         </div>
+        <p id="strat-health" class="muted">Strat Health · pick a strategy. Incubate / Soft hold Auto buys on paper; sells still exit. Best setup Edge Fire still needs Yes. Not a forecast.</p>
         <p id="strat-best" class="muted"></p>
         <div class="strat-trade">
           <p id="strat-trade-note" class="muted">Click the best strategy row to pick it, then paper Buy or Sell on this market. The second warning still asks. Paper only.</p>
@@ -2832,7 +2838,7 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Today's check</h2>
         </div>
-        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Fire pins carry Gate Print + Fire Precision. Lane Align and Range Seat tag each name for desk review. Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
+        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Fire pins carry Gate Print + Fire Precision. Lane Align and Range Seat tag each name for desk review. Strat Health (Strategies) holds Auto buys when a strategy is Incubating or Soft. Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
         <h3 class="journal-check-head">Week Board</h3>
         <p id="week-board-note" class="muted">This Denver week’s Fire names plus Lane Align · Range Seat · Tide. Review only — not a second Fire 5 list. Paper only. Not a forecast.</p>
         <div id="week-board" class="pins" aria-label="Week Board"></div>
@@ -6482,7 +6488,9 @@ AddOrder(Sell, sellFire);</textarea>
     const first = Math.min(EDGE_WARM, Math.max(0, settled));
     const hold = end > EDGE_WARM ? closes[settled] / list[first].open - 1 : 0;
     const total = equity - 1;
-    const wins = trades.filter((trade) => trade.pct > 0).length;
+    const book = tradeBookStats(trades);
+    const recent = recentTradeBook(trades, RECENT_TRADE_WINDOW);
+    const wins = book.wins;
     let call = "WAIT";
     const filledToday = live ? marks.find((mark) => mark.index === last) : null;
     if (pending === "buy") call = "BUY";
@@ -6518,6 +6526,9 @@ AddOrder(Sell, sellFire);</textarea>
         total,
         hold,
         worst,
+        maxDD: book.maxDD,
+        profitFactor: book.profitFactor,
+        recent,
         exposure: end > EDGE_WARM ? barsIn / (end - EDGE_WARM) : 0,
         bars: Math.max(0, end - EDGE_WARM),
       },
@@ -6980,6 +6991,56 @@ AddOrder(Sell, sellFire);</textarea>
     };
   }
 
+  // Recent closed-trade window for Strat Health (own desk math — not a third-party pack).
+  const RECENT_TRADE_WINDOW = 8;
+  const INCUBATE_MIN_TRADES = 5;
+
+  function tradeBookStats(trades) {
+    let wins = 0;
+    let grossWin = 0;
+    let grossLoss = 0;
+    let growth = 1;
+    let worst = 0;
+    let equity = 1;
+    let peak = 1;
+    let maxDD = 0;
+    (trades || []).forEach((trade) => {
+      const pct = Number(trade && trade.pct) || 0;
+      if (pct > 0) {
+        wins += 1;
+        grossWin += pct;
+      } else if (pct < 0) {
+        grossLoss += -pct;
+      }
+      growth *= 1 + pct;
+      equity *= 1 + pct;
+      if (equity > peak) peak = equity;
+      maxDD = Math.min(maxDD, equity / peak - 1);
+      worst = Math.min(worst, pct);
+    });
+    const count = (trades || []).length;
+    let profitFactor = null;
+    if (grossLoss > 0) profitFactor = grossWin / grossLoss;
+    else if (grossWin > 0) profitFactor = Infinity;
+    return {
+      trades: count,
+      wins,
+      winRate: count ? wins / count : 0,
+      total: growth - 1,
+      worst,
+      maxDD,
+      profitFactor,
+      grossWin,
+      grossLoss,
+    };
+  }
+
+  function recentTradeBook(trades, windowSize) {
+    const size = Math.max(3, Number(windowSize) || RECENT_TRADE_WINDOW);
+    const slice = (trades || []).slice(-size);
+    return tradeBookStats(slice);
+  }
+
   function runRule(list, end, warm, rule) {
     const trades = [];
     let open = null;
@@ -7004,16 +7065,11 @@ AddOrder(Sell, sellFire);</textarea>
         if (entry) pending = { type: "buy", stop: entry.stop || 0 };
       }
     }
-    let wins = 0;
-    let growth = 1;
-    let worst = 0;
-    trades.forEach((trade) => {
-      if (trade.pct > 0) wins += 1;
-      growth *= 1 + trade.pct;
-      worst = Math.min(worst, trade.pct);
-    });
+    const book = tradeBookStats(trades);
+    const recent = recentTradeBook(trades, RECENT_TRADE_WINDOW);
     const lastClose = end > 0 ? list[end - 1].close : 0;
     let openPct = null;
+    let growth = 1 + book.total;
     if (open) {
       openPct = lastClose / open.entry - 1;
       growth *= 1 + openPct;
@@ -7021,13 +7077,16 @@ AddOrder(Sell, sellFire);</textarea>
     const startPrice = warm < end ? list[warm].open : 0;
     return {
       trades,
-      wins,
+      wins: book.wins,
       open,
       pending,
       openPct,
       total: growth - 1,
       hold: startPrice > 0 ? lastClose / startPrice - 1 : 0,
-      worst,
+      worst: book.worst,
+      maxDD: book.maxDD,
+      profitFactor: book.profitFactor,
+      recent,
       exposure: end > warm ? barsIn / (end - warm) : 0,
     };
   }
@@ -7162,6 +7221,9 @@ AddOrder(Sell, sellFire);</textarea>
         total: run.total,
         hold: run.hold,
         worst: run.worst,
+        maxDD: run.maxDD,
+        profitFactor: run.profitFactor,
+        recent: run.recent || null,
         exposure: run.exposure,
         entry: run.open ? run.open.entry : null,
         openPct: run.openPct,
@@ -7178,7 +7240,22 @@ AddOrder(Sell, sellFire);</textarea>
         ...(extra || {}),
       });
     };
-    const notReady = (id, why) => rows.push({ id, ...STRATEGY_INFO[id], ready: false, call: "WAIT", trades: 0, winRate: 0, total: 0, hold: 0, worst: 0, why });
+    const notReady = (id, why) =>
+      rows.push({
+        id,
+        ...STRATEGY_INFO[id],
+        ready: false,
+        call: "WAIT",
+        trades: 0,
+        winRate: 0,
+        total: 0,
+        hold: 0,
+        worst: 0,
+        maxDD: 0,
+        profitFactor: null,
+        recent: null,
+        why,
+      });
 
     const known = edge(list, { live });
     if (known && known.ready) {
@@ -7193,6 +7270,9 @@ AddOrder(Sell, sellFire);</textarea>
         total: known.record.total,
         hold: known.record.hold,
         worst: known.record.worst,
+        maxDD: known.record.maxDD,
+        profitFactor: known.record.profitFactor,
+        recent: known.record.recent || null,
         exposure: known.record.exposure,
         entry: known.entry,
         openPct: known.openPct,
@@ -10011,6 +10091,10 @@ AddOrder(Sell, sellFire);</textarea>
     strategies,
     STRATEGY_INFO,
     STRATEGY_IDS,
+    tradeBookStats,
+    recentTradeBook,
+    RECENT_TRADE_WINDOW,
+    INCUBATE_MIN_TRADES,
     cci,
     cciPane,
     cciSnapState,
@@ -10237,7 +10321,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.33";
+const VERSION = "1.10.34";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -12602,7 +12686,22 @@ function journalCheckNoteText(book) {
   if (fires.length) parts.push(fires.length + " FIRE" + (topPrec >= 0 ? " · top P" + topPrec : ""));
   parts.push(sells ? sells + " sell / exit" + (sells === 1 ? "" : "s") : open ? open + " open · no Edge exit yet" : "No sell signals");
   parts.push(filled ? filled + " fill" + (filled === 1 ? "" : "s") + " today" : "No fills today");
-  return parts.join(" · ") + ". Gate Print is on each Fire pin title. Paper Yes still required. Not a forecast.";
+  let healthBit = "";
+  try {
+    const bars = seenBars();
+    if (bars && bars.length >= 2 && typeof PaperFrames !== "undefined") {
+      const board = currentBoard(bars);
+      const pick = board.rows.find((item) => item.id === state.strat.pick) || board.rows.find((item) => item.id === board.best);
+      if (pick) healthBit = " · Strat Health " + stratHealth(pick).label;
+    }
+  } catch (error) {
+    healthBit = "";
+  }
+  return (
+    parts.join(" · ") +
+    healthBit +
+    ". Gate Print is on each Fire pin title. Paper Yes still required. Not a forecast."
+  );
 }
 
 const WEEK_BOARD_KEY = "paperTraderWeekBoard";
@@ -14605,6 +14704,101 @@ function closedDate(bars) {
   return list.length ? list[list.length - 1].date : "";
 }
 
+function formatFactor(value) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  if (!Number.isFinite(Number(value))) return "∞";
+  return Number(value).toFixed(2);
+}
+
+function stratHealth(row) {
+  // Own desk Strat Health — incubate thin samples; Soft · Hold Auto when recent Factor drifts.
+  const minTrades =
+    typeof PaperFrames !== "undefined" && PaperFrames.INCUBATE_MIN_TRADES
+      ? PaperFrames.INCUBATE_MIN_TRADES
+      : 5;
+  if (!row || !row.ready) {
+    return {
+      lane: "unread",
+      label: "Unread",
+      autoOk: false,
+      note: "Not enough closed bars to score Strat Health.",
+    };
+  }
+  const trades = Number(row.trades) || 0;
+  if (trades < minTrades) {
+    return {
+      lane: "incubate",
+      label: "Incubate",
+      autoOk: false,
+      note:
+        "Incubating — need " +
+        minTrades +
+        " closed-bar trades on this market before Auto buys (have " +
+        trades +
+        "). Paper sells still exit. Not a forecast.",
+    };
+  }
+  const recent = row.recent || {};
+  const recentTrades = Number(recent.trades) || 0;
+  const recentFactor = recent.profitFactor;
+  const fullFactor = row.profitFactor;
+  if (recentTrades >= minTrades) {
+    if (recentFactor != null && Number.isFinite(Number(recentFactor)) && Number(recentFactor) < 1) {
+      return {
+        lane: "soft",
+        label: "Soft · Hold Auto",
+        autoOk: false,
+        note:
+          "Recent Factor " +
+          formatFactor(recentFactor) +
+          " on last " +
+          recentTrades +
+          " closed trades under 1.0 — Strat Health holds Auto buys. Sells still exit. Not a forecast.",
+      };
+    }
+    if (
+      (Number(recent.winRate) || 0) + 0.15 < (Number(row.winRate) || 0) &&
+      (Number(recent.total) || 0) < 0
+    ) {
+      return {
+        lane: "soft",
+        label: "Soft · Hold Auto",
+        autoOk: false,
+        note:
+          "Recent win rate drifted vs the full book while recent result is negative — Strat Health holds Auto buys. Not a forecast.",
+      };
+    }
+  }
+  if (
+    fullFactor != null &&
+    Number.isFinite(Number(fullFactor)) &&
+    Number(fullFactor) < 1 &&
+    (Number(row.total) || 0) < 0
+  ) {
+    return {
+      lane: "soft",
+      label: "Soft · Hold Auto",
+      autoOk: false,
+      note:
+        "Full-book Factor " +
+        formatFactor(fullFactor) +
+        " with a negative result — Strat Health holds Auto buys. Not a forecast.",
+    };
+  }
+  return {
+    lane: "desk",
+    label: "Desk",
+    autoOk: true,
+    note:
+      "Desk — Factor " +
+      formatFactor(fullFactor) +
+      (recentTrades
+        ? " · recent " + formatFactor(recentFactor) + " on " + recentTrades
+        : "") +
+      ". Auto buys still need Yes · Edge Fire for Best setup. Not a forecast.",
+  };
+}
+
 function cardLine(row) {
   if (!row.ready) return row.why || "Not enough bars.";
   const stop = row.stop != null ? " Stop " + formatPrice(row.stop) + "." : "";
@@ -14648,12 +14842,25 @@ function renderStrategies() {
   const bars = seenBars();
   if (bars.length < 2) return;
   const board = currentBoard(bars);
-  const stamp = state.boardKey + "|" + state.strat.pick + "|" + state.strat.on + "|" + board.best;
+  const stamp =
+    state.boardKey +
+    "|" +
+    state.strat.pick +
+    "|" +
+    state.strat.on +
+    "|" +
+    board.best +
+    "|health";
   if (sameStamp(body, stamp)) return;
   body.replaceChildren();
   board.rows.forEach((row) => {
+    const health = stratHealth(row);
     const tr = document.createElement("tr");
-    tr.className = "pickable" + (row.id === board.best ? " best" : "") + (row.id === state.strat.pick ? " picked" : "");
+    tr.className =
+      "pickable" +
+      (row.id === board.best ? " best" : "") +
+      (row.id === state.strat.pick ? " picked" : "") +
+      (health.lane === "soft" ? " soft" : health.lane === "incubate" ? " incubate" : "");
     tr.tabIndex = 0;
     tr.setAttribute("role", "button");
     tr.setAttribute("aria-label", "Test " + row.name + " on this market");
@@ -14662,40 +14869,73 @@ function renderStrategies() {
     const call = row.ready && row.call ? row.call : "WAIT";
     pill.className = "call-pill " + String(call).toLowerCase();
     pill.textContent = call;
+    const healthPill = document.createElement("span");
+    healthPill.className = "call-pill health-" + health.lane;
+    healthPill.textContent = health.label;
     addCells(tr, [
       row.name + " · " + row.who,
       "",
       row.ready ? String(row.trades || 0) : "—",
       row.ready && row.trades ? Math.round(row.winRate * 100) + "%" : "—",
+      row.ready ? formatFactor(row.profitFactor) : "—",
       row.ready ? { text: signedPercent(row.total), cls: row.total > 0 ? "up" : row.total < 0 ? "down" : "" } : "—",
       row.ready ? signedPercent(row.hold) : "—",
       row.ready && row.trades ? signedPercent(row.worst) : "—",
+      "",
     ]);
     tr.children[1].appendChild(pill);
+    tr.children[8].appendChild(healthPill);
     body.appendChild(tr);
   });
   const best = board.rows.find((row) => row.id === board.best);
+  const pickRow = board.rows.find((row) => row.id === state.strat.pick);
+  const pickHealth = stratHealth(pickRow);
+  const healthNote = $("strat-health");
+  if (healthNote) {
+    healthNote.textContent = pickRow
+      ? "Strat Health · " +
+        pickRow.name +
+        ": " +
+        pickHealth.label +
+        ". " +
+        pickHealth.note
+      : "Strat Health · pick a strategy. Incubate / Soft hold Auto buys on paper; sells still exit. Not a forecast.";
+  }
   $("strat-best").textContent = best
-    ? "Best on this market's history so far: " + best.name + ", " + signedPercent(best.total) + " over " + best.trades + " trades, against " + signedPercent(best.hold) + " for simply holding. Picking the winner after the fact flatters it. Past closed bars, not a forecast."
-    : "No strategy has five closed trades on this market yet, so none is ranked. More history is needed.";
+    ? "Best on this market's history so far: " +
+      best.name +
+      ", " +
+      signedPercent(best.total) +
+      " over " +
+      best.trades +
+      " trades · Factor " +
+      formatFactor(best.profitFactor) +
+      ", against " +
+      signedPercent(best.hold) +
+      " for simply holding. Strat Health: " +
+      stratHealth(best).label +
+      ". Picking the winner after the fact flatters it. Past closed bars, not a forecast."
+    : "No strategy has five closed trades on this market yet, so none is ranked (Incubate). More history is needed.";
   const cards = $("strat-cards");
-  cards.replaceChildren();
-  board.rows.forEach((row) => {
-    const card = document.createElement("div");
-    card.className = "strat-card";
-    const title = document.createElement("h4");
-    title.textContent = row.name;
-    const idea = document.createElement("p");
-    idea.className = "muted";
-    idea.textContent = row.idea;
-    const line = document.createElement("p");
-    line.textContent = cardLine(row);
-    card.append(title, idea, line);
-    cards.appendChild(card);
-  });
+  if (cards) {
+    cards.replaceChildren();
+    board.rows.forEach((row) => {
+      const card = document.createElement("div");
+      card.className = "strat-card";
+      const title = document.createElement("h4");
+      title.textContent = row.name;
+      const idea = document.createElement("p");
+      idea.className = "muted";
+      idea.textContent = row.idea;
+      const line = document.createElement("p");
+      line.textContent = cardLine(row) + " · Health " + stratHealth(row).label;
+      card.append(title, idea, line);
+      cards.appendChild(card);
+    });
+  }
   const pick = $("strat-pick");
-  if (pick.value !== state.strat.pick) pick.value = state.strat.pick;
-  $("strat-auto-on").checked = state.strat.on;
+  if (pick && pick.value !== state.strat.pick) pick.value = state.strat.pick;
+  if ($("strat-auto-on")) $("strat-auto-on").checked = state.strat.on;
   syncTriggerChecks();
   renderStratTrade(board);
   renderAutoNote();
@@ -15058,6 +15298,10 @@ async function cycleStrategyLearn(mode) {
         total: item.total || 0,
         hold: item.hold || 0,
         worst: item.worst || 0,
+        profitFactor: item.profitFactor,
+        maxDD: item.maxDD,
+        recent: item.recent || null,
+        health: stratHealth(item).lane,
       })),
     };
     book.symbols[symbol] = snapshot;
@@ -15513,9 +15757,23 @@ function renderAutoNote() {
   if (!note) return;
   const row = (state.board && state.board.rows.find((item) => item.id === state.strat.pick)) || null;
   const name = row ? row.name : state.strat.pick;
-  note.textContent = state.strat.note || (state.strat.on
-    ? "On. While Auto runs, a fresh " + name + " buy or sell on a closed bar opens the second warning. Nothing trades until you press Yes. It follows the scanner rules and stops at the circuit breaker. " + (state.best && state.best.on ? "Best setup Auto is also on (strict Edge-only buys). " : "") + internalsLine()
-    : "Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker.");
+  const health = stratHealth(row);
+  const healthBit =
+    row && row.ready
+      ? " Strat Health: " + health.label + (health.autoOk ? "." : " (holds Auto buys).")
+      : "";
+  note.textContent =
+    state.strat.note ||
+    (state.strat.on
+      ? "On. While Auto runs, a fresh " +
+        name +
+        " buy or sell on a closed bar opens the second warning. Nothing trades until you press Yes. It follows the scanner rules and stops at the circuit breaker." +
+        healthBit +
+        " " +
+        (state.best && state.best.on ? "Best setup Auto is also on (strict Edge-only buys). " : "") +
+        internalsLine()
+      : "Off. Auto only refreshes the quote until you turn this on. Every trade is paper, follows the scanner rules, and stops at the circuit breaker." +
+        healthBit);
   renderBestSetup();
 }
 
@@ -15530,6 +15788,15 @@ async function autoTrade() {
   const held = state.paper.shares > 0;
   const want = row.call === "BUY" && !held ? "buy" : row.call === "SELL" && held ? "sell" : "";
   if (!want) return "";
+  // Strat Health: Incubate / Soft hold Auto buys; sells still exit. Paper only.
+  if (want === "buy") {
+    const health = stratHealth(row);
+    if (!health.autoOk) {
+      state.strat.note = "Strat Health " + health.label + ": " + health.note;
+      renderAutoNote();
+      return state.strat.note;
+    }
+  }
   // Edge Auto buys only on Fire. Prefer big4indicator + fill-learned precise timing.
   if (pickId === "edge" && want === "buy") {
     const edgeNow = currentEdge(bars);

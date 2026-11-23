@@ -42,6 +42,50 @@ def _ema(values: list[float], length: int) -> list[float | None]:
     return out
 
 
+_RECENT_TRADE_WINDOW = 8
+
+
+def _trade_book_stats(trades: list[dict]) -> dict:
+    """Closed-bar trade book: Factor, win rate, max drawdown. Own desk math."""
+    wins = 0
+    gross_win = 0.0
+    gross_loss = 0.0
+    growth = 1.0
+    worst = 0.0
+    equity = 1.0
+    peak = 1.0
+    max_dd = 0.0
+    for trade in trades or []:
+        pct = float(trade.get("pct") or 0.0)
+        if pct > 0:
+            wins += 1
+            gross_win += pct
+        elif pct < 0:
+            gross_loss += -pct
+        growth *= 1.0 + pct
+        equity *= 1.0 + pct
+        if equity > peak:
+            peak = equity
+        max_dd = min(max_dd, equity / peak - 1.0)
+        worst = min(worst, pct)
+    count = len(trades or [])
+    if gross_loss > 0:
+        profit_factor: float | None = gross_win / gross_loss
+    elif gross_win > 0:
+        profit_factor = float("inf")
+    else:
+        profit_factor = None
+    return {
+        "trades": count,
+        "wins": wins,
+        "winRate": (wins / count) if count else 0.0,
+        "total": growth - 1.0,
+        "worst": worst,
+        "maxDD": max_dd,
+        "profitFactor": profit_factor,
+    }
+
+
 def _run_rule(bars: list[Bar], warm: int, enter, exit) -> dict:
     """Long-only replay. Enter/exit on closed bars; fill at the next open."""
     count = len(bars)
@@ -84,7 +128,9 @@ def _run_rule(bars: list[Bar], warm: int, enter, exit) -> dict:
             plan = enter(index)
             if plan:
                 pending = "buy"
-    wins = sum(1 for trade in trades if trade["pct"] > 0)
+    book = _trade_book_stats(trades)
+    recent = _trade_book_stats(trades[-_RECENT_TRADE_WINDOW:])
+    wins = book["wins"]
     call = "WAIT"
     if pending == "buy":
         call = "BUY"
@@ -102,6 +148,9 @@ def _run_rule(bars: list[Bar], warm: int, enter, exit) -> dict:
         "total": equity - 1.0,
         "hold": hold,
         "worst": worst,
+        "maxDD": book["maxDD"],
+        "profitFactor": book["profitFactor"],
+        "recent": recent,
     }
 
 

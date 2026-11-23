@@ -1554,11 +1554,16 @@ footer { display: none; }
 .call-pill.sell{background:#7a1f2b;color:#ffe0e4}
 .call-pill.hold{background:#1d4f8a;color:#dcebff}
 .call-pill.wait{background:#3a4250;color:#d7dde8}
+.call-pill.health-desk{background:#12663f;color:#d8ffe9}
+.call-pill.health-incubate{background:#5a4a18;color:#ffe9b0}
+.call-pill.health-soft{background:#7a1f2b;color:#ffe0e4}
+.call-pill.health-unread{background:#3a4250;color:#d7dde8}
 tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 #strat-board td,#strat-sweep-body td{vertical-align:middle}
 #strat-board td:first-child,#strat-sweep-body td:first-child{min-width:11.5rem}
-#strat-board td:nth-child(2),#strat-sweep-body td:nth-child(2){text-align:center;white-space:nowrap}
-#strat-board td:nth-child(n+3),#strat-sweep-body td:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#strat-board td:nth-child(2),#strat-sweep-body td:nth-child(2),#strat-board td:nth-child(9){text-align:center;white-space:nowrap}
+#strat-board td:nth-child(n+3):not(:nth-child(9)),#strat-sweep-body td:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#strat-health{margin:.35rem 0 .55rem}
 
 .safe-box{
   margin:4px 0;

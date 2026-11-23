@@ -797,8 +797,21 @@ class ServerTests(unittest.TestCase):
         web = Path(__file__).resolve().parents[1] / "web"
         page = (web / "index.html").read_text(encoding="utf-8")
         script = (web / "app.js").read_text(encoding="utf-8")
-        for name in ("confirm-modal", "cm-yes", "cm-no", "cm-checks", "strat-detail", "strat-log", "strat-sweep", "strat-sweep-body"):
+        for name in (
+            "confirm-modal",
+            "cm-yes",
+            "cm-no",
+            "cm-checks",
+            "strat-detail",
+            "strat-log",
+            "strat-sweep",
+            "strat-sweep-body",
+            "strat-health",
+        ):
             self.assertIn(f'id="{name}"', page)
+        self.assertIn("Strat Health", page)
+        self.assertIn("function stratHealth", script)
+        self.assertIn("profitFactor", (web / "frames.js").read_text(encoding="utf-8"))
         for call in ("/api/paper/trade", "/api/paper/ticket", "/api/paper/halt"):
             for line in script.splitlines():
                 if f'paperCall("{call}"' in line:
@@ -1022,7 +1035,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.10.33", script)
+        self.assertIn(b"1.10.34", script)
         self.assertIn(b"studyLineColor", script)
         self.assertIn(b"STUDY_RAIL_COLORS", script)
         self.assertIn(b"#f4f7fb", script)
