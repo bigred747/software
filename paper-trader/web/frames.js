@@ -5362,9 +5362,10 @@
           left.symbol.localeCompare(right.symbol)
       );
     const bookHeat = forecastBookHeat(rows);
+    const limit = Math.max(1, Math.min(40, Number(source.limit) || 12));
     return {
       ready: true,
-      rows: rows.slice(0, 12),
+      rows: rows.slice(0, limit),
       bookHeat,
       why: rows.length
         ? "Ranked by price confidence · desk score (Edge · Squeeze · Cycle · stack · pivots · SPY). Concrete levels. Guidance only. Not a crystal ball."

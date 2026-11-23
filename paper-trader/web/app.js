@@ -60,6 +60,8 @@ const state = {
     defensive: null,
     risk: null,
     open: null,
+    scanRows: [],
+    scanKind: "",
     at: 0,
     note: "",
   },
@@ -68,6 +70,7 @@ const state = {
     stop: false,
     open: null,
     board: null,
+    scanKind: "",
     at: 0,
     note: "",
   },
@@ -174,7 +177,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.38";
+const VERSION = "1.10.39";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -6370,6 +6373,10 @@ const SQ_LISTS = {
   main_etfs: MAIN_ETFS.slice(),
   crypto: ["BTC-USD", "ETH-USD", "XRP-USD", "SOL-USD", "XLM-USD", "ADA-USD", "DOGE-USD", "LTC-USD", "LINK-USD", "AVAX-USD", "DOT-USD", "BCH-USD"],
   futures: ["ES", "NQ", "YM", "RTY", "CL", "GC", "SI", "NG", "ZN", "ZB", "6E", "ZC", "ZS", "ZW"],
+  // Desk baskets for Cycle · Forecaster · Squeeze · Lean (own names only).
+  market: ["SPY", "QQQ", "IWM", "DIA", "ES", "NQ", "YM", "RTY", "VIX"],
+  gold: ["GC", "SI", "GLD", "SLV", "GDX", "GDXJ", "NEM", "GOLD", "AEM", "WPM"],
+  bonds: ["ZN", "ZB", "TLT", "IEF", "SHY", "AGG", "BND", "LQD", "HYG", "TIP"],
 };
 
 function catalogByKind(kind) {
@@ -6880,7 +6887,74 @@ function sqCatalogList(kind) {
     const listed = MAIN_ETFS.filter((symbol) => !known.size || known.has(symbol));
     return listed.length ? listed : MAIN_ETFS.slice();
   }
+  if (kind === "etfs") {
+    const all = catalogByKind("etf");
+    if (all.length) {
+      const preferred = MAIN_ETFS.filter((symbol) => all.indexOf(symbol) >= 0);
+      return preferred.concat(all.filter((symbol) => preferred.indexOf(symbol) < 0));
+    }
+    return MAIN_ETFS.concat(SQ_LISTS.sectors || []).filter((symbol, index, list) => list.indexOf(symbol) === index);
+  }
+  if (kind === "market" || kind === "gold" || kind === "bonds") {
+    return (SQ_LISTS[kind] || []).slice();
+  }
   return SQ_LISTS[kind] || SQ_LISTS.starter;
+}
+
+function deskFocusUniverse() {
+  const seen = new Set();
+  const out = [];
+  const push = (symbol) => {
+    const key = String(symbol || "").trim().toUpperCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(key);
+  };
+  if (state.paper && state.paper.symbol) push(state.paper.symbol);
+  (typeof readPins === "function" ? readPins() : state.pins || []).forEach((row) => push(row && row.symbol ? row.symbol : row));
+  (state.fires || []).forEach((row) => push(row.symbol));
+  (state.picks || []).forEach((row) => push(row.symbol));
+  return out.slice(0, 40);
+}
+
+function deskScanSymbols(listId, customId) {
+  const select = $(listId);
+  const kind = select ? select.value : "focus";
+  let list;
+  if (kind === "focus" || !kind) {
+    list = deskFocusUniverse();
+    if (!list.length) list = (SQ_LISTS.starter || []).slice(0, 24);
+  } else if (kind === "custom") {
+    const raw = ($(customId) && $(customId).value) || "";
+    list = raw
+      .toUpperCase()
+      .split(/[\s,;]+/)
+      .filter((item) => /^[A-Z0-9.^=-]{1,12}$/.test(item));
+  } else {
+    list = sqCatalogList(kind);
+  }
+  const seen = new Set();
+  const out = [];
+  list.forEach((symbol) => {
+    const key = String(symbol || "").trim().toUpperCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(key);
+  });
+  return kind === "custom" ? out.slice(0, 80) : out;
+}
+
+function deskScanPriority(symbols) {
+  const priority = [];
+  const current = (state.paper && state.paper.symbol) || "";
+  if (current && symbols.indexOf(current) >= 0) priority.push(current);
+  (typeof readPins === "function" ? readPins() : []).forEach((symbol) => {
+    if (symbols.indexOf(symbol) >= 0 && priority.indexOf(symbol) < 0) priority.push(symbol);
+  });
+  (SQ_LISTS.starter || []).forEach((symbol) => {
+    if (symbols.indexOf(symbol) >= 0 && priority.indexOf(symbol) < 0) priority.push(symbol);
+  });
+  return priority.concat(symbols.filter((symbol) => priority.indexOf(symbol) < 0));
 }
 
 const SQ_SECTOR = {
@@ -8446,6 +8520,20 @@ function renderCycleDesk() {
       ? "Risk Rebound waits for a market tank."
       : "No risk rebound names ready yet."
   );
+  fillCycleRankBody(
+    "cycle-scan-body",
+    box.scanRows,
+    box.busy
+      ? "Scanning Cycle list…"
+      : "Pick a list and press Run Cycle Desk. Empty is normal until the first pass finishes."
+  );
+  const scanNote = $("cycle-scan-note");
+  if (scanNote && !box.busy) {
+    const kind = box.scanKind || ($("cycle-list") && $("cycle-list").value) || "focus";
+    scanNote.textContent = box.scanRows && box.scanRows.length
+      ? "Cycle scan · " + box.scanRows.length + " ranked · list " + kind + ". Closed bars only."
+      : "Ranks Cycle stages on the List above (stocks · ETFs · futures · crypto · market · gold · bonds · or your own box).";
+  }
 
   const marksBody = $("cycle-marks-body");
   if (marksBody) {
@@ -8747,13 +8835,56 @@ function renderForecast() {
             " ranked. Not a crystal ball."
           : "Press Refresh Forecast or Run Forecaster. Concrete levels · confidence. Edge still gates buys.");
   if (note) note.textContent = summary;
-  if (boardNote) boardNote.textContent = summary;
+  if (boardNote) {
+    if (box.busy) boardNote.textContent = summary;
+    else if (!(box.board && box.board.rows && box.board.rows.length)) paintForecastReadyNote();
+    else boardNote.textContent = summary;
+  }
+  const rankHead = $("forecast-rank-head");
+  if (rankHead) {
+    const kind = box.scanKind || ($("forecast-list") && $("forecast-list").value) || "focus";
+    rankHead.textContent = "Price confidence · " + kind;
+  }
 }
 
 function plainForecastPrice(value) {
   if (value == null || !Number.isFinite(Number(value))) return "—";
   if (typeof PaperFrames !== "undefined" && PaperFrames.plainPrice) return PaperFrames.plainPrice(value);
   return String(value);
+}
+
+function paintForecastControls() {
+  const box = state.forecast || {};
+  const scan = $("forecast-scan");
+  const refresh = $("forecast-run");
+  const stop = $("forecast-stop");
+  const busy = !!box.busy;
+  if (scan) {
+    scan.disabled = busy;
+    scan.textContent = busy ? "Scanning…" : "Run Forecaster";
+  }
+  if (refresh) refresh.disabled = busy;
+  if (stop) stop.disabled = !busy;
+}
+
+function paintForecastReadyNote() {
+  const note = $("forecast-board-note");
+  const box = state.forecast || {};
+  if (!note || box.busy) return;
+  const kind = $("forecast-list") ? $("forecast-list").value : "focus";
+  const n = deskScanSymbols("forecast-list", "forecast-custom").length;
+  if (!n) {
+    note.textContent =
+      kind === "custom"
+        ? "Type at least one symbol for your own list."
+        : "No markets in that list yet. Wait for the catalog, or pick Open · pins · Fire · best / Starter / My own list.";
+    return;
+  }
+  note.textContent =
+    "Ready · " +
+    n +
+    " markets in this list. Press Run Forecaster." +
+    (kind === "stocks" && n > 400 ? " Large list — names fill as bars return; Stop anytime." : "");
 }
 
 async function runForecast() {
@@ -8767,15 +8898,23 @@ async function runForecast() {
   box.busy = true;
   box.stop = false;
   box.note = "Reading closed bars for Forecaster…";
+  paintForecastControls();
   renderForecast();
   if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(5000);
   try {
+    await ensureCatalog().catch(() => {});
     const openSym = state.paper && state.paper.symbol;
-    const pins = readPins();
-    const scan = topScanLearnNames().slice(0, 8);
+    const kind = $("forecast-list") ? $("forecast-list").value : "focus";
+    box.scanKind = kind;
+    const scanList = deskScanSymbols("forecast-list", "forecast-custom");
+    if (!scanList.length) {
+      paintForecastReadyNote();
+      return;
+    }
+    const ordered = deskScanPriority(scanList);
     const need = [];
     const seen = new Set();
-    ["SPY"].concat(openSym ? [openSym] : [], pins, scan).forEach((symbol) => {
+    ["SPY"].concat(openSym ? [openSym] : [], ordered).forEach((symbol) => {
       if (symbol && !seen.has(symbol)) {
         seen.add(symbol);
         need.push(symbol);
@@ -8783,7 +8922,36 @@ async function runForecast() {
     });
     const bars = {};
     let next = 0;
-    const workers = Math.min(state.offline ? 2 : 3, Math.max(1, need.length));
+    const workers = Math.min(state.offline ? 2 : 4, Math.max(1, need.length));
+    const cash = state.paper && Number(state.paper.equity) > 0 ? Number(state.paper.equity) : 10000;
+    const publishBoard = (done, finished) => {
+      const boardSymbols = [];
+      ordered.forEach((symbol) => {
+        if (symbol !== "SPY" && bars[symbol] && boardSymbols.indexOf(symbol) < 0) boardSymbols.push(symbol);
+      });
+      const board = PaperFrames.forecastBoard({
+        symbols: boardSymbols,
+        bars,
+        spyBars: bars.SPY,
+        vixBars: state.vixBars || [],
+        cash,
+        limit: Math.min(24, Math.max(12, boardSymbols.length)),
+      });
+      box.board = board;
+      box.note = finished
+        ? box.stop
+          ? "Forecaster stopped · " + ((board && board.rows && board.rows.length) || 0) + " ranked."
+          : (openSym || "Forecaster") +
+            " · " +
+            ((board && board.rows && board.rows.length) || 0) +
+            " ranked · read " +
+            done +
+            " of " +
+            ordered.length +
+            ". Not a crystal ball."
+        : "Forecaster reading " + done + " of " + need.length + "…";
+      renderForecast();
+    };
     const worker = async () => {
       while (!box.stop && next < need.length) {
         const symbol = need[next];
@@ -8794,16 +8962,14 @@ async function runForecast() {
         } catch (error) {
           /* Missing quote stays out. */
         }
-        box.note = "Forecaster reading " + next + " of " + need.length + "…";
-        if (next === need.length || next % 3 === 0) renderForecast();
+        if (next === need.length || next % 3 === 0) publishBoard(Math.min(next, ordered.length), false);
       }
     };
     await Promise.all(Array.from({ length: workers }, () => worker()));
     if (box.stop) {
-      box.note = "Forecaster stopped.";
+      publishBoard(Object.keys(bars).length, true);
       return;
     }
-    const cash = state.paper && Number(state.paper.equity) > 0 ? Number(state.paper.equity) : 10000;
     const openBars = openSym && bars[openSym] ? bars[openSym] : seenBars();
     const open = openBars && openBars.length
       ? PaperFrames.marketForecastRead(openBars, {
@@ -8814,19 +8980,8 @@ async function runForecast() {
           lane: openSym ? readLaneAlign(openSym, openBars) : null,
         })
       : null;
-    const boardSymbols = [];
-    need.forEach((symbol) => {
-      if (symbol !== "SPY" && bars[symbol] && boardSymbols.indexOf(symbol) < 0) boardSymbols.push(symbol);
-    });
-    const board = PaperFrames.forecastBoard({
-      symbols: boardSymbols,
-      bars,
-      spyBars: bars.SPY,
-      vixBars: state.vixBars || [],
-      cash,
-    });
     box.open = open;
-    box.board = board;
+    publishBoard(ordered.length, true);
     box.at = Date.now();
     box.note =
       (open && open.ready
@@ -8838,15 +8993,70 @@ async function runForecast() {
           (open.invalidatePx != null ? " · inv " + open.invalidatePx : "")
         : "Forecaster") +
       " · " +
-      ((board && board.rows && board.rows.length) || 0) +
+      ((box.board && box.board.rows && box.board.rows.length) || 0) +
       " ranked. Not a crystal ball.";
   } catch (error) {
     box.note = error && error.message ? error.message : "Forecaster did not finish.";
   } finally {
     box.busy = false;
+    paintForecastControls();
     if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
     renderForecast();
   }
+}
+
+function paintCycleControls() {
+  const box = state.cycle || {};
+  const scan = $("cycle-scan");
+  const stop = $("cycle-stop");
+  const busy = !!box.busy;
+  if (scan) {
+    scan.disabled = busy;
+    scan.textContent = busy ? "Scanning…" : "Run Cycle Desk";
+  }
+  if (stop) stop.disabled = !busy;
+}
+
+function paintCycleReadyNote() {
+  const note = $("cycle-board-note");
+  const box = state.cycle || {};
+  if (!note || box.busy) return;
+  const kind = $("cycle-list") ? $("cycle-list").value : "focus";
+  const n = deskScanSymbols("cycle-list", "cycle-custom").length;
+  if (!n) {
+    note.textContent =
+      kind === "custom"
+        ? "Type at least one symbol for your own list."
+        : "No markets in that list yet. Wait for the catalog, or pick Open · pins · Fire · best / Starter / My own list.";
+    return;
+  }
+  note.textContent =
+    "Ready · " +
+    n +
+    " markets in this list · SPY + Defensive · Risk always run. Press Run Cycle Desk." +
+    (kind === "stocks" && n > 400 ? " Large list — names fill as bars return; Stop anytime." : "");
+}
+
+function publishCycleScanRows(rows, orderedLength, done, finished) {
+  const box = state.cycle || {};
+  const ranked = (rows || [])
+    .slice()
+    .sort((a, b) => (b.score || 0) - (a.score || 0) || String(a.symbol).localeCompare(String(b.symbol)))
+    .slice(0, 40);
+  box.scanRows = ranked;
+  const scanNote = $("cycle-scan-note");
+  if (scanNote) {
+    scanNote.textContent = finished
+      ? box.stop
+        ? "Cycle scan stopped · " + ranked.length + " ranked of " + done + " read."
+        : "Cycle scan · " + ranked.length + " ranked · read " + done + " of " + orderedLength + ". Closed bars only."
+      : "Reading Cycle scan: " + done + " of " + orderedLength + ". Names show up as each market comes back.";
+  }
+  fillCycleRankBody(
+    "cycle-scan-body",
+    ranked,
+    finished ? "No Cycle stages ready on this list." : "Scanning…"
+  );
 }
 
 async function runCycleDesk() {
@@ -8860,14 +9070,23 @@ async function runCycleDesk() {
   box.busy = true;
   box.stop = false;
   box.note = "Reading SPY and Cycle Desk lists…";
+  paintCycleControls();
   renderCycleDesk();
   if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(5000);
   try {
+    await ensureCatalog().catch(() => {});
     const defensiveSyms = (PaperFrames.DEFENSIVE_SHIELD || []).slice();
     const riskSyms = (PaperFrames.RISK_REBOUND || []).slice();
+    const scanList = deskScanSymbols("cycle-list", "cycle-custom");
+    const kind = $("cycle-list") ? $("cycle-list").value : "focus";
+    box.scanKind = kind;
+    if (!scanList.length) {
+      paintCycleReadyNote();
+      return;
+    }
     const need = [];
     const seen = new Set();
-    ["SPY"].concat(defensiveSyms, riskSyms).forEach((symbol) => {
+    ["SPY"].concat(defensiveSyms, riskSyms, scanList).forEach((symbol) => {
       if (symbol && !seen.has(symbol)) {
         seen.add(symbol);
         need.push(symbol);
@@ -8878,9 +9097,35 @@ async function runCycleDesk() {
       seen.add(openSym);
       need.push(openSym);
     }
+    const orderedScan = deskScanPriority(scanList);
     const bars = {};
     let next = 0;
     const workers = Math.min(state.offline ? 3 : 6, Math.max(1, need.length));
+    const scanHits = [];
+    const publishScan = (done, finished) => {
+      orderedScan.forEach((symbol) => {
+        if (!bars[symbol] || scanHits.some((row) => row.symbol === symbol)) return;
+        const strength =
+          typeof PaperFrames.strengthRead === "function" ? PaperFrames.strengthRead(bars[symbol]) : null;
+        const cycle = PaperFrames.cycleMapRead(bars[symbol]);
+        if (!cycle || !cycle.ready) return;
+        let score = strength && strength.score != null ? strength.score : 40;
+        if (cycle.signal === "bottom_in" || cycle.stage === "despair") score += 30;
+        if (cycle.signal === "bottom_watch" || cycle.stage === "capitulation" || cycle.stage === "fear") score += 18;
+        if (cycle.signal === "buy_before_mania" || cycle.stage === "takeoff" || cycle.stage === "bear_trap") score += 16;
+        if (cycle.signal === "sell_into_greed" || cycle.stage === "greed" || cycle.stage === "delusion") score -= 12;
+        scanHits.push({
+          symbol,
+          score,
+          label: cycle.label,
+          stage: cycle.stage,
+          signal: cycle.signal,
+          signalLabel: cycle.signalLabel,
+          why: cycle.why,
+        });
+      });
+      publishCycleScanRows(scanHits, orderedScan.length, done, finished);
+    };
     const worker = async () => {
       while (!box.stop && next < need.length) {
         const symbol = need[next];
@@ -8892,12 +9137,16 @@ async function runCycleDesk() {
           /* Missing quote stays out. */
         }
         box.note = "Reading Cycle Desk: " + next + " of " + need.length + "…";
-        if (next === need.length || next % 3 === 0) renderCycleDesk();
+        if (next === need.length || next % 3 === 0) {
+          publishScan(Math.min(next, orderedScan.length), false);
+          renderCycleDesk();
+        }
       }
     };
     await Promise.all(Array.from({ length: workers }, () => worker()));
     if (box.stop) {
       box.note = "Cycle Desk stopped.";
+      publishScan(Object.keys(bars).length, true);
       return;
     }
     const market = PaperFrames.marketTankRead(bars.SPY || []);
@@ -8915,6 +9164,7 @@ async function runCycleDesk() {
     });
     const openBars = openSym && bars[openSym] ? bars[openSym] : seenBars();
     const open = openBars && openBars.length ? PaperFrames.cycleMapRead(openBars) : null;
+    publishScan(orderedScan.length, true);
     box.market = market;
     box.defensive = defensive;
     box.risk = risk;
@@ -8927,11 +9177,16 @@ async function runCycleDesk() {
       (defensive && defensive.active ? " · Defensive " + ((defensive.rows && defensive.rows.length) || 0) : "") +
       (risk && risk.active ? " · Risk " + ((risk.rows && risk.rows.length) || 0) : "") +
       (open && open.signalLabel ? " · " + open.signalLabel : "") +
+      " · list " +
+      ((box.scanRows && box.scanRows.length) || 0) +
+      "/" +
+      orderedScan.length +
       ". Own desk only.";
   } catch (error) {
     box.note = error && error.message ? error.message : "Cycle Desk did not finish.";
   } finally {
     box.busy = false;
+    paintCycleControls();
     if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
     renderCycleDesk();
     paintChartToolBoxes(state.market && state.market.history);
@@ -11064,6 +11319,14 @@ if ($("cycle-stop")) {
     if (state.cycle) state.cycle.stop = true;
   });
 }
+if ($("cycle-list")) {
+  $("cycle-list").addEventListener("change", () => paintCycleReadyNote());
+}
+if ($("cycle-custom")) {
+  $("cycle-custom").addEventListener("input", () => {
+    if ($("cycle-list") && $("cycle-list").value === "custom") paintCycleReadyNote();
+  });
+}
 if ($("forecast-scan")) $("forecast-scan").addEventListener("click", () => runForecast());
 if ($("ps-scan")) $("ps-scan").addEventListener("click", () => runProductScan());
 if ($("ps-stop")) {
@@ -11083,6 +11346,14 @@ if ($("forecast-run")) $("forecast-run").addEventListener("click", () => runFore
 if ($("forecast-stop")) {
   $("forecast-stop").addEventListener("click", () => {
     if (state.forecast) state.forecast.stop = true;
+  });
+}
+if ($("forecast-list")) {
+  $("forecast-list").addEventListener("change", () => paintForecastReadyNote());
+}
+if ($("forecast-custom")) {
+  $("forecast-custom").addEventListener("input", () => {
+    if ($("forecast-list") && $("forecast-list").value === "custom") paintForecastReadyNote();
   });
 }
 if ($("scorecard-open")) {
@@ -11827,41 +12098,11 @@ function renderLeanBook() {
 }
 
 function leanFocusUniverse() {
-  const seen = new Set();
-  const out = [];
-  const push = (symbol) => {
-    const key = String(symbol || "").trim().toUpperCase();
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    out.push(key);
-  };
-  if (state.paper && state.paper.symbol) push(state.paper.symbol);
-  (typeof readPins === "function" ? readPins() : state.pins || []).forEach((row) => push(row && row.symbol ? row.symbol : row));
-  (state.fires || []).forEach((row) => push(row.symbol));
-  (state.picks || []).forEach((row) => push(row.symbol));
-  return out.slice(0, 40);
+  return deskFocusUniverse();
 }
 
 function leanSymbols() {
-  const select = $("lean-list");
-  const kind = select ? select.value : "focus";
-  let list;
-  if (kind === "focus" || !kind) {
-    list = leanFocusUniverse();
-  } else if (kind === "custom") {
-    list = ($("lean-custom").value || "").toUpperCase().split(/[\s,;]+/).filter((item) => /^[A-Z0-9.^=-]{1,12}$/.test(item));
-  } else {
-    list = typeof sqCatalogList === "function" ? sqCatalogList(kind) : [];
-  }
-  const seen = new Set();
-  const out = [];
-  list.forEach((symbol) => {
-    const key = String(symbol || "").trim().toUpperCase();
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    out.push(key);
-  });
-  return kind === "custom" ? out.slice(0, 80) : out;
+  return deskScanSymbols("lean-list", "lean-custom");
 }
 
 function paintLeanControls() {

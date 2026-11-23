@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.38">
+  <meta name="paper-build" content="1.10.39">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.38</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.39</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -647,8 +647,12 @@ AddOrder(Sell, sellFire);</textarea>
             <option value="starter" selected>Starter list</option>
             <option value="stocks">All stocks</option>
             <option value="main_etfs">13 main ETFs</option>
+            <option value="etfs">All ETFs</option>
             <option value="futures">All futures</option>
             <option value="crypto">All crypto</option>
+            <option value="market">Market · indexes · big 4</option>
+            <option value="gold">Gold · silver · miners</option>
+            <option value="bonds">Bonds · rates</option>
             <option value="sectors">Sector funds and big holdings</option>
             <option value="custom">My own list</option>
           </select>
@@ -884,8 +888,12 @@ AddOrder(Sell, sellFire);</textarea>
             <option value="starter">Starter list</option>
             <option value="stocks">All stocks</option>
             <option value="main_etfs">13 main ETFs</option>
+            <option value="etfs">All ETFs</option>
             <option value="futures">All futures</option>
             <option value="crypto">All crypto</option>
+            <option value="market">Market · indexes · big 4</option>
+            <option value="gold">Gold · silver · miners</option>
+            <option value="bonds">Bonds · rates</option>
             <option value="sectors">Sector funds and big holdings</option>
             <option value="custom">My own list</option>
           </select>
@@ -1015,12 +1023,28 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Cycle Desk</h2>
         </div>
-        <p class="muted">Original Paper Trader read on closed daily bars vs a long mean. Stages, tops, bottoms, and cycle-finished marks are this desk’s own names — nothing from a third-party course or pack. Defensive Shield runs when the market is soft. Risk Rebound lists non-defensive names only when the market tanks. Guidance only. Edge · Best setup · Auto still gate buys. Paper only. Live locked. Not a forecast.</p>
+        <p class="muted">Original Paper Trader read on closed daily bars vs a long mean. Stages, tops, bottoms, and cycle-finished marks are this desk’s own names — nothing from a third-party course or pack. Defensive Shield runs when the market is soft. Risk Rebound lists non-defensive names only when the market tanks. Pick a product list (All stocks · ETFs · futures · crypto · market · gold · bonds · or your own box) to rank Cycle stages across that universe. Guidance only. Edge · Best setup · Auto still gate buys. Paper only. Live locked. Not a forecast.</p>
         <div class="strat-orb-inputs">
+          <label for="cycle-list">List</label>
+          <select id="cycle-list">
+            <option value="focus" selected>Open · pins · Fire · best</option>
+            <option value="starter">Starter list</option>
+            <option value="stocks">All stocks</option>
+            <option value="main_etfs">13 main ETFs</option>
+            <option value="etfs">All ETFs</option>
+            <option value="futures">All futures</option>
+            <option value="crypto">All crypto</option>
+            <option value="market">Market · indexes · big 4</option>
+            <option value="gold">Gold · silver · miners</option>
+            <option value="bonds">Bonds · rates</option>
+            <option value="sectors">Sector funds and big holdings</option>
+            <option value="custom">My own list</option>
+          </select>
+          <input id="cycle-custom" type="text" maxlength="400" placeholder="BTC-USD, NVDA, TLT" aria-label="Your own Cycle Desk list of symbols, separated by commas">
           <button id="cycle-scan" type="button">Run Cycle Desk</button>
           <button id="cycle-stop" type="button" class="quiet">Stop</button>
         </div>
-        <p id="cycle-board-note" class="muted">Press Run Cycle Desk. Reads SPY plus defensive and risk lists.</p>
+        <p id="cycle-board-note" class="muted">Pick a list (or type your own), then Run Cycle Desk. Always reads SPY for tank mode plus Defensive · Risk shields. Large catalogs fill as bars return — Stop anytime.</p>
         <div id="cycle-open" class="scorecard-day" aria-live="polite">
           <p id="cycle-open-bias" class="scorecard-bias">Open market · waiting</p>
           <p id="cycle-open-why" class="muted"></p>
@@ -1064,6 +1088,14 @@ AddOrder(Sell, sellFire);</textarea>
             </div>
           </section>
         </div>
+        <h3 class="journal-check-head">Cycle scan · chosen list</h3>
+        <p id="cycle-scan-note" class="muted">Ranks Cycle stages on the List above. Not every product until you pick All stocks / All ETFs / etc.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Market</th><th>Stage</th><th>Signal</th><th>Score</th><th></th></tr></thead>
+            <tbody id="cycle-scan-body"></tbody>
+          </table>
+        </div>
         <section class="scorecard-panel" aria-label="Cycle marks on open market">
           <h3>Cycle marks · open market</h3>
           <div class="table-wrap">
@@ -1080,14 +1112,30 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Forecaster</h2>
         </div>
-        <p class="muted">One Forecaster · precise closed-bar price call. Next support · resistance · invalidate, base · bull · bear with confidence, Swing Guard · Risk Seat · Name Pulse · Book Heat · Reclaim Cue · Season Lean. Near targets snap to real pivot levels when available. Confidence blends Edge · Squeeze · Cycle · stack · pivots · Lane · vol — our math only. Complements Market Outlook (does not replace it). Not a crystal ball. Not a forecast guarantee. Edge · Best setup · Auto still gate buys. Paper only. Live locked. Fail closed — no invented prints. No third-party product or scrape. No duplicate Forecaster panel.</p>
+        <p class="muted">One Forecaster · precise closed-bar price call. Next support · resistance · invalidate, base · bull · bear with confidence, Swing Guard · Risk Seat · Name Pulse · Book Heat · Reclaim Cue · Season Lean. Near targets snap to real pivot levels when available. Confidence blends Edge · Squeeze · Cycle · stack · pivots · Lane · vol — our math only. Complements Market Outlook (does not replace it). Pick a product list (All stocks · ETFs · futures · crypto · market · gold · bonds · or your own box) to rank confidence across that universe. Not a crystal ball. Not a forecast guarantee. Edge · Best setup · Auto still gate buys. Paper only. Live locked. Fail closed — no invented prints. No third-party product or scrape. No duplicate Forecaster panel.</p>
         <div class="strat-orb-inputs">
+          <label for="forecast-list">List</label>
+          <select id="forecast-list">
+            <option value="focus" selected>Open · pins · Fire · best</option>
+            <option value="starter">Starter list</option>
+            <option value="stocks">All stocks</option>
+            <option value="main_etfs">13 main ETFs</option>
+            <option value="etfs">All ETFs</option>
+            <option value="futures">All futures</option>
+            <option value="crypto">All crypto</option>
+            <option value="market">Market · indexes · big 4</option>
+            <option value="gold">Gold · silver · miners</option>
+            <option value="bonds">Bonds · rates</option>
+            <option value="sectors">Sector funds and big holdings</option>
+            <option value="custom">My own list</option>
+          </select>
+          <input id="forecast-custom" type="text" maxlength="400" placeholder="BTC-USD, NVDA, TLT" aria-label="Your own Forecaster list of symbols, separated by commas">
           <button id="forecast-scan" type="button">Run Forecaster</button>
           <button id="forecast-run" type="button" class="quiet">Refresh</button>
           <button id="forecast-stop" type="button" class="quiet">Stop</button>
         </div>
-        <p id="forecast-note" class="muted">Press Run Forecaster for one precise price call.</p>
-        <p id="forecast-board-note" class="muted">Reads the open market, pins, and top scan names.</p>
+        <p id="forecast-note" class="muted">Press Run Forecaster for one precise price call on the open market, plus a ranked board from the List.</p>
+        <p id="forecast-board-note" class="muted">Pick a list (or type your own). Large catalogs fill as bars return — Stop anytime.</p>
         <p id="forecast-open-sum" class="muted"></p>
         <div id="forecast-pins" class="pins" aria-label="Forecaster ranked names"></div>
         <div id="forecast-case" class="scorecard-day" aria-live="polite">
@@ -1128,7 +1176,7 @@ AddOrder(Sell, sellFire);</textarea>
           <ul id="forecast-assumptions" class="safe-list"></ul>
         </section>
         <section class="scorecard-panel" aria-label="Ranked names">
-          <h3>Price confidence · open · pins · scan</h3>
+          <h3 id="forecast-rank-head">Price confidence · chosen list</h3>
           <div class="table-wrap">
             <table>
               <thead><tr><th>#</th><th>Market</th><th>Conf</th><th>Base</th><th>Bull</th><th>Bear</th><th>Invalidate</th><th></th></tr></thead>
