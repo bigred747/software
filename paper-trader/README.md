@@ -1,6 +1,8 @@
 ## Version notes
 
-- **1.10.32** Product Scan desk tab: top 20 stocks · ETFs · futures · crypto, best installed strategy per type via Learning 24/7, Use winners feeds Strategies paper path (Edge · Best setup · Yes stay). Tools + second page + Markets card. Live locked.
+- **1.10.33** Product Scan desk tab: top 20 stocks · ETFs · futures · crypto, best installed strategy per type via Learning 24/7, Use winners feeds Strategies paper path (Edge · Best setup · Yes stay). Tools + second page + Markets card. Live locked. Stacked on Journal Load 1.10.32.
+
+- **1.10.32** Journal Load paper book hang fix · downloadable book · Load paints Journal before background quote refresh.
 
 - **1.10.31** Phone Private paints Desk EMA Fire on open (bootOffline rerunStudy) · Layers Stack on by default.
 
