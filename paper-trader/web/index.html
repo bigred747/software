@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.36">
+  <meta name="paper-build" content="1.10.37">
   <meta name="paper-publish" content="20261123T072000Z">
-  <meta name="paper-private-build" content="publish-20261123T072000Z">
+  <meta name="paper-private-build" content="publish-20261123T211500Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.36</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.37</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -159,6 +159,12 @@
         </div>
         <p id="product-scan-card-note" class="muted">Top 20 stocks · ETFs · futures · crypto. Learning scores every installed strategy 24/7 and picks the best per type for paper buy/sell. Edge · Best setup · Yes still gate. Live locked. Not a forecast.</p>
         <p id="product-scan-card-winners" class="muted"></p>
+        <div class="scan-head fire-head">
+          <h3>Lean Book</h3>
+          <button type="button" class="quiet" data-open-dock="leanbook">Open Lean Book</button>
+        </div>
+        <p id="lean-card-note" class="muted">Paper small-book categories: Coil Spark · Stack Climb · Seat High · Book Sync plus Cash Guard. Own desk names only. Strategies Auto can follow Lean Book. Edge · Yes still gate. Live locked. Not a forecast.</p>
+        <p id="lean-card-status" class="muted"></p>
       </div>
       <label for="search">Find a market</label>
       <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
@@ -232,6 +238,7 @@
           <button type="button" data-open-dock="squeeze">Squeeze scan</button>
           <button type="button" data-open-dock="readings">big4indicator</button>
           <button type="button" data-open-dock="deskpool">Desk Pool</button>
+          <button type="button" data-open-dock="leanbook">Lean Book</button>
           <button type="button" data-open-dock="journal">Journal</button>
           <button type="button" data-open-dock="signals">Signals</button>
           <button type="button" data-open-dock="backtest">Backtest</button>
@@ -450,6 +457,7 @@
         <button type="button" class="dock-tab" data-dock="frames">Timeframes</button>
         <button type="button" class="dock-tab" data-dock="readings">big4indicator</button>
         <button type="button" class="dock-tab" data-dock="deskpool">Desk Pool</button>
+        <button type="button" class="dock-tab" data-dock="leanbook">Lean Book</button>
         <button type="button" class="dock-tab" data-dock="journal">Journal</button>
         <button type="button" class="dock-tab" data-dock="backtest">Backtest</button>
         <button type="button" class="dock-tab" data-dock="signals">Signals</button>
@@ -472,6 +480,7 @@
           <button type="button" data-open-dock="squeeze">Squeeze scan</button>
           <button type="button" data-open-dock="readings">big4indicator</button>
           <button type="button" data-open-dock="deskpool">Desk Pool</button>
+          <button type="button" data-open-dock="leanbook">Lean Book</button>
           <button type="button" data-open-dock="journal">Journal</button>
           <button type="button" data-open-dock="signals">Signals</button>
           <button type="button" data-open-dock="backtest">Backtest</button>
@@ -860,6 +869,43 @@ AddOrder(Sell, sellFire);</textarea>
           </table>
         </div>
         <p id="dp-attr" class="muted"></p>
+      </div>
+
+      <div class="dock-page" data-dock-page="leanbook">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Lean Book</h2>
+        </div>
+        <p class="muted">Original Paper Trader Lean Book for a paper small book. Setup categories use our own closed-bar names only: Coil Spark · Stack Climb · Seat High · Book Sync. Cash Guard keeps risk lean (cash-heavy, capped opens, 2×ATR stop hint). Strategies Auto can follow Lean Book separately. Edge · Best setup · Yes still gate buys. Own desk — not a third-party course or product. Paper only. Live locked. Not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <button id="lean-scan" type="button">Run Lean Book</button>
+          <button id="lean-refresh" type="button" class="quiet">Refresh open</button>
+          <button id="lean-stop" type="button" class="quiet">Stop</button>
+        </div>
+        <p id="lean-board-note" class="muted">Press Run Lean Book. Reads the open market, pins, Fire 5, and today's best.</p>
+        <div id="lean-open" class="scorecard-day" aria-live="polite">
+          <p id="lean-open-bias" class="scorecard-bias">Open market · waiting</p>
+          <p id="lean-open-why" class="muted"></p>
+        </div>
+        <div id="lean-cash" class="scorecard-day" aria-live="polite">
+          <p id="lean-cash-bias" class="scorecard-bias">Cash Guard · waiting</p>
+          <p id="lean-cash-why" class="muted"></p>
+        </div>
+        <h3 class="journal-check-head">Setup categories · open market</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Category</th><th>On</th><th>Detail</th></tr></thead>
+            <tbody id="lean-cat-body"></tbody>
+          </table>
+        </div>
+        <h3 class="journal-check-head">Lean scan</h3>
+        <div id="lean-pins" class="pins" aria-label="Lean Book ranked names"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Market</th><th>Call</th><th>Hits</th><th>Categories</th><th></th></tr></thead>
+            <tbody id="lean-scan-body"></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="dock-page" data-dock-page="journal">

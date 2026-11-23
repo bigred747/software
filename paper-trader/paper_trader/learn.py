@@ -70,6 +70,7 @@ _DESK_PAGES: list[tuple[str, str]] = [
     ("frames", "Timeframes · multi-TF Edge"),
     ("readings", "big4indicator · tape proxies"),
     ("deskpool", "Desk Pool · Big Prints · Form Prints · Civic Trades"),
+    ("leanbook", "Lean Book · Coil Spark · Stack Climb · Seat High · Cash Guard"),
     ("journal", "Journal · paper fills and timing"),
     ("backtest", "Backtest · closed-bar replay"),
     ("signals", "Signals · desk checks"),
@@ -166,6 +167,12 @@ def page_snapshot(
         base.update(
             {
                 "note": "Forecaster: concrete support · resistance · invalidate, base · bull · bear with confidence, Swing Guard · Risk Seat. Complements Outlook. Not a crystal ball.",
+            }
+        )
+    elif page == "leanbook":
+        base.update(
+            {
+                "note": "Lean Book: Coil Spark · Stack Climb · Seat High · Book Sync categories plus Cash Guard for a paper small book. Own desk names only.",
             }
         )
     elif page == "productscan":
