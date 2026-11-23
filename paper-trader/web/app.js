@@ -39,6 +39,16 @@ const state = {
   scanDone: false,
   scanLearn: { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 },
   stratLearn: { cursor: 0, lastAt: 0, lastSymbol: "", lastId: "", passes: 0 },
+  productScan: {
+    busy: false,
+    stop: false,
+    apply: false,
+    at: 0,
+    note: "",
+    boards: { stock: [], etf: [], future: [], crypto: [] },
+    winners: { stock: null, etf: null, future: null, crypto: null },
+    tallies: { stock: {}, etf: {}, future: {}, crypto: {} },
+  },
   breadth: null,
   vixBars: [],
   schwab: null,
@@ -163,7 +173,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.31";
+const VERSION = "1.10.32";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -3098,6 +3108,7 @@ function chooseSymbol(symbol) {
   state.pendingSymbol = "";
   paintOpeningSymbol(symbol);
   softStopAuto();
+  applyProductWinnerForSymbol(symbol);
   const token = state.switchToken + 1;
   state.switchToken = token;
   state.switching = true;
@@ -3120,6 +3131,7 @@ function chooseSymbol(symbol) {
           render(state.paper);
         }
         if (state.switchToken !== token) return;
+        applyProductWinnerForSymbol(symbol);
         showChart();
         showRead(symbol + " is on the chart.");
         return;
@@ -3136,6 +3148,7 @@ function chooseSymbol(symbol) {
         stampQuote(bars);
         refreshSymbols().catch(() => {});
         rerunStudy();
+        applyProductWinnerForSymbol(symbol);
         render(state.paper);
         renderLocalSignals();
         showChart();
@@ -3154,12 +3167,14 @@ function chooseSymbol(symbol) {
       if (state.switchToken !== token) return;
       if (state.paper) state.paper = Object.assign({}, state.paper, { symbol });
       paintOpeningSymbol(symbol);
+      applyProductWinnerForSymbol(symbol);
       showChart();
       redrawStudies();
       const paper = await paperPromise;
       if (state.switchToken !== token) return;
       state.paper = paper;
       refreshSymbols().catch(() => {});
+      applyProductWinnerForSymbol(symbol);
       render(paper);
       showChart();
       if (paper.paper === true) {
@@ -5130,6 +5145,7 @@ function deskLearnPages() {
     "trade",
     "study",
     "strategies",
+    "productscan",
     "squeeze",
     "scorecard",
     "cycle",
@@ -5274,6 +5290,7 @@ function startScanLearnLoop() {
         if (state.auto) await holdLearnAwake();
         await cycleScanLearn(state.auto ? "auto" : "scan");
         await cycleStrategyLearn();
+        await cycleProductScanLearn();
         await cycleDeskPageLearn();
         state.pageLearnOn = true;
         refreshLearnSignal();
@@ -5294,13 +5311,14 @@ function startScanLearnLoop() {
           await nudgeLearn("scan", [names[index]]);
         }
         await cycleStrategyLearn("all");
+        await cycleProductScanLearn("all");
         const pageCount = deskLearnPages().length;
         await cycleDeskPageLearn("all");
         state.pageLearnOn = true;
         learnTouchNote =
           "Hourly learn · all " +
           pageCount +
-          " pages/tabs · strategies · " +
+          " pages/tabs · strategies · Product Scan · " +
           (names.slice(0, 4).join(", ") || "scan") +
           " · closed bars.";
         refreshLearnSignal();
@@ -5880,6 +5898,490 @@ const SQ_LISTS = {
 
 function catalogByKind(kind) {
   return (state.catalog || []).filter((row) => row.category === kind).map((row) => row.symbol);
+}
+
+const PS_KEY = "paper_trader_product_scan_v1";
+const PS_TOP = 20;
+const PS_TYPES = [
+  { id: "stock", label: "Stocks", listKey: "stocks", cap: 120 },
+  { id: "etf", label: "ETFs", listKey: "main_etfs", cap: 80 },
+  { id: "future", label: "Futures", listKey: "futures", cap: 40 },
+  { id: "crypto", label: "Crypto", listKey: "crypto", cap: 80 },
+];
+
+function loadProductScan() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PS_KEY) || "{}");
+    if (!raw || typeof raw !== "object") return null;
+    return {
+      apply: raw.apply === true,
+      at: Number(raw.at) || 0,
+      note: String(raw.note || ""),
+      boards: raw.boards && typeof raw.boards === "object" ? raw.boards : null,
+      winners: raw.winners && typeof raw.winners === "object" ? raw.winners : null,
+      tallies: raw.tallies && typeof raw.tallies === "object" ? raw.tallies : null,
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveProductScan() {
+  try {
+    const ps = state.productScan || {};
+    localStorage.setItem(
+      PS_KEY,
+      JSON.stringify({
+        apply: !!ps.apply,
+        at: ps.at || 0,
+        note: ps.note || "",
+        boards: ps.boards || {},
+        winners: ps.winners || {},
+        tallies: ps.tallies || {},
+      })
+    );
+  } catch (error) {
+    /* Product Scan still holds for this page. */
+  }
+}
+
+function hydrateProductScan() {
+  const saved = loadProductScan();
+  if (!state.productScan) {
+    state.productScan = {
+      busy: false,
+      stop: false,
+      apply: false,
+      at: 0,
+      note: "",
+      boards: { stock: [], etf: [], future: [], crypto: [] },
+      winners: { stock: null, etf: null, future: null, crypto: null },
+      tallies: { stock: {}, etf: {}, future: {}, crypto: {} },
+    };
+  }
+  if (!saved) return;
+  state.productScan.apply = !!saved.apply;
+  if (saved.at) state.productScan.at = saved.at;
+  if (saved.note) state.productScan.note = saved.note;
+  if (saved.boards) {
+    PS_TYPES.forEach((type) => {
+      if (Array.isArray(saved.boards[type.id])) state.productScan.boards[type.id] = saved.boards[type.id];
+    });
+  }
+  if (saved.winners) state.productScan.winners = Object.assign({}, state.productScan.winners, saved.winners);
+  if (saved.tallies) state.productScan.tallies = Object.assign({}, state.productScan.tallies, saved.tallies);
+}
+
+function psTypeLabel(id) {
+  const row = PS_TYPES.find((item) => item.id === id);
+  return row ? row.label : id;
+}
+
+function psPool(typeId) {
+  const type = PS_TYPES.find((item) => item.id === typeId) || PS_TYPES[0];
+  let list = [];
+  if (typeId === "etf") {
+    const known = new Set(catalogByKind("etf"));
+    const preferred = MAIN_ETFS.concat(SQ_LISTS.sectors || []).filter((symbol) => !known.size || known.has(symbol));
+    list = preferred.concat(catalogByKind("etf").filter((symbol) => preferred.indexOf(symbol) < 0));
+  } else if (typeId === "stock") {
+    const starter = (SQ_LISTS.starter || []).filter((symbol) => !symbol.includes("-") && !(SQ_LISTS.futures || []).includes(symbol) && !MAIN_ETFS.includes(symbol));
+    const sectors = (SQ_LISTS.sectors || []).filter((symbol) => !MAIN_ETFS.includes(symbol) && !symbol.startsWith("XL") && symbol !== "SMH");
+    const all = catalogByKind("stock");
+    list = starter.concat(sectors).concat(all.filter((symbol) => starter.indexOf(symbol) < 0 && sectors.indexOf(symbol) < 0));
+  } else {
+    list = sqCatalogList(type.listKey);
+  }
+  const seen = new Set();
+  const out = [];
+  list.forEach((symbol) => {
+    if (!seen.has(symbol)) {
+      seen.add(symbol);
+      out.push(symbol);
+    }
+  });
+  const priority = [];
+  const current = (state.paper && state.paper.symbol) || "";
+  if (current && out.includes(current)) priority.push(current);
+  readPins().forEach((symbol) => {
+    if (out.includes(symbol) && !priority.includes(symbol)) priority.push(symbol);
+  });
+  (state.leaders || []).forEach((row) => {
+    if (row && row.symbol && out.includes(row.symbol) && !priority.includes(row.symbol)) priority.push(row.symbol);
+  });
+  const ordered = priority.concat(out.filter((symbol) => !priority.includes(symbol)));
+  return ordered.slice(0, type.cap);
+}
+
+function psEmptyTallies() {
+  return { stock: {}, etf: {}, future: {}, crypto: {} };
+}
+
+function psTallyStrategy(tallies, typeId, board) {
+  if (!board || !Array.isArray(board.rows)) return;
+  const bucket = tallies[typeId] || (tallies[typeId] = {});
+  board.rows.forEach((row) => {
+    if (!row || !row.ready || !(row.trades >= 5)) return;
+    const slot = bucket[row.id] || (bucket[row.id] = { id: row.id, name: row.name, total: 0, hold: 0, trades: 0, wins: 0, count: 0, bestHits: 0 });
+    slot.total += Number(row.total) || 0;
+    slot.hold += Number(row.hold) || 0;
+    slot.trades += Number(row.trades) || 0;
+    slot.wins += Number(row.wins) || 0;
+    slot.count += 1;
+    if (board.best && board.best === row.id) slot.bestHits += 1;
+  });
+}
+
+function psPickWinners(tallies, boards) {
+  const winners = { stock: null, etf: null, future: null, crypto: null };
+  PS_TYPES.forEach((type) => {
+    const bucket = tallies[type.id] || {};
+    const ranked = Object.keys(bucket)
+      .map((id) => {
+        const row = bucket[id];
+        const mean = row.count ? row.total / row.count : 0;
+        return Object.assign({}, row, { mean });
+      })
+      .sort((a, b) => b.mean - a.mean || b.bestHits - a.bestHits || b.trades - a.trades || a.id.localeCompare(b.id));
+    const minCount = (boards[type.id] || []).length >= 8 ? 3 : 1;
+    const winner = ranked.find((row) => row.count >= minCount) || ranked[0] || null;
+    winners[type.id] = winner
+      ? {
+          id: winner.id,
+          name: winner.name,
+          mean: winner.mean,
+          count: winner.count,
+          trades: winner.trades,
+          bestHits: winner.bestHits,
+        }
+      : null;
+  });
+  return winners;
+}
+
+function psRankBoard(rows) {
+  return (rows || [])
+    .filter((row) => row && row.symbol && row.seen >= 20 && row.rate >= 60)
+    .sort((a, b) => b.rate - a.rate || b.seen - a.seen || a.symbol.localeCompare(b.symbol))
+    .slice(0, PS_TOP);
+}
+
+function psScoreSymbol(symbol, bars, category) {
+  const crypto = phoneCrypto(symbol, { category: category || "" });
+  const settled = PaperFrames.closedBars(bars, crypto);
+  if (settled.length < 2) return null;
+  const lesson = PaperFrames.lesson(settled);
+  const seen = Number(lesson && lesson.seen) || 0;
+  const matched = Number(lesson && lesson.matched) || 0;
+  const rate = seen ? Math.round((matched / seen) * 100) : 0;
+  const board = PaperFrames.strategies(settled, { live: false });
+  const timing = PaperFrames.edge
+    ? PaperFrames.edge(bars, { live: PaperFrames.liveBar(bars, crypto), vixBars: state.vixBars || [] })
+    : null;
+  const fireOn = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
+  return {
+    symbol,
+    category: category || "",
+    seen,
+    matched,
+    rate,
+    setup: "",
+    edge: timing && timing.ready ? timing.call : "",
+    fire: fireOn,
+    stage: timing && timing.stage ? timing.stage : "",
+    best: board.best || "",
+    board,
+  };
+}
+
+function applyProductWinnerForSymbol(symbol) {
+  const ps = state.productScan;
+  if (!ps || !ps.apply || !symbol) return "";
+  if (state.best && state.best.on) return "";
+  const row = (state.catalog || []).find((item) => item.symbol === symbol);
+  const kind = row && row.category ? row.category : "";
+  const winner = ps.winners && ps.winners[kind];
+  if (!winner || !winner.id || !strategyIds().includes(winner.id)) return "";
+  if (state.strat.pick === winner.id) return winner.id;
+  pickStrategy(winner.id);
+  return winner.id;
+}
+
+function pickProductWinnerForOpen() {
+  const symbol = (state.paper && state.paper.symbol) || "";
+  if (!symbol) {
+    if ($("status")) $("status").textContent = "Open a market first, then pick its type winner.";
+    return;
+  }
+  const row = (state.catalog || []).find((item) => item.symbol === symbol);
+  const kind = row && row.category ? row.category : "";
+  const winner = state.productScan && state.productScan.winners && state.productScan.winners[kind];
+  if (!winner || !winner.id) {
+    if ($("status")) $("status").textContent = "No Product Scan winner for " + (psTypeLabel(kind) || "this type") + " yet. Scan top 20 or wait for Learning.";
+    return;
+  }
+  if (state.best && state.best.on) {
+    if ($("status")) $("status").textContent = "Best setup Auto keeps Edge. Turn Best setup off to paper the Product Scan winner (" + winner.name + ").";
+    return;
+  }
+  pickStrategy(winner.id);
+  if ($("status")) $("status").textContent = "Product Scan winner for " + psTypeLabel(kind) + ": " + winner.name + " on " + symbol + ". Strategies Auto still asks Yes. Edge Fire stays for Best setup.";
+}
+
+function setProductScanApply(on) {
+  if (!state.productScan) hydrateProductScan();
+  state.productScan.apply = !!on;
+  saveProductScan();
+  renderProductScan();
+  const symbol = (state.paper && state.paper.symbol) || "";
+  if (state.productScan.apply && symbol) applyProductWinnerForSymbol(symbol);
+  if ($("status")) {
+    $("status").textContent = state.productScan.apply
+      ? "Product Scan Use winners is on. Opening a market picks that type's best strategy for paper (unless Best setup keeps Edge). Yes confirm stays. Live locked."
+      : "Product Scan Use winners is off.";
+  }
+}
+
+function paintProductScanControls() {
+  const scan = $("ps-scan");
+  const stop = $("ps-stop");
+  const apply = $("ps-apply");
+  const busy = !!(state.productScan && state.productScan.busy);
+  if (scan) {
+    scan.disabled = busy;
+    scan.textContent = busy ? "Scanning…" : "Scan top 20";
+  }
+  if (stop) stop.disabled = !busy;
+  if (apply) {
+    const on = !!(state.productScan && state.productScan.apply);
+    apply.setAttribute("aria-pressed", on ? "true" : "false");
+    apply.className = "fire-auto-btn" + (on ? " on" : "");
+    apply.textContent = on ? "Use winners · on" : "Use winners";
+  }
+}
+
+function renderProductScanCard() {
+  const winners = $("product-scan-card-winners");
+  if (!winners) return;
+  const ps = state.productScan || {};
+  const parts = PS_TYPES.map((type) => {
+    const win = ps.winners && ps.winners[type.id];
+    return win && win.name ? type.label + ": " + win.name : "";
+  }).filter(Boolean);
+  winners.textContent = parts.length
+    ? "Winners · " + parts.join(" · ") + (ps.apply ? " · Use winners on" : "")
+    : "Open Product Scan to rank top 20 and score strategies.";
+}
+
+function renderProductScan() {
+  hydrateProductScan();
+  paintProductScanControls();
+  const ps = state.productScan;
+  const note = $("ps-note");
+  if (note) note.textContent = ps.note || "Press Scan top 20. Learning also refreshes winners on the hourly pass.";
+  const winLine = $("ps-winners");
+  if (winLine) {
+    const parts = PS_TYPES.map((type) => {
+      const win = ps.winners && ps.winners[type.id];
+      if (!win || !win.name) return type.label + ": waiting";
+      return type.label + ": " + win.name + " (" + signedPercent(win.mean) + " mean · " + win.count + " mkts)";
+    });
+    winLine.textContent = parts.join(" · ") + ". Paper only. Not a forecast.";
+  }
+  PS_TYPES.forEach((type) => {
+    const best = $("ps-" + type.id + "-best");
+    const pins = $("ps-" + type.id + "-pins");
+    const win = ps.winners && ps.winners[type.id];
+    if (best) {
+      best.textContent = win && win.name
+        ? "Best strategy: " + win.name + " · " + signedPercent(win.mean) + " mean on " + win.count + " of top names."
+        : "Best strategy: waiting for enough closed-bar strategy scores.";
+    }
+    if (pins) renderScoreButtons(pins, ps.boards[type.id] || [], true);
+  });
+  const body = $("ps-winner-body");
+  if (body) {
+    body.replaceChildren();
+    PS_TYPES.forEach((type) => {
+      const win = ps.winners && ps.winners[type.id];
+      const tr = document.createElement("tr");
+      if (win && win.id) tr.classList.add("go");
+      addCells(tr, [
+        type.label,
+        win && win.name ? win.name : "—",
+        win ? { text: signedPercent(win.mean), cls: win.mean > 0 ? "up" : win.mean < 0 ? "down" : "" } : "—",
+        win ? String(win.count) : "—",
+        win && win.id === state.strat.pick ? "Picked" : win ? "Ready" : "Waiting",
+      ]);
+      body.appendChild(tr);
+    });
+  }
+  renderProductScanCard();
+}
+
+function publishProductScan(scoredByType, tallies, done, total, finished) {
+  const ps = state.productScan;
+  const boards = {};
+  PS_TYPES.forEach((type) => {
+    boards[type.id] = psRankBoard(scoredByType[type.id] || []);
+  });
+  ps.boards = boards;
+  ps.tallies = tallies;
+  ps.winners = psPickWinners(tallies, boards);
+  ps.at = Date.now();
+  ps.note = finished
+    ? "Scanned " + done + " of " + total + ". Top 20 per type ranked. Strategy winners updated. Closed bars only. Not a forecast."
+    : "Scanning " + done + " of " + total + ". Top 20 boards fill as names return…";
+  saveProductScan();
+  renderProductScan();
+}
+
+async function runProductScan() {
+  hydrateProductScan();
+  const ps = state.productScan;
+  if (ps.busy) return;
+  await ensureCatalog();
+  if (typeof PaperFrames === "undefined" || !PaperFrames.strategies || !PaperFrames.lesson) {
+    ps.note = "Strategy and lesson engines are not ready yet.";
+    renderProductScan();
+    return;
+  }
+  ps.busy = true;
+  ps.stop = false;
+  paintProductScanControls();
+  const pools = {};
+  let total = 0;
+  PS_TYPES.forEach((type) => {
+    pools[type.id] = psPool(type.id);
+    total += pools[type.id].length;
+  });
+  if (!total) {
+    ps.busy = false;
+    ps.note = "No markets in the catalog yet for Product Scan.";
+    paintProductScanControls();
+    renderProductScan();
+    return;
+  }
+  const scoredByType = { stock: [], etf: [], future: [], crypto: [] };
+  const tallies = psEmptyTallies();
+  const queue = [];
+  PS_TYPES.forEach((type) => {
+    pools[type.id].forEach((symbol) => queue.push({ symbol, type: type.id }));
+  });
+  let next = 0;
+  let done = 0;
+  ps.note = "Reading closed bars: 0 of " + total + "…";
+  renderProductScan();
+  const worker = async () => {
+    while (!ps.stop && next < queue.length) {
+      const item = queue[next];
+      next += 1;
+      try {
+        const bars = await sqDaily(item.symbol);
+        const cat = ((state.catalog || []).find((row) => row.symbol === item.symbol) || {}).category || item.type;
+        const scored = psScoreSymbol(item.symbol, bars, cat);
+        if (scored) {
+          scoredByType[item.type].push(scored);
+          psTallyStrategy(tallies, item.type, scored.board);
+        }
+      } catch (error) {
+        /* Skip missing quotes; do not invent bars. */
+      }
+      done += 1;
+      if (done === total || done % 4 === 0) publishProductScan(scoredByType, tallies, done, total, done === total);
+    }
+  };
+  const readers = Math.min(4, queue.length);
+  await Promise.all(Array.from({ length: readers }, () => worker()));
+  ps.busy = false;
+  ps.stop = false;
+  publishProductScan(scoredByType, tallies, done, total, true);
+  paintProductScanControls();
+  nudgeLearn("productscan", (ps.boards.stock || []).slice(0, 4).map((row) => row.symbol));
+}
+
+async function cycleProductScanLearn(mode) {
+  const all = mode === "all" || (mode && mode.all);
+  if (!all && typeof document !== "undefined" && document.visibilityState === "hidden") return "";
+  if (typeof PaperFrames === "undefined" || !PaperFrames.strategies) return "";
+  hydrateProductScan();
+  const ps = state.productScan;
+  if (ps.busy) return "";
+  const book = readStratLearn();
+  const scoredByType = { stock: [], etf: [], future: [], crypto: [] };
+  const tallies = psEmptyTallies();
+  let harvested = 0;
+  Object.keys(book.symbols || {}).forEach((symbol) => {
+    const snap = book.symbols[symbol];
+    if (!snap || !Array.isArray(snap.rows)) return;
+    const row = (state.catalog || []).find((item) => item.symbol === symbol);
+    const kind = row && row.category;
+    if (!kind || !scoredByType[kind]) return;
+    const phone = (state.leaders || []).find((item) => item.symbol === symbol);
+    const rate = phone && phone.rate != null ? phone.rate : 0;
+    const seen = phone && phone.seen != null ? phone.seen : 0;
+    scoredByType[kind].push({
+      symbol,
+      category: kind,
+      seen: seen || 20,
+      matched: phone && phone.matched != null ? phone.matched : Math.round(((rate || 0) / 100) * (seen || 20)),
+      rate: rate || (snap.best ? 70 : 0),
+      edge: "",
+      fire: false,
+      best: snap.best || "",
+    });
+    psTallyStrategy(tallies, kind, { best: snap.best || "", rows: snap.rows });
+    harvested += 1;
+  });
+  // Light pass: warm a few missing pool names so winners keep moving without a second always-on process.
+  const warmTypes = all ? PS_TYPES.slice() : PS_TYPES.slice(ps._learnCursor % PS_TYPES.length, (ps._learnCursor % PS_TYPES.length) + 1);
+  if (!all) ps._learnCursor = (ps._learnCursor || 0) + 1;
+  for (let t = 0; t < warmTypes.length; t += 1) {
+    const type = warmTypes[t];
+    const pool = psPool(type.id).slice(0, all ? 12 : 3);
+    for (let i = 0; i < pool.length; i += 1) {
+      const symbol = pool[i];
+      if (scoredByType[type.id].some((row) => row.symbol === symbol)) continue;
+      try {
+        const bars = await barsForLearn(symbol);
+        if (!bars || !bars.length) continue;
+        const scored = psScoreSymbol(symbol, bars, type.id);
+        if (!scored) continue;
+        scoredByType[type.id].push(scored);
+        psTallyStrategy(tallies, type.id, scored.board);
+        harvested += 1;
+      } catch (error) {
+        /* Warm pass is best-effort. */
+      }
+    }
+  }
+  if (!harvested && !(ps.at > 0)) return "";
+  const boards = {};
+  PS_TYPES.forEach((type) => {
+    const existing = Array.isArray(ps.boards[type.id]) ? ps.boards[type.id] : [];
+    const merged = {};
+    existing.concat(scoredByType[type.id] || []).forEach((row) => {
+      if (!row || !row.symbol) return;
+      const prev = merged[row.symbol];
+      if (!prev || (row.rate || 0) >= (prev.rate || 0)) merged[row.symbol] = row;
+    });
+    boards[type.id] = psRankBoard(Object.keys(merged).map((key) => merged[key]));
+  });
+  ps.boards = boards;
+  ps.tallies = tallies;
+  ps.winners = psPickWinners(tallies, boards);
+  ps.at = Date.now();
+  ps.note =
+    (all ? "Hourly Product Scan · " : "Product Scan learn · ") +
+    harvested +
+    " scored · top 20 per type · strategy winners refreshed. Closed bars only. Not a forecast.";
+  saveProductScan();
+  renderProductScan();
+  if (ps.apply) {
+    const open = (state.paper && state.paper.symbol) || "";
+    if (open) applyProductWinnerForSymbol(open);
+  }
+  return "productscan";
 }
 
 function sqCatalogList(kind) {
@@ -10072,6 +10574,20 @@ if ($("cycle-stop")) {
   });
 }
 if ($("forecast-scan")) $("forecast-scan").addEventListener("click", () => runForecast());
+if ($("ps-scan")) $("ps-scan").addEventListener("click", () => runProductScan());
+if ($("ps-stop")) {
+  $("ps-stop").addEventListener("click", () => {
+    if (state.productScan) state.productScan.stop = true;
+    paintProductScanControls();
+  });
+}
+if ($("ps-apply")) {
+  $("ps-apply").addEventListener("click", () => {
+    hydrateProductScan();
+    setProductScanApply(!(state.productScan && state.productScan.apply));
+  });
+}
+if ($("ps-pick")) $("ps-pick").addEventListener("click", () => pickProductWinnerForOpen());
 if ($("forecast-run")) $("forecast-run").addEventListener("click", () => runForecast());
 if ($("forecast-stop")) {
   $("forecast-stop").addEventListener("click", () => {
@@ -10666,6 +11182,13 @@ function showDock(name, opts) {
     renderForecast();
     if (!(state.forecast && state.forecast.at) && !(state.forecast && state.forecast.busy)) runForecast();
   }
+  if (name === "productscan") {
+    ensureCatalog().catch(() => {});
+    renderProductScan();
+    if (!(state.productScan && state.productScan.at) && !(state.productScan && state.productScan.busy)) {
+      cycleProductScanLearn("all").catch(() => {});
+    }
+  }
   if (name === "deskpool") {
     ensureCatalog().catch(() => {});
     renderDeskPool();
@@ -11195,6 +11718,8 @@ boot().then(() => {
     if (state.paper) renderQuote(state.paper);
     syncDeskStatus();
   }, 1000);
+  hydrateProductScan();
+  renderProductScan();
   startScanLearnLoop();
 }).catch((error) => {
   showProblem(error && error.message ? error.message : "The desk did not start.");

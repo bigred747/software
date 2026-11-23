@@ -1,5 +1,7 @@
 ## Version notes
 
+- **1.10.32** Product Scan desk tab: top 20 stocks · ETFs · futures · crypto, best installed strategy per type via Learning 24/7, Use winners feeds Strategies paper path (Edge · Best setup · Yes stay). Tools + second page + Markets card. Live locked.
+
 - **1.10.31** Phone Private paints Desk EMA Fire on open (bootOffline rerunStudy) · Layers Stack on by default.
 
 - **1.10.30** Auto-install Desk EMA Fire 5 white · 14 yellow · 50 blue · 200 red on open (phone + computer).
