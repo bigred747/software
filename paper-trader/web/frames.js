@@ -2319,6 +2319,11 @@
       who: "Seat-aware breakout trail",
       idea: "Patience breakout on closed bars only: close above the prior 20-bar high, relative volume ≥ 1.8× the 20-bar average, ATR(14) expanding vs its 20-bar average, Range Seat Mid or High, and close above the 50 EMA. Initial stop and trail width follow Range Seat (wider on Seat High, tighter on Mid/Low). Exit on the seat-aware ATR trail under the best high, or after 40 held bars. Own desk math — not a third-party product. Distinct from Edge / Fire 5 / Tide / Go Long. Paper only. Not a forecast.",
     },
+    leanbook: {
+      name: "Lean Book",
+      who: "Small-paper category desk",
+      idea: "Original closed-bar Lean Book for a paper small book: Coil Spark (desk squeeze on or just fired with bullish momentum), Stack Climb (EMA 8 over 21 over 34 with close above 34), Seat High (Range Seat Mid or High), and Book Sync (weekly squeeze or weekly close above the 20 EMA). Armed when Coil Spark · Stack Climb · Seat High agree. Stop under close by 2×ATR(14); exit on that trail under the best high, when Coil Spark fades, or after 25 held bars. Cash Guard on the Tools board keeps paper risk lean. Own desk names only — not a third-party course or product. Paper only. Live locked. Not a forecast.",
+    },
     pulseband: {
       name: "Pulse Band Lock",
       who: "Desk impulse bands",
@@ -2710,6 +2715,37 @@
         armed: !!(read && read.armed),
       });
     } else notReady("seatrail", "Needs at least 80 bars.");
+
+    if (end >= 80) {
+      const ranges = edgeAtr(list, LEAN_BOOK_ATR);
+      const run = runRule(list, end, 55, {
+        enter: (index) => {
+          const snap = leanBookAt(list, index);
+          if (!snap || !snap.armed || ranges[index] == null) return null;
+          return { stop: closes[index] - LEAN_BOOK_STOP_ATR * ranges[index], lean: true };
+        },
+        exit: (index, open) => {
+          if (!open || ranges[index] == null) return false;
+          const held = index - open.entryIndex + 1;
+          if (held >= LEAN_BOOK_MAX_HOLD) return true;
+          const snap = leanBookAt(list, index);
+          if (snap && snap.coilSpark === false) return true;
+          let peak = open.entry;
+          for (let back = open.entryIndex; back <= index; back += 1) peak = Math.max(peak, list[back].high);
+          return closes[index] < peak - LEAN_BOOK_STOP_ATR * ranges[index];
+        },
+      });
+      const lean = leanBookRead(list, { live });
+      finish("leanbook", run, {
+        armed: !!(lean && lean.armed),
+        prime: !!(lean && lean.prime),
+        categories: lean && lean.categories,
+        coilSpark: !!(lean && lean.coilSpark),
+        stackClimb: !!(lean && lean.stackClimb),
+        seatHigh: !!(lean && lean.seatHigh),
+        bookSync: !!(lean && lean.bookSync),
+      });
+    } else notReady("leanbook", "Needs at least 80 bars.");
 
     if (end >= 40) {
       const dir = pulseBandDir(list);
@@ -3703,6 +3739,14 @@
   const SEAT_TRAIL_MID = 2.2;
   const SEAT_TRAIL_LOW = 1.6;
 
+  // Lean Book — original small-paper category desk (Tools · Strategies). Own names only.
+  const LEAN_BOOK_ATR = 14;
+  const LEAN_BOOK_STOP_ATR = 2.0;
+  const LEAN_BOOK_MAX_HOLD = 25;
+  const LEAN_BOOK_MAX_OPEN = 5;
+  const LEAN_BOOK_RISK_PCT = 0.02;
+  const LEAN_BOOK_CASH_FLOOR = 0.7;
+
   function seatTrailMult(seat) {
     if (seat === "high") return SEAT_TRAIL_HIGH;
     if (seat === "mid") return SEAT_TRAIL_MID;
@@ -3803,6 +3847,165 @@
       asOf: list[last].date,
       relVol:
         hasVolume && volAvg[last] > 0 ? Math.round((volumes[last] / volAvg[last]) * 10) / 10 : null,
+    };
+  }
+
+  function leanBookAt(list, index) {
+    if (!list || index < 79 || index >= list.length) return null;
+    const slice = list.slice(0, index + 1);
+    const closes = slice.map((bar) => bar.close);
+    const study = compression(slice, 20);
+    const mom = study.momentum;
+    const on = study.level.map((value) => value >= 2);
+    const last = slice.length - 1;
+    let dots = 0;
+    for (let back = last; back >= 0 && on[back]; back -= 1) dots += 1;
+    let firedAgo = -1;
+    if (!on[last]) {
+      for (let back = 1; back <= 3 && last - back >= 0; back += 1) {
+        if (on[last - back]) {
+          firedAgo = back - 1;
+          break;
+        }
+      }
+    }
+    const momNow = mom[last];
+    const coilSpark = !!(momNow != null && momNow > 0 && (on[last] || firedAgo >= 0));
+    const e8 = ema(closes, 8)[last];
+    const e21 = ema(closes, 21)[last];
+    const e34 = ema(closes, 34)[last];
+    const stackClimb = !!(e8 != null && e21 != null && e34 != null && e8 > e21 && e21 > e34 && closes[last] > e34);
+    const seat = rangeSeatAt(slice, last);
+    const seatHigh = !!(seat && (seat.seat === "high" || seat.seat === "mid"));
+    let bookSync = false;
+    try {
+      const weeks = barsFor(slice, frameById("1W"));
+      if (weeks.length >= 30) {
+        const weekStudy = compression(weeks, 20);
+        const wLast = weeks.length - 1;
+        const wClose = weeks.map((bar) => bar.close);
+        const wEma = ema(wClose, 20)[wLast];
+        bookSync = !!(weekStudy.level[wLast] >= 2 || (wEma != null && weeks[wLast].close > wEma));
+      }
+    } catch (error) {
+      bookSync = false;
+    }
+    const armed = !!(coilSpark && stackClimb && seatHigh);
+    const prime = !!(armed && bookSync);
+    const ranges = edgeAtr(slice, LEAN_BOOK_ATR);
+    const atr = ranges[last];
+    const stop = atr != null ? closes[last] - LEAN_BOOK_STOP_ATR * atr : null;
+    const riskFrac = stop != null && closes[last] > 0 ? (closes[last] - stop) / closes[last] : null;
+    const categories = [
+      { id: "coilSpark", name: "Coil Spark", ok: coilSpark, detail: coilSpark ? (on[last] ? "Squeeze on · mom up" : "Just fired · mom up") : "No coil spark" },
+      { id: "stackClimb", name: "Stack Climb", ok: stackClimb, detail: stackClimb ? "EMA 8>21>34 · close above 34" : "Stack not climbed" },
+      { id: "seatHigh", name: "Seat High", ok: seatHigh, detail: seat ? seat.label : "Seat unread" },
+      { id: "bookSync", name: "Book Sync", ok: bookSync, detail: bookSync ? "Weekly coil or above 20 EMA" : "Weekly sync off" },
+    ];
+    const hits = categories.filter((row) => row.ok).length;
+    return {
+      ready: true,
+      armed,
+      prime,
+      call: armed ? "BUY" : "WAIT",
+      coilSpark,
+      stackClimb,
+      seatHigh,
+      bookSync,
+      categories,
+      hits,
+      score: hits,
+      seat: seat ? seat.seat : null,
+      seatLabel: seat ? seat.label : "",
+      stop,
+      atr,
+      riskFrac,
+      asOf: slice[last].date,
+      price: closes[last],
+    };
+  }
+
+  function leanBookRead(bars, options) {
+    const all = bars || [];
+    const live = !!(options && options.live) && all.length > 0;
+    const list = live ? all.slice(0, -1) : all;
+    if (list.length < 80) {
+      return {
+        ready: false,
+        armed: false,
+        prime: false,
+        call: "WAIT",
+        why: "Needs at least 80 closed bars for Lean Book.",
+        categories: [],
+        hits: 0,
+        score: 0,
+      };
+    }
+    const snap = leanBookAt(list, list.length - 1);
+    if (!snap) {
+      return {
+        ready: false,
+        armed: false,
+        prime: false,
+        call: "WAIT",
+        why: "Lean Book unread.",
+        categories: [],
+        hits: 0,
+        score: 0,
+      };
+    }
+    const tag = snap.prime ? "Prime" : snap.armed ? "Armed" : "Wait";
+    const bits = snap.categories.map((row) => (row.ok ? row.name : row.name + " off"));
+    return {
+      ...snap,
+      why:
+        "Lean Book " +
+        tag +
+        " · " +
+        snap.hits +
+        "/4 · " +
+        bits.join(" · ") +
+        ". Closed bars only. Own desk names. Not a forecast.",
+    };
+  }
+
+  function leanBookCashGuard(input) {
+    const source = input || {};
+    const cash = Number(source.cash);
+    const equity = Number(source.equity);
+    const openCount = Math.max(0, Math.floor(Number(source.openCount) || 0));
+    const riskFrac = source.riskFrac != null ? Number(source.riskFrac) : null;
+    const book = Number.isFinite(equity) && equity > 0 ? equity : Number.isFinite(cash) && cash > 0 ? cash : 0;
+    const cashAmt = Number.isFinite(cash) ? Math.max(0, cash) : 0;
+    const cashPct = book > 0 ? cashAmt / book : null;
+    const openOk = openCount <= LEAN_BOOK_MAX_OPEN;
+    const cashOk = cashPct == null ? false : cashPct >= LEAN_BOOK_CASH_FLOOR;
+    const riskOk = riskFrac == null || !(riskFrac > LEAN_BOOK_RISK_PCT * 1.5);
+    const ok = !!(book > 0 && openOk && (cashPct == null || cashOk) && riskOk);
+    const sizeHint =
+      book > 0 && riskFrac != null && riskFrac > 0
+        ? Math.max(0, Math.floor((book * LEAN_BOOK_RISK_PCT) / (riskFrac * (Number(source.price) || 1))))
+        : null;
+    return {
+      ready: book > 0,
+      ok,
+      cashPct,
+      cashFloor: LEAN_BOOK_CASH_FLOOR,
+      openCount,
+      maxOpen: LEAN_BOOK_MAX_OPEN,
+      riskPct: LEAN_BOOK_RISK_PCT,
+      riskFrac,
+      sizeHint,
+      why: !book
+        ? "Paper book unread for Cash Guard."
+        : (ok ? "Cash Guard lean · " : "Cash Guard tight · ") +
+          (cashPct == null ? "cash —" : "cash " + Math.round(cashPct * 100) + "%") +
+          " · open " +
+          openCount +
+          "/" +
+          LEAN_BOOK_MAX_OPEN +
+          (riskFrac != null ? " · stop risk " + (riskFrac * 100).toFixed(1) + "%" : "") +
+          ". Guidance only. Paper only.",
     };
   }
 
@@ -5207,6 +5410,15 @@
     rangeSeatAt,
     seatTrailMult,
     seatTrailRead,
+    leanBookAt,
+    leanBookRead,
+    leanBookCashGuard,
+    LEAN_BOOK_ATR,
+    LEAN_BOOK_STOP_ATR,
+    LEAN_BOOK_MAX_HOLD,
+    LEAN_BOOK_MAX_OPEN,
+    LEAN_BOOK_RISK_PCT,
+    LEAN_BOOK_CASH_FLOOR,
     laneAlign,
     laneAllowsAuto,
     LANE_SECTOR_MIN,

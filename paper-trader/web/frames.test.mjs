@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, seatTrailRead, seatTrailMult, rangeSeat, SCORECARD_INDEXES, SCORECARD_SECTORS, gatePrint, edgeDeskCall, firePrecision, fireFreshFlip, confirmLock, resolveDeskCard, DESK_CARDS, EDGE_SCORE } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, seatTrailRead, seatTrailMult, rangeSeat, leanBookRead, leanBookCashGuard, SCORECARD_INDEXES, SCORECARD_SECTORS, gatePrint, edgeDeskCall, firePrecision, fireFreshFlip, confirmLock, resolveDeskCard, DESK_CARDS, EDGE_SCORE } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -401,10 +401,13 @@ function walk(count, seed, drift) {
 test("strategies report classic public rows plus the four-study combo from closed bars only", () => {
   const bars = walk(600, 7, 0.0008);
   const board = JSON.parse(JSON.stringify(strategies(bars, { live: false })));
-  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "seatrail", "pulseband", "rangeflip", "anchorvwap", "stretchpivot", "confirmgate", "weeklow"]);
+  assert.deepEqual(board.rows.map((row) => row.id), ["edge", "squeeze", "quad", "ccizoom", "ccisnap", "donchian", "rsi2", "golden", "dualema", "macdx", "bollrev", "atrtrail", "seatrail", "leanbook", "pulseband", "rangeflip", "anchorvwap", "stretchpivot", "confirmgate", "weeklow"]);
   const seatrail = board.rows.find((row) => row.id === "seatrail");
   assert.ok(seatrail);
   assert.equal(seatrail.name, "Seat Trail");
+  const leanbook = board.rows.find((row) => row.id === "leanbook");
+  assert.ok(leanbook);
+  assert.equal(leanbook.name, "Lean Book");
   const quad = board.rows.find((row) => row.id === "quad");
   assert.ok(quad);
   assert.equal(quad.name, "Squeeze · TMO · big4indicator · stack · MTF");
@@ -943,4 +946,38 @@ test("Seat Trail seat-aware trail mult and fail-closed without volume", () => {
   const row = board.rows.find((item) => item.id === "seatrail");
   assert.ok(row && row.ready);
   assert.ok(["BUY", "SELL", "HOLD", "WAIT"].includes(row.call));
+});
+
+
+test("Lean Book categories and Cash Guard", () => {
+  const bars = [];
+  for (let index = 0; index < 120; index += 1) {
+    const close = 50 + index * 0.8;
+    bars.push(day("2024-03-" + String((index % 28) + 1).padStart(2, "0"), close - 1, close + 1.5, close - 1.5, close));
+    bars[bars.length - 1].volume = 2000 + index;
+  }
+  const read = leanBookRead(bars, { live: false });
+  assert.equal(read.ready, true);
+  assert.ok(Array.isArray(read.categories));
+  assert.equal(read.categories.length, 4);
+  assert.ok(read.categories.every((row) => row.name && typeof row.ok === "boolean"));
+  assert.ok(["BUY", "WAIT"].includes(read.call));
+  const guard = leanBookCashGuard({ cash: 7500, equity: 10000, openCount: 2, riskFrac: 0.02, price: 100 });
+  assert.equal(guard.ready, true);
+  assert.equal(guard.ok, true);
+  assert.ok(guard.cashPct >= 0.7);
+});
+
+test("Lean Book strategy is registered", () => {
+  const bars = [];
+  for (let index = 0; index < 120; index += 1) {
+    const close = 40 + index;
+    bars.push(day("2024-04-" + String((index % 28) + 1).padStart(2, "0"), close - 1, close + 2, close - 2, close));
+    bars[bars.length - 1].volume = 1500;
+  }
+  const board = strategies(bars, { live: false });
+  const lean = board.rows.find((row) => row.id === "leanbook");
+  assert.ok(lean);
+  assert.equal(lean.name, "Lean Book");
+  assert.equal(lean.ready, true);
 });

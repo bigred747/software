@@ -174,7 +174,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.36";
+const VERSION = "1.10.37";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -4357,6 +4357,7 @@ const STRAT_IDS = [
   "bollrev",
   "atrtrail",
   "seatrail",
+  "leanbook",
   "weeklow",
 ];
 const TRIG_KEY = "paper_trader_triggers_v1";
@@ -4564,10 +4565,26 @@ function bestSetupStatus() {
       : "Seat Trail unread",
   });
 
+  const lean =
+    bars.length && typeof PaperFrames !== "undefined" && PaperFrames.leanBookRead
+      ? PaperFrames.leanBookRead(bars, { live: chartCrypto() })
+      : null;
+  const leanArmed = !!(lean && lean.ready && lean.armed);
+  gates.push({
+    label: "Lean Book",
+    ok: leanArmed,
+    detail: lean && lean.ready
+      ? leanArmed
+        ? (lean.prime ? "Lean Book Prime · agrees (Strategies Auto can follow Lean Book separately)" : "Lean Book armed · agrees (Strategies Auto can follow Lean Book separately)")
+        : "Lean Book waiting · Best setup still Edge-gated"
+      : "Lean Book unread",
+  });
+
   const lock = confirmLockForSymbol(symbol || "", edge, {
     bars,
     seat: lane && lane.seat ? lane.seat.seat || lane.seat : "",
     seatTrail: trailArmed,
+    leanBook: leanArmed,
   });
   addGate(
     "Confirm Lock · " + ((lock.card && lock.card.name) || "Desk Card"),
@@ -5504,6 +5521,7 @@ function deskLearnPages() {
     "frames",
     "readings",
     "deskpool",
+    "leanbook",
     "journal",
     "backtest",
     "signals",
@@ -10027,6 +10045,12 @@ function paintDeskClear(history) {
       : null;
   const trailLabel = !trail ? "—" : !trail.ready ? "—" : trail.armed ? "Armed" : trail.call === "WAIT" ? "Wait" : trail.call || "—";
   const trailKind = trail && trail.armed ? "bull" : trail && trail.ready ? "mixed" : "stage";
+  const leanChip =
+    history && history.length && typeof PaperFrames !== "undefined" && PaperFrames.leanBookRead
+      ? PaperFrames.leanBookRead(history, { live: chartCrypto() })
+      : null;
+  const leanLabel = !leanChip ? "—" : !leanChip.ready ? "—" : leanChip.prime ? "Prime" : leanChip.armed ? "Armed" : "Wait";
+  const leanKind = leanChip && leanChip.armed ? "bull" : leanChip && leanChip.ready ? "mixed" : "stage";
   const openCycle =
     history && history.length && typeof PaperFrames !== "undefined" && PaperFrames.cycleMapRead
       ? PaperFrames.cycleMapRead(history)
@@ -10060,6 +10084,7 @@ function paintDeskClear(history) {
         { k: "Lane Align", v: laneLabel, kind: laneKind },
         { k: "Range Seat", v: seatLabel, kind: seatKind },
         { k: "Seat Trail", v: trailLabel, kind: trailKind },
+        { k: "Lean Book", v: leanLabel, kind: leanKind },
         {
           k: "Cycle",
           v: cycleChipLabel,
@@ -10076,6 +10101,7 @@ function paintDeskClear(history) {
         { k: "Lane Align", v: laneLabel, kind: laneKind },
         { k: "Range Seat", v: seatLabel, kind: seatKind },
         { k: "Seat Trail", v: trailLabel, kind: trailKind },
+        { k: "Lean Book", v: leanLabel, kind: leanKind },
         { k: "Cycle", v: cycleChipLabel, kind: cycleChipKind },
       ];
   paintChipRow(node, chips);
@@ -11675,6 +11701,217 @@ function backFromToolPage() {
   hideTools();
 }
 
+
+function ensureLeanState() {
+  if (!state.lean) {
+    state.lean = { busy: false, stop: false, rows: [], open: null, cash: null, at: 0, note: "" };
+  }
+  return state.lean;
+}
+
+function paintLeanCard() {
+  const node = $("lean-card-status");
+  if (!node) return;
+  const box = state.lean || {};
+  const open = box.open;
+  if (open && open.ready) {
+    node.textContent =
+      (open.prime ? "Prime" : open.armed ? "Armed" : "Wait") +
+      " · " +
+      (open.hits != null ? open.hits + "/4" : "—") +
+      (box.cash && box.cash.why ? " · " + box.cash.why : "");
+  } else {
+    node.textContent = box.note || "Open Lean Book for Coil Spark · Stack Climb · Seat High · Book Sync.";
+  }
+}
+
+function renderLeanBook() {
+  const box = ensureLeanState();
+  const note = $("lean-board-note");
+  if (note) {
+    note.textContent = box.busy
+      ? box.note || "Reading Lean Book…"
+      : box.at
+        ? box.note || ("Lean Book · " + (box.rows || []).length + " names · closed bars.")
+        : "Press Run Lean Book. Reads the open market, pins, Fire 5, and today's best.";
+  }
+  const open = box.open;
+  const bias = $("lean-open-bias");
+  const why = $("lean-open-why");
+  if (bias) {
+    bias.textContent = open && open.ready
+      ? ((state.paper && state.paper.symbol) || "Open") + " · " + (open.prime ? "Prime" : open.armed ? "Armed" : "Wait") + " · " + (open.hits != null ? open.hits + "/4" : "")
+      : "Open market · waiting";
+  }
+  if (why) why.textContent = open && open.why ? open.why : "";
+  const body = $("lean-cat-body");
+  if (body) {
+    body.replaceChildren();
+    const cats = (open && open.categories) || [];
+    if (!cats.length) {
+      const tr = document.createElement("tr");
+      ["—", "—", "Run Lean Book on the open market"].forEach((cell) => {
+        const td = document.createElement("td");
+        td.textContent = cell;
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    } else {
+      cats.forEach((row) => {
+        const tr = document.createElement("tr");
+        [row.name, row.ok ? "On" : "Off", row.detail || ""].forEach((cell) => {
+          const td = document.createElement("td");
+          td.textContent = cell;
+          tr.appendChild(td);
+        });
+        body.appendChild(tr);
+      });
+    }
+  }
+  const cashBias = $("lean-cash-bias");
+  const cashWhy = $("lean-cash-why");
+  const cash = box.cash;
+  if (cashBias) cashBias.textContent = cash && cash.ready ? (cash.ok ? "Cash Guard lean" : "Cash Guard tight") : "Cash Guard · waiting";
+  if (cashWhy) cashWhy.textContent = cash && cash.why ? cash.why : "";
+  const pins = $("lean-pins");
+  if (pins) {
+    pins.replaceChildren();
+    (box.rows || []).slice(0, 8).forEach((row) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "pin" + (row.armed ? " on" : "");
+      btn.textContent = row.symbol + " · " + (row.prime ? "Prime" : row.armed ? "Armed" : row.hits + "/4");
+      btn.addEventListener("click", () => chooseSymbol(row.symbol));
+      pins.appendChild(btn);
+    });
+  }
+  const scanBody = $("lean-scan-body");
+  if (scanBody) {
+    scanBody.replaceChildren();
+    const rows = box.rows || [];
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      ["—", "No Lean Book names yet", "—", "—", "—", ""].forEach((cell) => {
+        const td = document.createElement("td");
+        td.textContent = cell;
+        tr.appendChild(td);
+      });
+      scanBody.appendChild(tr);
+    } else {
+      rows.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        const openBtn = document.createElement("button");
+        openBtn.type = "button";
+        openBtn.className = "quiet";
+        openBtn.textContent = "Open";
+        openBtn.addEventListener("click", () => chooseSymbol(row.symbol));
+        const cells = [
+          String(index + 1),
+          row.symbol,
+          row.prime ? "Prime" : row.armed ? "Armed" : "Wait",
+          String(row.hits != null ? row.hits : "—") + "/4",
+          (row.catBits || []).join(" · ") || "—",
+        ];
+        cells.forEach((cell) => {
+          const td = document.createElement("td");
+          td.textContent = cell;
+          tr.appendChild(td);
+        });
+        const td = document.createElement("td");
+        td.appendChild(openBtn);
+        tr.appendChild(td);
+        scanBody.appendChild(tr);
+      });
+    }
+  }
+  paintLeanCard();
+}
+
+function leanUniverse() {
+  const seen = new Set();
+  const out = [];
+  const push = (symbol) => {
+    const key = String(symbol || "").trim().toUpperCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(key);
+  };
+  if (state.paper && state.paper.symbol) push(state.paper.symbol);
+  (state.pins || []).forEach((row) => push(row.symbol || row));
+  (state.fires || []).forEach((row) => push(row.symbol));
+  (state.picks || []).forEach((row) => push(row.symbol));
+  return out.slice(0, 24);
+}
+
+async function runLeanBook() {
+  const box = ensureLeanState();
+  if (box.busy) return;
+  if (typeof PaperFrames === "undefined" || !PaperFrames.leanBookRead) {
+    box.note = "Lean Book is not on this build.";
+    renderLeanBook();
+    return;
+  }
+  box.busy = true;
+  box.stop = false;
+  box.note = "Reading Lean Book…";
+  renderLeanBook();
+  try {
+    await ensureCatalog().catch(() => {});
+    const openBars = seenBars();
+    box.open = openBars.length ? PaperFrames.leanBookRead(openBars, { live: chartCrypto() }) : null;
+    const paper = state.paper || {};
+    const equity =
+      (Number(paper.cash) || 0) +
+      (Number(paper.shares) || 0) * (Number((state.market && state.market.last) || paper.entry_price) || 0);
+    box.cash = PaperFrames.leanBookCashGuard({
+      cash: paper.cash,
+      equity: equity || paper.cash,
+      openCount: Number(paper.shares) > 0 ? 1 : 0,
+      riskFrac: box.open && box.open.riskFrac,
+      price: box.open && box.open.price,
+    });
+    const need = leanUniverse();
+    const rows = [];
+    for (let index = 0; index < need.length; index += 1) {
+      if (box.stop) break;
+      const symbol = need[index];
+      box.note = "Reading Lean Book: " + (index + 1) + " of " + need.length + "…";
+      if (index % 3 === 0) renderLeanBook();
+      let bars = [];
+      try {
+        const row = (state.catalog || []).find((item) => item.symbol === symbol);
+        bars = PaperFrames.closedBars(await PaperLive.daily(symbol, row ? row.category : ""), phoneCrypto(symbol, row));
+      } catch (error) {
+        continue;
+      }
+      const read = PaperFrames.leanBookRead(bars, { live: false });
+      if (!read || !read.ready) continue;
+      rows.push({
+        symbol,
+        armed: !!read.armed,
+        prime: !!read.prime,
+        hits: read.hits,
+        call: read.call,
+        why: read.why,
+        catBits: (read.categories || []).filter((item) => item.ok).map((item) => item.name),
+      });
+    }
+    rows.sort((a, b) => (b.prime - a.prime) || (b.armed - a.armed) || (b.hits - a.hits) || a.symbol.localeCompare(b.symbol));
+    box.rows = rows;
+    box.at = Date.now();
+    box.note = box.stop
+      ? "Lean Book stopped."
+      : "Lean Book · " + rows.filter((row) => row.armed).length + " armed · " + rows.length + " read · closed bars.";
+    nudgeLearn("leanbook", rows.slice(0, 4).map((row) => row.symbol));
+  } catch (error) {
+    box.note = error && error.message ? error.message : "Lean Book did not finish.";
+  } finally {
+    box.busy = false;
+    renderLeanBook();
+  }
+}
+
+
 function showDock(name, opts) {
   if (!name) name = "home";
   if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) name = "home";
@@ -11703,6 +11940,11 @@ function showDock(name, opts) {
     ensureCatalog().catch(() => {});
     renderDeskPool();
     refreshDeskPoolFeeds();
+  }
+  if (name === "leanbook") {
+    ensureCatalog().catch(() => {});
+    renderLeanBook();
+    if (!(state.lean && state.lean.at) && !(state.lean && state.lean.busy)) runLeanBook();
   }
   if (name === "squeeze") {
     paintSqueezeControls();
@@ -11936,6 +12178,34 @@ if (openTools) {
   });
 }
 paintOpenToolsButton();
+
+
+if ($("lean-scan")) $("lean-scan").addEventListener("click", () => runLeanBook());
+if ($("lean-refresh")) $("lean-refresh").addEventListener("click", () => {
+  const box = ensureLeanState();
+  const bars = seenBars();
+  box.open = bars.length && typeof PaperFrames !== "undefined" && PaperFrames.leanBookRead
+    ? PaperFrames.leanBookRead(bars, { live: chartCrypto() })
+    : null;
+  const paper = state.paper || {};
+  const equity =
+    (Number(paper.cash) || 0) +
+    (Number(paper.shares) || 0) * (Number((state.market && state.market.last) || paper.entry_price) || 0);
+  box.cash =
+    typeof PaperFrames !== "undefined" && PaperFrames.leanBookCashGuard
+      ? PaperFrames.leanBookCashGuard({
+          cash: paper.cash,
+          equity: equity || paper.cash,
+          openCount: Number(paper.shares) > 0 ? 1 : 0,
+          riskFrac: box.open && box.open.riskFrac,
+          price: box.open && box.open.price,
+        })
+      : null;
+  renderLeanBook();
+});
+if ($("lean-stop")) $("lean-stop").addEventListener("click", () => {
+  if (state.lean) state.lean.stop = true;
+});
 
 const buildTag = $("build-tag");
 if (buildTag) buildTag.textContent = VERSION;

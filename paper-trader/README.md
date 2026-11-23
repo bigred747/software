@@ -174,6 +174,10 @@ Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
 
+## Lean Book (1.10.37)
+
+Original **Lean Book** Tools board + Strategies Auto path for a paper small book. Setup categories (own names): **Coil Spark** · **Stack Climb** · **Seat High** · **Book Sync**, plus **Cash Guard**. Closed bars only. Not a third-party course. Paper only. Live locked.
+
 ## Edge · Desk Waves (1.10.13)
 
 - Edge Fire is **7/7**: adds **Desk Waves green / up** (Volume Wave pane under CCI) alongside TMO · Squeeze · CCI · VIX.

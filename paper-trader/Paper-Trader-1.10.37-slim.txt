@@ -1,0 +1,10 @@
+Paper Trader 1.10.37 — slim Windows zip
+
+File: Paper-Trader-1.10.37-slim.zip
+
+Lean Book · Coil Spark · Stack Climb · Seat High · Book Sync · Cash Guard.
+Omits bundled Python runtime. Needs system Python 3 or a local runtime folder.
+
+1. Download Paper-Trader-1.10.37-slim.zip
+2. Unzip
+3. Run Start-Paper-Trader.bat (or Open-Paper-Trader.bat)
