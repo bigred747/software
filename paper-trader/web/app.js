@@ -174,7 +174,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.37";
+const VERSION = "1.10.38";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -11727,13 +11727,12 @@ function paintLeanCard() {
 
 function renderLeanBook() {
   const box = ensureLeanState();
+  paintLeanControls();
   const note = $("lean-board-note");
   if (note) {
-    note.textContent = box.busy
-      ? box.note || "Reading Lean Book…"
-      : box.at
-        ? box.note || ("Lean Book · " + (box.rows || []).length + " names · closed bars.")
-        : "Press Run Lean Book. Reads the open market, pins, Fire 5, and today's best.";
+    if (box.busy) note.textContent = box.note || "Reading Lean Book…";
+    else if (box.at) note.textContent = box.note || ("Lean Book · " + (box.rows || []).length + " names · closed bars.");
+    else paintLeanReadyNote();
   }
   const open = box.open;
   const bias = $("lean-open-bias");
@@ -11827,7 +11826,7 @@ function renderLeanBook() {
   paintLeanCard();
 }
 
-function leanUniverse() {
+function leanFocusUniverse() {
   const seen = new Set();
   const out = [];
   const push = (symbol) => {
@@ -11837,10 +11836,85 @@ function leanUniverse() {
     out.push(key);
   };
   if (state.paper && state.paper.symbol) push(state.paper.symbol);
-  (state.pins || []).forEach((row) => push(row.symbol || row));
+  (typeof readPins === "function" ? readPins() : state.pins || []).forEach((row) => push(row && row.symbol ? row.symbol : row));
   (state.fires || []).forEach((row) => push(row.symbol));
   (state.picks || []).forEach((row) => push(row.symbol));
-  return out.slice(0, 24);
+  return out.slice(0, 40);
+}
+
+function leanSymbols() {
+  const select = $("lean-list");
+  const kind = select ? select.value : "focus";
+  let list;
+  if (kind === "focus" || !kind) {
+    list = leanFocusUniverse();
+  } else if (kind === "custom") {
+    list = ($("lean-custom").value || "").toUpperCase().split(/[\s,;]+/).filter((item) => /^[A-Z0-9.^=-]{1,12}$/.test(item));
+  } else {
+    list = typeof sqCatalogList === "function" ? sqCatalogList(kind) : [];
+  }
+  const seen = new Set();
+  const out = [];
+  list.forEach((symbol) => {
+    const key = String(symbol || "").trim().toUpperCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(key);
+  });
+  return kind === "custom" ? out.slice(0, 80) : out;
+}
+
+function paintLeanControls() {
+  const box = state.lean || {};
+  const scan = $("lean-scan");
+  const stop = $("lean-stop");
+  const busy = !!box.busy;
+  if (scan) {
+    scan.disabled = busy;
+    scan.textContent = busy ? "Scanning…" : "Scan Lean Book";
+  }
+  if (stop) stop.disabled = !busy;
+}
+
+function paintLeanReadyNote() {
+  const note = $("lean-board-note");
+  const box = state.lean || {};
+  if (!note || box.busy) return;
+  const kind = $("lean-list") ? $("lean-list").value : "focus";
+  const n = leanSymbols().length;
+  if (!n) {
+    note.textContent =
+      kind === "custom"
+        ? "Type at least one symbol for your own list."
+        : "No markets in that list yet. Wait for the catalog, or pick Open · pins · Fire · best / Starter / My own list.";
+    return;
+  }
+  note.textContent =
+    "Ready · " +
+    n +
+    " markets in this list. Press Scan Lean Book." +
+    (kind === "stocks" && n > 400 ? " Large list — names fill as bars return; Stop anytime." : "");
+}
+
+function publishLeanRows(rows, orderedLength, done, final) {
+  const box = ensureLeanState();
+  const ranked = rows
+    .slice()
+    .sort((a, b) => (b.prime - a.prime) || (b.armed - a.armed) || (b.hits - a.hits) || a.symbol.localeCompare(b.symbol));
+  box.rows = ranked;
+  box.note = final
+    ? box.stop
+      ? "Lean Book stopped · " + ranked.filter((row) => row.armed).length + " armed · " + ranked.length + " read."
+      : "Lean Book · " +
+        ranked.filter((row) => row.armed).length +
+        " armed · " +
+        ranked.length +
+        " read of " +
+        orderedLength +
+        " · closed bars."
+    : "Reading Lean Book: " + done + " of " + orderedLength + ". Names show up as each market comes back.";
+  if (final) box.at = Date.now();
+  renderLeanBook();
 }
 
 async function runLeanBook() {
@@ -11853,6 +11927,7 @@ async function runLeanBook() {
   }
   box.busy = true;
   box.stop = false;
+  paintLeanControls();
   box.note = "Reading Lean Book…";
   renderLeanBook();
   try {
@@ -11870,43 +11945,68 @@ async function runLeanBook() {
       riskFrac: box.open && box.open.riskFrac,
       price: box.open && box.open.price,
     });
-    const need = leanUniverse();
-    const rows = [];
-    for (let index = 0; index < need.length; index += 1) {
-      if (box.stop) break;
-      const symbol = need[index];
-      box.note = "Reading Lean Book: " + (index + 1) + " of " + need.length + "…";
-      if (index % 3 === 0) renderLeanBook();
-      let bars = [];
-      try {
-        const row = (state.catalog || []).find((item) => item.symbol === symbol);
-        bars = PaperFrames.closedBars(await PaperLive.daily(symbol, row ? row.category : ""), phoneCrypto(symbol, row));
-      } catch (error) {
-        continue;
-      }
-      const read = PaperFrames.leanBookRead(bars, { live: false });
-      if (!read || !read.ready) continue;
-      rows.push({
-        symbol,
-        armed: !!read.armed,
-        prime: !!read.prime,
-        hits: read.hits,
-        call: read.call,
-        why: read.why,
-        catBits: (read.categories || []).filter((item) => item.ok).map((item) => item.name),
-      });
+    const symbols = leanSymbols();
+    if (!symbols.length) {
+      paintLeanReadyNote();
+      return;
     }
-    rows.sort((a, b) => (b.prime - a.prime) || (b.armed - a.armed) || (b.hits - a.hits) || a.symbol.localeCompare(b.symbol));
-    box.rows = rows;
-    box.at = Date.now();
-    box.note = box.stop
-      ? "Lean Book stopped."
-      : "Lean Book · " + rows.filter((row) => row.armed).length + " armed · " + rows.length + " read · closed bars.";
-    nudgeLearn("leanbook", rows.slice(0, 4).map((row) => row.symbol));
+    // Pins + open market first so the board fills before a long All-stocks walk.
+    const priority = [];
+    const current = (state.paper && state.paper.symbol) || "";
+    if (current && symbols.includes(current)) priority.push(current);
+    (typeof readPins === "function" ? readPins() : []).forEach((symbol) => {
+      if (symbols.includes(symbol) && !priority.includes(symbol)) priority.push(symbol);
+    });
+    (SQ_LISTS.starter || []).forEach((symbol) => {
+      if (symbols.includes(symbol) && !priority.includes(symbol)) priority.push(symbol);
+    });
+    const ordered = priority.concat(symbols.filter((symbol) => !priority.includes(symbol)));
+    const rows = [];
+    let done = 0;
+    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(6000);
+    for (let index = 0; index < ordered.length; index += 1) {
+      if (box.stop) break;
+      const symbol = ordered[index];
+      done = index + 1;
+      try {
+        let bars = [];
+        if (typeof sqDaily === "function") {
+          bars = PaperFrames.closedBars(await sqDaily(symbol), phoneCrypto(symbol, (state.catalog || []).find((item) => item.symbol === symbol)));
+        } else {
+          const row = (state.catalog || []).find((item) => item.symbol === symbol);
+          bars = PaperFrames.closedBars(await PaperLive.daily(symbol, row ? row.category : ""), phoneCrypto(symbol, row));
+        }
+        const read = PaperFrames.leanBookRead(bars, { live: false });
+        if (read && read.ready) {
+          rows.push({
+            symbol,
+            armed: !!read.armed,
+            prime: !!read.prime,
+            hits: read.hits,
+            call: read.call,
+            why: read.why,
+            catBits: (read.categories || []).filter((item) => item.ok).map((item) => item.name),
+          });
+        }
+      } catch (error) {
+        /* skip unread name */
+      }
+      if (done % 3 === 0 || done === ordered.length) publishLeanRows(rows, ordered.length, done, false);
+    }
+    publishLeanRows(rows, ordered.length, done, true);
+    nudgeLearn(
+      "leanbook",
+      rows
+        .slice()
+        .sort((a, b) => (b.prime - a.prime) || (b.armed - a.armed) || (b.hits - a.hits))
+        .slice(0, 4)
+        .map((row) => row.symbol)
+    );
   } catch (error) {
     box.note = error && error.message ? error.message : "Lean Book did not finish.";
   } finally {
     box.busy = false;
+    paintLeanControls();
     renderLeanBook();
   }
 }
@@ -11942,9 +12042,15 @@ function showDock(name, opts) {
     refreshDeskPoolFeeds();
   }
   if (name === "leanbook") {
-    ensureCatalog().catch(() => {});
-    renderLeanBook();
-    if (!(state.lean && state.lean.at) && !(state.lean && state.lean.busy)) runLeanBook();
+    ensureCatalog()
+      .then(() => {
+        renderLeanBook();
+        paintLeanReadyNote();
+      })
+      .catch(() => {
+        renderLeanBook();
+        paintLeanReadyNote();
+      });
   }
   if (name === "squeeze") {
     paintSqueezeControls();

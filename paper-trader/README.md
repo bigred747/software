@@ -174,6 +174,10 @@ Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
 
+## Lean Book scan lists (1.10.38)
+
+Lean Book Tools scan now uses the same market lists as Squeeze scan: Open·pins·Fire·best, Starter, **All stocks**, ETFs, futures, crypto, sectors, or custom. Progressive fill; Stop anytime. Seal **1.10.38**.
+
 ## Lean Book (1.10.37)
 
 Original **Lean Book** Tools board + Strategies Auto path for a paper small book. Setup categories (own names): **Coil Spark** · **Stack Climb** · **Seat High** · **Book Sync**, plus **Cash Guard**. Closed bars only. Not a third-party course. Paper only. Live locked.
