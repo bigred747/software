@@ -59,6 +59,7 @@ _DESK_PAGES: list[tuple[str, str]] = [
     ("trade", "Trade · paper ticket and Auto"),
     ("study", "Study · process / lesson score"),
     ("strategies", "Strategies · classic board"),
+    ("productscan", "Product Scan · top 20 per type · best strategy"),
     ("squeeze", "Squeeze scan · catalog walk"),
     ("scorecard", "Big 3 Market Scorecard · indexes, A+ squeezes, day bias"),
     ("cycle", "Cycle Desk · stages, Defensive Shield, Risk Rebound"),
@@ -165,6 +166,14 @@ def page_snapshot(
         base.update(
             {
                 "note": "Forecaster: concrete support · resistance · invalidate, base · bull · bear with confidence, Swing Guard · Risk Seat. Complements Outlook. Not a crystal ball.",
+            }
+        )
+    elif page == "productscan":
+        base.update(
+            {
+                "best": board.get("best") or "",
+                "rows": len(board.get("rows") or []),
+                "note": "Product Scan: top 20 stocks · ETFs · futures · crypto; best installed strategy per type from closed-bar scores. Feeds Strategies paper path; Edge · Best setup · Yes stay.",
             }
         )
     elif page == "outlook":

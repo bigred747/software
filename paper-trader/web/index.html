@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.32">
-  <meta name="paper-publish" content="20261122T184844Z">
-  <meta name="paper-private-build" content="publish-20261122T005558Z">
+  <meta name="paper-build" content="1.10.33">
+  <meta name="paper-publish" content="20261123T072000Z">
+  <meta name="paper-private-build" content="publish-20261123T072000Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.32</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.33</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -154,6 +154,12 @@
           <button type="button" class="quiet" data-open-dock="forecast">Open Forecaster</button>
         </div>
         <p class="muted">One Tools tab · precise closed-bar price call (support · resistance · invalidate · base · bull · bear · confidence). Opens Forecaster — not a second panel.</p>
+        <div class="scan-head fire-head">
+          <h3>Product Scan</h3>
+          <button type="button" class="quiet" data-open-dock="productscan">Open Product Scan</button>
+        </div>
+        <p id="product-scan-card-note" class="muted">Top 20 stocks · ETFs · futures · crypto. Learning scores every installed strategy 24/7 and picks the best per type for paper buy/sell. Edge · Best setup · Yes still gate. Live locked. Not a forecast.</p>
+        <p id="product-scan-card-winners" class="muted"></p>
       </div>
       <label for="search">Find a market</label>
       <input id="search" type="search" placeholder="XRP, XLM, Bitcoin, SPY, ES" autocomplete="off" enterkeyhint="search">
@@ -218,6 +224,7 @@
         <div id="study-pages" class="study-pages" aria-label="Open Tools pages">
           <button type="button" data-open-dock="home">All tools</button>
           <button type="button" data-open-dock="strategies">Strategies</button>
+          <button type="button" data-open-dock="productscan">Product Scan</button>
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
           <button type="button" data-open-dock="cycle">Cycle Desk</button>
@@ -424,6 +431,7 @@
         <button type="button" class="dock-tab on" data-dock="home">Tools</button>
         <button type="button" class="dock-tab" data-dock="study">Study</button>
         <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
+        <button type="button" class="dock-tab" data-dock="productscan">Product Scan</button>
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="scorecard">Big 3 Scorecard</button>
         <button type="button" class="dock-tab" data-dock="cycle">Cycle Desk</button>
@@ -445,6 +453,7 @@
         <p class="muted">Open a page full-screen. Use Back on that page to return here, then Back to desk for Markets · Chart · Trade.</p>
         <div id="tools-index" class="study-pages tools-index" aria-label="Tools index">
           <button type="button" data-open-dock="strategies">Strategies</button>
+          <button type="button" data-open-dock="productscan">Product Scan</button>
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
           <button type="button" data-open-dock="cycle">Cycle Desk</button>
@@ -1044,6 +1053,55 @@ AddOrder(Sell, sellFire);</textarea>
             <table>
               <thead><tr><th>#</th><th>Market</th><th>Conf</th><th>Base</th><th>Bull</th><th>Bear</th><th>Invalidate</th><th></th></tr></thead>
               <tbody id="forecast-rank-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="dock-page" data-dock-page="productscan">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Product Scan</h2>
+        </div>
+        <p class="muted">Ranks a clear top 20 per product type (stocks · ETFs · futures · crypto) on closed-bar lesson scores. Learning (page-open + Windows Start the score) re-scores every installed strategy against those names 24/7 and picks the best strategy per type. Turn Use winners on to feed that pick into Strategies paper buy/sell — Best setup Auto · Edge Fire · Yes confirm still gate. Not a second Fire 5 / Tide list. Own names only. Live locked. Paper only. Not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <button id="ps-scan" type="button">Scan top 20</button>
+          <button id="ps-stop" type="button" class="quiet">Stop</button>
+          <button id="ps-apply" type="button" class="fire-auto-btn" aria-pressed="false">Use winners</button>
+          <button id="ps-pick" type="button" class="quiet">Pick winner for this market</button>
+        </div>
+        <p id="ps-note" class="muted">Press Scan top 20. Learning also refreshes winners on the hourly pass.</p>
+        <p id="ps-winners" class="muted"></p>
+        <div class="scorecard-grid">
+          <section class="scorecard-panel" aria-label="Stocks top 20">
+            <h3>Stocks · top 20</h3>
+            <p id="ps-stock-best" class="muted"></p>
+            <div id="ps-stock-pins" class="pins" aria-label="Stock top 20"></div>
+          </section>
+          <section class="scorecard-panel" aria-label="ETFs top 20">
+            <h3>ETFs · top 20</h3>
+            <p id="ps-etf-best" class="muted"></p>
+            <div id="ps-etf-pins" class="pins" aria-label="ETF top 20"></div>
+          </section>
+        </div>
+        <div class="scorecard-grid">
+          <section class="scorecard-panel" aria-label="Futures top 20">
+            <h3>Futures · top 20</h3>
+            <p id="ps-future-best" class="muted"></p>
+            <div id="ps-future-pins" class="pins" aria-label="Futures top 20"></div>
+          </section>
+          <section class="scorecard-panel" aria-label="Crypto top 20">
+            <h3>Crypto · top 20</h3>
+            <p id="ps-crypto-best" class="muted"></p>
+            <div id="ps-crypto-pins" class="pins" aria-label="Crypto top 20"></div>
+          </section>
+        </div>
+        <section class="scorecard-panel" aria-label="Best strategy per type">
+          <h3>Best strategy per type</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Type</th><th>Winner</th><th>Mean result</th><th>Markets</th><th>Now</th></tr></thead>
+              <tbody id="ps-winner-body"></tbody>
             </table>
           </div>
         </section>
