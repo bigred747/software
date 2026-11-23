@@ -10682,7 +10682,7 @@ function withHooks(items) {
     next,
     "Best setup",
     !!(state.best && state.best.on && best.ready),
-    state.best && state.best.on ? best.detail : "Off · press Best setup Auto on Strategies"
+    state.best && state.best.on ? best.detail : "Off · press Best setup Auto under Auto"
   );
   const tone = currentMood(bars);
   if (tone && tone.score != null) setSignal(next, "Fear and greed", true, tone.label + " " + tone.score);
