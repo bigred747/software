@@ -173,7 +173,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.34";
+const VERSION = "1.10.35";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -3783,6 +3783,44 @@ function exportPhonePayload() {
   };
 }
 
+async function savePaperBookBlob(blob, filename) {
+  // Edge / Chromium: Save As picker when the user gesture is still live.
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: "Paper book JSON", accept: { "application/json": [".json"] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return "picker";
+    } catch (error) {
+      // AbortError = user canceled — do not fall through to a silent second download.
+      if (error && (error.name === "AbortError" || error.name === "NotAllowedError")) throw error;
+    }
+  }
+  // Legacy Edge / IE
+  if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === "function") {
+    window.navigator.msSaveOrOpenBlob(blob, filename);
+    return "msSave";
+  }
+  // Anchor download: must attach to the document for Edge/Windows to honor it.
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.rel = "noopener";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  setTimeout(() => {
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, 1500);
+  return "anchor";
+}
+
 async function sharePaperBook(download) {
   const note = $("book-share-note");
   try {
@@ -3792,20 +3830,50 @@ async function sharePaperBook(download) {
       if (note) note.textContent = "Nothing to share yet. Open a paper trade or place a limit order first.";
       return;
     }
+    const markets =
+      payload.markets ||
+      (payload.sessions ? Object.keys(payload.sessions).length : 0);
     if (download) {
       const blob = new Blob([text], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "paper-book.json";
-      link.click();
-      URL.revokeObjectURL(url);
-      if (note) note.textContent = "Downloaded paper-book.json with " + payload.markets + " market" + (payload.markets === 1 ? "" : "s") + ". On the phone: Journal → Load paper book → pick that file.";
+      try {
+        const how = await savePaperBookBlob(blob, "paper-book.json");
+        if (note) {
+          note.textContent =
+            (how === "picker" ? "Saved " : "Downloaded ") +
+            "paper-book.json with " +
+            markets +
+            " market" +
+            (markets === 1 ? "" : "s") +
+            ". On the phone: Journal → Load paper book → pick that file. If Edge blocked it, use Copy paper book → Notepad → save as paper-book.json.";
+        }
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          if (note) note.textContent = "Save canceled. Tap Share paper book again, or use Copy paper book.";
+          return;
+        }
+        // Picker unavailable / blocked — still offer Copy path.
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          if (note) {
+            note.textContent =
+              "Download was blocked. Copied the paper book instead — paste into Notepad, save as paper-book.json, then Load on the other device.";
+          }
+          return;
+        }
+        throw error;
+      }
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(text);
-      if (note) note.textContent = "Copied the paper book for " + payload.markets + " market" + (payload.markets === 1 ? "" : "s") + ". On the phone you can paste it into a file named paper-book.json, then Journal → Load paper book.";
+      if (note) {
+        note.textContent =
+          "Copied the paper book for " +
+          markets +
+          " market" +
+          (markets === 1 ? "" : "s") +
+          ". Paste into Notepad, save as paper-book.json, then Journal → Load paper book.";
+      }
       return;
     }
     if (note) note.textContent = "This browser would not copy. Use Share paper book to download the file.";

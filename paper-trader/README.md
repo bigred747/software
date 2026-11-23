@@ -1,5 +1,7 @@
 ## Version notes
 
+- **1.10.35** Journal Share paper book download hardened for Edge/Windows (Save As picker when available, anchor attached to the page, delayed revoke; Copy fallback if blocked). Extends Journal. Own names only. Live locked. After Strat Health 1.10.34.
+
 - **1.10.34** Strat Health · Factor · Incubate on Strategies (recent closed-bar Factor holds Soft Auto buys; Learning snapshots health). Extends Strategies / Learning / Journal. Own names only. Live locked. Stacked after Product Scan 1.10.33.
 
 - **1.10.33** Product Scan desk tab: top 20 stocks · ETFs · futures · crypto, best installed strategy per type via Learning 24/7, Use winners feeds Strategies paper path (Edge · Best setup · Yes stay). Tools + second page + Markets card. Live locked. Stacked on Journal Load 1.10.32.
