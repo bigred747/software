@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.33">
+  <meta name="paper-build" content="1.10.34">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T072000Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.33</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.34</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -508,15 +508,16 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Strategies</h2>
         </div>
-        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Result, Hold, Worst trade. While this page is open, Learning re-scores each strategy on top Daily scan names and learns from paper buy/sell fills to refine Fire timing. Scored on closed bars only. The ranking looks backward. Not a forecast.</p>
+        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Factor, Result, Hold, Worst, Health. Strat Health watches recent closed-bar Factor vs the full book — Incubate until enough trades, Soft · Hold Auto when recent edge drifts, Desk when healthy. Learning re-scores on top Daily scan names and paper fills. Closed bars only. Not a forecast. Live locked.</p>
         <div class="table-wrap strat-board-wrap">
           <table class="strat-board-table">
             <thead>
-              <tr><th>Strategy</th><th>Now</th><th>Trades</th><th>Wins</th><th>Result</th><th>Hold</th><th>Worst trade</th></tr>
+              <tr><th>Strategy</th><th>Now</th><th>Trades</th><th>Wins</th><th>Factor</th><th>Result</th><th>Hold</th><th>Worst</th><th>Health</th></tr>
             </thead>
             <tbody id="strat-board"></tbody>
           </table>
         </div>
+        <p id="strat-health" class="muted">Strat Health · pick a strategy. Incubate / Soft hold Auto buys on paper; sells still exit. Best setup Edge Fire still needs Yes. Not a forecast.</p>
         <p id="strat-best" class="muted"></p>
         <div class="strat-trade">
           <p id="strat-trade-note" class="muted">Click the best strategy row to pick it, then paper Buy or Sell on this market. The second warning still asks. Paper only.</p>
@@ -856,7 +857,7 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Today's check</h2>
         </div>
-        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Fire pins carry Gate Print + Fire Precision. Lane Align and Range Seat tag each name for desk review. Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
+        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Fire pins carry Gate Print + Fire Precision. Lane Align and Range Seat tag each name for desk review. Strat Health (Strategies) holds Auto buys when a strategy is Incubating or Soft. Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
         <h3 class="journal-check-head">Week Board</h3>
         <p id="week-board-note" class="muted">This Denver week’s Fire names plus Lane Align · Range Seat · Tide. Review only — not a second Fire 5 list. Paper only. Not a forecast.</p>
         <div id="week-board" class="pins" aria-label="Week Board"></div>

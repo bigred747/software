@@ -1635,7 +1635,9 @@
     const first = Math.min(EDGE_WARM, Math.max(0, settled));
     const hold = end > EDGE_WARM ? closes[settled] / list[first].open - 1 : 0;
     const total = equity - 1;
-    const wins = trades.filter((trade) => trade.pct > 0).length;
+    const book = tradeBookStats(trades);
+    const recent = recentTradeBook(trades, RECENT_TRADE_WINDOW);
+    const wins = book.wins;
     let call = "WAIT";
     const filledToday = live ? marks.find((mark) => mark.index === last) : null;
     if (pending === "buy") call = "BUY";
@@ -1671,6 +1673,9 @@
         total,
         hold,
         worst,
+        maxDD: book.maxDD,
+        profitFactor: book.profitFactor,
+        recent,
         exposure: end > EDGE_WARM ? barsIn / (end - EDGE_WARM) : 0,
         bars: Math.max(0, end - EDGE_WARM),
       },
@@ -2133,6 +2138,56 @@
     };
   }
 
+  // Recent closed-trade window for Strat Health (own desk math — not a third-party pack).
+  const RECENT_TRADE_WINDOW = 8;
+  const INCUBATE_MIN_TRADES = 5;
+
+  function tradeBookStats(trades) {
+    let wins = 0;
+    let grossWin = 0;
+    let grossLoss = 0;
+    let growth = 1;
+    let worst = 0;
+    let equity = 1;
+    let peak = 1;
+    let maxDD = 0;
+    (trades || []).forEach((trade) => {
+      const pct = Number(trade && trade.pct) || 0;
+      if (pct > 0) {
+        wins += 1;
+        grossWin += pct;
+      } else if (pct < 0) {
+        grossLoss += -pct;
+      }
+      growth *= 1 + pct;
+      equity *= 1 + pct;
+      if (equity > peak) peak = equity;
+      maxDD = Math.min(maxDD, equity / peak - 1);
+      worst = Math.min(worst, pct);
+    });
+    const count = (trades || []).length;
+    let profitFactor = null;
+    if (grossLoss > 0) profitFactor = grossWin / grossLoss;
+    else if (grossWin > 0) profitFactor = Infinity;
+    return {
+      trades: count,
+      wins,
+      winRate: count ? wins / count : 0,
+      total: growth - 1,
+      worst,
+      maxDD,
+      profitFactor,
+      grossWin,
+      grossLoss,
+    };
+  }
+
+  function recentTradeBook(trades, windowSize) {
+    const size = Math.max(3, Number(windowSize) || RECENT_TRADE_WINDOW);
+    const slice = (trades || []).slice(-size);
+    return tradeBookStats(slice);
+  }
+
   function runRule(list, end, warm, rule) {
     const trades = [];
     let open = null;
@@ -2157,16 +2212,11 @@
         if (entry) pending = { type: "buy", stop: entry.stop || 0 };
       }
     }
-    let wins = 0;
-    let growth = 1;
-    let worst = 0;
-    trades.forEach((trade) => {
-      if (trade.pct > 0) wins += 1;
-      growth *= 1 + trade.pct;
-      worst = Math.min(worst, trade.pct);
-    });
+    const book = tradeBookStats(trades);
+    const recent = recentTradeBook(trades, RECENT_TRADE_WINDOW);
     const lastClose = end > 0 ? list[end - 1].close : 0;
     let openPct = null;
+    let growth = 1 + book.total;
     if (open) {
       openPct = lastClose / open.entry - 1;
       growth *= 1 + openPct;
@@ -2174,13 +2224,16 @@
     const startPrice = warm < end ? list[warm].open : 0;
     return {
       trades,
-      wins,
+      wins: book.wins,
       open,
       pending,
       openPct,
       total: growth - 1,
       hold: startPrice > 0 ? lastClose / startPrice - 1 : 0,
-      worst,
+      worst: book.worst,
+      maxDD: book.maxDD,
+      profitFactor: book.profitFactor,
+      recent,
       exposure: end > warm ? barsIn / (end - warm) : 0,
     };
   }
@@ -2315,6 +2368,9 @@
         total: run.total,
         hold: run.hold,
         worst: run.worst,
+        maxDD: run.maxDD,
+        profitFactor: run.profitFactor,
+        recent: run.recent || null,
         exposure: run.exposure,
         entry: run.open ? run.open.entry : null,
         openPct: run.openPct,
@@ -2331,7 +2387,22 @@
         ...(extra || {}),
       });
     };
-    const notReady = (id, why) => rows.push({ id, ...STRATEGY_INFO[id], ready: false, call: "WAIT", trades: 0, winRate: 0, total: 0, hold: 0, worst: 0, why });
+    const notReady = (id, why) =>
+      rows.push({
+        id,
+        ...STRATEGY_INFO[id],
+        ready: false,
+        call: "WAIT",
+        trades: 0,
+        winRate: 0,
+        total: 0,
+        hold: 0,
+        worst: 0,
+        maxDD: 0,
+        profitFactor: null,
+        recent: null,
+        why,
+      });
 
     const known = edge(list, { live });
     if (known && known.ready) {
@@ -2346,6 +2417,9 @@
         total: known.record.total,
         hold: known.record.hold,
         worst: known.record.worst,
+        maxDD: known.record.maxDD,
+        profitFactor: known.record.profitFactor,
+        recent: known.record.recent || null,
         exposure: known.record.exposure,
         entry: known.entry,
         openPct: known.openPct,
@@ -5164,6 +5238,10 @@
     strategies,
     STRATEGY_INFO,
     STRATEGY_IDS,
+    tradeBookStats,
+    recentTradeBook,
+    RECENT_TRADE_WINDOW,
+    INCUBATE_MIN_TRADES,
     cci,
     cciPane,
     cciSnapState,
