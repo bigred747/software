@@ -29,6 +29,7 @@ const state = {
   fires: [],
   fireNote: "",
   fireAuto: false,
+  journalAuto: false,
   fireCursor: 0,
   deskCard: "auto",
   journalSells: [],
@@ -173,7 +174,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.35";
+const VERSION = "1.10.36";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -492,7 +493,7 @@ function withHooks(items) {
     next,
     "Best setup",
     !!(state.best && state.best.on && best.ready),
-    state.best && state.best.on ? best.detail : "Off · press Best setup Auto on Strategies"
+    state.best && state.best.on ? best.detail : "Off · press Best setup Auto under Auto"
   );
   const tone = currentMood(bars);
   if (tone && tone.score != null) setSignal(next, "Fear and greed", true, tone.label + " " + tone.score);
@@ -800,6 +801,7 @@ function bestPicks(rows) {
 
 const FIRE_FIVE_LIMIT = 5;
 const FIRE_AUTO_KEY = "paperTraderFireAuto";
+const JOURNAL_AUTO_KEY = "paperTraderJournalAuto";
 
 function loadFireAuto() {
   try {
@@ -816,6 +818,126 @@ function saveFireAuto(on) {
     /* Fire Auto still holds for this page. */
   }
   state.fireAuto = !!on;
+}
+
+function loadJournalAuto() {
+  try {
+    return JSON.parse(localStorage.getItem(JOURNAL_AUTO_KEY) || "{}").on === true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function saveJournalAuto(on) {
+  try {
+    localStorage.setItem(JOURNAL_AUTO_KEY, JSON.stringify({ on: !!on }));
+  } catch (error) {
+    /* Journal Auto still holds for this page. */
+  }
+  state.journalAuto = !!on;
+}
+
+function topJournalBuyRow(book) {
+  const rows = journalBuyRows(book || currentBook(state.paper)).filter(
+    (row) => row && (row.journalStatus === "fire" || row.journalStatus === "best" || row.journalStatus === "trail")
+  );
+  if (!rows.length) return null;
+  rows.sort((a, b) => {
+    const rank = (row) => (row.journalStatus === "fire" ? 3 : row.journalStatus === "trail" ? 2 : 1);
+    const diff = rank(b) - rank(a);
+    if (diff) return diff;
+    const pa = rowPrecision(a);
+    const pb = rowPrecision(b);
+    if (pb !== pa) return pb - pa;
+    return (Number(b.rate) || 0) - (Number(a.rate) || 0);
+  });
+  return rows[0];
+}
+
+function paintFireAutoButton(button) {
+  if (!button) return;
+  const on = !!state.fireAuto;
+  const ready = on && (state.fires || []).length > 0;
+  button.setAttribute("aria-pressed", on ? "true" : "false");
+  button.className = "fire-auto-btn" + (on ? (ready ? " ready" : " on") : "");
+  button.textContent = on
+    ? ready
+      ? "Fire 5 Auto · " + state.fires.length + " green"
+      : "Fire 5 Auto · waiting for Fire"
+    : "Fire 5 Auto";
+  button.disabled = !state.auto;
+}
+
+function paintBestSetupButton(button) {
+  if (!button) return;
+  const on = !!(state.best && state.best.on);
+  const status = bestSetupStatus();
+  button.setAttribute("aria-pressed", on ? "true" : "false");
+  button.className = "best-setup-btn" + (on ? (status.ready ? " ready" : " on") : "");
+  button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
+  if (button.id !== "best-setup") button.disabled = !state.auto;
+}
+
+function paintJournalAutoButton(button) {
+  if (!button) return;
+  const on = !!state.journalAuto;
+  const top = topJournalBuyRow();
+  button.setAttribute("aria-pressed", on ? "true" : "false");
+  button.className = "fire-auto-btn" + (on ? (top ? " ready" : " on") : "");
+  button.textContent = on
+    ? top
+      ? "Journal Auto · " + pinLabel(top.symbol)
+      : "Journal Auto · waiting"
+    : "Journal Auto buy";
+  button.disabled = !state.auto;
+}
+
+function autoDeskNoteText() {
+  if (!state.auto) return "Turn Auto on to use Fire 5 Auto · Best setup Auto · Journal Auto buy · Buy top signal.";
+  const top = topJournalBuyRow();
+  const bits = [];
+  bits.push(state.fireAuto ? "Fire 5 Auto on" : "Fire 5 Auto off");
+  bits.push(state.best && state.best.on ? "Best setup on" : "Best setup off");
+  bits.push(state.journalAuto ? "Journal Auto on" : "Journal Auto off");
+  if (top) {
+    bits.push(
+      "Top signal " +
+        pinLabel(top.symbol) +
+        (top.journalStatus === "fire" ? " · FIRE" : top.journalStatus === "trail" ? " · Seat Trail" : " · best")
+    );
+  } else {
+    bits.push("No journal buy signal yet");
+  }
+  bits.push("Paper Yes still required · Soft · Hold Auto holds Auto buys");
+  return bits.join(" · ") + ". Not a forecast.";
+}
+
+function renderAutoDesk() {
+  ["auto-desk", "auto-desk-journal"].forEach((id) => {
+    const panel = $(id);
+    if (!panel) return;
+    panel.hidden = !state.auto;
+  });
+  paintFireAutoButton($("fire-auto"));
+  paintFireAutoButton($("fire-auto-journal"));
+  paintBestSetupButton($("best-setup"));
+  paintBestSetupButton($("best-setup-desk"));
+  paintBestSetupButton($("best-setup-journal"));
+  paintJournalAutoButton($("journal-auto"));
+  paintJournalAutoButton($("journal-auto-journal"));
+  ["journal-buy-click", "journal-buy-click-journal"].forEach((id) => {
+    const button = $(id);
+    if (!button) return;
+    button.disabled = !state.auto || !topJournalBuyRow();
+    button.textContent = topJournalBuyRow()
+      ? "Buy top signal · " + pinLabel(topJournalBuyRow().symbol)
+      : "Buy top signal";
+  });
+  const note = autoDeskNoteText();
+  ["auto-desk-note", "auto-desk-note-journal"].forEach((id) => {
+    const node = $(id);
+    if (node) node.textContent = note;
+  });
 }
 
 function laneRank(row) {
@@ -1729,6 +1851,7 @@ function render(paper) {
   $("auto").setAttribute("aria-pressed", state.auto ? "true" : "false");
   $("paper").disabled = false;
   $("paper").setAttribute("aria-pressed", paper.paper === true && paper.mode === "paper" ? "true" : "false");
+  renderAutoDesk();
   renderBreaker();
   renderWorking(paper);
   seedTicketPrices(paper);
@@ -2179,20 +2302,12 @@ function renderFireFive() {
     // Green as soon as Fire is on — do not wait for the full scan to finish.
     renderScoreButtons(bar, rows, rows.length > 0);
   }
-  if (button) {
-    const on = !!state.fireAuto;
-    const ready = on && (state.fires || []).length > 0;
-    button.setAttribute("aria-pressed", on ? "true" : "false");
-    button.className = "fire-auto-btn" + (on ? (ready ? " ready" : " on") : "");
-    button.textContent = on
-      ? ready
-        ? "Fire 5 Auto · " + state.fires.length + " green"
-        : "Fire 5 Auto · waiting for Fire"
-      : "Fire 5 Auto";
-  }
+  paintFireAutoButton(button);
+  paintFireAutoButton($("fire-auto-journal"));
   renderDeskCards();
   renderTideFade();
   paintJournalCheckSync();
+  renderAutoDesk();
 }
 
 function fadeNoteText(tide, fades) {
@@ -4528,16 +4643,20 @@ function renderBestSetup() {
   const button = $("best-setup");
   const note = $("best-setup-note");
   const list = $("best-setup-gates");
-  if (!button || !note) return;
   const on = !!(state.best && state.best.on);
   const status = bestSetupStatus();
   const wasReady = !!(state.best && state.best.wasReady);
-  button.setAttribute("aria-pressed", on ? "true" : "false");
-  button.className = "best-setup-btn" + (on ? (status.ready ? " ready" : " on") : "");
-  button.textContent = on ? (status.ready ? "Best setup ready" : "Best setup Auto on") : "Best setup Auto";
-  note.textContent = on
-    ? status.detail + ". Turn Auto on. Edge SELL can still exit a long. Still asks Yes. Max " + BEST_MAX_BUYS + " new paper buys a Denver day. Not a forecast."
-    : "Off. Strictest paper buys only: Edge all seven (TMO · Squeeze · CCI · Desk Waves green/up · VIX falling), Confirm Lock from Desk Cards, multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Seat Trail shows agree/wait on the checklist and runs as its own Strategies Auto process — not a second Fire 5. Still asks Yes. Not a forecast.";
+  paintBestSetupButton(button);
+  paintBestSetupButton($("best-setup-desk"));
+  paintBestSetupButton($("best-setup-journal"));
+  if (note) {
+    note.textContent = on
+      ? status.detail +
+        ". Auto buy toggles also live under Auto on the front page and Journal. Edge SELL can still exit a long. Still asks Yes. Max " +
+        BEST_MAX_BUYS +
+        " new paper buys a Denver day. Not a forecast."
+      : "Off. Strictest paper buys only: Edge all seven (TMO · Squeeze · CCI · Desk Waves green/up · VIX falling), Confirm Lock from Desk Cards, multi-TF majority, supportive market internals, desk Squeeze · TMO · big4indicator · stack · weekly/monthly MTF, green scan list, fresh quote, not extreme greed, Tide clear, Lane Align open, max three buys a Denver day. Seat Trail shows agree/wait on the checklist and runs as its own Strategies Auto process — not a second Fire 5. Toggle also lives under Auto. Still asks Yes. Not a forecast.";
+  }
   if (list) {
     list.replaceChildren();
     list.hidden = !on;
@@ -4563,6 +4682,7 @@ function renderBestSetup() {
     }
   }
   if (!status.ready && state.best) state.best.wasReady = false;
+  renderAutoDesk();
   if (state.offline) {
     /* Signals refresh from renderLocalSignals callers. */
   }
@@ -5791,6 +5911,93 @@ async function answerAuto(row, want, symbol, closed) {
   } catch (error) {
     say(row.name + " wanted a " + want + ". Skipped: " + error.message);
   }
+}
+
+async function journalAutoTrade() {
+  // Journal Auto buy reuses Fire 5 / Best setup / Edge gates — no second scanner.
+  if (!state.auto || !state.journalAuto || !state.paper || state.paper.paper !== true) return "";
+  if (breakerState().tripped) return "";
+  if (confirmWait) return "Waiting for your answer on the open warning.";
+  const top = topJournalBuyRow();
+  if (!top || !top.symbol) {
+    renderAutoDesk();
+    return "Journal Auto buy is on. Waiting for a Fire / best / Seat Trail buy signal in Journal.";
+  }
+  if (top.journalStatus === "fire") {
+    if (!state.fireAuto) {
+      return "Journal Auto top signal is FIRE on " + top.symbol + ". Turn Fire 5 Auto on under Auto to take it.";
+    }
+    return "";
+  }
+  if (!(state.best && state.best.on) && !state.strat.on) {
+    return "Journal Auto sees " + top.symbol + ". Turn Best setup Auto or Strategies Auto-follow on under Auto / Strategies.";
+  }
+  if (state.paper.symbol !== top.symbol) {
+    await chooseSymbol(top.symbol);
+    renderAutoDesk();
+    return "Journal Auto opened " + top.symbol + " for review.";
+  }
+  if (state.paper.shares > 0) return "";
+  const bars = seenBars();
+  const board = currentBoard(bars);
+  const pickId = state.best && state.best.on ? "edge" : state.strat.pick;
+  const row = board.rows.find((item) => item.id === pickId);
+  if (!row || !row.ready) return "Journal Auto waiting for strategy bars on " + top.symbol + ".";
+  const health = stratHealth(row);
+  if (!health.autoOk) {
+    renderAutoDesk();
+    return "Journal Auto Soft · Hold Auto on " + top.symbol + ": " + health.note;
+  }
+  return await autoTrade();
+}
+
+async function journalBuyTopClick() {
+  if (!state.auto) {
+    $("status").textContent = "Turn Auto on first. Buy top signal lives under Auto.";
+    return;
+  }
+  if (!state.paper || state.paper.paper !== true) {
+    $("status").textContent = "Turn Paper on first.";
+    return;
+  }
+  if (state.busy || confirmWait) {
+    $("status").textContent = "Finish the open warning or wait for the desk to free up.";
+    return;
+  }
+  if (breakerState().tripped) {
+    $("status").textContent = "Circuit breaker tripped. Buys stop until tomorrow.";
+    return;
+  }
+  const top = topJournalBuyRow();
+  if (!top || !top.symbol) {
+    $("status").textContent = "No journal buy signal to test yet.";
+    renderAutoDesk();
+    return;
+  }
+  if (state.paper.symbol !== top.symbol) await chooseSymbol(top.symbol);
+  if (Number(state.paper.shares) > 0) {
+    $("status").textContent = "Already long on " + top.symbol + ". Sell first, or pick another signal.";
+    return;
+  }
+  const bars = seenBars();
+  const board = bars.length >= 2 ? currentBoard(bars) : null;
+  const row =
+    (board && board.rows.find((item) => item.id === ((state.best && state.best.on && "edge") || state.strat.pick))) ||
+    (board && board.rows.find((item) => item.id === "edge")) ||
+    { id: "journal", name: "Journal buy signal · " + pinLabel(top.symbol), ready: true, call: "BUY" };
+  if (!(await askFirst("buy", top.symbol, "auto", { row, closed: closedDate(bars) }))) return;
+  await withBusy(async () => {
+    const paper = await paperCall("/api/paper/trade", { source: "auto", confirmed: true });
+    render(paper);
+    $("status").textContent =
+      "Buy top signal · " +
+      pinLabel(top.symbol) +
+      ": " +
+      (fillText(paper) || "paper buy filled.") +
+      " Journal Auto path tested with Yes.";
+    await loadSignals();
+    renderAutoDesk();
+  });
 }
 
 function orbOptions() {
@@ -10549,19 +10756,25 @@ async function autoTick() {
     const traded = await autoTrade();
     if (!state.auto || state.switching) return;
     const fired = await fireAutoTrade();
+    if (!state.auto || state.switching) return;
+    const journaled = await journalAutoTrade();
     if (!state.switching) {
       renderBestSetup();
       renderFireFive();
+      renderAutoDesk();
       if (state.offline) renderLocalSignals();
     }
     $("status").textContent =
       traded ||
       fired ||
+      journaled ||
       (state.best && state.best.on && bestSetupStatus().ready
         ? "Best setup ready. Waiting for your Yes if a buy warning is open."
         : state.fireAuto && (state.fires || []).length
           ? "Fire 5 Auto is watching " + state.fires.length + " green Fire trade" + (state.fires.length === 1 ? "" : "s") + "."
-          : "Auto is on. Refreshing the market quote.");
+          : state.journalAuto
+            ? "Journal Auto buy is on. Watching Journal buy signals."
+            : "Auto is on. Refreshing the market quote.");
     // Learn in the background — never hold Auto / clicks hostage.
     cycleScanLearn("auto").catch(() => {});
   } catch (error) {
@@ -10593,13 +10806,14 @@ $("auto").addEventListener("click", () => {
   }
   state.auto = !state.auto;
   render(state.paper);
+  renderAutoDesk();
   if (!state.auto) {
     if (state.autoTimer) clearTimeout(state.autoTimer);
     state.autoTimer = 0;
-    $("status").textContent = "Auto is off.";
+    $("status").textContent = "Auto is off. Auto buy controls are hidden until Auto is on.";
     return;
   }
-  $("status").textContent = "Auto is on. Refreshing the market quote.";
+  $("status").textContent = "Auto is on. Fire 5 · Best setup · Journal Auto buy live under Auto. Refreshing the market quote.";
   autoTick();
 });
 
@@ -11175,29 +11389,74 @@ if (scanToggle) {
   });
 }
 
-const fireAutoBtn = $("fire-auto");
-if (fireAutoBtn) {
-  state.fireAuto = loadFireAuto();
-  state.deskCard = readDeskCardId();
+state.fireAuto = loadFireAuto();
+state.journalAuto = loadJournalAuto();
+state.deskCard = readDeskCardId();
+renderFireFive();
+renderAutoDesk();
+
+function toggleFireAuto() {
+  if (!state.auto) {
+    $("status").textContent = "Turn Auto on first. Fire 5 Auto lives under Auto.";
+    return;
+  }
+  const next = !state.fireAuto;
+  saveFireAuto(next);
   renderFireFive();
-  fireAutoBtn.addEventListener("click", () => {
-    const next = !state.fireAuto;
-    saveFireAuto(next);
-    renderFireFive();
-    if (next) {
-      if (state.paper && state.paper.paper === true && !state.auto) {
-        state.auto = true;
-        render(state.paper);
-        autoTick();
-      }
-      $("status").textContent =
-        "Fire 5 Auto is on. Confirm Lock (Desk Cards) gates paper buys. Green Fire trades still ask Yes. Scanner should stay on.";
-      refreshFireFive().catch(() => {});
-    } else {
-      $("status").textContent = "Fire 5 Auto is off. Green Fire signals still show for review.";
-    }
-  });
+  renderAutoDesk();
+  if (next) {
+    $("status").textContent =
+      "Fire 5 Auto is on. Confirm Lock (Desk Cards) gates paper buys. Green Fire trades still ask Yes. Scanner should stay on.";
+    refreshFireFive().catch(() => {});
+  } else {
+    $("status").textContent = "Fire 5 Auto is off. Green Fire signals still show for review.";
+  }
 }
+
+["fire-auto", "fire-auto-journal"].forEach((id) => {
+  const button = $(id);
+  if (button) button.addEventListener("click", toggleFireAuto);
+});
+
+function toggleBestSetupDesk() {
+  if (!state.auto) {
+    $("status").textContent = "Turn Auto on first. Best setup Auto lives under Auto.";
+    return;
+  }
+  setBestSetup(!(state.best && state.best.on));
+  renderAutoDesk();
+}
+
+["best-setup-desk", "best-setup-journal"].forEach((id) => {
+  const button = $(id);
+  if (button) button.addEventListener("click", toggleBestSetupDesk);
+});
+
+function toggleJournalAuto() {
+  if (!state.auto) {
+    $("status").textContent = "Turn Auto on first. Journal Auto buy lives under Auto.";
+    return;
+  }
+  const next = !state.journalAuto;
+  saveJournalAuto(next);
+  renderAutoDesk();
+  $("status").textContent = next
+    ? "Journal Auto buy is on. It watches Journal buy signals and reuses Fire 5 / Best setup gates. Paper Yes still required. Soft · Hold Auto holds Auto buys."
+    : "Journal Auto buy is off.";
+  if (next && state.paper && state.paper.paper === true) autoTick();
+}
+
+["journal-auto", "journal-auto-journal"].forEach((id) => {
+  const button = $(id);
+  if (button) button.addEventListener("click", toggleJournalAuto);
+});
+
+["journal-buy-click", "journal-buy-click-journal"].forEach((id) => {
+  const button = $(id);
+  if (button) button.addEventListener("click", () => journalBuyTopClick().catch((error) => {
+    $("status").textContent = error.message || "Buy top signal could not run.";
+  }));
+});
 
 function wireDeskCardButton(button, key) {
   if (!button) return;

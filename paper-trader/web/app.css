@@ -705,6 +705,26 @@ dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
 .modes, .actions, .study-actions { display: grid; gap: 8px; }
 .modes { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 8px; }
 .modes button { padding-left: 4px; padding-right: 4px; }
+.auto-desk {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid #2a3540;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #101820, #0c1218);
+  display: grid;
+  gap: 8px;
+}
+.auto-desk[hidden] { display: none !important; }
+.auto-desk h3 { margin: 0; font-size: 0.95rem; letter-spacing: 0.02em; }
+.auto-desk-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.auto-desk-row button {
+  flex: 1 1 9rem;
+  min-height: 40px;
+}
 #live.locked { color: var(--muted); border-style: dashed; }
 .schwab-box {
   display: grid;
