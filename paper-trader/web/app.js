@@ -3817,11 +3817,15 @@ async function importPaperBook(payload) {
   if (!state.offline) {
     const paper = await post("/api/paper/book", payload);
     state.paper = paper;
-    await loadMarket(paper.symbol);
+    // Paint Journal from the response book first — do not hold the busy spinner on quotes.
     render(paper);
     const count = paper.book_loaded || Object.keys(sessions).length;
-    if (note) note.textContent = "Loaded " + count + " market" + (count === 1 ? "" : "s") + " into this computer's paper book. Open positions and working orders are in Journal.";
+    if (note) note.textContent = "Loaded " + count + " market" + (count === 1 ? "" : "s") + " into this computer's paper book. Open positions are under Journal.";
     setStatus("Paper book loaded on this device.");
+    loadMarket(paper.symbol).then((market) => {
+      state.market = market;
+      if (state.paper) render(state.paper);
+    }).catch(() => {});
     return;
   }
   const kept = {};
@@ -3846,7 +3850,9 @@ async function importPaperBook(payload) {
   } else {
     renderBook(state.paper);
   }
-  if (note) note.textContent = "Loaded " + Object.keys(kept).length + " market" + (Object.keys(kept).length === 1 ? "" : "s") + " into this device's paper book. Open positions and working orders are in Journal.";
+  // Always refresh the Journal tables from localStorage after a phone Load.
+  renderBook(state.paper);
+  if (note) note.textContent = "Loaded " + Object.keys(kept).length + " market" + (Object.keys(kept).length === 1 ? "" : "s") + " into this device's paper book. Open positions are under Journal.";
   setStatus("Paper book loaded on this device.");
 }
 
@@ -9994,17 +10000,24 @@ if (bookFile) {
     const file = bookFile.files && bookFile.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => withBusy(async () => {
-      try {
-        const payload = JSON.parse(String(reader.result || ""));
-        await importPaperBook(payload);
-      } catch (error) {
-        const note = $("book-share-note");
-        if (note) note.textContent = error.message || "That file could not be read.";
-      } finally {
-        bookFile.value = "";
-      }
-    });
+    reader.onload = () => {
+      void (async () => {
+        await whenIdle();
+        if (state.busy) releaseBusy();
+        await withBusy(async () => {
+          try {
+            const payload = JSON.parse(String(reader.result || ""));
+            await importPaperBook(payload);
+          } catch (error) {
+            const note = $("book-share-note");
+            if (note) note.textContent = error.message || "That file could not be read.";
+            setStatus(error.message || "That file could not be read.");
+          } finally {
+            bookFile.value = "";
+          }
+        });
+      })();
+    };
     reader.onerror = () => {
       const note = $("book-share-note");
       if (note) note.textContent = "That file could not be read.";
