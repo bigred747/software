@@ -174,13 +174,21 @@ Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
 
+## Snappy Boost desk (1.10.43)
+
+Booster defaults to **Boost** (tight quote gap, quick learn, wide scan lanes). Auto prefers **Max** when the feed is warm. Background score interval cut to 8s. Desk green stays a fast Safe + Signals pass. Seal **1.10.43**.
+
+## Desk green fast scan (1.10.42)
+
+**Scan · test entire desk** no longer waits on the hourly all-pages learn walk (that felt stuck forever). It runs Safe + Signals + a light two-page learn touch, each with a short timeout, then paints GREEN. Hourly Bot-on still covers every page overnight. Seal **1.10.42**.
+
 ## Booster static serve (1.10.41)
 
 Computer desk now serves `/booster.js` from the allowlist so Signals and Booster loads PaperBooster (fixes “Booster module missing”). Phone copy already inlined. Seal **1.10.41**.
 
 ## Signals and Booster (1.10.40)
 
-Tools → **Signals and Booster**: all desk signals plus Booster pace (Safe · Balanced · Boost · Max · Auto). Auto slows when Auto/soft/busy and speeds when calm. **Scan · test entire desk** runs Safe + Signals + learn touch and shows one last GREEN when everything passes. Live stays locked. Seal **1.10.40**.
+Tools → **Signals and Booster**: all desk signals plus Booster pace (Safe · Balanced · Boost · Max · Auto). Auto slows when Auto/soft/busy and speeds when calm. **Scan · test entire desk** runs Safe + Signals + light learn touch and shows one last GREEN when everything passes. Live stays locked. Seal **1.10.40**.
 
 ## Cycle · Forecaster scan lists (1.10.39)
 
