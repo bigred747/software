@@ -41,41 +41,43 @@ def canonical_folder(home: Path) -> Path:
 
 
 def search_roots(home: Path) -> list[Path]:
-    return [home / "Documents", home / "Desktop", home / "Downloads"]
-
-
-def is_staging_extract(folder: Path) -> bool:
-    """Launcher unzip staging: Documents\\PaperTrader-setup[-NNNN]\\paper-trader. Not a kept desk."""
-    try:
-        parts = [part.lower() for part in Path(folder).parts]
-    except (OSError, TypeError, ValueError):
-        return False
-    for part in parts:
-        if part == "papertrader-setup" or part.startswith("papertrader-setup-"):
-            return True
-    return False
-
-
-def is_recycle_path(folder: Path) -> bool:
-    """Recycle Bin / trash — deleted copies must not count as installs."""
-    try:
-        parts = [part.lower() for part in Path(folder).parts]
-    except (OSError, TypeError, ValueError):
-        return False
-    for part in parts:
-        if part in {"$recycle.bin", "recycle.bin", "recycler", "recycle bin", ".trash", "trash"}:
-            return True
-        if part.startswith("$r"):
-            # Windows recycle folder names like $Rxxxx stay under $Recycle.Bin; belt-and-suspenders.
+    """Places we look for Paper Trader copies (and leftover Bot scores)."""
+    roots = [
+        home / "Documents",
+        home / "Desktop",
+        home / "Downloads",
+        home / "OneDrive" / "Documents",
+        home / "OneDrive" / "Desktop",
+        home / "OneDrive" / "Downloads",
+    ]
+    one_drive = os.environ.get("OneDrive")
+    if one_drive:
+        roots.extend(
+            [
+                Path(one_drive) / "Documents",
+                Path(one_drive) / "Desktop",
+                Path(one_drive) / "Downloads",
+            ]
+        )
+    found: list[Path] = []
+    seen: set[Path] = set()
+    for folder in roots:
+        try:
+            if not folder.is_dir():
+                continue
+            resolved = folder.resolve()
+        except OSError:
             continue
-    return False
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        found.append(folder)
+    return found
 
 
 def is_install(folder: Path) -> bool:
     """A real desk copy: launcher + package + VERSION. Half-deleted extracts do not count."""
     if path_looks_foreign(folder):
-        return False
-    if is_recycle_path(folder) or is_staging_extract(folder):
         return False
     name = folder.name.lower()
     if name in {"__macosx", "runtime", "node_modules", "tests", ".git"}:
@@ -235,7 +237,7 @@ def single_copy_status(home: Path) -> dict[str, str | bool]:
     more = f" +{len(extras) - 4} more" if len(extras) > 4 else ""
     detail = (
         f"{len(copies)} copies · keep latest Documents\\Paper Trader · newest {_copy_label(newest)} · also {shown}{more}. "
-        "PaperTrader-setup staging and Recycle Bin are ignored. Nothing else is deleted for you."
+        "Nothing is deleted for you — remove older Downloads/Desktop extracts yourself."
     )
     return {"name": "Install", "ok": False, "detail": detail}
 
@@ -314,3 +316,128 @@ def remove_desktop_opener(home: Path) -> list[Path]:
         except OSError:
             continue
     return removed
+
+
+KEEP_VERSION = "1.10.40"
+
+
+def read_install_version(folder: Path) -> str:
+    version_file = folder / "VERSION"
+    if not version_file.is_file():
+        return ""
+    try:
+        return version_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _zip_version_label(path: Path) -> str:
+    name = path.name.lower()
+    # Paper-Trader-1.10.40-slim.zip or Paper-Trader-1.10.40.zip
+    marker = "paper-trader-"
+    if marker not in name:
+        return ""
+    after = name.split(marker, 1)[1]
+    after = after.removesuffix(".zip")
+    if after.endswith("-slim"):
+        after = after[: -len("-slim")]
+    return after
+
+
+def erase_other_installs(
+    home: Path,
+    keep: Path | None = None,
+    *,
+    keep_version: str = KEEP_VERSION,
+    killer=None,
+) -> dict[str, object]:
+    """Keep only Paper Trader keep_version (default 1.10.40). Erase other installs, zips, and extra Bots."""
+    from paper_trader.learn import end_learner_pid, stop_learner
+
+    end_pid = killer or end_learner_pid
+    home = Path(home)
+    keep_path = (keep or canonical_folder(home)).resolve()
+    kept_version = read_install_version(keep_path)
+    if kept_version and kept_version != keep_version:
+        # Prefer any install that still has the requested seal.
+        matches = [
+            folder
+            for folder in find_installs(home)
+            if read_install_version(folder) == keep_version
+        ]
+        if matches:
+            # Prefer Documents\\Paper Trader when it is already the seal.
+            preferred = canonical_folder(home).resolve()
+            keep_path = preferred if preferred in matches else matches[0]
+
+    closed: list[int] = []
+    erased: list[str] = []
+    zips_removed: list[str] = []
+
+    for folder in find_installs(home):
+        try:
+            resolved = folder.resolve()
+        except OSError:
+            continue
+        if resolved == keep_path:
+            continue
+        pid = stop_learner(resolved / "learn_state.json", killer=end_pid)
+        if pid:
+            closed.append(pid)
+        try:
+            shutil.rmtree(resolved)
+            erased.append(str(resolved))
+        except OSError:
+            continue
+
+    # Drop staging leftovers and non-keep zips under the usual user folders.
+    for root in search_roots(home):
+        try:
+            children = list(root.iterdir())
+        except OSError:
+            continue
+        for child in children:
+            name = child.name.lower()
+            if child.is_dir() and name.startswith("papertrader-setup"):
+                try:
+                    # Stop a bot left in staging, then erase the staging tree.
+                    for nested in child.rglob("learn_state.json"):
+                        pid = stop_learner(nested, killer=end_pid)
+                        if pid:
+                            closed.append(pid)
+                    shutil.rmtree(child)
+                    erased.append(str(child.resolve()))
+                except OSError:
+                    continue
+            if not child.is_file():
+                continue
+            if not name.startswith("paper-trader") or not name.endswith(".zip"):
+                continue
+            label = _zip_version_label(child)
+            # Keep the plain Paper-Trader.zip only when this keep folder is the seal,
+            # and keep versioned zips that match keep_version.
+            if name == "paper-trader.zip":
+                if read_install_version(keep_path) == keep_version:
+                    continue
+            elif label == keep_version:
+                continue
+            try:
+                child.unlink()
+                zips_removed.append(str(child.resolve()))
+            except OSError:
+                continue
+
+    # One desktop shortcut → the kept copy.
+    if is_install(keep_path):
+        write_desktop_opener(keep_path, home)
+        # Resume the single Bot for the kept desk.
+        _resume_learner(keep_path)
+        # Close a stray Bot still attached to the keep folder's old lock if needed — leave healthy alone.
+
+    return {
+        "keep": str(keep_path),
+        "keep_version": read_install_version(keep_path) or keep_version,
+        "closed": closed,
+        "erased": erased,
+        "zips_removed": zips_removed,
+    }

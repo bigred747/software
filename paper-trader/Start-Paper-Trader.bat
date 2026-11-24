@@ -38,8 +38,6 @@ if errorlevel 1 (
   echo The older folder stayed in place. Opening the new copy.
   type "%USERPROFILE%\Documents\paper-trader-install.txt"
 )
-rem Keep Documents\Paper Trader only — drop launcher staging folders (and old setup-* leftovers).
-if /I "%RUN%"=="%USERPROFILE%\Documents\Paper Trader" for /d %%D in ("%USERPROFILE%\Documents\PaperTrader-setup*") do rmdir /s /q "%%D" 2>nul
 echo Setup is done. Leave the window named Paper Trader open.
 echo Microsoft Edge opens when the desk answers. The header says Desk is working.
 echo The score keeps running after that window closes. Starting it at sign-in is optional. See Windows extras in the Safe check.

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from paper_trader.backtest import run_backtest, signal_name
 from paper_trader.guard import assert_safe_launch
-from paper_trader.install import install_newest
+from paper_trader.install import erase_other_installs, install_newest
 from paper_trader.model import Params
 from paper_trader import quotes
 from paper_trader.learn import run_learner
@@ -29,6 +29,11 @@ def main(argv: list[str] | None = None) -> int:
     server.add_argument("--no-browser", action="store_true")
     install = commands.add_parser("install", help="Keep only the newest copy in Documents")
     install.add_argument("--home", type=Path, default=None)
+    erase = commands.add_parser(
+        "erase-others",
+        help="Keep Paper Trader 1.10.40 only; erase other installs, zips, and extra Bots",
+    )
+    erase.add_argument("--home", type=Path, default=None)
     commands.add_parser("learn", help="Score closed bars all day on this computer")
     commands.add_parser(
         "schwab-status",
@@ -50,6 +55,16 @@ def main(argv: list[str] | None = None) -> int:
             dest, action = install_newest(folder, home)
             print(dest)
             print(action)
+            return 0
+        if args.command == "erase-others":
+            home = args.home or Path.home()
+            folder = Path(__file__).resolve().parents[1]
+            report = erase_other_installs(home, keep=folder)
+            print(report["keep"])
+            print(report["keep_version"])
+            print(f"erased:{len(report['erased'])}")
+            print(f"bots_closed:{len(report['closed'])}")
+            print(f"zips_removed:{len(report['zips_removed'])}")
             return 0
         if args.command == "serve":
             if not 1024 <= args.port <= 65535:

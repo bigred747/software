@@ -50,7 +50,7 @@ exit /b 1
 echo Unblock
 echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
-echo Step 1 of 2. Install the newest Paper Trader and remove older copies.
+echo Step 1 of 2. Install Paper Trader 1.10.40 and erase other copies.
 set "PY=%~dp0runtime\python.exe"
 if not exist "%PY%" set "PY=python"
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
@@ -74,10 +74,15 @@ if not defined DEST (
   pause
   exit /b 1
 )
-rem Drop launcher staging leftovers; Documents\Paper Trader is the kept desk.
-for /d %%D in ("%USERPROFILE%\Documents\PaperTrader-setup*") do rmdir /s /q "%%D" 2>nul
+echo Erasing other Paper Trader installs, leftover zips, and extra Bots...
+"%PY%" "%~dp0launch.py" erase-others > "%USERPROFILE%\Documents\paper-trader-erase.txt"
+if errorlevel 1 (
+  echo Could not erase the other copies. Run Erase-Other-Paper-Traders.bat.
+  pause
+  exit /b 1
+)
 call :DeskLink "%DEST%"
-echo The newest Paper Trader is the only copy in Documents.
+echo Paper Trader 1.10.40 is the only desk left.
 echo Step 2 of 2: double-click Paper Trader.bat on the desktop.
 pause
 if /I "!ACTION!"=="remove-source" echo The older copy is no longer the one that opens.

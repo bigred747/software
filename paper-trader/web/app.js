@@ -177,7 +177,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.46";
+const VERSION = "1.10.40";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -185,17 +185,17 @@ const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
 const FILL_LEARN_KEY = "paper_trader_fill_learn_v1";
 const FEE_BPS = 5;
 const SLIP_BPS = 5;
-const SCAN_LEARN_GAP_MS = 1800;
-const SCAN_LEARN_BATCH = 4;
+const SCAN_LEARN_GAP_MS = 10000;
+const SCAN_LEARN_BATCH = 2;
 
 function scanLearnGapMs() {
   const gap = state.booster && Number(state.booster.learnGap);
-  return Number.isFinite(gap) && gap >= 1000 ? gap : SCAN_LEARN_GAP_MS;
+  return Number.isFinite(gap) && gap >= 2500 ? gap : SCAN_LEARN_GAP_MS;
 }
 
 function scanLearnBatchSize() {
   const batch = state.booster && Number(state.booster.batch);
-  return Number.isFinite(batch) ? Math.max(1, Math.min(8, Math.round(batch))) : SCAN_LEARN_BATCH;
+  return Number.isFinite(batch) ? Math.max(1, Math.min(5, Math.round(batch))) : SCAN_LEARN_BATCH;
 }
 
 function deskScanLanes(offlineCap, onlineCap) {
@@ -208,12 +208,7 @@ function deskScanLanes(offlineCap, onlineCap) {
     : Number.isFinite(online)
       ? online
       : onlineCap;
-  return Math.max(1, Math.min(16, Math.round(pick)));
-}
-
-function deskScanGapMs() {
-  const gap = state.booster && Number(state.booster.quoteGap);
-  return Number.isFinite(gap) && gap >= 40 ? gap : 50;
+  return Math.max(1, Math.min(12, Math.round(pick)));
 }
 
 function busyScannerCount() {
@@ -242,38 +237,38 @@ function boosterContext() {
 }
 
 function hydrateDeskBooster() {
-  if (!state.booster) state.booster = { mode: "boost" };
+  if (!state.booster) state.booster = { mode: "auto" };
   if (typeof PaperBooster === "undefined") {
     state.booster = Object.assign(
       {
-        mode: "boost",
-        applied: "boost",
-        appliedLabel: "Boost",
-        quoteWait: 2500,
-        quoteGap: 50,
+        mode: "balanced",
+        applied: "balanced",
+        appliedLabel: "Balanced",
+        quoteWait: 12000,
+        quoteGap: 300,
         learnGap: SCAN_LEARN_GAP_MS,
         batch: SCAN_LEARN_BATCH,
-        lanesOffline: 6,
-        lanesOnline: 12,
+        lanesOffline: 3,
+        lanesOnline: 6,
         auto: false,
-        note: "Booster module missing — Boost defaults.",
+        note: "Booster module missing — Balanced defaults.",
       },
       state.booster
     );
     return state.booster;
   }
   const book = PaperBooster.load();
-  state.booster.mode = book.mode || "boost";
+  state.booster.mode = book.mode || "auto";
   return applyDeskBooster(false);
 }
 
 function applyDeskBooster(manual) {
-  if (!state.booster) state.booster = { mode: "boost" };
+  if (!state.booster) state.booster = { mode: "auto" };
   if (typeof PaperBooster === "undefined") {
-    if (window.PaperLive && PaperLive.pace) PaperLive.pace(2500);
+    if (window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
     return state.booster;
   }
-  const book = { mode: state.booster.mode || "boost" };
+  const book = { mode: state.booster.mode || "auto" };
   const settings = PaperBooster.resolve(book, boosterContext());
   PaperBooster.applyLive(settings);
   PaperBooster.save({ mode: settings.mode, at: Date.now() });
@@ -306,11 +301,11 @@ function paintBoosterPanel() {
     levels.replaceChildren();
     [
       ["Mode", (boost.auto ? "Auto → " : "") + (boost.appliedLabel || boost.applied || "—")],
-      ["Quote wait", (boost.quoteWait || 2500) + " ms"],
-      ["Quote gap", (boost.quoteGap || 50) + " ms"],
-      ["Learn gap", Math.round((boost.learnGap || SCAN_LEARN_GAP_MS) / 100) / 10 + " s"],
+      ["Quote wait", (boost.quoteWait || 12000) + " ms"],
+      ["Quote gap", (boost.quoteGap || 300) + " ms"],
+      ["Learn gap", Math.round((boost.learnGap || SCAN_LEARN_GAP_MS) / 1000) + " s"],
       ["Learn batch", String(boost.batch || SCAN_LEARN_BATCH)],
-      ["Scan lanes", (boost.lanesOffline || 6) + " phone / " + (boost.lanesOnline || 12) + " computer"],
+      ["Scan lanes", (boost.lanesOffline || 3) + " phone / " + (boost.lanesOnline || 6) + " computer"],
     ].forEach((pair) => {
       const dt = document.createElement("dt");
       dt.textContent = pair[0];
@@ -329,100 +324,44 @@ function setBoosterMode(mode) {
   else renderLocalSignals();
 }
 
-function withTimeout(promise, ms, label) {
-  const limit = Math.max(1000, Number(ms) || 8000);
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error((label || "Desk check") + " timed out")), limit);
-    Promise.resolve(promise).then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
-}
-
 async function runDeskGreenScan() {
   const final = $("desk-green-final");
   const note = $("desk-green-note");
-  const button = $("desk-green-scan");
   if (state.deskGreenBusy) return;
   state.deskGreenBusy = true;
-  state.deskGreenStop = false;
-  if (button) {
-    button.disabled = true;
-    button.textContent = "Scanning…";
-  }
   if (final) {
     final.textContent = "Desk green · scanning…";
     final.className = "scorecard-bias";
   }
-  const paintStep = (text) => {
-    if (note) note.textContent = text;
-  };
+  if (note) note.textContent = "Running Safe check · Signals refresh · desk learn touch…";
   try {
-    paintStep("1/3 · Safe check…");
     applyDeskBooster(false);
-    await withTimeout(runSafe(true), 12000, "Safe check");
-    if (state.deskGreenStop) return;
-    paintStep("2/3 · Signals refresh…");
-    // Light path: /api/checks only — skip heavy /api/learn so desk green stays snappy
-    // even with many Documents\\PaperTrader-setup-* copies.
-    let scored = [];
-    if (state.offline) {
-      renderLocalSignals();
-      const list = $("signals");
-      scored = list
-        ? Array.from(list.querySelectorAll("li")).map((row) => {
-            const text = row.textContent || "";
-            const name = (text.split(" · ")[0] || "").trim();
-            return { name, ok: !!(row.querySelector(".dot.on")), detail: text };
-          })
-        : [];
-    } else {
-      const report = await withTimeout(loadSignals({ light: true }), 8000, "Signals refresh");
-      scored = withHooks(Array.isArray(report && report.items) ? report.items : []);
-      paintSignals(scored);
-    }
-    if (state.deskGreenStop) return;
-    paintStep("3/3 · Light learn touch (not the hourly all-pages walk)…");
+    await runSafe(true);
+    if (state.offline) renderLocalSignals();
+    else await loadSignals();
     try {
-      // Fast green pass: two pages only. Hourly Bot-on still covers every page.
-      await withTimeout(cycleDeskPageLearn(), 8000, "Learn touch");
+      await cycleDeskPageLearn("all");
     } catch (error) {
       /* Learn touch is best-effort for the green pass. */
     }
+    const signalList = $("signals");
+    const signalItems = signalList
+      ? Array.from(signalList.querySelectorAll("li")).map((row) => ({
+          ok: !!(row.querySelector(".dot.on")),
+          text: row.textContent || "",
+        }))
+      : [];
     const safeOk = !!(state.safe && state.safe.safe);
-    const schwabOpen = scored.some((item) => item.name === "Schwab" && !item.ok);
-    const badSignals = scored.filter(
-      (item) =>
-        !item.ok &&
-        item.name !== "Schwab" &&
-        item.name !== "Desk green" &&
-        item.name !== "Bot" &&
-        item.name !== "Install"
-    );
+    const badSignals = signalItems.filter((item) => !item.ok && !/Schwab|Desk green/i.test(item.text));
+    // Schwab missing keys is expected on paper-only desks — not a desk-red.
     const ok = safeOk && badSignals.length === 0;
-    const clock =
-      new Date().toLocaleTimeString("en-US", { timeZone: "America/Denver" }) + " Denver";
     const detail = ok
-      ? schwabOpen
-        ? "GREEN · Safe passed · desk signals green · Schwab optional (not connected) · Live locked · paper only · " +
-          clock
-        : "GREEN · Safe passed · all desk signals green · Live locked · paper only · " + clock
+      ? "GREEN · Safe passed · all desk signals green · Live locked · paper only · " +
+        new Date().toLocaleTimeString("en-US", { timeZone: "America/Denver" }) +
+        " Denver"
       : !safeOk
         ? "Not green · Safe check failed. Fix Safe first."
-        : "Not green · " +
-          badSignals.length +
-          " signal" +
-          (badSignals.length === 1 ? "" : "s") +
-          " still open" +
-          (badSignals[0] && badSignals[0].name ? ": " + badSignals[0].name : "") +
-          ".";
+        : "Not green · " + badSignals.length + " signal" + (badSignals.length === 1 ? "" : "s") + " still open.";
     state.deskGreen = { ok, detail, at: Date.now() };
     if (final) {
       final.textContent = detail;
@@ -430,14 +369,11 @@ async function runDeskGreenScan() {
     }
     if (note) {
       note.textContent = ok
-        ? schwabOpen
-          ? "Desk green. Paper desk is good. Schwab can stay red until you connect under Trade — Live stays locked either way."
-          : "Desk green finished fast. Booster on Boost/Max keeps quotes and learn snappy. Hourly Bot-on still covers every page."
-        : "Desk green finished with open checks. Press again after you fix them.";
+        ? "Entire desk scanned. One last GREEN is on. Booster still paces quotes and learn."
+        : "Desk scan finished with open checks. Press again after you fix them.";
     }
-    // Best-effort full Signals refresh after green — never fail the scan on learn lag.
     if (state.offline) renderLocalSignals();
-    else loadSignals().catch(() => {});
+    else await loadSignals();
   } catch (error) {
     state.deskGreen = {
       ok: false,
@@ -448,13 +384,8 @@ async function runDeskGreenScan() {
       final.textContent = state.deskGreen.detail;
       final.className = "scorecard-bias down";
     }
-    if (note) note.textContent = "Desk green timed out or failed. Try again — or leave hourly Bot-on for the full page walk.";
   } finally {
     state.deskGreenBusy = false;
-    if (button) {
-      button.disabled = false;
-      button.textContent = "Scan · test entire desk";
-    }
     paintBoosterPanel();
   }
 }
@@ -1482,6 +1413,7 @@ const SCAN_KEY = "paperTraderScan";
 const TYPE_KEY = "paperTraderType";
 const phoneBarCache = new Map();
 const SCAN_READERS = 1;
+const SCAN_GAP = 300;
 let phoneScanToken = 0;
 
 function readScanOn() {
@@ -1742,7 +1674,7 @@ async function scanPhone() {
       if (!live()) return;
       finished += 1;
       publish();
-      if (finished < total) await new Promise((resolve) => setTimeout(resolve, deskScanGapMs()));
+      if (finished < total) await new Promise((resolve) => setTimeout(resolve, SCAN_GAP));
     }
   };
   await Promise.all(Array.from({ length: Math.min(SCAN_READERS, total) }, reader));
@@ -1993,25 +1925,11 @@ async function refreshSchwabSignals() {
   else renderLocalSignals();
 }
 
-async function loadSignals(options) {
-  const light = !!(options && options.light);
-  // Light desk-green path: do not wait on Schwab OAuth status (paper desks stay red there).
-  if (light) {
-    try {
-      await Promise.race([
-        loadSchwab(),
-        new Promise((resolve) => setTimeout(resolve, 1500)),
-      ]);
-    } catch (error) {
-      /* Schwab optional on paper. */
-    }
-  } else {
-    await loadSchwab();
-  }
+async function loadSignals() {
+  await loadSchwab();
   const report = await getJSON("/api/checks");
   paintSignals(withHooks(report.items));
   requestAnimationFrame(() => paintSignals(withHooks(report.items)));
-  if (light) return report;
   try {
     await postJSON("/api/learn/watch", {
       symbols: readPins()
@@ -2050,9 +1968,8 @@ async function loadSignals(options) {
       if (row && row.label) button.classList.add(row.label.toLowerCase());
     });
   } catch (error) {
-    return report;
+    return;
   }
-  return report;
 }
 
 async function postJSON(url, body) {
@@ -5546,7 +5463,7 @@ async function nudgeLearn(tab, extraSymbols) {
     if (symbol && unique.indexOf(symbol) < 0) unique.push(symbol);
   });
   const now = Date.now();
-  const gap = tab === "auto" || tab === "scan" ? scanLearnGapMs() : 280;
+  const gap = tab === "auto" || tab === "scan" ? scanLearnGapMs() : 900;
   if (tab === learnTouchTab && now - learnTouchAt < gap) return;
   learnTouchAt = now;
   learnTouchTab = tab || "";
@@ -5880,13 +5797,12 @@ async function cycleDeskPageLearn(mode) {
   if (!pages.length) return "";
   if (!state.pageLearn) state.pageLearn = { cursor: 0, lastAt: 0, lastPage: "", covered: [] };
   const now = Date.now();
-  if (!all && now - (state.pageLearn.lastAt || 0) < Math.max(1000, scanLearnGapMs() / 2)) {
+  if (!all && now - (state.pageLearn.lastAt || 0) < Math.max(4000, scanLearnGapMs() / 2)) {
     return state.pageLearn.lastPage || "";
   }
-  // Light pass: more pages on Boost/Max. Hourly / all: every desk page once.
+  // Light pass: two pages. Hourly / all: every desk page once.
   const batchPages = [];
-  const lightSteps = Math.max(2, Math.min(6, scanLearnBatchSize()));
-  const steps = all ? pages.length : lightSteps;
+  const steps = all ? pages.length : 2;
   for (let step = 0; step < steps && pages.length; step += 1) {
     const page = pages[state.pageLearn.cursor % pages.length];
     state.pageLearn.cursor += 1;
@@ -5973,18 +5889,17 @@ function startScanLearnLoop() {
     } catch (error) {
       /* Keep the page-open cycle alive. */
     }
-    const wait = state.auto ? Math.max(2200, scanLearnGapMs() - 400) : scanLearnGapMs();
+    const wait = state.auto ? Math.max(7000, scanLearnGapMs() - 2000) : scanLearnGapMs();
     state.scanLearn.timer = setTimeout(tick, wait);
   };
-  state.scanLearn.timer = setTimeout(tick, 500);
+  state.scanLearn.timer = setTimeout(tick, 1800);
   if (!state.scanLearn.hourTimer) {
     const hourly = async () => {
       try {
-        // Background hourly: batch scan names, re-score strategies, learn every desk page once.
-        const names = topScanLearnNames().slice(0, 12);
-        const chunk = Math.max(3, scanLearnBatchSize());
-        for (let index = 0; index < names.length; index += chunk) {
-          await nudgeLearn("scan", names.slice(index, index + chunk));
+        // Background hourly: scan top names, re-score strategies, learn every desk page once.
+        const names = topScanLearnNames().slice(0, 10);
+        for (let index = 0; index < names.length; index += 1) {
+          await nudgeLearn("scan", [names[index]]);
         }
         await cycleStrategyLearn("all");
         await cycleProductScanLearn("all");

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import shutil
 import subprocess
@@ -13,19 +12,6 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
-
-
-def _json_clean(value):
-    """Replace NaN/Inf so allow_nan=False JSON never 400s the desk."""
-    if isinstance(value, float):
-        if math.isnan(value) or math.isinf(value):
-            return None
-        return value
-    if isinstance(value, dict):
-        return {key: _json_clean(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_clean(item) for item in value]
-    return value
 
 from paper_trader import __version__
 from paper_trader.breadth import snapshot as breadth_snapshot
@@ -66,8 +52,6 @@ from paper_trader.learn import (
     closed_bars,
     desk_day,
     ensure_learner,
-    ensure_sole_learner,
-    sole_bot_status,
     mood,
     remove_startup,
     startup_present,
@@ -117,7 +101,6 @@ STATIC = {
     "/live.js": "live.js",
     "/study.js": "study.js",
     "/frames.js": "frames.js",
-    "/booster.js": "booster.js",
     "/frame.js": "frame.js",
     "/frame.html": "frame.html",
     "/manifest.webmanifest": "manifest.webmanifest",
@@ -131,7 +114,6 @@ TYPES = {
     "live.js": "text/javascript; charset=utf-8",
     "study.js": "text/javascript; charset=utf-8",
     "frames.js": "text/javascript; charset=utf-8",
-    "booster.js": "text/javascript; charset=utf-8",
     "frame.js": "text/javascript; charset=utf-8",
     "frame.html": "text/html; charset=utf-8",
     "manifest.webmanifest": "application/manifest+json",
@@ -221,7 +203,11 @@ CONFIRM_PATHS = frozenset({"/api/paper/trade", "/api/paper/ticket", "/api/paper/
 CONFIRM_NOTE = "Confirm first. Every paper buy and sell needs the second warning, even from Auto."
 
 LOUD_CALLS = ("task" + "kill", "os." + "kill(", "winreg", "schtasks", "rmtree(", "Terminate" + "Process")
-LOUD_ALLOWED = {"install.py": {"rmtree("}}
+# install may rmtree other Paper Trader folders on erase-others; learn may end orphan Bot PIDs.
+LOUD_ALLOWED = {
+    "install.py": {"rmtree("},
+    "learn.py": {"task" + "kill", "os." + "kill("},
+}
 
 
 def _loud_calls() -> list[str]:
@@ -832,7 +818,6 @@ class Desk:
             {"name": "Arrows", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
             {"name": "Study", "ok": True, "detail": "On this device"},
             self._learning_check(),
-            sole_bot_status(Path(__file__).resolve().parents[1], self.learn_path, Path.home()),
             self._process_check(),
             self._mood_check(str(view.get("symbol") or ""), quote_ok),
             {"name": "Zoom", "ok": True, "detail": "In and out"},
@@ -846,12 +831,7 @@ class Desk:
             single_copy_status(Path.home()),
         ]
         # Schwab starts red until OAuth succeeds; that alone does not fail the desk.
-        # Bot (multi-score) is a health warning — paper desk still runs.
-        desk_ok = all(
-            bool(item["ok"])
-            for item in items
-            if item.get("name") not in {"Schwab", "Bot"}
-        )
+        desk_ok = all(bool(item["ok"]) for item in items if item.get("name") != "Schwab")
         return {"ok": desk_ok, "items": items}
 
     def safe_report(self, bound: str = "127.0.0.1") -> dict:
@@ -1312,12 +1292,15 @@ class Desk:
         return {"frame": "1D", "items": items}
 
     def _learning_check(self) -> dict[str, str | bool]:
-        # Fast path for Signals — never spawn/stop bots inside /api/checks (that timed out desk green).
-        # serve() already calls ensure_sole_learner once at start.
-        from paper_trader.learn import learning_report
-
-        report = learning_report(self.learn_path, expect=self.expect_learner)
-        running = bool(report.get("running"))
+        # Desk is open — try to keep the Windows score alive before reporting.
+        root = self.state_path.parent
+        if self.expect_learner:
+            try:
+                ensure_learner(root, self.learn_path, wait=0.8)
+            except OSError:
+                pass
+        report = book_view(self.learn_path, expect=self.expect_learner)
+        running = bool(report.get("running") or report.get("bot_on"))
         if running:
             return {"name": "Learning", "ok": True, "detail": str(report["detail"])}
         # Honest green when the desk window itself is learning (expect set at serve).
@@ -1333,12 +1316,9 @@ class Desk:
         return {"name": "Learning", "ok": bool(report["ok"]), "detail": str(report["detail"])}
 
     def _process_check(self) -> dict[str, str | bool]:
-        # Lightweight: avoid book_view's full symbols copy on every Signals refresh.
-        from paper_trader.learn import _load
-
-        saved = _load(self.learn_path)
-        event = saved.get("last_process") if isinstance(saved.get("last_process"), dict) else None
-        at = float(saved.get("last_process_at") or 0)
+        report = book_view(self.learn_path, expect=self.expect_learner)
+        event = report.get("last_process") if isinstance(report.get("last_process"), dict) else None
+        at = float(report.get("last_process_at") or 0)
         fresh = event and at and (time.time() - at) < 3600
         if fresh:
             rule = str(event.get("rule") or "process")
@@ -1644,7 +1624,7 @@ class DeskHandler(BaseHTTPRequestHandler):
         return data
 
     def _json(self, payload: dict, status: int = 200) -> None:
-        body = json.dumps(_json_clean(payload), allow_nan=False).encode("utf-8")
+        body = json.dumps(payload, allow_nan=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -1750,13 +1730,12 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
         busy = getattr(exc, "winerror", None) == 10048 or exc.errno in {98, 10048}
         if not busy:
             raise
-        ensure_sole_learner(root, learn_path, Path.home())
+        ensure_learner(root, learn_path)
         print("Paper Trader is already open on this computer.")
         print("Close that window, then start Paper Trader again.")
         print("The score keeps running after that window closes. Use Windows extras in the Safe check to start it at sign-in.")
-        print("Only one Bot score runs on this computer.")
         return
-    ensure_sole_learner(root, learn_path, Path.home())
+    ensure_learner(root, learn_path)
     server.desk.expect_learner = True
     try:
         extra = other_copies(Path.home(), root)

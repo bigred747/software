@@ -2168,10 +2168,7 @@
     const count = (trades || []).length;
     let profitFactor = null;
     if (grossLoss > 0) profitFactor = grossWin / grossLoss;
-    else if (grossWin > 0) profitFactor = 99;
-    // Cap keeps learn JSON finite (Infinity breaks /api/learn with allow_nan=False).
-    if (profitFactor != null && !Number.isFinite(profitFactor)) profitFactor = 99;
-    if (profitFactor != null && profitFactor > 99) profitFactor = 99;
+    else if (grossWin > 0) profitFactor = Infinity;
     return {
       trades: count,
       wins,

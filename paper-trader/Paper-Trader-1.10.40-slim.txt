@@ -1,0 +1,1 @@
+Paper Trader 1.10.40 slim — keep this build only; Erase-Other-Paper-Traders removes extras.
