@@ -111,7 +111,7 @@ class InstallTests(unittest.TestCase):
             self.assertFalse(is_install(junk))
             status = single_copy_status(home)
             self.assertTrue(status["ok"])
-            self.assertIn("Newest copy only", str(status["detail"]))
+            self.assertIn("One copy", str(status["detail"]))
             self.assertEqual(find_installs(home), [dest.resolve()])
 
     def test_installing_never_ends_programs_or_deletes_other_folders(self) -> None:
