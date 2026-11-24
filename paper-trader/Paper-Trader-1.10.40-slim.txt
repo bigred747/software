@@ -1,1 +1,1 @@
-Paper Trader 1.10.40 slim — keep this build only; Erase-Other-Paper-Traders removes extras.
+Paper Trader 1.10.40 slim — Windows works without tzdata (packaged Denver/New York zones).

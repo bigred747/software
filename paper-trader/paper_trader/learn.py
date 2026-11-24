@@ -19,11 +19,11 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from paper_trader.indicators import squeeze, squeeze_alert
 from paper_trader.model import Bar
 from paper_trader.strategy_board import strategy_snapshot
+from paper_trader.zones import zone
 from paper_trader import quotes
 
 SECTORS = ("SMH", "VGT", "ARKW", "QQQ", "SPMO", "COPX", "ARKQ", "MGK", "CIBR", "UGA", "AIRR", "GRID")
@@ -43,8 +43,8 @@ SCAN_PAUSE = 0.12
 INTERVAL = 18.0
 STALE_SECONDS = 90.0
 PASS_BATCH = 2
-_DENVER = ZoneInfo("America/Denver")
-_NEW_YORK = ZoneInfo("America/New_York")
+_DENVER = zone("America/Denver")
+_NEW_YORK = zone("America/New_York")
 DEFAULT_RULE = "True momentum 5/3 with the candle"
 _SYMBOL = re.compile(r"^[A-Za-z0-9.^=-]{1,16}$")
 _WATCH_LOCK = threading.Lock()
