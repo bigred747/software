@@ -186,7 +186,8 @@ def write_desktop_opener(install: Path, home: Path) -> list[Path]:
         "@echo off\r\n"
         f'cd /d "{install}"\r\n'
         "title Paper Trader\r\n"
-        'call "2 Open Paper Trader.bat"\r\n'
+        "rem Opens the computer desk on http://127.0.0.1:8765/ — not the mobile HTML copy.\r\n"
+        'call "Start-Paper-Trader.bat"\r\n'
     )
     written: list[Path] = []
     for folder in desktop_folders(home):
@@ -308,9 +309,11 @@ def remove_desktop_opener(home: Path) -> list[Path]:
     for folder in desktop_folders(home):
         path = folder / OPENER_NAME
         try:
-            if path.is_file() and "2 Open Paper Trader.bat" in path.read_text(encoding="utf-8", errors="ignore"):
-                path.unlink()
-                removed.append(path)
+            if path.is_file():
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                if "2 Open Paper Trader.bat" in text or "Start-Paper-Trader.bat" in text:
+                    path.unlink()
+                    removed.append(path)
         except OSError:
             continue
     return removed

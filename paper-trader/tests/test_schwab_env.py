@@ -143,7 +143,22 @@ class SchwabEnvTests(unittest.TestCase):
             self.assertIn("paste-app-key-here", created.read_text(encoding="utf-8"))
             created.write_text("SCHWAB_APP_KEY=real\nSCHWAB_APP_SECRET=secret\n", encoding="utf-8")
             again = schwab_env.ensure_env_file(root)
-            self.assertEqual(again.read_text(encoding="utf-8"), "SCHWAB_APP_KEY=real\nSCHWAB_APP_SECRET=secret\n")
+            text = again.read_text(encoding="utf-8")
+            self.assertIn("SCHWAB_APP_KEY=real", text)
+            self.assertIn("SCHWAB_APP_SECRET=secret", text)
+            self.assertIn("SCHWAB_CALLBACK_URL=https://127.0.0.1", text)
+            self.assertIn("SCHWAB_APP_NAME=personal-market-data", text)
+
+    def test_install_schwab_env_adds_missing_keys(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / ".env").write_text("SCHWAB_APP_KEY=only-key\n", encoding="utf-8")
+            path = schwab_env.install_schwab_env(root)
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("SCHWAB_APP_KEY=only-key", text)
+            self.assertIn("SCHWAB_APP_SECRET=paste-app-secret-here", text)
+            self.assertIn("SCHWAB_CALLBACK_URL=https://127.0.0.1", text)
+            self.assertIn("SCHWAB_APP_NAME=personal-market-data", text)
 
     def test_placeholders_are_not_ready(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

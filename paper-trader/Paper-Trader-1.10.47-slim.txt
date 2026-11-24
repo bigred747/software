@@ -1,1 +1,0 @@
-Paper Trader 1.10.47 slim — Schwab Client ID/Secret aliases + SCHWAB-KEYS sync into .env; last two slim zips kept.

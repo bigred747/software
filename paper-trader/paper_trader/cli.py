@@ -57,9 +57,15 @@ def main(argv: list[str] | None = None) -> int:
             install_root = Path(__file__).resolve().parents[1]
             os.chdir(install_root)
             assert_safe_launch([install_root])
-            from paper_trader.schwab_env import ensure_env_file
+            from paper_trader.schwab_env import ensure_env_file, install_schwab_env, offer_env_editor
 
+            env_path = install_schwab_env(install_root)
             ensure_env_file(install_root)
+            print(f"Schwab .env ready at: {env_path}")
+            print("Paste Client ID → SCHWAB_APP_KEY and Client Secret → SCHWAB_APP_SECRET.")
+            print("Callback stays https://127.0.0.1 · app name personal-market-data.")
+            if offer_env_editor(install_root):
+                print("Opened .env in Notepad so you can paste your Schwab Client ID and Secret.")
             serve(STATE_PATH, args.port, open_browser=not args.no_browser)
             return 0
         if args.command == "learn":

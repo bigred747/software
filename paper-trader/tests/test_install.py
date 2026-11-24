@@ -101,7 +101,7 @@ class InstallTests(unittest.TestCase):
             dest = canonical_folder(home)
             setup = home / "Documents" / "PaperTrader-setup-31986" / "paper-trader"
             trash = home / "Documents" / "$Recycle.Bin" / "paper-trader"
-            make_install(dest, "1.10.47")
+            make_install(dest, "1.10.48")
             make_install(setup, "1.10.45")
             make_install(trash, "1.10.40")
             self.assertTrue(is_install(dest))
@@ -156,7 +156,8 @@ class InstallTests(unittest.TestCase):
             written = write_desktop_opener(dest, home)
             self.assertEqual(len(written), 2)
             text = (home / "Desktop" / "Paper Trader.bat").read_text(encoding="utf-8").lower()
-            self.assertIn("2 open paper trader.bat", text)
+            self.assertIn("start-paper-trader.bat", text)
+            self.assertIn("127.0.0.1", text)
             self.assertIn(str(dest).lower(), text)
             self.assertNotIn("powershell", text)
             self.assertNotIn("wscript", text)

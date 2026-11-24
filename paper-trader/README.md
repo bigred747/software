@@ -174,9 +174,18 @@ Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
 
-## Schwab Client ID aliases (1.10.47)
+## Computer desk + Schwab .env install (1.10.48)
 
-Developer Portal **Client ID / Client Secret** map to `SCHWAB_APP_KEY` / `SCHWAB_APP_SECRET` (aliases `SCHWAB_CLIENT_ID` / `SCHWAB_CLIENT_SECRET` also work). If you paste real secrets into `SCHWAB-KEYS.txt` while `.env` still has placeholders, the next launch copies them into `.env`. Callback stays `https://127.0.0.1`. Seal **1.10.47**.
+Desktop **Paper Trader.bat** opens the computer desk at `http://127.0.0.1:8765/` (not the mobile HTML copy). Launch installs `Documents\Paper Trader\.env` with:
+
+```
+SCHWAB_APP_KEY=paste-app-key-here
+SCHWAB_APP_SECRET=paste-app-secret-here
+SCHWAB_CALLBACK_URL=https://127.0.0.1
+SCHWAB_APP_NAME=personal-market-data
+```
+
+Paste portal **Client ID / Client Secret** over the placeholders (Notepad opens once when keys are still empty). Phone folder is updated quietly and no longer auto-opens. Seal **1.10.48**.
 
 ## Ignore setup staging (1.10.46)
 
