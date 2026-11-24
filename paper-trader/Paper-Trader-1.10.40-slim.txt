@@ -1,1 +1,1 @@
-Paper Trader 1.10.40 slim — UTF-16 .env fix; erase extras on open; heal keys.
+Paper Trader 1.10.40 slim — never run from PaperTrader-setup; UTF-16 .env; Schwab Test.

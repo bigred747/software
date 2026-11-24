@@ -129,6 +129,11 @@ def _catalog() -> list[dict[str, str | int]]:
     if _CATALOG is not None:
         return _CATALOG
     path = Path(__file__).with_name("catalog.txt")
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Missing {path}. Open Documents\\Paper Trader (not PaperTrader-setup). "
+            "Double-click Paper Trader.bat on the desktop."
+        )
     rows: list[dict[str, str | int]] = []
     index: dict[str, dict[str, str | int]] = {}
     for line in path.read_text(encoding="utf-8").splitlines():

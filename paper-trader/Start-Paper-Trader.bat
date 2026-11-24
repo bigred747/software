@@ -33,11 +33,14 @@ set "RUN=%STAGE%\paper-trader"
 set "PY=%RUN%\runtime\python.exe"
 if not exist "%PY%" set "PY=python"
 "%PY%" "%RUN%\launch.py" install > "%USERPROFILE%\Documents\paper-trader-install.txt" 2>&1
-if not errorlevel 1 if exist "%USERPROFILE%\Documents\Paper Trader\runtime\python.exe" set "RUN=%USERPROFILE%\Documents\Paper Trader"
+if exist "%USERPROFILE%\Documents\Paper Trader\launch.py" set "RUN=%USERPROFILE%\Documents\Paper Trader"
 if errorlevel 1 (
   echo The older folder stayed in place. Opening the new copy.
   type "%USERPROFILE%\Documents\paper-trader-install.txt"
 )
+rem Always open Documents\Paper Trader — never keep running from PaperTrader-setup.
+if exist "%USERPROFILE%\Documents\Paper Trader\launch.py" set "RUN=%USERPROFILE%\Documents\Paper Trader"
+"%PY%" "%RUN%\launch.py" erase-others > "%USERPROFILE%\Documents\paper-trader-erase.txt" 2>&1
 echo Setup is done. Leave the window named Paper Trader open.
 echo Microsoft Edge opens when the desk answers. The header says Desk is working.
 echo The score keeps running after that window closes. Starting it at sign-in is optional. See Windows extras in the Safe check.

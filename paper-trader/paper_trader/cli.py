@@ -84,18 +84,40 @@ def main(argv: list[str] | None = None) -> int:
             if not 1024 <= args.port <= 65535:
                 raise ValueError("Port must be from 1024 to 65535")
             install_root = Path(__file__).resolve().parents[1]
-            os.chdir(install_root)
-            assert_safe_launch([install_root])
             from paper_trader import __version__
-            from paper_trader.install import erase_other_installs
+            from paper_trader.install import (
+                canonical_folder,
+                erase_other_installs,
+                install_newest,
+                write_desktop_opener,
+            )
             from paper_trader.schwab_env import ensure_env_file, heal_env_from_documents
 
+            home = Path.home()
+            desk = canonical_folder(home)
+            # Never keep running from PaperTrader-setup* — move into Documents\Paper Trader first.
+            staging = "papertrader-setup" in str(install_root).lower().replace(" ", "")
+            if staging or install_root.resolve() != desk.resolve():
+                try:
+                    desk, _action = install_newest(install_root, home)
+                except ValueError:
+                    desk = canonical_folder(home)
+            install_root = desk if desk.is_dir() else install_root
+            os.chdir(install_root)
+            assert_safe_launch([install_root])
+            global STATE_PATH
+            STATE_PATH = install_root / "paper_state.json"
             try:
                 (install_root / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
             except OSError:
                 pass
             try:
-                erase_other_installs(Path.home(), keep=install_root)
+                write_desktop_opener(install_root, home)
+            except OSError:
+                pass
+            # Erase extras only after we are safely in Documents\Paper Trader.
+            try:
+                erase_other_installs(home, keep=install_root)
             except OSError:
                 pass
             ensure_env_file(install_root)
