@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.39">
+  <meta name="paper-build" content="1.10.40">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.39</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.40</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -240,7 +240,7 @@
           <button type="button" data-open-dock="deskpool">Desk Pool</button>
           <button type="button" data-open-dock="leanbook">Lean Book</button>
           <button type="button" data-open-dock="journal">Journal</button>
-          <button type="button" data-open-dock="signals">Signals</button>
+          <button type="button" data-open-dock="signals">Signals and Booster</button>
           <button type="button" data-open-dock="backtest">Backtest</button>
           <button type="button" data-open-dock="study">Study</button>
         </div>
@@ -460,7 +460,7 @@
         <button type="button" class="dock-tab" data-dock="leanbook">Lean Book</button>
         <button type="button" class="dock-tab" data-dock="journal">Journal</button>
         <button type="button" class="dock-tab" data-dock="backtest">Backtest</button>
-        <button type="button" class="dock-tab" data-dock="signals">Signals</button>
+        <button type="button" class="dock-tab" data-dock="signals">Signals and Booster</button>
       </div>
 
       <div class="dock-page on" data-dock-page="home">
@@ -482,7 +482,7 @@
           <button type="button" data-open-dock="deskpool">Desk Pool</button>
           <button type="button" data-open-dock="leanbook">Lean Book</button>
           <button type="button" data-open-dock="journal">Journal</button>
-          <button type="button" data-open-dock="signals">Signals</button>
+          <button type="button" data-open-dock="signals">Signals and Booster</button>
           <button type="button" data-open-dock="backtest">Backtest</button>
           <button type="button" data-open-dock="study">Study</button>
         </div>
@@ -1238,8 +1238,28 @@ AddOrder(Sell, sellFire);</textarea>
       <div class="dock-page" data-dock-page="signals">
         <div class="dock-page-head">
           <button type="button" class="dock-back quiet">Back</button>
-          <h2 class="signals-title">Signals</h2>
+          <h2 class="signals-title">Signals and Booster</h2>
         </div>
+        <p class="muted">All desk signals in one place, plus Booster pace control. Safe · Balanced · Boost · Max, or Auto (slows when Auto is on / soft / busy; speeds when the desk is calm). Never unlocks Live. Never invents quotes. Paper only.</p>
+        <section class="booster-panel" aria-label="Desk booster">
+          <h3>Booster</h3>
+          <p id="booster-note" class="muted">Balanced · default desk pace.</p>
+          <div class="booster-modes" role="group" aria-label="Booster pace">
+            <button type="button" class="booster-mode" data-booster="safe">Safe</button>
+            <button type="button" class="booster-mode" data-booster="balanced">Balanced</button>
+            <button type="button" class="booster-mode" data-booster="boost">Boost</button>
+            <button type="button" class="booster-mode" data-booster="max">Max</button>
+            <button type="button" class="booster-mode" data-booster="auto">Auto</button>
+          </div>
+          <dl id="booster-levels" class="strat-levels" aria-label="Booster settings"></dl>
+          <div class="strat-orb-inputs">
+            <button id="booster-apply" type="button">Apply booster</button>
+            <button id="desk-green-scan" type="button">Scan · test entire desk</button>
+          </div>
+          <p id="desk-green-note" class="muted">Press Scan · test entire desk for Safe check + Signals refresh + one last GREEN when everything passes.</p>
+          <p id="desk-green-final" class="scorecard-bias" aria-live="polite">Desk green · waiting</p>
+        </section>
+        <h3 class="journal-check-head">All signals</h3>
         <ul id="signals" class="signals"></ul>
       </div>
     </section>
@@ -1296,6 +1316,7 @@ AddOrder(Sell, sellFire);</textarea>
   <script src="engine.js"></script>
   <script src="study.js"></script>
   <script src="frames.js"></script>
+  <script src="booster.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
