@@ -44,9 +44,38 @@ def search_roots(home: Path) -> list[Path]:
     return [home / "Documents", home / "Desktop", home / "Downloads"]
 
 
+def is_staging_extract(folder: Path) -> bool:
+    """Launcher unzip staging: Documents\\PaperTrader-setup[-NNNN]\\paper-trader. Not a kept desk."""
+    try:
+        parts = [part.lower() for part in Path(folder).parts]
+    except (OSError, TypeError, ValueError):
+        return False
+    for part in parts:
+        if part == "papertrader-setup" or part.startswith("papertrader-setup-"):
+            return True
+    return False
+
+
+def is_recycle_path(folder: Path) -> bool:
+    """Recycle Bin / trash — deleted copies must not count as installs."""
+    try:
+        parts = [part.lower() for part in Path(folder).parts]
+    except (OSError, TypeError, ValueError):
+        return False
+    for part in parts:
+        if part in {"$recycle.bin", "recycle.bin", "recycler", "recycle bin", ".trash", "trash"}:
+            return True
+        if part.startswith("$r"):
+            # Windows recycle folder names like $Rxxxx stay under $Recycle.Bin; belt-and-suspenders.
+            continue
+    return False
+
+
 def is_install(folder: Path) -> bool:
     """A real desk copy: launcher + package + VERSION. Half-deleted extracts do not count."""
     if path_looks_foreign(folder):
+        return False
+    if is_recycle_path(folder) or is_staging_extract(folder):
         return False
     name = folder.name.lower()
     if name in {"__macosx", "runtime", "node_modules", "tests", ".git"}:
@@ -206,7 +235,7 @@ def single_copy_status(home: Path) -> dict[str, str | bool]:
     more = f" +{len(extras) - 4} more" if len(extras) > 4 else ""
     detail = (
         f"{len(copies)} copies · keep latest Documents\\Paper Trader · newest {_copy_label(newest)} · also {shown}{more}. "
-        "Nothing is deleted for you — remove older Downloads/Desktop extracts yourself."
+        "PaperTrader-setup staging and Recycle Bin are ignored. Nothing else is deleted for you."
     )
     return {"name": "Install", "ok": False, "detail": detail}
 

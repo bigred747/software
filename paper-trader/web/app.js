@@ -177,7 +177,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.45";
+const VERSION = "1.10.46";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -1995,7 +1995,19 @@ async function refreshSchwabSignals() {
 
 async function loadSignals(options) {
   const light = !!(options && options.light);
-  await loadSchwab();
+  // Light desk-green path: do not wait on Schwab OAuth status (paper desks stay red there).
+  if (light) {
+    try {
+      await Promise.race([
+        loadSchwab(),
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
+    } catch (error) {
+      /* Schwab optional on paper. */
+    }
+  } else {
+    await loadSchwab();
+  }
   const report = await getJSON("/api/checks");
   paintSignals(withHooks(report.items));
   requestAnimationFrame(() => paintSignals(withHooks(report.items)));

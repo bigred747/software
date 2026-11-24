@@ -174,6 +174,10 @@ Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
 
+## Ignore setup staging (1.10.46)
+
+Install signal ignores `PaperTrader-setup*` staging folders and Recycle Bin. Launcher deletes setup leftovers after a successful install into Documents\Paper Trader. Repo keeps only the last two Computer slim zips. Seal **1.10.46**.
+
 ## Fast Signals refresh (1.10.45)
 
 Desk green uses a light Signals path (checks only — skips heavy `/api/learn`). `/api/checks` no longer stops bots across every setup folder. Extra `PaperTrader-setup-*` copies still show on Install (remove them yourself). Seal **1.10.45**.

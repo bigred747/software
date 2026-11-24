@@ -1,1 +1,0 @@
-Paper Trader 1.10.29 slim — EMA 5 white · 15 yellow · 50 blue · 200 red; volume profile right; no Keltner layer; Pulse Band · Range Flip · Anchor VWAP · Stretch Pivot · Confirm Gate.

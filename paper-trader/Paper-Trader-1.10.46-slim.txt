@@ -1,0 +1,1 @@
+Paper Trader 1.10.46 slim — Install ignores PaperTrader-setup staging + Recycle Bin; launcher cleans setup leftovers; last two slim zips kept.

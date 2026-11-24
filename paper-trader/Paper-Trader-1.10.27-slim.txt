@@ -1,4 +1,0 @@
-Paper Trader 1.10.27 slim — background Learn + hourly all-pages sweep.
-
-No blank Learn console. Score runs hidden. Desk hourly pass scans and learns every page.
-Open status stays readable. Live locked.
