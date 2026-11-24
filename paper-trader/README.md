@@ -174,6 +174,10 @@ Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
 
+## Schwab optional desk green (1.10.44)
+
+Desk green treats **Schwab** as optional on paper-only desks (Live stays locked). Learn JSON no longer 400s on infinite profitFactor. Computer desk keeps **one Bot** score (`ensure_sole_learner` closes extras in other installs). Seal **1.10.44**.
+
 ## Snappy Boost desk (1.10.43)
 
 Booster defaults to **Boost** (tight quote gap, quick learn, wide scan lanes). Auto prefers **Max** when the feed is warm. Background score interval cut to 8s. Desk green stays a fast Safe + Signals pass. Seal **1.10.43**.

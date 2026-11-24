@@ -177,7 +177,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.43";
+const VERSION = "1.10.44";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -380,24 +380,49 @@ async function runDeskGreenScan() {
     } catch (error) {
       /* Learn touch is best-effort for the green pass. */
     }
-    const signalList = $("signals");
-    const signalItems = signalList
-      ? Array.from(signalList.querySelectorAll("li")).map((row) => ({
-          ok: !!(row.querySelector(".dot.on")),
-          text: row.textContent || "",
-        }))
-      : [];
+    // Structured signals by name — Schwab is optional on paper-only (Live stays locked).
+    let scored = [];
+    try {
+      if (state.offline) {
+        const list = $("signals");
+        scored = list
+          ? Array.from(list.querySelectorAll("li")).map((row) => {
+              const text = row.textContent || "";
+              const name = (text.split(" · ")[0] || "").trim();
+              return { name, ok: !!(row.querySelector(".dot.on")), detail: text };
+            })
+          : [];
+      } else {
+        const report = await withTimeout(getJSON("/api/checks"), 10000, "Signals refresh");
+        scored = withHooks(Array.isArray(report && report.items) ? report.items : []);
+        paintSignals(scored);
+      }
+    } catch (error) {
+      scored = [];
+    }
     const safeOk = !!(state.safe && state.safe.safe);
-    const badSignals = signalItems.filter((item) => !item.ok && !/Schwab|Desk green/i.test(item.text));
-    // Schwab missing keys is expected on paper-only desks — not a desk-red.
+    const schwabOpen = scored.some((item) => item.name === "Schwab" && !item.ok);
+    const badSignals = scored.filter(
+      (item) =>
+        !item.ok && item.name !== "Schwab" && item.name !== "Desk green" && item.name !== "Bot"
+    );
     const ok = safeOk && badSignals.length === 0;
+    const clock =
+      new Date().toLocaleTimeString("en-US", { timeZone: "America/Denver" }) + " Denver";
     const detail = ok
-      ? "GREEN · Safe passed · all desk signals green · Live locked · paper only · " +
-        new Date().toLocaleTimeString("en-US", { timeZone: "America/Denver" }) +
-        " Denver"
+      ? schwabOpen
+        ? "GREEN · Safe passed · desk signals green · Schwab optional (not connected) · Live locked · paper only · " +
+          clock
+        : "GREEN · Safe passed · all desk signals green · Live locked · paper only · " + clock
       : !safeOk
         ? "Not green · Safe check failed. Fix Safe first."
-        : "Not green · " + badSignals.length + " signal" + (badSignals.length === 1 ? "" : "s") + " still open.";
+        : "Not green · " +
+          badSignals.length +
+          " signal" +
+          (badSignals.length === 1 ? "" : "s") +
+          " still open" +
+          (badSignals[0] && badSignals[0].name ? ": " + badSignals[0].name : "") +
+          ".";
     state.deskGreen = { ok, detail, at: Date.now() };
     if (final) {
       final.textContent = detail;
@@ -405,7 +430,9 @@ async function runDeskGreenScan() {
     }
     if (note) {
       note.textContent = ok
-        ? "Desk green finished fast. Booster on Boost/Max keeps quotes and learn snappy. Hourly Bot-on still covers every page."
+        ? schwabOpen
+          ? "Desk green. Paper desk is good. Schwab can stay red until you connect under Trade — Live stays locked either way."
+          : "Desk green finished fast. Booster on Boost/Max keeps quotes and learn snappy. Hourly Bot-on still covers every page."
         : "Desk green finished with open checks. Press again after you fix them.";
     }
     if (state.offline) renderLocalSignals();

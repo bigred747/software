@@ -1256,6 +1256,105 @@ def ensure_learner(root: Path, state_path: Path, spawn=None, wait: float = 2.0) 
     return learner_healthy(state_path)
 
 
+def count_live_learners(home: Path | None = None) -> list[tuple[Path, int]]:
+    """Install folders that currently hold a learn.lock, with the holder pid."""
+    from paper_trader.install import find_installs
+
+    base = Path.home() if home is None else Path(home)
+    found: list[tuple[Path, int]] = []
+    seen: set[Path] = set()
+    try:
+        folders = list(find_installs(base))
+    except OSError:
+        folders = []
+    for folder in folders:
+        try:
+            resolved = folder.resolve()
+        except OSError:
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        state = resolved / "learn_state.json"
+        if not learner_healthy(state):
+            continue
+        holder = lock_holder(state.with_name("learn.lock"))
+        if holder:
+            found.append((resolved, holder))
+    return found
+
+
+def sole_bot_status(root: Path, state_path: Path, home: Path | None = None) -> dict[str, str | bool]:
+    """Signals row: exactly one background score for this computer."""
+    live = count_live_learners(home)
+    mine = learner_healthy(state_path)
+    try:
+        mine_root = root.resolve()
+    except OSError:
+        mine_root = root
+    if len(live) > 1:
+        return {
+            "name": "Bot",
+            "ok": False,
+            "detail": f"{len(live)} score processes · keep one · reopen Paper Trader so extras close",
+        }
+    if mine:
+        return {"name": "Bot", "ok": True, "detail": "One background score · Bot on · this install"}
+    if live:
+        other = live[0][0]
+        label = other.name
+        return {
+            "name": "Bot",
+            "ok": True,
+            "detail": f"One background score · running in {label}",
+        }
+    return {
+        "name": "Bot",
+        "ok": True,
+        "detail": "No background score yet · open the Computer desk or tick Start the score",
+    }
+
+
+def ensure_sole_learner(root: Path, state_path: Path, home: Path | None = None, spawn=None, wait: float = 2.0) -> bool:
+    """Keep exactly one background score: this install. Close learners in other copies first."""
+    root = Path(root)
+    state_path = Path(state_path)
+    base = Path.home() if home is None else Path(home)
+    try:
+        mine = root.resolve()
+    except OSError:
+        mine = root
+    try:
+        from paper_trader.install import find_installs
+
+        for folder in find_installs(base):
+            try:
+                other = folder.resolve()
+            except OSError:
+                continue
+            if other == mine:
+                continue
+            stop_learner(other / "learn_state.json")
+    except OSError:
+        pass
+    if learner_healthy(state_path):
+        return True
+    lock_path = state_path.with_name("learn.lock")
+    if lock_holder(lock_path):
+        # Stale or stuck holder — ask it to exit, then start once.
+        stop_learner(state_path)
+        deadline = time.monotonic() + max(0.5, min(float(wait), 4.0))
+        while time.monotonic() < deadline:
+            if not lock_holder(lock_path):
+                break
+            time.sleep(0.05)
+        if learner_healthy(state_path):
+            return True
+        if lock_holder(lock_path):
+            return False
+    return ensure_learner(root, state_path, spawn=spawn, wait=wait)
+
+
 def _console(message: str) -> None:
     """One short line for the Paper Trader Learn window. Keep it readable."""
     try:
