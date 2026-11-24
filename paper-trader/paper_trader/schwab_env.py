@@ -17,17 +17,29 @@ KEYS = (
     "SCHWAB_APP_NAME",
 )
 
+# Schwab Developer Portal labels these Client ID / Client Secret.
+ALIAS_TO_CANONICAL = {
+    "SCHWAB_CLIENT_ID": "SCHWAB_APP_KEY",
+    "SCHWAB_CLIENT_SECRET": "SCHWAB_APP_SECRET",
+}
+
 PLACEHOLDER_VALUES = {
     "",
     "paste-app-key-here",
     "paste-app-secret-here",
+    "paste-client-id-here",
+    "paste-client-secret-here",
     "your-app-key",
     "your-app-secret",
+    "your-client-id",
+    "your-client-secret",
 }
 
 DEFAULT_ENV_TEXT = (
-    "# Schwab keys — paste App Key and App Secret below\n"
+    "# Schwab keys — paste Client ID and Client Secret from the Developer Portal\n"
     "# File: Documents\\Paper Trader\\.env\n"
+    "# Portal Client ID     → SCHWAB_APP_KEY\n"
+    "# Portal Client Secret → SCHWAB_APP_SECRET\n"
     "# Never commit this file after pasting real secrets.\n"
     "\n"
     "SCHWAB_APP_KEY=paste-app-key-here\n"
@@ -35,6 +47,13 @@ DEFAULT_ENV_TEXT = (
     "SCHWAB_CALLBACK_URL=https://127.0.0.1\n"
     "SCHWAB_APP_NAME=personal-market-data\n"
 )
+
+REQUIRED_DEFAULTS = {
+    "SCHWAB_APP_KEY": "paste-app-key-here",
+    "SCHWAB_APP_SECRET": "paste-app-secret-here",
+    "SCHWAB_CALLBACK_URL": "https://127.0.0.1",
+    "SCHWAB_APP_NAME": "personal-market-data",
+}
 
 
 def parse_env_text(text: str) -> dict[str, str]:
@@ -59,6 +78,19 @@ def parse_env_text(text: str) -> dict[str, str]:
     return values
 
 
+def canonicalize_credentials(values: dict[str, str]) -> dict[str, str]:
+    """Map portal Client ID/Secret aliases onto SCHWAB_APP_KEY / SCHWAB_APP_SECRET."""
+    out = dict(values)
+    for alias, canonical in ALIAS_TO_CANONICAL.items():
+        alias_value = (out.get(alias) or "").strip()
+        if not _is_real_secret(alias_value):
+            continue
+        current = (out.get(canonical) or "").strip()
+        if not _is_real_secret(current):
+            out[canonical] = alias_value
+    return out
+
+
 def load_dotenv(path: Path | None = None) -> dict[str, str]:
     """Read .env into os.environ when the key is not already set. Missing file is fine."""
     target = path if path is not None else ENV_PATH
@@ -68,15 +100,33 @@ def load_dotenv(path: Path | None = None) -> dict[str, str]:
         text = target.read_text(encoding="utf-8")
     except OSError:
         return {}
-    parsed = parse_env_text(text)
+    parsed = canonicalize_credentials(parse_env_text(text))
     for key, value in parsed.items():
-        if key in KEYS and key not in os.environ:
-            os.environ[key] = value
+        if key not in KEYS or key in os.environ:
+            continue
+        # Never sticky-write placeholders into the process env (tests + multi-folder installs).
+        if key in {"SCHWAB_APP_KEY", "SCHWAB_APP_SECRET"} and not _is_real_secret(value):
+            continue
+        os.environ[key] = value
+    for alias, canonical in ALIAS_TO_CANONICAL.items():
+        if alias in os.environ and canonical not in os.environ and _is_real_secret(os.environ[alias]):
+            os.environ[canonical] = os.environ[alias]
+        if alias in parsed and canonical not in os.environ and _is_real_secret(parsed[alias]):
+            os.environ[canonical] = parsed[alias]
     return {key: parsed[key] for key in KEYS if key in parsed}
 
 
 def _configured_value(name: str) -> str:
-    return (os.environ.get(name) or "").strip()
+    direct = (os.environ.get(name) or "").strip()
+    if _is_real_secret(direct):
+        return direct
+    for alias, canonical in ALIAS_TO_CANONICAL.items():
+        if canonical != name:
+            continue
+        alias_value = (os.environ.get(alias) or "").strip()
+        if _is_real_secret(alias_value):
+            return alias_value
+    return direct
 
 
 def _is_real_secret(value: str) -> bool:
@@ -85,31 +135,152 @@ def _is_real_secret(value: str) -> bool:
 
 
 def ensure_env_file(folder: Path | None = None) -> Path:
-    """Create .env from SCHWAB-KEYS.txt / .env.example when missing. Never overwrites."""
+    """Create .env from SCHWAB-KEYS.txt / .env.example when missing. Never overwrites secrets."""
     root = folder if folder is not None else INSTALL_ROOT
     target = root / ".env"
     if target.is_file():
-        return target
+        sync_env_from_keys_file(root)
+        return install_schwab_env(root)
     for name in ("SCHWAB-KEYS.txt", ".env.example"):
         source = root / name
         if not source.is_file():
             continue
         try:
-            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
-            return target
+            text = source.read_text(encoding="utf-8")
+            canonical = canonicalize_credentials(parse_env_text(text))
+            # Prefer a normalized .env so APP_KEY/SECRET are always present.
+            if any(_is_real_secret(canonical.get(key, "")) for key in ("SCHWAB_APP_KEY", "SCHWAB_APP_SECRET")):
+                target.write_text(_format_env(canonical, text), encoding="utf-8")
+            else:
+                target.write_text(text if text.strip() else DEFAULT_ENV_TEXT, encoding="utf-8")
+            sync_env_from_keys_file(root)
+            return install_schwab_env(root)
         except OSError:
             continue
     try:
         target.write_text(DEFAULT_ENV_TEXT, encoding="utf-8")
     except OSError:
         pass
+    sync_env_from_keys_file(root)
+    return install_schwab_env(root)
+
+
+def install_schwab_env(folder: Path | None = None) -> Path:
+    """Install the four Schwab keys into .env. Fills missing lines only; never clobbers real secrets."""
+    root = folder if folder is not None else INSTALL_ROOT
+    target = root / ".env"
+    current: dict[str, str] = {}
+    if target.is_file():
+        try:
+            current = canonicalize_credentials(parse_env_text(target.read_text(encoding="utf-8")))
+        except OSError:
+            current = {}
+    changed = False
+    for key, default in REQUIRED_DEFAULTS.items():
+        value = (current.get(key) or "").strip()
+        if not value:
+            current[key] = default
+            changed = True
+    if not target.is_file() or changed:
+        try:
+            target.write_text(_format_env(current), encoding="utf-8")
+        except OSError:
+            return target
+    load_dotenv(target)
     return target
+
+
+def offer_env_editor(folder: Path | None = None) -> bool:
+    """On Windows, open .env in Notepad once when App Key/Secret are still placeholders."""
+    root = folder if folder is not None else INSTALL_ROOT
+    target = install_schwab_env(root)
+    marker = root / ".schwab_env_opened"
+    if marker.is_file():
+        return False
+    if credentials_ready():
+        return False
+    if os.name != "nt":
+        return False
+    try:
+        import subprocess
+
+        subprocess.Popen(["notepad.exe", str(target)], close_fds=True)
+        marker.write_text("opened\n", encoding="utf-8")
+        return True
+    except OSError:
+        return False
+
+
+def _format_env(values: dict[str, str], template_text: str = "") -> str:
+    """Write a small .env with canonical keys. Keep helpful comments when possible."""
+    callback = values.get("SCHWAB_CALLBACK_URL") or "https://127.0.0.1"
+    app_name = values.get("SCHWAB_APP_NAME") or "personal-market-data"
+    header = (
+        "# Schwab keys — Client ID / Client Secret from Developer Portal\n"
+        "# Portal Client ID     → SCHWAB_APP_KEY (alias: SCHWAB_CLIENT_ID)\n"
+        "# Portal Client Secret → SCHWAB_APP_SECRET (alias: SCHWAB_CLIENT_SECRET)\n"
+        "# Callback must match the portal exactly (https://127.0.0.1).\n"
+        "# Never commit this file after pasting real secrets.\n"
+        "\n"
+    )
+    if "SCHWAB_APP_KEY" in template_text or "SCHWAB_CLIENT_ID" in template_text:
+        # Keep a short header even when copying from keys file.
+        pass
+    body = (
+        f"SCHWAB_APP_KEY={values.get('SCHWAB_APP_KEY', 'paste-app-key-here')}\n"
+        f"SCHWAB_APP_SECRET={values.get('SCHWAB_APP_SECRET', 'paste-app-secret-here')}\n"
+        f"SCHWAB_CALLBACK_URL={callback}\n"
+        f"SCHWAB_APP_NAME={app_name}\n"
+    )
+    return header + body
+
+
+def sync_env_from_keys_file(folder: Path | None = None) -> Path:
+    """If SCHWAB-KEYS.txt has real secrets and .env still has placeholders, copy them in.
+
+    Reinstalls keep .env, but people often paste into SCHWAB-KEYS.txt as the comments say.
+    This one-way sync never overwrites real .env secrets with placeholders.
+    """
+    root = folder if folder is not None else INSTALL_ROOT
+    env_path = root / ".env"
+    keys_path = root / "SCHWAB-KEYS.txt"
+    if not env_path.is_file() or not keys_path.is_file():
+        return env_path
+    try:
+        env_values = canonicalize_credentials(parse_env_text(env_path.read_text(encoding="utf-8")))
+        key_values = canonicalize_credentials(parse_env_text(keys_path.read_text(encoding="utf-8")))
+    except OSError:
+        return env_path
+    changed = False
+    for key in ("SCHWAB_APP_KEY", "SCHWAB_APP_SECRET", "SCHWAB_CALLBACK_URL", "SCHWAB_APP_NAME"):
+        incoming = (key_values.get(key) or "").strip()
+        current = (env_values.get(key) or "").strip()
+        if key in {"SCHWAB_APP_KEY", "SCHWAB_APP_SECRET"}:
+            if _is_real_secret(incoming) and not _is_real_secret(current):
+                env_values[key] = incoming
+                changed = True
+        elif incoming and (not current or current in PLACEHOLDER_VALUES):
+            env_values[key] = incoming
+            changed = True
+    if not changed:
+        return env_path
+    try:
+        env_path.write_text(_format_env(env_values), encoding="utf-8")
+    except OSError:
+        return env_path
+    # Refresh process env for this run when keys were only placeholders.
+    for key in KEYS:
+        value = (env_values.get(key) or "").strip()
+        if _is_real_secret(value) or key in {"SCHWAB_CALLBACK_URL", "SCHWAB_APP_NAME"}:
+            if key not in os.environ or not _is_real_secret(os.environ.get(key, "")):
+                os.environ[key] = value
+    return env_path
 
 
 def credentials_ready() -> bool:
     """True when App Key and App Secret are real (not empty/placeholder). No API call."""
-    ensure_env_file()
-    load_dotenv()
+    ensure_env_file(ENV_PATH.parent)
+    load_dotenv(ENV_PATH)
     return _is_real_secret(_configured_value("SCHWAB_APP_KEY")) and _is_real_secret(
         _configured_value("SCHWAB_APP_SECRET")
     )

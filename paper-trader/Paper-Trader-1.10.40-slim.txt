@@ -1,1 +1,1 @@
-Paper Trader 1.10.40 slim — Windows works without tzdata (packaged Denver/New York zones).
+Paper Trader 1.10.40 slim — Connect-Schwab.bat + packaged Denver zones; erase other installs.

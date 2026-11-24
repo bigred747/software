@@ -39,6 +39,20 @@ def main(argv: list[str] | None = None) -> int:
         "schwab-status",
         help="Show whether Schwab App Key/Secret are in .env (no API call; Live stays locked)",
     )
+    connect = commands.add_parser(
+        "schwab-connect",
+        help="Connect Schwab from CMD: open sign-in, then paste the https://127.0.0.1/?code=... URL",
+    )
+    connect.add_argument(
+        "--redirect",
+        default="",
+        help="Optional full redirect URL (skip the paste prompt)",
+    )
+    connect.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Print the authorize URL only; do not open a browser",
+    )
     check = commands.add_parser("backtest", help="Replay one market's quotes and print the paper result")
     check.add_argument("--symbol", default="BTC-USD")
     check.add_argument("--fast", type=int, default=10)
@@ -94,6 +108,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"tokens path: {link['token_path']}")
             print("Paper stays the default. No broker orders are sent.")
             return 0
+        if args.command == "schwab-connect":
+            return _schwab_connect_cmd(redirect=args.redirect, open_browser=not args.no_browser)
         params = Params(
             fast=args.fast,
             slow=args.slow,
@@ -115,6 +131,51 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+
+
+def _schwab_connect_cmd(*, redirect: str = "", open_browser: bool = True) -> int:
+    """CMD Connect flow: authorize URL → paste redirect → save tokens locally."""
+    import webbrowser
+
+    from paper_trader.schwab_auth import authorize_url, connection_status, finish_oauth
+    from paper_trader.schwab_env import credentials_ready, install_schwab_env
+
+    install_root = Path(__file__).resolve().parents[1]
+    os.chdir(install_root)
+    env_path = install_schwab_env(install_root)
+    if not credentials_ready():
+        print("Schwab keys are missing.")
+        print(f"Edit {env_path}")
+        print("Paste Client ID → SCHWAB_APP_KEY and Client Secret → SCHWAB_APP_SECRET.")
+        print("Then run: Connect-Schwab.bat")
+        return 2
+    start = authorize_url()
+    print("Schwab authorize URL:")
+    print(start["authorize_url"])
+    print("Callback must stay https://127.0.0.1")
+    if open_browser:
+        try:
+            webbrowser.open(start["authorize_url"])
+            print("Opened Schwab sign-in in your browser.")
+        except OSError:
+            print("Could not open a browser. Copy the URL above into Edge.")
+    raw = (redirect or "").strip()
+    if not raw:
+        print("After sign-in, the browser lands on a broken https://127.0.0.1/?code=... page.")
+        print("Copy that whole address bar URL and paste it here, then press Enter:")
+        try:
+            raw = input().strip()
+        except EOFError:
+            raw = ""
+    if not raw:
+        print("No redirect URL pasted. Connection not finished.")
+        return 2
+    finish_oauth(raw)
+    link = connection_status()
+    print(f"Schwab connection: {link['detail']}")
+    print(f"tokens path: {link['token_path']}")
+    print("Paper stays the default. Live stays locked. No broker orders.")
+    return 0 if link.get("connected") else 2
 
 
 if __name__ == "__main__":
