@@ -34,6 +34,10 @@ def main(argv: list[str] | None = None) -> int:
         "schwab-status",
         help="Show whether Schwab App Key/Secret are in .env (no API call; Live stays locked)",
     )
+    commands.add_parser(
+        "close-extra-bots",
+        help="Close extra Bot score processes; keep only Documents\\Paper Trader",
+    )
     connect = commands.add_parser(
         "schwab-connect",
         help="Connect Schwab from CMD: open sign-in, then paste the https://127.0.0.1/?code=... URL",
@@ -99,6 +103,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"tokens path: {link['token_path']}")
             print("Paper stays the default. No broker orders are sent.")
             return 0
+        if args.command == "close-extra-bots":
+            from paper_trader.learn import close_extra_learners, sole_bot_status
+
+            install_root = Path(__file__).resolve().parents[1]
+            os.chdir(install_root)
+            report = close_extra_learners(install_root, Path.home())
+            status = sole_bot_status(install_root, install_root / "learn_state.json", Path.home())
+            print(report["detail"])
+            print(f"Bot signal: {status['detail']}")
+            return 0 if report.get("ok") else 2
         if args.command == "schwab-connect":
             return _schwab_connect_cmd(redirect=args.redirect, open_browser=not args.no_browser)
         params = Params(

@@ -174,6 +174,10 @@ Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
 
+## Close extra Bots (1.10.50)
+
+Signals Bot red with “N extra” means older installs still scoring. Desk open (or `Close-Extra-Bots.bat`) closes extras and keeps one Bot in Documents\Paper Trader. Seal **1.10.50**.
+
 ## CMD Schwab Connect (1.10.49)
 
 Double-click `Connect-Schwab.bat` or run `launch.py schwab-connect` in CMD. Opens Schwab sign-in, then paste the `https://127.0.0.1/?code=...` URL in the terminal. Seal **1.10.49**.

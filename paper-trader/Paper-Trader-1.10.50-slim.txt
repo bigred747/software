@@ -1,0 +1,1 @@
+Paper Trader 1.10.50 slim — Close-Extra-Bots.bat closes leftover Bot scores; desk keeps one.

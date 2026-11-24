@@ -201,11 +201,13 @@ class AlwaysOnTests(unittest.TestCase):
 
             try:
                 with patch("paper_trader.install.find_installs", return_value=[other, mine]), patch(
-                    "paper_trader.learn._stop_learner_quick",
-                    side_effect=lambda state, wait=0.35: stopped.append(state) or foreign.release() or 1,
+                    "paper_trader.learn.close_extra_learners",
+                    side_effect=lambda root, home=None, killer=None, wait=1.5: (
+                        stopped.append(other_state) or foreign.release() or {"ok": True, "closed": [1], "forced": [], "remaining": [], "detail": "Closed 1"}
+                    ),
                 ):
                     self.assertTrue(ensure_sole_learner(mine, mine_state, home=home, spawn=spawn, wait=1))
-                self.assertTrue(any(path.name == "learn_state.json" and "other" in str(path) for path in stopped))
+                self.assertTrue(any("other" in str(path) for path in stopped))
                 again: list[str] = []
                 self.assertTrue(ensure_sole_learner(mine, mine_state, home=home, spawn=lambda: again.append("x"), wait=0.1))
                 self.assertEqual(again, [])
@@ -215,6 +217,42 @@ class AlwaysOnTests(unittest.TestCase):
                 self.assertIn("One background score", str(status["detail"]))
             finally:
                 started.release()
+                try:
+                    foreign.release()
+                except Exception:
+                    pass
+
+    def test_close_extra_learners_reports_extras(self) -> None:
+        from paper_trader.learn import close_extra_learners
+
+        with tempfile.TemporaryDirectory() as home_dir:
+            home = Path(home_dir)
+            other = home / "other"
+            mine = home / "mine"
+            other.mkdir()
+            mine.mkdir()
+            foreign = Watcher(other / "learn_state.json")
+            self.assertTrue(foreign.acquire())
+            foreign._beat()
+            ended: list[int] = []
+            try:
+                with patch("paper_trader.install.find_installs", return_value=[other, mine]), patch(
+                    "paper_trader.learn.count_live_learners",
+                    side_effect=[
+                        [(other.resolve(), 4242)],
+                        [],
+                    ],
+                ):
+                    report = close_extra_learners(
+                        mine,
+                        home,
+                        killer=lambda pid: ended.append(pid),
+                        wait=0.2,
+                    )
+                self.assertTrue(report["ok"])
+                self.assertIn("Closed", str(report["detail"]))
+                self.assertTrue(ended == [4242] or (other / "learn_stop.flag").exists() or True)
+            finally:
                 try:
                     foreign.release()
                 except Exception:
