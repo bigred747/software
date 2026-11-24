@@ -875,6 +875,10 @@ class ServerTests(unittest.TestCase):
         status, script = self.open("/app.js")
         for marker in (b"/api/paper/ticket", b"/api/paper/cancel", b"PaperEngine.place"):
             self.assertIn(marker, script)
+        status, booster = self.open("/booster.js")
+        self.assertEqual(status, 200)
+        self.assertIn(b"PaperBooster", booster)
+        self.assertIn(b"PROFILES", booster)
 
     def test_step_and_backtest(self) -> None:
         status, raw = self.open("/api/paper")
@@ -1035,7 +1039,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.10.40", script)
+        self.assertIn(b"1.10.41", script)
         self.assertIn(b"studyLineColor", script)
         self.assertIn(b"STUDY_RAIL_COLORS", script)
         self.assertIn(b"#f4f7fb", script)
