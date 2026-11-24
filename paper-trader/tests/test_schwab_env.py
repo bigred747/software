@@ -63,6 +63,18 @@ class SchwabEnvTests(unittest.TestCase):
                     schwab_env._configured_value("SCHWAB_APP_SECRET"), "portal-client-secret"
                 )
 
+    def test_utf16_notepad_env_is_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / ".env"
+            path.write_bytes(
+                "SCHWAB_APP_KEY=utf16-key\r\nSCHWAB_APP_SECRET=utf16-secret\r\n".encode("utf-16")
+            )
+            with patch.object(schwab_env, "ENV_PATH", path), patch.object(
+                schwab_env, "INSTALL_ROOT", Path(folder)
+            ):
+                self.assertTrue(schwab_env.credentials_ready())
+                self.assertEqual(schwab_env._configured_value("SCHWAB_APP_KEY"), "utf16-key")
+
     def test_real_dotenv_wins_over_sticky_placeholders(self) -> None:
         """SCHWAB-KEYS.txt placeholders must not hide a good Documents\\Paper Trader\\.env."""
         with tempfile.TemporaryDirectory() as folder:

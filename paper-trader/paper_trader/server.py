@@ -953,7 +953,7 @@ class Desk:
         loud = _loud_calls()
         add("Quiet installer", not loud, "Never ends other programs, never deletes other folders, never edits the registry" if not loud else "Found " + ", ".join(loud))
         copy = single_copy_status(Path.home())
-        add("One copy", bool(copy["ok"]), str(copy["detail"]) + ("" if copy["ok"] else ". Nothing is deleted for you. Remove old folders yourself"), "health")
+        add("One copy", bool(copy["ok"]), str(copy["detail"]), "health")
         try:
             quote_detail = quotes.ping()
             add("Quotes", True, quote_detail, "health")

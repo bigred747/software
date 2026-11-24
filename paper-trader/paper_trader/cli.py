@@ -86,9 +86,20 @@ def main(argv: list[str] | None = None) -> int:
             install_root = Path(__file__).resolve().parents[1]
             os.chdir(install_root)
             assert_safe_launch([install_root])
-            from paper_trader.schwab_env import ensure_env_file
+            from paper_trader import __version__
+            from paper_trader.install import erase_other_installs
+            from paper_trader.schwab_env import ensure_env_file, heal_env_from_documents
 
+            try:
+                (install_root / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
+            except OSError:
+                pass
+            try:
+                erase_other_installs(Path.home(), keep=install_root)
+            except OSError:
+                pass
             ensure_env_file(install_root)
+            heal_env_from_documents(install_root)
             serve(STATE_PATH, args.port, open_browser=not args.no_browser)
             return 0
         if args.command == "learn":

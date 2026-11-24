@@ -56,9 +56,32 @@ REQUIRED_DEFAULTS = {
 }
 
 
+def read_env_text(path: Path) -> str:
+    """Read .env even when Notepad saved it as UTF-16 (common on Windows)."""
+    raw = path.read_bytes()
+    if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+        return raw.decode("utf-16")
+    if raw.startswith(b"\xef\xbb\xbf"):
+        return raw.decode("utf-8-sig")
+    # UTF-16 LE without BOM often has NULs between ASCII chars.
+    if b"\x00" in raw[:64]:
+        try:
+            return raw.decode("utf-16-le")
+        except UnicodeDecodeError:
+            pass
+    for encoding in ("utf-8-sig", "utf-8", "cp1252"):
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
 def parse_env_text(text: str) -> dict[str, str]:
     """Tiny KEY=VALUE parser. Stdlib only. Ignores blank lines and # comments."""
     values: dict[str, str] = {}
+    # Strip NULs left over from a bad encoding guess.
+    text = text.replace("\x00", "")
     for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -68,7 +91,7 @@ def parse_env_text(text: str) -> dict[str, str]:
         if "=" not in line:
             continue
         key, _, rest = line.partition("=")
-        key = key.strip()
+        key = key.strip().lstrip("\ufeff")
         if not key:
             continue
         value = rest.strip()
@@ -97,7 +120,7 @@ def _env_file_values(path: Path | None = None) -> dict[str, str]:
     if not target.is_file():
         return {}
     try:
-        text = target.read_text(encoding="utf-8")
+        text = read_env_text(target)
     except OSError:
         return {}
     return canonicalize_credentials(parse_env_text(text))
@@ -173,7 +196,7 @@ def ensure_env_file(folder: Path | None = None) -> Path:
         if not source.is_file():
             continue
         try:
-            text = source.read_text(encoding="utf-8")
+            text = read_env_text(source)
             canonical = canonicalize_credentials(parse_env_text(text))
             # Prefer a normalized .env so APP_KEY/SECRET are always present.
             if any(_is_real_secret(canonical.get(key, "")) for key in ("SCHWAB_APP_KEY", "SCHWAB_APP_SECRET")):
@@ -199,7 +222,7 @@ def install_schwab_env(folder: Path | None = None) -> Path:
     current: dict[str, str] = {}
     if target.is_file():
         try:
-            current = canonicalize_credentials(parse_env_text(target.read_text(encoding="utf-8")))
+            current = canonicalize_credentials(parse_env_text(read_env_text(target)))
         except OSError:
             current = {}
     changed = False
@@ -280,8 +303,8 @@ def sync_env_from_keys_file(folder: Path | None = None) -> Path:
     if not env_path.is_file() or not keys_path.is_file():
         return env_path
     try:
-        env_values = canonicalize_credentials(parse_env_text(env_path.read_text(encoding="utf-8")))
-        key_values = canonicalize_credentials(parse_env_text(keys_path.read_text(encoding="utf-8")))
+        env_values = canonicalize_credentials(parse_env_text(read_env_text(env_path)))
+        key_values = canonicalize_credentials(parse_env_text(read_env_text(keys_path)))
     except OSError:
         return env_path
     changed = False
@@ -310,13 +333,72 @@ def sync_env_from_keys_file(folder: Path | None = None) -> Path:
     return env_path
 
 
+def heal_env_from_documents(folder: Path | None = None) -> Path:
+    """If this folder's .env still has placeholders, copy real keys from Documents\\Paper Trader\\.env."""
+    root = folder if folder is not None else INSTALL_ROOT
+    target = root / ".env"
+    ensure_env_file(root)
+    current = _env_file_values(target)
+    if _is_real_secret(current.get("SCHWAB_APP_KEY", "")) and _is_real_secret(
+        current.get("SCHWAB_APP_SECRET", "")
+    ):
+        load_dotenv(target)
+        return target
+    home = Path.home()
+    candidates = [
+        home / "Documents" / "Paper Trader" / ".env",
+        home / "OneDrive" / "Documents" / "Paper Trader" / ".env",
+    ]
+    one_drive = os.environ.get("OneDrive")
+    if one_drive:
+        candidates.append(Path(one_drive) / "Documents" / "Paper Trader" / ".env")
+    donor: dict[str, str] = {}
+    for path in candidates:
+        if not path.is_file():
+            continue
+        values = _env_file_values(path)
+        if _is_real_secret(values.get("SCHWAB_APP_KEY", "")) and _is_real_secret(
+            values.get("SCHWAB_APP_SECRET", "")
+        ):
+            donor = values
+            break
+    if not donor:
+        load_dotenv(target)
+        return target
+    merged = dict(current)
+    for key in KEYS:
+        incoming = (donor.get(key) or "").strip()
+        if key in {"SCHWAB_APP_KEY", "SCHWAB_APP_SECRET"}:
+            if _is_real_secret(incoming):
+                merged[key] = incoming
+        elif incoming and not (merged.get(key) or "").strip():
+            merged[key] = incoming
+    try:
+        # Rewrite as UTF-8 so later reads never hit UTF-16 Notepad encoding.
+        target.write_text(_format_env(merged), encoding="utf-8", newline="\n")
+    except OSError:
+        return target
+    load_dotenv(target)
+    return target
+
+
 def credentials_ready() -> bool:
     """True when App Key and App Secret are real (not empty/placeholder). No API call."""
     ensure_env_file(ENV_PATH.parent)
+    heal_env_from_documents(ENV_PATH.parent)
     load_dotenv(ENV_PATH)
-    return _is_real_secret(_configured_value("SCHWAB_APP_KEY")) and _is_real_secret(
+    # Also accept a good Documents\\Paper Trader\\.env even if this folder's file lagged.
+    if _is_real_secret(_configured_value("SCHWAB_APP_KEY")) and _is_real_secret(
         _configured_value("SCHWAB_APP_SECRET")
-    )
+    ):
+        return True
+    desk = Path.home() / "Documents" / "Paper Trader" / ".env"
+    if desk.is_file() and desk.resolve() != ENV_PATH.resolve():
+        values = _env_file_values(desk)
+        return _is_real_secret(values.get("SCHWAB_APP_KEY", "")) and _is_real_secret(
+            values.get("SCHWAB_APP_SECRET", "")
+        )
+    return False
 
 
 def status_line() -> str:
