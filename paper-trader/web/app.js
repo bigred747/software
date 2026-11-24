@@ -177,7 +177,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.41";
+const VERSION = "1.10.42";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -324,23 +324,54 @@ function setBoosterMode(mode) {
   else renderLocalSignals();
 }
 
+function withTimeout(promise, ms, label) {
+  const limit = Math.max(1000, Number(ms) || 8000);
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error((label || "Desk check") + " timed out")), limit);
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
 async function runDeskGreenScan() {
   const final = $("desk-green-final");
   const note = $("desk-green-note");
+  const button = $("desk-green-scan");
   if (state.deskGreenBusy) return;
   state.deskGreenBusy = true;
+  state.deskGreenStop = false;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Scanning…";
+  }
   if (final) {
     final.textContent = "Desk green · scanning…";
     final.className = "scorecard-bias";
   }
-  if (note) note.textContent = "Running Safe check · Signals refresh · desk learn touch…";
+  const paintStep = (text) => {
+    if (note) note.textContent = text;
+  };
   try {
+    paintStep("1/3 · Safe check…");
     applyDeskBooster(false);
-    await runSafe(true);
+    await withTimeout(runSafe(true), 12000, "Safe check");
+    if (state.deskGreenStop) return;
+    paintStep("2/3 · Signals refresh…");
     if (state.offline) renderLocalSignals();
-    else await loadSignals();
+    else await withTimeout(loadSignals(), 15000, "Signals refresh");
+    if (state.deskGreenStop) return;
+    paintStep("3/3 · Light learn touch (not the hourly all-pages walk)…");
     try {
-      await cycleDeskPageLearn("all");
+      // Fast green pass: two pages only. Hourly Bot-on still covers every page.
+      await withTimeout(cycleDeskPageLearn(), 10000, "Learn touch");
     } catch (error) {
       /* Learn touch is best-effort for the green pass. */
     }
@@ -369,11 +400,11 @@ async function runDeskGreenScan() {
     }
     if (note) {
       note.textContent = ok
-        ? "Entire desk scanned. One last GREEN is on. Booster still paces quotes and learn."
-        : "Desk scan finished with open checks. Press again after you fix them.";
+        ? "Desk green finished fast. Hourly Bot-on still learns every page overnight. Booster still paces quotes."
+        : "Desk green finished with open checks. Press again after you fix them.";
     }
     if (state.offline) renderLocalSignals();
-    else await loadSignals();
+    else await withTimeout(loadSignals(), 12000, "Signals refresh").catch(() => {});
   } catch (error) {
     state.deskGreen = {
       ok: false,
@@ -384,8 +415,13 @@ async function runDeskGreenScan() {
       final.textContent = state.deskGreen.detail;
       final.className = "scorecard-bias down";
     }
+    if (note) note.textContent = "Desk green timed out or failed. Try again — or leave hourly Bot-on for the full page walk.";
   } finally {
     state.deskGreenBusy = false;
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Scan · test entire desk";
+    }
     paintBoosterPanel();
   }
 }
