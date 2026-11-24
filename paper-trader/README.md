@@ -174,6 +174,10 @@ Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
 
+## Signals and Booster (1.10.40)
+
+Tools → **Signals and Booster**: all desk signals plus Booster pace (Safe · Balanced · Boost · Max · Auto). Auto slows when Auto/soft/busy and speeds when calm. **Scan · test entire desk** runs Safe + Signals + learn touch and shows one last GREEN when everything passes. Live stays locked. Seal **1.10.40**.
+
 ## Cycle · Forecaster scan lists (1.10.39)
 
 Cycle Desk and Forecaster now share Squeeze/Lean-style market lists: Open·pins·Fire·best, Starter, **All stocks**, 13 main ETFs, All ETFs, futures, crypto, **Market · indexes · big 4**, **Gold · silver · miners**, **Bonds · rates**, sectors, or **My own list** (type box). Cycle always still reads SPY + Defensive Shield + Risk Rebound, then ranks the chosen list. Forecaster keeps the open-market price call and ranks confidence on the chosen list. Progressive fill; Stop anytime. Seal **1.10.39**.

@@ -807,6 +807,31 @@ button.quiet { background: transparent; }
 
 .signals-title { margin: 0 0 8px; font-size: 15px; }
 .signals { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 16px; }
+.booster-panel {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(28, 36, 48, 0.55), rgba(16, 19, 24, 0.35));
+}
+.booster-panel h3 { margin: 0 0 6px; font-size: 15px; }
+.booster-modes { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 12px; }
+.booster-mode {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--button);
+  color: var(--text);
+  font-weight: 600;
+}
+.booster-mode.on {
+  border-color: var(--up);
+  background: var(--up-deep);
+  color: var(--up);
+}
+#desk-green-final.up { color: var(--up); }
+#desk-green-final.down { color: var(--down); }
 .readings { display: grid; gap: 4px; }
 .readings div { display: flex; justify-content: space-between; gap: 12px; }
 .readings dt { color: var(--muted); }

@@ -101,9 +101,16 @@
   }
 
   let quoteWait = 12000;
+  let quoteGap = 300;
 
   function pace(ms) {
-    quoteWait = ms;
+    const next = Number(ms);
+    if (Number.isFinite(next) && next >= 2000) quoteWait = next;
+  }
+
+  function gap(ms) {
+    const next = Number(ms);
+    if (Number.isFinite(next) && next >= 80) quoteGap = next;
   }
 
   function timed(promise) {
@@ -130,7 +137,7 @@
     const run = quoteGate.then(async () => {
       const wait = quoteNext - Date.now();
       if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
-      quoteNext = Date.now() + 300;
+      quoteNext = Date.now() + quoteGap;
       return task();
     });
     quoteGate = run.then(() => {}, () => {});
@@ -590,5 +597,5 @@
     return cnbcBars(feed, "", "1D", 400, false);
   }
 
-  root.PaperLive = { daily, frame, lastTrade, gauge, pace };
+  root.PaperLive = { daily, frame, lastTrade, gauge, pace, gap };
 })(typeof globalThis !== "undefined" ? globalThis : this);

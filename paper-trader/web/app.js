@@ -177,7 +177,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.39";
+const VERSION = "1.10.40";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -187,6 +187,208 @@ const FEE_BPS = 5;
 const SLIP_BPS = 5;
 const SCAN_LEARN_GAP_MS = 10000;
 const SCAN_LEARN_BATCH = 2;
+
+function scanLearnGapMs() {
+  const gap = state.booster && Number(state.booster.learnGap);
+  return Number.isFinite(gap) && gap >= 2500 ? gap : SCAN_LEARN_GAP_MS;
+}
+
+function scanLearnBatchSize() {
+  const batch = state.booster && Number(state.booster.batch);
+  return Number.isFinite(batch) ? Math.max(1, Math.min(5, Math.round(batch))) : SCAN_LEARN_BATCH;
+}
+
+function deskScanLanes(offlineCap, onlineCap) {
+  const offline = state.booster && Number(state.booster.lanesOffline);
+  const online = state.booster && Number(state.booster.lanesOnline);
+  const pick = state.offline
+    ? Number.isFinite(offline)
+      ? offline
+      : offlineCap
+    : Number.isFinite(online)
+      ? online
+      : onlineCap;
+  return Math.max(1, Math.min(12, Math.round(pick)));
+}
+
+function busyScannerCount() {
+  let n = 0;
+  if (state.sq && state.sq.busy) n += 1;
+  if (state.cycle && state.cycle.busy) n += 1;
+  if (state.forecast && state.forecast.busy) n += 1;
+  if (state.lean && state.lean.busy) n += 1;
+  if (state.dp && state.dp.busy) n += 1;
+  if (state.productScan && state.productScan.busy) n += 1;
+  if (state.sc && state.sc.busy) n += 1;
+  return n;
+}
+
+function boosterContext() {
+  const soft =
+    !!(state.outlook && state.outlook.result && state.outlook.result.label === "Defensive") ||
+    !!(state.cycle && state.cycle.market && (state.cycle.market.mode === "soft" || state.cycle.market.mode === "tank"));
+  return {
+    hidden: typeof document !== "undefined" && document.visibilityState === "hidden",
+    autoOn: !!state.auto,
+    softHold: soft,
+    busyScanners: busyScannerCount(),
+    feedWarm: !!(state.market && state.market.price),
+  };
+}
+
+function hydrateDeskBooster() {
+  if (!state.booster) state.booster = { mode: "auto" };
+  if (typeof PaperBooster === "undefined") {
+    state.booster = Object.assign(
+      {
+        mode: "balanced",
+        applied: "balanced",
+        appliedLabel: "Balanced",
+        quoteWait: 12000,
+        quoteGap: 300,
+        learnGap: SCAN_LEARN_GAP_MS,
+        batch: SCAN_LEARN_BATCH,
+        lanesOffline: 3,
+        lanesOnline: 6,
+        auto: false,
+        note: "Booster module missing — Balanced defaults.",
+      },
+      state.booster
+    );
+    return state.booster;
+  }
+  const book = PaperBooster.load();
+  state.booster.mode = book.mode || "auto";
+  return applyDeskBooster(false);
+}
+
+function applyDeskBooster(manual) {
+  if (!state.booster) state.booster = { mode: "auto" };
+  if (typeof PaperBooster === "undefined") {
+    if (window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    return state.booster;
+  }
+  const book = { mode: state.booster.mode || "auto" };
+  const settings = PaperBooster.resolve(book, boosterContext());
+  PaperBooster.applyLive(settings);
+  PaperBooster.save({ mode: settings.mode, at: Date.now() });
+  const row = PaperBooster.profile(settings.applied);
+  state.booster = Object.assign({}, settings, {
+    appliedLabel: row.label,
+    note: settings.auto
+      ? "Auto → " + row.label + " · " + row.why
+      : row.label + " · " + row.why,
+    at: Date.now(),
+  });
+  paintBoosterPanel();
+  if (manual && $("status")) {
+    $("status").textContent = "Booster " + state.booster.note;
+  }
+  return state.booster;
+}
+
+function paintBoosterPanel() {
+  const boost = state.booster || hydrateDeskBooster();
+  const note = $("booster-note");
+  if (note) note.textContent = boost.note || "Pick a booster pace.";
+  document.querySelectorAll(".booster-mode").forEach((button) => {
+    const id = button.getAttribute("data-booster");
+    button.classList.toggle("on", id === boost.mode);
+    button.setAttribute("aria-pressed", id === boost.mode ? "true" : "false");
+  });
+  const levels = $("booster-levels");
+  if (levels) {
+    levels.replaceChildren();
+    [
+      ["Mode", (boost.auto ? "Auto → " : "") + (boost.appliedLabel || boost.applied || "—")],
+      ["Quote wait", (boost.quoteWait || 12000) + " ms"],
+      ["Quote gap", (boost.quoteGap || 300) + " ms"],
+      ["Learn gap", Math.round((boost.learnGap || SCAN_LEARN_GAP_MS) / 1000) + " s"],
+      ["Learn batch", String(boost.batch || SCAN_LEARN_BATCH)],
+      ["Scan lanes", (boost.lanesOffline || 3) + " phone / " + (boost.lanesOnline || 6) + " computer"],
+    ].forEach((pair) => {
+      const dt = document.createElement("dt");
+      dt.textContent = pair[0];
+      const dd = document.createElement("dd");
+      dd.textContent = pair[1];
+      levels.append(dt, dd);
+    });
+  }
+}
+
+function setBoosterMode(mode) {
+  if (!state.booster) state.booster = {};
+  state.booster.mode = mode;
+  applyDeskBooster(true);
+  if (!state.offline) loadSignals().catch(() => {});
+  else renderLocalSignals();
+}
+
+async function runDeskGreenScan() {
+  const final = $("desk-green-final");
+  const note = $("desk-green-note");
+  if (state.deskGreenBusy) return;
+  state.deskGreenBusy = true;
+  if (final) {
+    final.textContent = "Desk green · scanning…";
+    final.className = "scorecard-bias";
+  }
+  if (note) note.textContent = "Running Safe check · Signals refresh · desk learn touch…";
+  try {
+    applyDeskBooster(false);
+    await runSafe(true);
+    if (state.offline) renderLocalSignals();
+    else await loadSignals();
+    try {
+      await cycleDeskPageLearn("all");
+    } catch (error) {
+      /* Learn touch is best-effort for the green pass. */
+    }
+    const signalList = $("signals");
+    const signalItems = signalList
+      ? Array.from(signalList.querySelectorAll("li")).map((row) => ({
+          ok: !!(row.querySelector(".dot.on")),
+          text: row.textContent || "",
+        }))
+      : [];
+    const safeOk = !!(state.safe && state.safe.safe);
+    const badSignals = signalItems.filter((item) => !item.ok && !/Schwab|Desk green/i.test(item.text));
+    // Schwab missing keys is expected on paper-only desks — not a desk-red.
+    const ok = safeOk && badSignals.length === 0;
+    const detail = ok
+      ? "GREEN · Safe passed · all desk signals green · Live locked · paper only · " +
+        new Date().toLocaleTimeString("en-US", { timeZone: "America/Denver" }) +
+        " Denver"
+      : !safeOk
+        ? "Not green · Safe check failed. Fix Safe first."
+        : "Not green · " + badSignals.length + " signal" + (badSignals.length === 1 ? "" : "s") + " still open.";
+    state.deskGreen = { ok, detail, at: Date.now() };
+    if (final) {
+      final.textContent = detail;
+      final.className = "scorecard-bias " + (ok ? "up" : "down");
+    }
+    if (note) {
+      note.textContent = ok
+        ? "Entire desk scanned. One last GREEN is on. Booster still paces quotes and learn."
+        : "Desk scan finished with open checks. Press again after you fix them.";
+    }
+    if (state.offline) renderLocalSignals();
+    else await loadSignals();
+  } catch (error) {
+    state.deskGreen = {
+      ok: false,
+      detail: "Desk green scan failed · " + (error && error.message ? error.message : "unknown"),
+      at: Date.now(),
+    };
+    if (final) {
+      final.textContent = state.deskGreen.detail;
+      final.className = "scorecard-bias down";
+    }
+  } finally {
+    state.deskGreenBusy = false;
+    paintBoosterPanel();
+  }
+}
 const STRAT_LEARN_GAP_MS = 12000;
 const HOUR_LEARN_MS = 3600000;
 let learnTouchAt = 0;
@@ -546,6 +748,26 @@ function withHooks(items) {
   deskHookHealthItems().forEach((item) => setSignal(next, item.name, item.ok, item.detail));
   const zoomOk = !!($("zoom-in") && $("zoom-out"));
   setSignal(next, "Zoom", zoomOk, zoomOk ? "In and out" : "The zoom buttons are missing");
+  const boost = state.booster || {};
+  setSignal(
+    next,
+    "Booster",
+    true,
+    (boost.auto ? "Auto → " : "") +
+      (boost.appliedLabel || boost.applied || "Balanced") +
+      " · gap " +
+      (boost.quoteGap || 300) +
+      "ms · learn " +
+      Math.round((boost.learnGap || SCAN_LEARN_GAP_MS) / 1000) +
+      "s"
+  );
+  const green = state.deskGreen || {};
+  setSignal(
+    next,
+    "Desk green",
+    green.ok === true,
+    green.detail || "Press Scan · test entire desk under Signals and Booster"
+  );
   return next;
 }
 
@@ -5130,7 +5352,7 @@ function topScanLearnNames() {
 
 function nextScanLearnBatch(size) {
   const list = topScanLearnNames();
-  const count = Math.max(1, Math.min(Number(size) || SCAN_LEARN_BATCH, 5));
+  const count = Math.max(1, Math.min(Number(size) || scanLearnBatchSize(), 5));
   if (!list.length) return [];
   const out = [];
   let cursor = Number((state.scanLearn && state.scanLearn.cursor) || 0);
@@ -5170,7 +5392,7 @@ async function touchPhoneLearn(tab, symbols) {
   });
   let scored = [];
   let newest = null;
-  const limit = scanCycle ? SCAN_LEARN_BATCH : 3;
+  const limit = scanCycle ? scanLearnBatchSize() : 3;
   for (const symbol of targets.slice(0, limit)) {
     try {
       const bars = await barsForLearn(symbol);
@@ -5241,7 +5463,7 @@ async function nudgeLearn(tab, extraSymbols) {
     if (symbol && unique.indexOf(symbol) < 0) unique.push(symbol);
   });
   const now = Date.now();
-  const gap = tab === "auto" || tab === "scan" ? SCAN_LEARN_GAP_MS : 900;
+  const gap = tab === "auto" || tab === "scan" ? scanLearnGapMs() : 900;
   if (tab === learnTouchTab && now - learnTouchAt < gap) return;
   learnTouchAt = now;
   learnTouchTab = tab || "";
@@ -5275,8 +5497,8 @@ async function cycleScanLearn(reason) {
   }
   const now = Date.now();
   if (!state.scanLearn) state.scanLearn = { cursor: 0, lastAt: 0, lastSymbol: "", scored: [], timer: 0 };
-  if (now - (state.scanLearn.lastAt || 0) < SCAN_LEARN_GAP_MS) return [];
-  const batch = nextScanLearnBatch(SCAN_LEARN_BATCH);
+  if (now - (state.scanLearn.lastAt || 0) < scanLearnGapMs()) return [];
+  const batch = nextScanLearnBatch(scanLearnBatchSize());
   state.scanLearn.lastAt = now;
   const scored = await nudgeLearn(reason || "scan", batch);
   const done = Array.isArray(scored) ? scored : batch;
@@ -5575,7 +5797,7 @@ async function cycleDeskPageLearn(mode) {
   if (!pages.length) return "";
   if (!state.pageLearn) state.pageLearn = { cursor: 0, lastAt: 0, lastPage: "", covered: [] };
   const now = Date.now();
-  if (!all && now - (state.pageLearn.lastAt || 0) < Math.max(4000, SCAN_LEARN_GAP_MS / 2)) {
+  if (!all && now - (state.pageLearn.lastAt || 0) < Math.max(4000, scanLearnGapMs() / 2)) {
     return state.pageLearn.lastPage || "";
   }
   // Light pass: two pages. Hourly / all: every desk page once.
@@ -5667,7 +5889,7 @@ function startScanLearnLoop() {
     } catch (error) {
       /* Keep the page-open cycle alive. */
     }
-    const wait = state.auto ? Math.max(7000, SCAN_LEARN_GAP_MS - 2000) : SCAN_LEARN_GAP_MS;
+    const wait = state.auto ? Math.max(7000, scanLearnGapMs() - 2000) : scanLearnGapMs();
     state.scanLearn.timer = setTimeout(tick, wait);
   };
   state.scanLearn.timer = setTimeout(tick, 1800);
@@ -7125,11 +7347,11 @@ async function scanSqueeze() {
       publishSqueeze(reads, skipped, ordered.length, done, false);
     }
   };
-  const lanes = Math.min(state.offline ? 3 : 6, Math.max(1, ordered.length));
+  const lanes = Math.min(deskScanLanes(3, 6), Math.max(1, ordered.length));
   try {
     await Promise.all(Array.from({ length: lanes }, () => worker()));
   } finally {
-    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    applyDeskBooster(false);
   }
   publishSqueeze(reads, skipped, ordered.length, done, true);
   sq.busy = false;
@@ -7735,12 +7957,12 @@ async function scanDeskPool() {
       publishDeskPool(reads, skipped, symbols.length, done, false);
     }
   };
-  const lanes = Math.min(4, Math.max(1, symbols.length));
+  const lanes = Math.min(deskScanLanes(3, 4), Math.max(1, symbols.length));
   try {
     await Promise.all(Array.from({ length: lanes }, () => worker()));
   } finally {
     dp.busy = false;
-    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    applyDeskBooster(false);
   }
   publishDeskPool(reads, skipped, symbols.length, done, true);
 }
@@ -8157,7 +8379,7 @@ async function runScorecard() {
     const bars = {};
     let next = 0;
     let done = 0;
-    const workers = Math.min(state.offline ? 3 : 6, Math.max(1, need.length));
+    const workers = Math.min(deskScanLanes(3, 6), Math.max(1, need.length));
     const worker = async () => {
       while (!box.stop && next < need.length) {
         const symbol = need[next];
@@ -8219,7 +8441,7 @@ async function runScorecard() {
     box.error = error.message || String(error);
   } finally {
     box.busy = false;
-    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    applyDeskBooster(false);
     renderScorecard();
     const tideBars = box._tideBars || {};
     box._tideBars = null;
@@ -8922,7 +9144,7 @@ async function runForecast() {
     });
     const bars = {};
     let next = 0;
-    const workers = Math.min(state.offline ? 2 : 4, Math.max(1, need.length));
+    const workers = Math.min(deskScanLanes(2, 4), Math.max(1, need.length));
     const cash = state.paper && Number(state.paper.equity) > 0 ? Number(state.paper.equity) : 10000;
     const publishBoard = (done, finished) => {
       const boardSymbols = [];
@@ -9000,7 +9222,7 @@ async function runForecast() {
   } finally {
     box.busy = false;
     paintForecastControls();
-    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    applyDeskBooster(false);
     renderForecast();
   }
 }
@@ -9100,7 +9322,7 @@ async function runCycleDesk() {
     const orderedScan = deskScanPriority(scanList);
     const bars = {};
     let next = 0;
-    const workers = Math.min(state.offline ? 3 : 6, Math.max(1, need.length));
+    const workers = Math.min(deskScanLanes(3, 6), Math.max(1, need.length));
     const scanHits = [];
     const publishScan = (done, finished) => {
       orderedScan.forEach((symbol) => {
@@ -9187,7 +9409,7 @@ async function runCycleDesk() {
   } finally {
     box.busy = false;
     paintCycleControls();
-    if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    applyDeskBooster(false);
     renderCycleDesk();
     paintChartToolBoxes(state.market && state.market.history);
   }
@@ -11276,6 +11498,14 @@ if (bookFile) {
 }
 
 $("safe").addEventListener("click", () => runSafe(true));
+document.querySelectorAll(".booster-mode").forEach((button) => {
+  button.addEventListener("click", () => {
+    const mode = button.getAttribute("data-booster");
+    if (mode) setBoosterMode(mode);
+  });
+});
+if ($("booster-apply")) $("booster-apply").addEventListener("click", () => applyDeskBooster(true));
+if ($("desk-green-scan")) $("desk-green-scan").addEventListener("click", () => runDeskGreenScan());
 $("win-startup").addEventListener("change", (event) => setWindows("startup", event.target));
 $("win-desktop").addEventListener("change", (event) => setWindows("desktop", event.target));
 $("int-refresh").addEventListener("click", () => loadInternals(true));
@@ -11368,6 +11598,10 @@ $("sq-stop").addEventListener("click", () => {
 });
 $("sq-side").addEventListener("change", renderSqueeze);
 setInterval(() => runSafe(false), 60000);
+setInterval(() => {
+  if (state.booster && state.booster.mode === "auto") applyDeskBooster(false);
+}, 20000);
+
 
 $("strat-pick").addEventListener("change", () => pickStrategy($("strat-pick").value));
 const stratBuy = $("strat-buy");
@@ -12293,6 +12527,11 @@ function showDock(name, opts) {
         paintLeanReadyNote();
       });
   }
+  if (name === "signals") {
+    paintBoosterPanel();
+    if (state.offline) renderLocalSignals();
+    else loadSignals().catch(() => renderLocalSignals());
+  }
   if (name === "squeeze") {
     paintSqueezeControls();
     ensureCatalog()
@@ -12846,6 +13085,7 @@ boot().then(() => {
     syncDeskStatus();
   }, 1000);
   hydrateProductScan();
+  hydrateDeskBooster();
   renderProductScan();
   startScanLearnLoop();
 }).catch((error) => {

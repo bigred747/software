@@ -30,6 +30,7 @@ def build() -> Path:
     engine = (web / "engine.js").read_text(encoding="utf-8")
     study = (web / "study.js").read_text(encoding="utf-8")
     frames = (web / "frames.js").read_text(encoding="utf-8")
+    booster = (web / "booster.js").read_text(encoding="utf-8")
     app = (web / "app.js").read_text(encoding="utf-8")
 
     def inline(page: str, name: str, body: str) -> str:
@@ -43,8 +44,9 @@ def build() -> Path:
     html = html.replace('<script src="engine.js"></script>', catalog_script + "<script>\n" + engine + "\n</script>")
     html = inline(html, "study.js", study)
     html = inline(html, "frames.js", frames)
+    html = inline(html, "booster.js", booster)
     html = inline(html, "app.js", app)
-    for name in ("live.js", "engine.js", "study.js", "frames.js", "app.js", "app.css"):
+    for name in ("live.js", "engine.js", "study.js", "frames.js", "booster.js", "app.js", "app.css"):
         if f'src="/{name}"' in html or f'src="{name}"' in html or f'href="/{name}"' in html or f'href="{name}"' in html:
             raise RuntimeError(f"{name} was not inlined")
     folder = ROOT / "iphone"
