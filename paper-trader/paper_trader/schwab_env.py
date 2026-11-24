@@ -91,8 +91,8 @@ def canonicalize_credentials(values: dict[str, str]) -> dict[str, str]:
     return out
 
 
-def load_dotenv(path: Path | None = None) -> dict[str, str]:
-    """Read .env into os.environ when the key is not already set. Missing file is fine."""
+def _env_file_values(path: Path | None = None) -> dict[str, str]:
+    """Read canonical Schwab keys from the .env file only (ignore process env)."""
     target = path if path is not None else ENV_PATH
     if not target.is_file():
         return {}
@@ -100,23 +100,50 @@ def load_dotenv(path: Path | None = None) -> dict[str, str]:
         text = target.read_text(encoding="utf-8")
     except OSError:
         return {}
-    parsed = canonicalize_credentials(parse_env_text(text))
+    return canonicalize_credentials(parse_env_text(text))
+
+
+def load_dotenv(path: Path | None = None) -> dict[str, str]:
+    """Read .env into os.environ. Real .env secrets replace sticky placeholders."""
+    target = path if path is not None else ENV_PATH
+    parsed = _env_file_values(target)
+    if not parsed:
+        return {}
     for key, value in parsed.items():
-        if key not in KEYS or key in os.environ:
+        if key not in KEYS:
             continue
         # Never sticky-write placeholders into the process env (tests + multi-folder installs).
         if key in {"SCHWAB_APP_KEY", "SCHWAB_APP_SECRET"} and not _is_real_secret(value):
             continue
+        current = (os.environ.get(key) or "").strip()
+        # Prefer the file when the process still holds paste-... leftovers.
+        if key in os.environ and _is_real_secret(current) and not _is_real_secret(value):
+            continue
+        if key in os.environ and _is_real_secret(current) and current == value:
+            continue
         os.environ[key] = value
     for alias, canonical in ALIAS_TO_CANONICAL.items():
-        if alias in os.environ and canonical not in os.environ and _is_real_secret(os.environ[alias]):
-            os.environ[canonical] = os.environ[alias]
-        if alias in parsed and canonical not in os.environ and _is_real_secret(parsed[alias]):
-            os.environ[canonical] = parsed[alias]
+        if alias in os.environ and _is_real_secret(os.environ[alias]):
+            if canonical not in os.environ or not _is_real_secret(os.environ.get(canonical, "")):
+                os.environ[canonical] = os.environ[alias]
+        if alias in parsed and _is_real_secret(parsed[alias]):
+            if canonical not in os.environ or not _is_real_secret(os.environ.get(canonical, "")):
+                os.environ[canonical] = parsed[alias]
     return {key: parsed[key] for key in KEYS if key in parsed}
 
 
 def _configured_value(name: str) -> str:
+    """Prefer real secrets from .env over sticky placeholder values in os.environ."""
+    file_values = _env_file_values()
+    from_file = (file_values.get(name) or "").strip()
+    if _is_real_secret(from_file):
+        return from_file
+    for alias, canonical in ALIAS_TO_CANONICAL.items():
+        if canonical != name:
+            continue
+        alias_file = (file_values.get(alias) or "").strip()
+        if _is_real_secret(alias_file):
+            return alias_file
     direct = (os.environ.get(name) or "").strip()
     if _is_real_secret(direct):
         return direct
@@ -126,7 +153,7 @@ def _configured_value(name: str) -> str:
         alias_value = (os.environ.get(alias) or "").strip()
         if _is_real_secret(alias_value):
             return alias_value
-    return direct
+    return from_file or direct
 
 
 def _is_real_secret(value: str) -> bool:
@@ -191,12 +218,17 @@ def install_schwab_env(folder: Path | None = None) -> Path:
 
 
 def offer_env_editor(folder: Path | None = None) -> bool:
-    """On Windows, open .env in Notepad once when App Key/Secret are still placeholders."""
+    """On Windows, open only .env in Notepad once when keys are still placeholders.
+
+    Never opens SCHWAB-KEYS.txt — that file is a template in the bot folder.
+    Real keys live in Documents\\Paper Trader\\.env.
+    """
     root = folder if folder is not None else INSTALL_ROOT
     target = install_schwab_env(root)
     marker = root / ".schwab_env_opened"
     if marker.is_file():
         return False
+    load_dotenv(target)
     if credentials_ready():
         return False
     if os.name != "nt":
@@ -204,6 +236,7 @@ def offer_env_editor(folder: Path | None = None) -> bool:
     try:
         import subprocess
 
+        # Only .env — never SCHWAB-KEYS.txt (placeholders / template).
         subprocess.Popen(["notepad.exe", str(target)], close_fds=True)
         marker.write_text("opened\n", encoding="utf-8")
         return True

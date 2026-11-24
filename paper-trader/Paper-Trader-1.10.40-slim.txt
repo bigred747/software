@@ -1,1 +1,1 @@
-Paper Trader 1.10.40 slim — Schwab Test button; erase extras; Connect Edge.
+Paper Trader 1.10.40 slim — .env keys win over SCHWAB-KEYS placeholders.

@@ -63,6 +63,31 @@ class SchwabEnvTests(unittest.TestCase):
                     schwab_env._configured_value("SCHWAB_APP_SECRET"), "portal-client-secret"
                 )
 
+    def test_real_dotenv_wins_over_sticky_placeholders(self) -> None:
+        """SCHWAB-KEYS.txt placeholders must not hide a good Documents\\Paper Trader\\.env."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / ".env"
+            path.write_text(
+                "SCHWAB_APP_KEY=real-from-dotenv\n"
+                "SCHWAB_APP_SECRET=real-secret-from-dotenv\n"
+                "SCHWAB_CALLBACK_URL=https://127.0.0.1\n",
+                encoding="utf-8",
+            )
+            (Path(folder) / "SCHWAB-KEYS.txt").write_text(
+                "SCHWAB_APP_KEY=paste-app-key-here\nSCHWAB_APP_SECRET=paste-app-secret-here\n",
+                encoding="utf-8",
+            )
+            os.environ["SCHWAB_APP_KEY"] = "paste-app-key-here"
+            os.environ["SCHWAB_APP_SECRET"] = "paste-app-secret-here"
+            with patch.object(schwab_env, "ENV_PATH", path), patch.object(
+                schwab_env, "INSTALL_ROOT", Path(folder)
+            ):
+                self.assertTrue(schwab_env.credentials_ready())
+                self.assertEqual(schwab_env._configured_value("SCHWAB_APP_KEY"), "real-from-dotenv")
+                self.assertEqual(
+                    schwab_env._configured_value("SCHWAB_APP_SECRET"), "real-secret-from-dotenv"
+                )
+
     def test_keys_file_syncs_into_placeholder_env(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
