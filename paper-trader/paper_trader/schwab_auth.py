@@ -386,3 +386,88 @@ def signal_item(path: Path | None = None) -> dict[str, Any]:
         "detail": str(status["detail"]),
         "tone": "strict",
     }
+
+
+QUOTE_TEST_URL = "https://api.schwabapi.com/marketdata/v1/quotes?symbols=SPY"
+
+
+def _bearer_get(url: str, access_token: str) -> tuple[int, str]:
+    """GET one Schwab URL with the access token. Returns status and body text."""
+    request = urllib.request.Request(
+        url,
+        method="GET",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+            "Accept-Encoding": "identity",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            body = _read_http_body(response).decode("utf-8", errors="ignore")
+            return int(response.status), body
+    except urllib.error.HTTPError as exc:
+        body = _read_http_body(exc).decode("utf-8", errors="ignore")
+        return int(exc.code), body
+    except urllib.error.URLError as exc:
+        raise ValueError(f"Could not reach Schwab: {exc.reason}") from exc
+
+
+def test_connection(path: Path | None = None) -> dict[str, Any]:
+    """Desk Test button: keys file, token session, optional live quote ping. No orders."""
+    status = connection_status(path)
+    key_len = len(_app_key())
+    secret_len = len(_app_secret())
+    result: dict[str, Any] = {
+        "ok": False,
+        "name": "Schwab test",
+        "credentials": bool(status["credentials"]),
+        "connected": bool(status["connected"]),
+        "env_path": str(status["env_path"]),
+        "callback": str(status["callback"]),
+        "key_length": key_len,
+        "secret_length": secret_len,
+        "quote_ok": False,
+        "detail": "",
+        "live_locked": True,
+        "paper_default": True,
+    }
+    if not status["credentials"]:
+        result["detail"] = (
+            f"Keys missing in {status['env_path']}. "
+            "Set SCHWAB_APP_KEY and SCHWAB_APP_SECRET (not paste-...), then press Test again."
+        )
+        return result
+    if not status["connected"]:
+        result["ok"] = True
+        result["detail"] = (
+            f"Keys ready (key {key_len} · secret {secret_len}) · callback {status['callback']} · "
+            "not connected yet. Press Connect, sign in, paste the redirect URL, then Test again."
+        )
+        return result
+    store = ensure_session(path)
+    token = str(store.get("access_token") or "")
+    if not token:
+        result["detail"] = "Session expired. Press Connect and sign in again."
+        return result
+    try:
+        code, body = _bearer_get(QUOTE_TEST_URL, token)
+    except ValueError as exc:
+        result["detail"] = str(exc)
+        return result
+    if 200 <= code < 300:
+        result["ok"] = True
+        result["connected"] = True
+        result["quote_ok"] = True
+        result["detail"] = (
+            f"Connected · token works · SPY quote ping HTTP {code} · "
+            f"callback {status['callback']} · Live locked · paper only."
+        )
+        return result
+    snippet = body.strip().replace("\n", " ")[:160]
+    result["detail"] = (
+        f"Connected locally but Schwab quote ping failed HTTP {code}"
+        + (f" · {snippet}" if snippet else "")
+        + ". Try Connect again if the session expired."
+    )
+    return result

@@ -11736,6 +11736,23 @@ $("schwab-connect").addEventListener("click", () => withBusy(async () => {
   }
 }));
 
+if ($("schwab-test")) $("schwab-test").addEventListener("click", () => withBusy(async () => {
+  if (state.offline) {
+    $("status").textContent = "Schwab test needs the computer desk on 127.0.0.1.";
+    return;
+  }
+  try {
+    const report = await postJSON("/api/schwab/test", {});
+    await loadSchwab();
+    await loadSignals();
+    $("status").textContent = report.detail || (report.ok ? "Schwab test passed." : "Schwab test failed.");
+    if ($("schwab-note")) $("schwab-note").textContent = report.detail || "";
+  } catch (error) {
+    $("status").textContent = error.message;
+    if ($("schwab-note")) $("schwab-note").textContent = error.message;
+  }
+}));
+
 $("schwab-modal-cancel").addEventListener("click", () => {
   closeSchwabModal();
   $("status").textContent = "Schwab connect canceled. Signals stay red until you connect.";

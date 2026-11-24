@@ -179,6 +179,7 @@ class SchwabEnvTests(unittest.TestCase):
         # Connect lives in the top desk rail (next to Outlook), not inside <header>.
         rail = page.split('class="desk-rail"', 1)[1].split('id="market-outlook"', 1)[0]
         self.assertIn('id="schwab-connect"', rail)
+        self.assertIn('id="schwab-test"', rail)
         self.assertIn('id="schwab-top-dot"', rail)
         self.assertNotIn("Paste keys into Documents\\Paper Trader\\.env", page)
         self.assertNotIn("SCHWAB-KEYS.txt", page)

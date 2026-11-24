@@ -1,1 +1,1 @@
-Paper Trader 1.10.40 slim — erase extras; Connect opens Edge; keys in .env.
+Paper Trader 1.10.40 slim — Schwab Test button; erase extras; Connect Edge.

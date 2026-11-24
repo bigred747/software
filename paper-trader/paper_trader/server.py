@@ -88,6 +88,7 @@ from paper_trader.schwab_auth import (
     set_live_trading as schwab_set_live_trading,
     set_market_data as schwab_set_market_data,
     signal_item as schwab_signal_item,
+    test_connection as schwab_test_connection,
 )
 from paper_trader.schwab_env import status_report as schwab_status_report
 
@@ -1568,6 +1569,9 @@ class DeskHandler(BaseHTTPRequestHandler):
             return
         if method == "POST" and path == "/api/schwab/connect":
             self._json(schwab_authorize_url())
+            return
+        if method == "POST" and path == "/api/schwab/test":
+            self._json(schwab_test_connection())
             return
         if method == "POST" and path == "/api/schwab/finish":
             schwab_finish_oauth(str(body.get("redirect") or body.get("code") or ""))
