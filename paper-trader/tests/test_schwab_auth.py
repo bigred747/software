@@ -223,5 +223,62 @@ class SchwabApiRouteTests(unittest.TestCase):
         self.assertIn("Live locked", schwab["detail"])
 
 
+class SchwabConnectCliTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.folder = tempfile.TemporaryDirectory()
+        self.root = Path(self.folder.name)
+        self.token_path = self.root / "schwab_tokens.json"
+        self.env = {
+            "SCHWAB_APP_KEY": "demo-key",
+            "SCHWAB_APP_SECRET": "demo-secret",
+            "SCHWAB_CALLBACK_URL": "https://127.0.0.1",
+            "SCHWAB_APP_NAME": "personal-market-data",
+        }
+        self._env_patch = patch.dict("os.environ", self.env, clear=False)
+        self._env_patch.start()
+        self._token_patch = patch("paper_trader.schwab_auth.TOKEN_PATH", self.token_path)
+        self._token_patch.start()
+        self._install_patch = patch("paper_trader.schwab_env.INSTALL_ROOT", self.root)
+        self._install_patch.start()
+        self._env_path_patch = patch("paper_trader.schwab_env.ENV_PATH", self.root / ".env")
+        self._env_path_patch.start()
+        (self.root / ".env").write_text(
+            "SCHWAB_APP_KEY=demo-key\nSCHWAB_APP_SECRET=demo-secret\n"
+            "SCHWAB_CALLBACK_URL=https://127.0.0.1\nSCHWAB_APP_NAME=personal-market-data\n",
+            encoding="utf-8",
+        )
+
+    def tearDown(self) -> None:
+        self._env_path_patch.stop()
+        self._install_patch.stop()
+        self._token_patch.stop()
+        self._env_patch.stop()
+        self.folder.cleanup()
+
+    def test_cli_schwab_connect_finishes_from_redirect_flag(self) -> None:
+        from paper_trader.cli import main
+
+        with patch("paper_trader.schwab_auth._token_request", return_value={
+            "access_token": "cli-access",
+            "refresh_token": "cli-refresh",
+            "expires_in": 1800,
+        }), patch("webbrowser.open"):
+            code = main([
+                "schwab-connect",
+                "--no-browser",
+                "--redirect",
+                "https://127.0.0.1/?code=cli-code",
+            ])
+        self.assertEqual(code, 0)
+        status = schwab_auth.connection_status(self.token_path)
+        self.assertTrue(status["connected"])
+
+    def test_connect_schwab_bat_exists(self) -> None:
+        bat = Path(__file__).resolve().parents[1] / "Connect-Schwab.bat"
+        text = bat.read_text(encoding="utf-8")
+        self.assertIn("schwab-connect", text)
+        self.assertIn("launch.py", text)
+
+
 if __name__ == "__main__":
     unittest.main()

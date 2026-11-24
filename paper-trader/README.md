@@ -174,6 +174,27 @@ Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
 
+## Close extra Bots (1.10.50)
+
+Signals Bot red with “N extra” means older installs still scoring. Desk open (or `Close-Extra-Bots.bat`) closes extras and keeps one Bot in Documents\Paper Trader. Seal **1.10.50**.
+
+## CMD Schwab Connect (1.10.49)
+
+Double-click `Connect-Schwab.bat` or run `launch.py schwab-connect` in CMD. Opens Schwab sign-in, then paste the `https://127.0.0.1/?code=...` URL in the terminal. Seal **1.10.49**.
+
+## Computer desk + Schwab .env install (1.10.48)
+
+Desktop **Paper Trader.bat** opens the computer desk at `http://127.0.0.1:8765/` (not the mobile HTML copy). Launch installs `Documents\Paper Trader\.env` with:
+
+```
+SCHWAB_APP_KEY=paste-app-key-here
+SCHWAB_APP_SECRET=paste-app-secret-here
+SCHWAB_CALLBACK_URL=https://127.0.0.1
+SCHWAB_APP_NAME=personal-market-data
+```
+
+Paste portal **Client ID / Client Secret** over the placeholders (Notepad opens once when keys are still empty). Phone folder is updated quietly and no longer auto-opens. Seal **1.10.48**.
+
 ## Ignore setup staging (1.10.46)
 
 Install signal ignores `PaperTrader-setup*` staging folders and Recycle Bin. Launcher deletes setup leftovers after a successful install into Documents\Paper Trader. Repo keeps only the last two Computer slim zips. Seal **1.10.46**.
@@ -503,21 +524,22 @@ Markets: all 7,510 from the catalog (crypto including XRP and Stellar, stocks, E
 
 Paper stays the default. The desk does not send broker orders. Quotes still use the existing feed until Schwab bars are wired; **Connect**, **Market Data**, and **Live Trading** prepare the Schwab session. Panels use a steel-desk palette (charcoal / slate / mint / coral / ice) so status colors stay clear without glow spam. Connect + Outlook share one compact top rail so charts keep the room. A big **Tools** button sits beside the Paper Trader title. Study, Strategies, Squeeze scan, Scorecard, Internals, Timeframes, big4indicator, Journal, Backtest, and Signals open as full Tools pages with Back.
 
-When the Schwab Developer Portal app (`personal-market-data`, Market Data Production, callback `https://127.0.0.1`) is approved:
+When the Schwab Developer Portal app (`personal-market-data`, Market Data Production, callback `https://127.0.0.1`) is **Ready For Use**:
 
 1. Open **`Documents\Paper Trader\.env`** (created automatically on install/launch from `SCHWAB-KEYS.txt` / `.env.example` if missing). You can also open `SCHWAB-KEYS.txt` in that folder — same placeholders.
-2. Paste your App Key and App Secret over the placeholders:
+2. Paste the portal **Client ID** and **Client Secret** over the placeholders (either name works):
 
 ```
-SCHWAB_APP_KEY=paste-app-key-here
-SCHWAB_APP_SECRET=paste-app-secret-here
+SCHWAB_APP_KEY=your-client-id
+SCHWAB_APP_SECRET=your-client-secret
 SCHWAB_CALLBACK_URL=https://127.0.0.1
 SCHWAB_APP_NAME=personal-market-data
 ```
 
+   Portal aliases also work: `SCHWAB_CLIENT_ID` / `SCHWAB_CLIENT_SECRET`. If `.env` still has `paste-...` placeholders and you put real values in `SCHWAB-KEYS.txt`, the next launch copies them into `.env`.
 3. Never commit `.env` or `schwab_tokens.json`. Reinstalls keep both in place.
-4. At the **top of the desk**, **Connect to Schwab** sits with a green/red light (CONNECTED / NOT CONNECTED). It opens Schwab sign-in; paste the `https://127.0.0.1/?code=...` redirect URL to finish. Tokens stay in `schwab_tokens.json`.
-5. On the Trade panel: **Market Data** (after Connect) and **Live Trading** (after Market Data; confirm; default off). Paper remains the default; no broker orders.
+4. At the **top of the desk**, **Connect** sits with a green/red light. It opens Schwab sign-in; paste the `https://127.0.0.1/?code=...` redirect URL to finish. Tokens stay in `schwab_tokens.json`.
+5. On the Trade panel: **Market Data** (after Connect). **Live Trading** stays locked (paper only; no broker orders).
 6. **Signals** also show **Schwab** green/red. CLI: `python -m paper_trader schwab-status`.
 
 ## Check

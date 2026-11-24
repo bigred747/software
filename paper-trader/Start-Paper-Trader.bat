@@ -41,13 +41,14 @@ if errorlevel 1 (
 rem Keep Documents\Paper Trader only — drop launcher staging folders (and old setup-* leftovers).
 if /I "%RUN%"=="%USERPROFILE%\Documents\Paper Trader" for /d %%D in ("%USERPROFILE%\Documents\PaperTrader-setup*") do rmdir /s /q "%%D" 2>nul
 echo Setup is done. Leave the window named Paper Trader open.
-echo Microsoft Edge opens when the desk answers. The header says Desk is working.
+echo Microsoft Edge opens the computer desk at http://127.0.0.1:8765/ when the desk answers.
+echo Schwab Connect only works on that computer desk — not Documents\iPhone\PaperTrader.html.
 echo The score keeps running after that window closes. Starting it at sign-in is optional. See Windows extras in the Safe check.
 echo The desk folder is:
 echo %RUN%
 call :DeskLink "%RUN%"
 call :MakePhone "%RUN%"
-start "Paper Trader" /D "%RUN%" cmd /c "2 Open Paper Trader.bat"
+start "Paper Trader" /D "%RUN%" cmd /c "Start-Paper-Trader.bat"
 echo Press any key to close this setup window.
 pause >nul
 exit /b 0
@@ -70,7 +71,8 @@ echo Unblock
 echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
 echo Paper Trader stays on this computer. It loads market quotes and does not place broker orders.
-echo Microsoft Edge opens the desk.
+echo Microsoft Edge opens the computer desk at http://127.0.0.1:8765/
+echo Schwab Connect only works on that computer desk — not the mobile PaperTrader.html copy.
 call :DeskLink "%~dp0"
 call :MakePhone "%~dp0"
 if exist "%~dp0runtime\python.exe" (
@@ -96,7 +98,7 @@ exit /b 0
 call :WriteLink "%USERPROFILE%\Desktop" "%~1"
 call :WriteLink "%USERPROFILE%\OneDrive\Desktop" "%~1"
 if defined OneDrive call :WriteLink "%OneDrive%\Desktop" "%~1"
-echo Paper Trader.bat is on the desktop. Double-click it to open the desk.
+echo Desktop shortcut: Paper Trader.bat — double-click it to open http://127.0.0.1:8765/
 exit /b 0
 
 :WriteLink
@@ -104,7 +106,8 @@ if not exist "%~1" exit /b 0
 > "%~1\Paper Trader.bat" echo @echo off
 >> "%~1\Paper Trader.bat" echo cd /d "%~2"
 >> "%~1\Paper Trader.bat" echo title Paper Trader
->> "%~1\Paper Trader.bat" echo call "2 Open Paper Trader.bat"
+>> "%~1\Paper Trader.bat" echo rem Opens the computer desk on 127.0.0.1 — not the mobile HTML copy.
+>> "%~1\Paper Trader.bat" echo call "Start-Paper-Trader.bat"
 exit /b 0
 
 :MakePhone
@@ -116,9 +119,8 @@ if "!SRC:~-1!"=="\" set "SRC=!SRC:~0,-1!"
 if exist "%SRC%\iphone\PaperTrader.html" copy /y "%SRC%\iphone\PaperTrader.html" "%PHONE%\PaperTrader.html" >nul
 if exist "%SRC%\iphone\README.txt" copy /y "%SRC%\iphone\README.txt" "%PHONE%\README.txt" >nul
 if exist "%PHONE%\PaperTrader.html" (
-  echo The iPhone folder is open.
-  echo %PHONE%
-  start "" explorer "%PHONE%"
+  echo Phone copy updated quietly in Documents\iPhone — not opened.
+  echo Use Desktop "Paper Trader.bat" for Schwab Connect on 127.0.0.1.
 ) else (
   echo The iPhone file was not in this copy.
 )

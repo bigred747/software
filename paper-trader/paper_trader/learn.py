@@ -1185,15 +1185,23 @@ def stop_learner(state_path: Path, killer=None) -> int | None:
 
 
 def ask_learners_to_close(home: Path, source: Path | None = None, killer=None) -> list[int]:
-    from paper_trader.install import desk_folders
+    """Ask every Paper Trader install's scorer to close (Documents + Desktop + Downloads)."""
+    from paper_trader.install import desk_folders, find_installs
 
     folders = list(desk_folders(home))
+    try:
+        folders.extend(find_installs(home))
+    except OSError:
+        pass
     if source is not None:
         folders.append(source)
     stopped: list[int] = []
     seen: set[Path] = set()
     for folder in folders:
-        resolved = folder.resolve()
+        try:
+            resolved = folder.resolve()
+        except OSError:
+            continue
         if resolved in seen:
             continue
         seen.add(resolved)
@@ -1201,6 +1209,118 @@ def ask_learners_to_close(home: Path, source: Path | None = None, killer=None) -
         if pid:
             stopped.append(pid)
     return stopped
+
+
+def _safe_end_learner_pid(pid: int) -> None:
+    """End only a known learn.lock holder PID. Never used for unrelated programs."""
+    if pid <= 0 or pid == os.getpid():
+        return
+    try:
+        if os.name == "nt":
+            flags = _learner_creation_flags()
+            options: dict = {
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "stdin": subprocess.DEVNULL,
+                "check": False,
+            }
+            if flags:
+                options["creationflags"] = flags
+            subprocess.run(["taskkill", "/PID", str(pid), "/F"], **options)
+        else:
+            import signal
+
+            os.kill(pid, signal.SIGTERM)
+    except OSError:
+        return
+
+
+def close_extra_learners(
+    root: Path,
+    home: Path | None = None,
+    *,
+    killer=None,
+    wait: float = 1.5,
+) -> dict[str, object]:
+    """Keep this install's Bot; close score processes in every other install.
+
+    1) Write stop flags to extras
+    2) Wait briefly for them to exit
+    3) Force-end only remaining learn.lock holder PIDs
+    """
+    root = Path(root)
+    base = Path.home() if home is None else Path(home)
+    try:
+        mine = root.resolve()
+    except OSError:
+        mine = root
+    end = killer or _safe_end_learner_pid
+    live = count_live_learners(base)
+    extras = [(path, pid) for path, pid in live if path != mine]
+    # Also stop lock holders that are not "healthy" yet still hold learn.lock.
+    try:
+        from paper_trader.install import find_installs
+
+        for folder in find_installs(base):
+            try:
+                other = folder.resolve()
+            except OSError:
+                continue
+            if other == mine:
+                continue
+            if any(path == other for path, _pid in extras):
+                continue
+            holder = lock_holder(other / "learn.lock")
+            if holder and holder != os.getpid():
+                extras.append((other, holder))
+    except OSError:
+        pass
+    flagged: list[int] = []
+    for path, pid in extras:
+        flag = path / STOP_FLAG
+        try:
+            flag.write_text("close\n", encoding="utf-8")
+            flagged.append(pid)
+        except OSError:
+            continue
+    deadline = time.monotonic() + max(0.2, float(wait))
+    while time.monotonic() < deadline and extras:
+        still: list[tuple[Path, int]] = []
+        for path, pid in extras:
+            if lock_holder(path / "learn.lock") == pid:
+                still.append((path, pid))
+            else:
+                (path / STOP_FLAG).unlink(missing_ok=True)
+        extras = still
+        if extras:
+            time.sleep(0.1)
+    forced: list[int] = []
+    for path, pid in extras:
+        end(pid)
+        forced.append(pid)
+        (path / STOP_FLAG).unlink(missing_ok=True)
+        # Drop a dead lock file if the process is gone so Signals clears.
+        if lock_holder(path / "learn.lock") == pid:
+            try:
+                (path / "learn.lock").unlink(missing_ok=True)
+            except OSError:
+                pass
+    remaining = [pid for _path, pid in count_live_learners(base) if _path != mine]
+    return {
+        "closed": flagged,
+        "forced": forced,
+        "remaining": remaining,
+        "ok": len(remaining) == 0,
+        "detail": (
+            "One Bot only"
+            if not remaining and not flagged and not forced
+            else (
+                f"Closed {len(set(flagged + forced))} extra Bot score(s)"
+                if not remaining
+                else f"{len(remaining)} extra Bot score(s) still running"
+            )
+        ),
+    }
 
 
 def learner_command(root: Path, windows: bool | None = None) -> list[str]:
@@ -1298,10 +1418,14 @@ def sole_bot_status(root: Path, state_path: Path, home: Path | None = None) -> d
         if holder:
             live = [(mine_root, holder)] + live
     if len(live) > 1:
+        extras = len(live) - 1
         return {
             "name": "Bot",
             "ok": False,
-            "detail": f"{len(live)} score processes · keep one · reopen Paper Trader so extras close",
+            "detail": (
+                f"{len(live)} score processes · {extras} extra · keep one · "
+                "run Close-Extra-Bots.bat or reopen Paper Trader"
+            ),
         }
     if mine:
         return {"name": "Bot", "ok": True, "detail": "One background score · Bot on · this install"}
@@ -1349,24 +1473,8 @@ def ensure_sole_learner(root: Path, state_path: Path, home: Path | None = None, 
         mine = root.resolve()
     except OSError:
         mine = root
-    try:
-        from paper_trader.install import find_installs
-
-        others = 0
-        for folder in find_installs(base):
-            try:
-                other = folder.resolve()
-            except OSError:
-                continue
-            if other == mine:
-                continue
-            # Cap how many extras we wait on so serve/checks stay snappy with many setup folders.
-            _stop_learner_quick(other / "learn_state.json", wait=0.2 if others < 4 else 0.0)
-            others += 1
-            if others >= 12:
-                break
-    except OSError:
-        pass
+    # Close extras hard enough that Signals does not keep "3 extra Bot" forever.
+    close_extra_learners(mine, base, wait=min(1.2, max(0.4, float(wait) * 0.6)))
     if learner_healthy(state_path):
         return True
     lock_path = state_path.with_name("learn.lock")

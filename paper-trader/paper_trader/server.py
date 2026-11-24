@@ -1756,6 +1756,11 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
         print("The score keeps running after that window closes. Use Windows extras in the Safe check to start it at sign-in.")
         print("Only one Bot score runs on this computer.")
         return
+    from paper_trader.learn import close_extra_learners
+
+    closed = close_extra_learners(root, Path.home())
+    if closed.get("closed") or closed.get("forced"):
+        print(str(closed.get("detail") or "Extra Bot scores closed."))
     ensure_sole_learner(root, learn_path, Path.home())
     server.desk.expect_learner = True
     try:
@@ -1766,6 +1771,7 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
         print("Other Paper Trader folders were found. Nothing was deleted. You can delete them yourself:")
         for folder in extra:
             print("  " + str(folder))
+        print("Extra Bot scores in those folders are closed when this desk opens (or run Close-Extra-Bots.bat).")
     host, bound = server.server_address[:2]
     url = f"http://{host}:{bound}/"
     print(f"Paper Trader is running at {url}")

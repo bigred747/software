@@ -177,7 +177,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.46";
+const VERSION = "1.10.50";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -11800,7 +11800,10 @@ $("paper").addEventListener("click", () => withBusy(async () => {
 
 $("schwab-connect").addEventListener("click", () => withBusy(async () => {
   if (state.offline) {
-    $("status").textContent = "Schwab connect needs the computer desk on 127.0.0.1.";
+    $("status").textContent = "Schwab Connect needs the computer desk. On the PC, double-click Desktop Paper Trader.bat (opens http://127.0.0.1:8765/). Paste Client ID/Secret into Documents\\Paper Trader\\.env first.";
+    if ($("schwab-note")) {
+      $("schwab-note").textContent = "Mobile copy cannot Connect. Use Desktop Paper Trader.bat → 127.0.0.1.";
+    }
     return;
   }
   if (state.schwab && state.schwab.connected) {
