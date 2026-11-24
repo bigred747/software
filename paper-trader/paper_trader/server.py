@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -12,6 +13,19 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
+
+
+def _json_clean(value):
+    """Replace NaN/Inf so allow_nan=False JSON never 400s the desk."""
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+        return value
+    if isinstance(value, dict):
+        return {key: _json_clean(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_clean(item) for item in value]
+    return value
 
 from paper_trader import __version__
 from paper_trader.breadth import snapshot as breadth_snapshot
@@ -52,6 +66,8 @@ from paper_trader.learn import (
     closed_bars,
     desk_day,
     ensure_learner,
+    ensure_sole_learner,
+    sole_bot_status,
     mood,
     remove_startup,
     startup_present,
@@ -816,6 +832,7 @@ class Desk:
             {"name": "Arrows", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
             {"name": "Study", "ok": True, "detail": "On this device"},
             self._learning_check(),
+            sole_bot_status(Path(__file__).resolve().parents[1], self.learn_path, Path.home()),
             self._process_check(),
             self._mood_check(str(view.get("symbol") or ""), quote_ok),
             {"name": "Zoom", "ok": True, "detail": "In and out"},
@@ -829,7 +846,12 @@ class Desk:
             single_copy_status(Path.home()),
         ]
         # Schwab starts red until OAuth succeeds; that alone does not fail the desk.
-        desk_ok = all(bool(item["ok"]) for item in items if item.get("name") != "Schwab")
+        # Bot (multi-score) is a health warning — paper desk still runs.
+        desk_ok = all(
+            bool(item["ok"])
+            for item in items
+            if item.get("name") not in {"Schwab", "Bot"}
+        )
         return {"ok": desk_ok, "items": items}
 
     def safe_report(self, bound: str = "127.0.0.1") -> dict:
@@ -1294,7 +1316,7 @@ class Desk:
         root = self.state_path.parent
         if self.expect_learner:
             try:
-                ensure_learner(root, self.learn_path, wait=0.8)
+                ensure_sole_learner(root, self.learn_path, Path.home(), wait=0.8)
             except OSError:
                 pass
         report = book_view(self.learn_path, expect=self.expect_learner)
@@ -1622,7 +1644,7 @@ class DeskHandler(BaseHTTPRequestHandler):
         return data
 
     def _json(self, payload: dict, status: int = 200) -> None:
-        body = json.dumps(payload, allow_nan=False).encode("utf-8")
+        body = json.dumps(_json_clean(payload), allow_nan=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -1728,12 +1750,13 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
         busy = getattr(exc, "winerror", None) == 10048 or exc.errno in {98, 10048}
         if not busy:
             raise
-        ensure_learner(root, learn_path)
+        ensure_sole_learner(root, learn_path, Path.home())
         print("Paper Trader is already open on this computer.")
         print("Close that window, then start Paper Trader again.")
         print("The score keeps running after that window closes. Use Windows extras in the Safe check to start it at sign-in.")
+        print("Only one Bot score runs on this computer.")
         return
-    ensure_learner(root, learn_path)
+    ensure_sole_learner(root, learn_path, Path.home())
     server.desk.expect_learner = True
     try:
         extra = other_copies(Path.home(), root)

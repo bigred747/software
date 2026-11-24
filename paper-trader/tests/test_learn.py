@@ -22,10 +22,12 @@ from paper_trader.learn import (
     closed_bars,
     score_row,
     ensure_learner,
+    ensure_sole_learner,
     fit,
     learn_banner_lines,
     learner_command,
     learning_report,
+    sole_bot_status,
     mood,
     rank_leaders,
     rank_today,
@@ -177,6 +179,46 @@ class AlwaysOnTests(unittest.TestCase):
                 self.assertEqual(again, [])
             finally:
                 started.release()
+
+    def test_sole_learner_closes_other_installs_then_keeps_one(self) -> None:
+        with tempfile.TemporaryDirectory() as home_dir:
+            home = Path(home_dir)
+            other = home / "other"
+            mine = home / "mine"
+            other.mkdir()
+            mine.mkdir()
+            other_state = other / "learn_state.json"
+            mine_state = mine / "learn_state.json"
+            foreign = Watcher(other_state)
+            self.assertTrue(foreign.acquire())
+            foreign._beat()
+            stopped: list[Path] = []
+            started = Watcher(mine_state)
+
+            def spawn() -> None:
+                self.assertTrue(started.acquire())
+                started._beat()
+
+            try:
+                with patch("paper_trader.install.find_installs", return_value=[other, mine]), patch(
+                    "paper_trader.learn.stop_learner",
+                    side_effect=lambda state, killer=None: stopped.append(state) or foreign.release() or 1,
+                ):
+                    self.assertTrue(ensure_sole_learner(mine, mine_state, home=home, spawn=spawn, wait=1))
+                self.assertTrue(any(path.name == "learn_state.json" and "other" in str(path) for path in stopped))
+                again: list[str] = []
+                self.assertTrue(ensure_sole_learner(mine, mine_state, home=home, spawn=lambda: again.append("x"), wait=0.1))
+                self.assertEqual(again, [])
+                status = sole_bot_status(mine, mine_state, home=home)
+                self.assertEqual(status["name"], "Bot")
+                self.assertTrue(status["ok"])
+                self.assertIn("One background score", str(status["detail"]))
+            finally:
+                started.release()
+                try:
+                    foreign.release()
+                except Exception:
+                    pass
 
     def test_stop_learner_asks_and_never_kills_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
