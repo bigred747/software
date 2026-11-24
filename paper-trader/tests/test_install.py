@@ -89,11 +89,28 @@ class InstallTests(unittest.TestCase):
             make_install(dest, "1.9.18")
             notes.mkdir()
             (notes / "keep.txt").write_text("leave\n", encoding="utf-8")
-            self.assertEqual(other_copies(home, dest), [setup.resolve()])
-            self.assertEqual(other_copies(home, setup), [dest.resolve()])
-            self.assertTrue(is_install(setup))
+            # Staging extracts are not kept installs — Install signal ignores them.
+            self.assertEqual(other_copies(home, dest), [])
+            self.assertFalse(is_install(setup))
             self.assertTrue(is_install(dest))
             self.assertEqual((notes / "keep.txt").read_text(encoding="utf-8"), "leave\n")
+
+    def test_staging_and_recycle_paths_do_not_count_as_installs(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            dest = canonical_folder(home)
+            setup = home / "Documents" / "PaperTrader-setup-31986" / "paper-trader"
+            trash = home / "Documents" / "$Recycle.Bin" / "paper-trader"
+            make_install(dest, "1.10.46")
+            make_install(setup, "1.10.45")
+            make_install(trash, "1.10.40")
+            self.assertTrue(is_install(dest))
+            self.assertFalse(is_install(setup))
+            self.assertFalse(is_install(trash))
+            self.assertEqual(find_installs(home), [dest.resolve()])
+            status = single_copy_status(home)
+            self.assertTrue(status["ok"])
+            self.assertIn("Newest copy only", str(status["detail"]))
 
     def test_incomplete_extracts_without_version_do_not_inflate_copy_count(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

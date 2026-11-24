@@ -1,1 +1,0 @@
-Paper Trader 1.10.31 slim — phone paints EMA 5/14/50/200 on open; Layers Stack on.

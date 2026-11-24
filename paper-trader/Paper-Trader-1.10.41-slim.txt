@@ -1,1 +1,0 @@
-Paper Trader 1.10.41 slim — Computer serves /booster.js so Signals and Booster loads PaperBooster.

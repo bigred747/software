@@ -1,9 +1,0 @@
-Paper Trader 1.10.22 — slim Windows zip
-
-File: Paper-Trader-1.10.22-slim.zip
-
-Tools → Backtest runs the chart market and fills the trade table on the computer. Phone still points to the Windows desk for the full history report. Live locked.
-
-1. Download Paper-Trader-1.10.22-slim.zip
-2. Unzip
-3. Run Start-Paper-Trader.bat

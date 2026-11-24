@@ -74,6 +74,8 @@ if not defined DEST (
   pause
   exit /b 1
 )
+rem Drop launcher staging leftovers; Documents\Paper Trader is the kept desk.
+for /d %%D in ("%USERPROFILE%\Documents\PaperTrader-setup*") do rmdir /s /q "%%D" 2>nul
 call :DeskLink "%DEST%"
 echo The newest Paper Trader is the only copy in Documents.
 echo Step 2 of 2: double-click Paper Trader.bat on the desktop.
