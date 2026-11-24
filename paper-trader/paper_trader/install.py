@@ -225,19 +225,19 @@ def _copy_label(folder: Path) -> str:
 
 
 def single_copy_status(home: Path) -> dict[str, str | bool]:
-    """Accurate install count. Never deletes. Guides keep Documents\\Paper Trader only."""
+    """Accurate install count. Guides keep Documents\\Paper Trader 1.10.40 only."""
     copies = sorted(find_installs(home), key=_installed_version, reverse=True)
     if not copies:
         return {"name": "Install", "ok": True, "detail": "No extra copies"}
     if len(copies) == 1:
-        return {"name": "Install", "ok": True, "detail": "Newest copy only · " + _copy_label(copies[0])}
+        return {"name": "Install", "ok": True, "detail": "One copy · " + _copy_label(copies[0])}
     newest = copies[0]
     extras = copies[1:]
     shown = ", ".join(_copy_label(path) for path in extras[:4])
     more = f" +{len(extras) - 4} more" if len(extras) > 4 else ""
     detail = (
-        f"{len(copies)} copies · keep latest Documents\\Paper Trader · newest {_copy_label(newest)} · also {shown}{more}. "
-        "Nothing is deleted for you — remove older Downloads/Desktop extracts yourself."
+        f"{len(copies)} copies · keep Documents\\Paper Trader (1.10.40) · newest {_copy_label(newest)} · also {shown}{more}. "
+        "Double-click Erase-Other-Paper-Traders.bat in Documents\\Paper Trader to erase the extras."
     )
     return {"name": "Install", "ok": False, "detail": detail}
 

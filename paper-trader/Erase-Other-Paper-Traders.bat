@@ -3,8 +3,8 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 title Paper Trader — keep 1.10.40 only
 echo.
-echo  Keep Paper Trader 1.10.40
-echo  Erase other installs, leftover zips, and extra Bot scores
+echo  Keep Paper Trader 1.10.40 in Documents\Paper Trader
+echo  Erase other installs (PaperTrader-setup-*), leftover zips, extra Bots
 echo.
 if exist "%~dp0runtime\python.exe" (
   "%~dp0runtime\python.exe" "%~dp0launch.py" erase-others
@@ -31,8 +31,7 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo Done. Documents\Paper Trader 1.10.40 is the only desk.
-echo Desktop shortcut Paper Trader.bat points at that copy.
-echo Double-click Paper Trader.bat to open.
+echo Done. Only Documents\Paper Trader should remain.
+echo Open Paper Trader.bat on the desktop, then Connect-Schwab.bat for Schwab.
 pause
 exit /b 0

@@ -139,23 +139,35 @@ def _open_schwab_authorize(url: str) -> str:
     import webbrowser
 
     if os.name == "nt":
-        # start "" <url> uses the default browser; msedge is a reliable fallback.
+        try:
+            os.startfile(url)  # type: ignore[attr-defined]
+            return "Opened Schwab sign-in (Windows startfile)."
+        except OSError:
+            pass
         for command in (
             ["cmd", "/c", "start", "", url],
             ["cmd", "/c", "start", "msedge", url],
+            ["cmd", "/c", "start", "microsoft-edge:" + url],
         ):
             try:
-                completed = subprocess.run(command, check=False)
+                completed = subprocess.run(command, check=False, shell=False)
                 if completed.returncode == 0:
                     return "Opened Schwab sign-in in your browser."
             except OSError:
                 continue
+        try:
+            # shell=True helps when start.exe needs the empty title argument.
+            completed = subprocess.run(f'start "" "{url}"', shell=True, check=False)
+            if completed.returncode == 0:
+                return "Opened Schwab sign-in via CMD start."
+        except OSError:
+            pass
     try:
-        if webbrowser.open(url):
+        if webbrowser.open(url, new=1, autoraise=True):
             return "Opened Schwab sign-in in your browser."
     except OSError:
         pass
-    return "Could not open a browser. Copy the authorize URL above into Edge."
+    return "Could not open a browser. Copy the authorize URL above into Edge yourself."
 
 
 def _schwab_connect_cmd(*, redirect: str = "", open_browser: bool = True) -> int:
