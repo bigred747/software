@@ -130,6 +130,13 @@ def _catalog() -> list[dict[str, str | int]]:
         return _CATALOG
     path = Path(__file__).with_name("catalog.txt")
     if not path.is_file():
+        desk = Path.home() / "Documents" / "Paper Trader" / "paper_trader" / "catalog.txt"
+        cwd = Path.cwd() / "paper_trader" / "catalog.txt"
+        if desk.is_file():
+            path = desk
+        elif cwd.is_file():
+            path = cwd
+    if not path.is_file():
         raise FileNotFoundError(
             f"Missing {path}. Open Documents\\Paper Trader (not PaperTrader-setup). "
             "Double-click Paper Trader.bat on the desktop."

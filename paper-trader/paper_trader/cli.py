@@ -95,14 +95,23 @@ def main(argv: list[str] | None = None) -> int:
 
             home = Path.home()
             desk = canonical_folder(home)
-            # Never keep running from PaperTrader-setup* — move into Documents\Paper Trader first.
             staging = "papertrader-setup" in str(install_root).lower().replace(" ", "")
+            # Always install into Documents\Paper Trader, then re-launch from there so
+            # package files (catalog.txt) resolve under the desk — not a deleted setup fold.
             if staging or install_root.resolve() != desk.resolve():
                 try:
                     desk, _action = install_newest(install_root, home)
                 except ValueError:
                     desk = canonical_folder(home)
-            install_root = desk if desk.is_dir() else install_root
+                launch = desk / "launch.py"
+                if launch.is_file() and desk.resolve() != install_root.resolve():
+                    write_desktop_opener(desk, home)
+                    cmd = [sys.executable, str(launch), "serve", "--port", str(args.port)]
+                    if args.no_browser:
+                        cmd.append("--no-browser")
+                    os.chdir(desk)
+                    os.execv(sys.executable, cmd)
+            install_root = desk if (desk / "launch.py").is_file() else install_root
             os.chdir(install_root)
             assert_safe_launch([install_root])
             global STATE_PATH
@@ -115,11 +124,12 @@ def main(argv: list[str] | None = None) -> int:
                 write_desktop_opener(install_root, home)
             except OSError:
                 pass
-            # Erase extras only after we are safely in Documents\Paper Trader.
-            try:
-                erase_other_installs(home, keep=install_root)
-            except OSError:
-                pass
+            # Erase setup leftovers only when we are already running from Documents\Paper Trader.
+            if "papertrader-setup" not in str(install_root).lower().replace(" ", ""):
+                try:
+                    erase_other_installs(home, keep=install_root)
+                except OSError:
+                    pass
             ensure_env_file(install_root)
             heal_env_from_documents(install_root)
             serve(STATE_PATH, args.port, open_browser=not args.no_browser)
