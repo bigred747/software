@@ -177,7 +177,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.44";
+const VERSION = "1.10.45";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -370,41 +370,41 @@ async function runDeskGreenScan() {
     await withTimeout(runSafe(true), 12000, "Safe check");
     if (state.deskGreenStop) return;
     paintStep("2/3 · Signals refresh…");
-    if (state.offline) renderLocalSignals();
-    else await withTimeout(loadSignals(), 15000, "Signals refresh");
+    // Light path: /api/checks only — skip heavy /api/learn so desk green stays snappy
+    // even with many Documents\\PaperTrader-setup-* copies.
+    let scored = [];
+    if (state.offline) {
+      renderLocalSignals();
+      const list = $("signals");
+      scored = list
+        ? Array.from(list.querySelectorAll("li")).map((row) => {
+            const text = row.textContent || "";
+            const name = (text.split(" · ")[0] || "").trim();
+            return { name, ok: !!(row.querySelector(".dot.on")), detail: text };
+          })
+        : [];
+    } else {
+      const report = await withTimeout(loadSignals({ light: true }), 8000, "Signals refresh");
+      scored = withHooks(Array.isArray(report && report.items) ? report.items : []);
+      paintSignals(scored);
+    }
     if (state.deskGreenStop) return;
     paintStep("3/3 · Light learn touch (not the hourly all-pages walk)…");
     try {
       // Fast green pass: two pages only. Hourly Bot-on still covers every page.
-      await withTimeout(cycleDeskPageLearn(), 10000, "Learn touch");
+      await withTimeout(cycleDeskPageLearn(), 8000, "Learn touch");
     } catch (error) {
       /* Learn touch is best-effort for the green pass. */
-    }
-    // Structured signals by name — Schwab is optional on paper-only (Live stays locked).
-    let scored = [];
-    try {
-      if (state.offline) {
-        const list = $("signals");
-        scored = list
-          ? Array.from(list.querySelectorAll("li")).map((row) => {
-              const text = row.textContent || "";
-              const name = (text.split(" · ")[0] || "").trim();
-              return { name, ok: !!(row.querySelector(".dot.on")), detail: text };
-            })
-          : [];
-      } else {
-        const report = await withTimeout(getJSON("/api/checks"), 10000, "Signals refresh");
-        scored = withHooks(Array.isArray(report && report.items) ? report.items : []);
-        paintSignals(scored);
-      }
-    } catch (error) {
-      scored = [];
     }
     const safeOk = !!(state.safe && state.safe.safe);
     const schwabOpen = scored.some((item) => item.name === "Schwab" && !item.ok);
     const badSignals = scored.filter(
       (item) =>
-        !item.ok && item.name !== "Schwab" && item.name !== "Desk green" && item.name !== "Bot"
+        !item.ok &&
+        item.name !== "Schwab" &&
+        item.name !== "Desk green" &&
+        item.name !== "Bot" &&
+        item.name !== "Install"
     );
     const ok = safeOk && badSignals.length === 0;
     const clock =
@@ -435,8 +435,9 @@ async function runDeskGreenScan() {
           : "Desk green finished fast. Booster on Boost/Max keeps quotes and learn snappy. Hourly Bot-on still covers every page."
         : "Desk green finished with open checks. Press again after you fix them.";
     }
+    // Best-effort full Signals refresh after green — never fail the scan on learn lag.
     if (state.offline) renderLocalSignals();
-    else await withTimeout(loadSignals(), 12000, "Signals refresh").catch(() => {});
+    else loadSignals().catch(() => {});
   } catch (error) {
     state.deskGreen = {
       ok: false,
@@ -1992,11 +1993,13 @@ async function refreshSchwabSignals() {
   else renderLocalSignals();
 }
 
-async function loadSignals() {
+async function loadSignals(options) {
+  const light = !!(options && options.light);
   await loadSchwab();
   const report = await getJSON("/api/checks");
   paintSignals(withHooks(report.items));
   requestAnimationFrame(() => paintSignals(withHooks(report.items)));
+  if (light) return report;
   try {
     await postJSON("/api/learn/watch", {
       symbols: readPins()
@@ -2035,8 +2038,9 @@ async function loadSignals() {
       if (row && row.label) button.classList.add(row.label.toLowerCase());
     });
   } catch (error) {
-    return;
+    return report;
   }
+  return report;
 }
 
 async function postJSON(url, body) {
