@@ -1,1 +1,1 @@
-Paper Trader 1.10.40 slim — Connect-Schwab.bat + packaged Denver zones; erase other installs.
+Paper Trader 1.10.40 slim — Connect opens Edge; packaged zones; erase others.

@@ -133,42 +133,78 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
 
-def _schwab_connect_cmd(*, redirect: str = "", open_browser: bool = True) -> int:
-    """CMD Connect flow: authorize URL → paste redirect → save tokens locally."""
+def _open_schwab_authorize(url: str) -> str:
+    """Open Schwab sign-in. Prefer Edge on Windows; always print the URL for copy/paste."""
+    import subprocess
     import webbrowser
 
+    if os.name == "nt":
+        # start "" <url> uses the default browser; msedge is a reliable fallback.
+        for command in (
+            ["cmd", "/c", "start", "", url],
+            ["cmd", "/c", "start", "msedge", url],
+        ):
+            try:
+                completed = subprocess.run(command, check=False)
+                if completed.returncode == 0:
+                    return "Opened Schwab sign-in in your browser."
+            except OSError:
+                continue
+    try:
+        if webbrowser.open(url):
+            return "Opened Schwab sign-in in your browser."
+    except OSError:
+        pass
+    return "Could not open a browser. Copy the authorize URL above into Edge."
+
+
+def _schwab_connect_cmd(*, redirect: str = "", open_browser: bool = True) -> int:
+    """CMD Connect flow: authorize URL → paste redirect → save tokens locally."""
     from paper_trader.schwab_auth import authorize_url, connection_status, finish_oauth
-    from paper_trader.schwab_env import credentials_ready, install_schwab_env
+    from paper_trader.schwab_env import (
+        _configured_value,
+        credentials_ready,
+        install_schwab_env,
+        load_dotenv,
+        status_report,
+    )
 
     install_root = Path(__file__).resolve().parents[1]
     os.chdir(install_root)
     env_path = install_schwab_env(install_root)
+    load_dotenv(env_path)
+    creds = status_report()
+    key = _configured_value("SCHWAB_APP_KEY")
+    secret = _configured_value("SCHWAB_APP_SECRET")
+    print(f".env path: {env_path}")
+    print(f"Schwab credentials: {creds['detail']}")
+    print(f"App Key length: {len(key)} · App Secret length: {len(secret)}")
     if not credentials_ready():
-        print("Schwab keys are missing.")
+        print("Schwab keys are missing or still placeholders.")
         print(f"Edit {env_path}")
-        print("Paste Client ID → SCHWAB_APP_KEY and Client Secret → SCHWAB_APP_SECRET.")
-        print("Then run: Connect-Schwab.bat")
+        print("Lines must look like:")
+        print("  SCHWAB_APP_KEY=your-client-id")
+        print("  SCHWAB_APP_SECRET=your-client-secret")
+        print("  SCHWAB_CALLBACK_URL=https://127.0.0.1")
+        print("No spaces around =. No quotes. Then run Connect-Schwab.bat again.")
         return 2
     start = authorize_url()
     print("Schwab authorize URL:")
     print(start["authorize_url"])
     print("Callback must stay https://127.0.0.1")
     if open_browser:
-        try:
-            webbrowser.open(start["authorize_url"])
-            print("Opened Schwab sign-in in your browser.")
-        except OSError:
-            print("Could not open a browser. Copy the URL above into Edge.")
+        print(_open_schwab_authorize(start["authorize_url"]))
     raw = (redirect or "").strip()
     if not raw:
         print("After sign-in, the browser lands on a broken https://127.0.0.1/?code=... page.")
-        print("Copy that whole address bar URL and paste it here, then press Enter:")
+        print("That is normal. Copy that WHOLE address bar URL, paste it here, press Enter:")
         try:
             raw = input().strip()
         except EOFError:
             raw = ""
     if not raw:
         print("No redirect URL pasted. Connection not finished.")
+        print("If Edge did not open, copy the authorize URL above into Edge yourself.")
         return 2
     finish_oauth(raw)
     link = connection_status()
