@@ -177,7 +177,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.42";
+const VERSION = "1.10.43";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -185,17 +185,17 @@ const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
 const FILL_LEARN_KEY = "paper_trader_fill_learn_v1";
 const FEE_BPS = 5;
 const SLIP_BPS = 5;
-const SCAN_LEARN_GAP_MS = 10000;
-const SCAN_LEARN_BATCH = 2;
+const SCAN_LEARN_GAP_MS = 1800;
+const SCAN_LEARN_BATCH = 4;
 
 function scanLearnGapMs() {
   const gap = state.booster && Number(state.booster.learnGap);
-  return Number.isFinite(gap) && gap >= 2500 ? gap : SCAN_LEARN_GAP_MS;
+  return Number.isFinite(gap) && gap >= 1000 ? gap : SCAN_LEARN_GAP_MS;
 }
 
 function scanLearnBatchSize() {
   const batch = state.booster && Number(state.booster.batch);
-  return Number.isFinite(batch) ? Math.max(1, Math.min(5, Math.round(batch))) : SCAN_LEARN_BATCH;
+  return Number.isFinite(batch) ? Math.max(1, Math.min(8, Math.round(batch))) : SCAN_LEARN_BATCH;
 }
 
 function deskScanLanes(offlineCap, onlineCap) {
@@ -208,7 +208,12 @@ function deskScanLanes(offlineCap, onlineCap) {
     : Number.isFinite(online)
       ? online
       : onlineCap;
-  return Math.max(1, Math.min(12, Math.round(pick)));
+  return Math.max(1, Math.min(16, Math.round(pick)));
+}
+
+function deskScanGapMs() {
+  const gap = state.booster && Number(state.booster.quoteGap);
+  return Number.isFinite(gap) && gap >= 40 ? gap : 50;
 }
 
 function busyScannerCount() {
@@ -237,38 +242,38 @@ function boosterContext() {
 }
 
 function hydrateDeskBooster() {
-  if (!state.booster) state.booster = { mode: "auto" };
+  if (!state.booster) state.booster = { mode: "boost" };
   if (typeof PaperBooster === "undefined") {
     state.booster = Object.assign(
       {
-        mode: "balanced",
-        applied: "balanced",
-        appliedLabel: "Balanced",
-        quoteWait: 12000,
-        quoteGap: 300,
+        mode: "boost",
+        applied: "boost",
+        appliedLabel: "Boost",
+        quoteWait: 2500,
+        quoteGap: 50,
         learnGap: SCAN_LEARN_GAP_MS,
         batch: SCAN_LEARN_BATCH,
-        lanesOffline: 3,
-        lanesOnline: 6,
+        lanesOffline: 6,
+        lanesOnline: 12,
         auto: false,
-        note: "Booster module missing — Balanced defaults.",
+        note: "Booster module missing — Boost defaults.",
       },
       state.booster
     );
     return state.booster;
   }
   const book = PaperBooster.load();
-  state.booster.mode = book.mode || "auto";
+  state.booster.mode = book.mode || "boost";
   return applyDeskBooster(false);
 }
 
 function applyDeskBooster(manual) {
-  if (!state.booster) state.booster = { mode: "auto" };
+  if (!state.booster) state.booster = { mode: "boost" };
   if (typeof PaperBooster === "undefined") {
-    if (window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    if (window.PaperLive && PaperLive.pace) PaperLive.pace(2500);
     return state.booster;
   }
-  const book = { mode: state.booster.mode || "auto" };
+  const book = { mode: state.booster.mode || "boost" };
   const settings = PaperBooster.resolve(book, boosterContext());
   PaperBooster.applyLive(settings);
   PaperBooster.save({ mode: settings.mode, at: Date.now() });
@@ -301,11 +306,11 @@ function paintBoosterPanel() {
     levels.replaceChildren();
     [
       ["Mode", (boost.auto ? "Auto → " : "") + (boost.appliedLabel || boost.applied || "—")],
-      ["Quote wait", (boost.quoteWait || 12000) + " ms"],
-      ["Quote gap", (boost.quoteGap || 300) + " ms"],
-      ["Learn gap", Math.round((boost.learnGap || SCAN_LEARN_GAP_MS) / 1000) + " s"],
+      ["Quote wait", (boost.quoteWait || 2500) + " ms"],
+      ["Quote gap", (boost.quoteGap || 50) + " ms"],
+      ["Learn gap", Math.round((boost.learnGap || SCAN_LEARN_GAP_MS) / 100) / 10 + " s"],
       ["Learn batch", String(boost.batch || SCAN_LEARN_BATCH)],
-      ["Scan lanes", (boost.lanesOffline || 3) + " phone / " + (boost.lanesOnline || 6) + " computer"],
+      ["Scan lanes", (boost.lanesOffline || 6) + " phone / " + (boost.lanesOnline || 12) + " computer"],
     ].forEach((pair) => {
       const dt = document.createElement("dt");
       dt.textContent = pair[0];
@@ -400,7 +405,7 @@ async function runDeskGreenScan() {
     }
     if (note) {
       note.textContent = ok
-        ? "Desk green finished fast. Hourly Bot-on still learns every page overnight. Booster still paces quotes."
+        ? "Desk green finished fast. Booster on Boost/Max keeps quotes and learn snappy. Hourly Bot-on still covers every page."
         : "Desk green finished with open checks. Press again after you fix them.";
     }
     if (state.offline) renderLocalSignals();
@@ -1449,7 +1454,6 @@ const SCAN_KEY = "paperTraderScan";
 const TYPE_KEY = "paperTraderType";
 const phoneBarCache = new Map();
 const SCAN_READERS = 1;
-const SCAN_GAP = 300;
 let phoneScanToken = 0;
 
 function readScanOn() {
@@ -1710,7 +1714,7 @@ async function scanPhone() {
       if (!live()) return;
       finished += 1;
       publish();
-      if (finished < total) await new Promise((resolve) => setTimeout(resolve, SCAN_GAP));
+      if (finished < total) await new Promise((resolve) => setTimeout(resolve, deskScanGapMs()));
     }
   };
   await Promise.all(Array.from({ length: Math.min(SCAN_READERS, total) }, reader));
@@ -5499,7 +5503,7 @@ async function nudgeLearn(tab, extraSymbols) {
     if (symbol && unique.indexOf(symbol) < 0) unique.push(symbol);
   });
   const now = Date.now();
-  const gap = tab === "auto" || tab === "scan" ? scanLearnGapMs() : 900;
+  const gap = tab === "auto" || tab === "scan" ? scanLearnGapMs() : 280;
   if (tab === learnTouchTab && now - learnTouchAt < gap) return;
   learnTouchAt = now;
   learnTouchTab = tab || "";
@@ -5833,12 +5837,13 @@ async function cycleDeskPageLearn(mode) {
   if (!pages.length) return "";
   if (!state.pageLearn) state.pageLearn = { cursor: 0, lastAt: 0, lastPage: "", covered: [] };
   const now = Date.now();
-  if (!all && now - (state.pageLearn.lastAt || 0) < Math.max(4000, scanLearnGapMs() / 2)) {
+  if (!all && now - (state.pageLearn.lastAt || 0) < Math.max(1000, scanLearnGapMs() / 2)) {
     return state.pageLearn.lastPage || "";
   }
-  // Light pass: two pages. Hourly / all: every desk page once.
+  // Light pass: more pages on Boost/Max. Hourly / all: every desk page once.
   const batchPages = [];
-  const steps = all ? pages.length : 2;
+  const lightSteps = Math.max(2, Math.min(6, scanLearnBatchSize()));
+  const steps = all ? pages.length : lightSteps;
   for (let step = 0; step < steps && pages.length; step += 1) {
     const page = pages[state.pageLearn.cursor % pages.length];
     state.pageLearn.cursor += 1;
@@ -5925,17 +5930,18 @@ function startScanLearnLoop() {
     } catch (error) {
       /* Keep the page-open cycle alive. */
     }
-    const wait = state.auto ? Math.max(7000, scanLearnGapMs() - 2000) : scanLearnGapMs();
+    const wait = state.auto ? Math.max(2200, scanLearnGapMs() - 400) : scanLearnGapMs();
     state.scanLearn.timer = setTimeout(tick, wait);
   };
-  state.scanLearn.timer = setTimeout(tick, 1800);
+  state.scanLearn.timer = setTimeout(tick, 500);
   if (!state.scanLearn.hourTimer) {
     const hourly = async () => {
       try {
-        // Background hourly: scan top names, re-score strategies, learn every desk page once.
-        const names = topScanLearnNames().slice(0, 10);
-        for (let index = 0; index < names.length; index += 1) {
-          await nudgeLearn("scan", [names[index]]);
+        // Background hourly: batch scan names, re-score strategies, learn every desk page once.
+        const names = topScanLearnNames().slice(0, 12);
+        const chunk = Math.max(3, scanLearnBatchSize());
+        for (let index = 0; index < names.length; index += chunk) {
+          await nudgeLearn("scan", names.slice(index, index + chunk));
         }
         await cycleStrategyLearn("all");
         await cycleProductScanLearn("all");

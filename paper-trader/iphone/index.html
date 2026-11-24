@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.42">
+  <meta name="paper-build" content="1.10.43">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2045,7 +2045,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.42</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.43</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -3282,7 +3282,7 @@ AddOrder(Sell, sellFire);</textarea>
             <button id="booster-apply" type="button">Apply booster</button>
             <button id="desk-green-scan" type="button">Scan · test entire desk</button>
           </div>
-          <p id="desk-green-note" class="muted">Press Scan · test entire desk for a fast Safe + Signals GREEN. Hourly Bot-on still walks every page overnight — this button does not wait on that long pass.</p>
+          <p id="desk-green-note" class="muted">Press Scan · test entire desk for a fast Safe + Signals GREEN. Booster defaults to Boost for a snappy desk; Max when calm. Hourly Bot-on still walks every page overnight.</p>
           <p id="desk-green-final" class="scorecard-bias" aria-live="polite">Desk green · waiting</p>
         </section>
         <h3 class="journal-check-head">All signals</h3>
@@ -3441,17 +3441,19 @@ AddOrder(Sell, sellFire);</textarea>
     throw last;
   }
 
-  let quoteWait = 12000;
-  let quoteGap = 300;
+  let quoteWait = 2500;
+  let quoteGap = 50;
 
   function pace(ms) {
     const next = Number(ms);
-    if (Number.isFinite(next) && next >= 2000) quoteWait = next;
+    // Floor keeps a real timeout; Max booster sits at 1500 ms.
+    if (Number.isFinite(next) && next >= 1200) quoteWait = next;
   }
 
   function gap(ms) {
     const next = Number(ms);
-    if (Number.isFinite(next) && next >= 80) quoteGap = next;
+    // Floor keeps the public feed from being hammered in a tight loop.
+    if (Number.isFinite(next) && next >= 40) quoteGap = next;
   }
 
   function timed(promise) {
@@ -10560,7 +10562,8 @@ AddOrder(Sell, sellFire);</textarea>
   <script>
 /* Paper Trader desk booster — pace, lanes, and learn gap.
    Fail closed: never unlocks Live, never invents quotes, never skips Safe.
-   Safe · Balanced · Boost · Max · Auto (slows when Auto/busy/soft; speeds when calm). */
+   Safe · Balanced · Boost · Max · Auto (slows when Auto/busy/soft; speeds when calm).
+   1.10.43: snappy defaults — Boost is the everyday pace; Auto prefers Max when calm. */
 (function (root) {
   "use strict";
 
@@ -10570,85 +10573,87 @@ AddOrder(Sell, sellFire);</textarea>
     safe: {
       id: "safe",
       label: "Safe",
-      why: "Slowest quotes · one learn name · few scan lanes. Best when Auto is on or the desk is stressed.",
-      quoteWait: 16000,
-      quoteGap: 520,
-      learnGap: 14000,
-      batch: 1,
-      lanesOffline: 2,
-      lanesOnline: 3,
+      why: "Careful quotes · small learn batch · fewer scan lanes. Use when Auto is heavy or the feed is soft.",
+      quoteWait: 8000,
+      quoteGap: 220,
+      learnGap: 6000,
+      batch: 2,
+      lanesOffline: 3,
+      lanesOnline: 5,
     },
     balanced: {
       id: "balanced",
       label: "Balanced",
-      why: "Default desk pace. Steady quotes and hourly learn without slamming the feed.",
-      quoteWait: 12000,
-      quoteGap: 300,
-      learnGap: 10000,
-      batch: 2,
-      lanesOffline: 3,
-      lanesOnline: 6,
-    },
-    boost: {
-      id: "boost",
-      label: "Boost",
-      why: "Faster scans and tighter quote gap when the desk is calm. Still paper-only · Live locked.",
-      quoteWait: 7000,
-      quoteGap: 180,
-      learnGap: 6000,
+      why: "Steady desk pace with room to breathe. Still snappy on closed-bar walks.",
+      quoteWait: 4500,
+      quoteGap: 100,
+      learnGap: 3200,
       batch: 3,
       lanesOffline: 4,
       lanesOnline: 8,
     },
+    boost: {
+      id: "boost",
+      label: "Boost",
+      why: "Everyday fast desk. Tight quote gap, quick learn, wide scan lanes. Paper only · Live locked.",
+      quoteWait: 2500,
+      quoteGap: 50,
+      learnGap: 1800,
+      batch: 4,
+      lanesOffline: 6,
+      lanesOnline: 12,
+    },
     max: {
       id: "max",
       label: "Max",
-      why: "Fastest closed-bar walks. Use only when the feed is healthy. Safe check still gates Auto.",
-      quoteWait: 4500,
-      quoteGap: 110,
-      learnGap: 4000,
-      batch: 4,
-      lanesOffline: 5,
-      lanesOnline: 10,
+      why: "Snappiest closed-bar walks. Use when the feed is healthy. Safe check still gates Auto.",
+      quoteWait: 1500,
+      quoteGap: 40,
+      learnGap: 1200,
+      batch: 5,
+      lanesOffline: 8,
+      lanesOnline: 16,
     },
   };
 
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(KEY) || "{}");
-      const mode = raw && typeof raw.mode === "string" ? raw.mode : "auto";
+      const mode = raw && typeof raw.mode === "string" ? raw.mode : "boost";
       return {
-        mode: mode === "safe" || mode === "balanced" || mode === "boost" || mode === "max" || mode === "auto" ? mode : "auto",
+        mode: mode === "safe" || mode === "balanced" || mode === "boost" || mode === "max" || mode === "auto" ? mode : "boost",
         applied: "",
         at: 0,
         note: "",
       };
     } catch (error) {
-      return { mode: "auto", applied: "", at: 0, note: "" };
+      return { mode: "boost", applied: "", at: 0, note: "" };
     }
   }
 
   function save(book) {
     try {
-      localStorage.setItem(KEY, JSON.stringify({ mode: book.mode || "auto", at: book.at || 0 }));
+      localStorage.setItem(KEY, JSON.stringify({ mode: book.mode || "boost", at: book.at || 0 }));
     } catch (error) {
       /* Booster still holds for this page. */
     }
   }
 
   function profile(id) {
-    return PROFILES[id] || PROFILES.balanced;
+    return PROFILES[id] || PROFILES.boost;
   }
 
   function pickAuto(input) {
     const source = input || {};
-    if (source.hidden) return "safe";
-    if (source.autoOn) return "safe";
-    if (source.softHold) return "safe";
-    if (source.busyScanners >= 2) return "safe";
-    if (source.busyScanners >= 1) return "balanced";
-    if (source.feedWarm) return "boost";
-    return "balanced";
+    // Prefer speed. Only step down when the desk is clearly stressed.
+    if (source.hidden) return "balanced";
+    if (source.softHold && source.busyScanners >= 2) return "safe";
+    if (source.softHold) return "balanced";
+    if (source.autoOn && source.busyScanners >= 2) return "balanced";
+    if (source.autoOn) return "boost";
+    if (source.busyScanners >= 2) return "boost";
+    if (source.feedWarm) return "max";
+    return "boost";
   }
 
   function applyLive(settings) {
@@ -10658,7 +10663,7 @@ AddOrder(Sell, sellFire);</textarea>
   }
 
   function resolve(book, context) {
-    const mode = (book && book.mode) || "auto";
+    const mode = (book && book.mode) || "boost";
     const applied = mode === "auto" ? pickAuto(context) : mode;
     const settings = Object.assign({}, profile(applied));
     settings.mode = mode;
@@ -10860,7 +10865,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.42";
+const VERSION = "1.10.43";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -10868,17 +10873,17 @@ const STRAT_LEARN_KEY = "paper_trader_strat_learn_v1";
 const FILL_LEARN_KEY = "paper_trader_fill_learn_v1";
 const FEE_BPS = 5;
 const SLIP_BPS = 5;
-const SCAN_LEARN_GAP_MS = 10000;
-const SCAN_LEARN_BATCH = 2;
+const SCAN_LEARN_GAP_MS = 1800;
+const SCAN_LEARN_BATCH = 4;
 
 function scanLearnGapMs() {
   const gap = state.booster && Number(state.booster.learnGap);
-  return Number.isFinite(gap) && gap >= 2500 ? gap : SCAN_LEARN_GAP_MS;
+  return Number.isFinite(gap) && gap >= 1000 ? gap : SCAN_LEARN_GAP_MS;
 }
 
 function scanLearnBatchSize() {
   const batch = state.booster && Number(state.booster.batch);
-  return Number.isFinite(batch) ? Math.max(1, Math.min(5, Math.round(batch))) : SCAN_LEARN_BATCH;
+  return Number.isFinite(batch) ? Math.max(1, Math.min(8, Math.round(batch))) : SCAN_LEARN_BATCH;
 }
 
 function deskScanLanes(offlineCap, onlineCap) {
@@ -10891,7 +10896,12 @@ function deskScanLanes(offlineCap, onlineCap) {
     : Number.isFinite(online)
       ? online
       : onlineCap;
-  return Math.max(1, Math.min(12, Math.round(pick)));
+  return Math.max(1, Math.min(16, Math.round(pick)));
+}
+
+function deskScanGapMs() {
+  const gap = state.booster && Number(state.booster.quoteGap);
+  return Number.isFinite(gap) && gap >= 40 ? gap : 50;
 }
 
 function busyScannerCount() {
@@ -10920,38 +10930,38 @@ function boosterContext() {
 }
 
 function hydrateDeskBooster() {
-  if (!state.booster) state.booster = { mode: "auto" };
+  if (!state.booster) state.booster = { mode: "boost" };
   if (typeof PaperBooster === "undefined") {
     state.booster = Object.assign(
       {
-        mode: "balanced",
-        applied: "balanced",
-        appliedLabel: "Balanced",
-        quoteWait: 12000,
-        quoteGap: 300,
+        mode: "boost",
+        applied: "boost",
+        appliedLabel: "Boost",
+        quoteWait: 2500,
+        quoteGap: 50,
         learnGap: SCAN_LEARN_GAP_MS,
         batch: SCAN_LEARN_BATCH,
-        lanesOffline: 3,
-        lanesOnline: 6,
+        lanesOffline: 6,
+        lanesOnline: 12,
         auto: false,
-        note: "Booster module missing — Balanced defaults.",
+        note: "Booster module missing — Boost defaults.",
       },
       state.booster
     );
     return state.booster;
   }
   const book = PaperBooster.load();
-  state.booster.mode = book.mode || "auto";
+  state.booster.mode = book.mode || "boost";
   return applyDeskBooster(false);
 }
 
 function applyDeskBooster(manual) {
-  if (!state.booster) state.booster = { mode: "auto" };
+  if (!state.booster) state.booster = { mode: "boost" };
   if (typeof PaperBooster === "undefined") {
-    if (window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
+    if (window.PaperLive && PaperLive.pace) PaperLive.pace(2500);
     return state.booster;
   }
-  const book = { mode: state.booster.mode || "auto" };
+  const book = { mode: state.booster.mode || "boost" };
   const settings = PaperBooster.resolve(book, boosterContext());
   PaperBooster.applyLive(settings);
   PaperBooster.save({ mode: settings.mode, at: Date.now() });
@@ -10984,11 +10994,11 @@ function paintBoosterPanel() {
     levels.replaceChildren();
     [
       ["Mode", (boost.auto ? "Auto → " : "") + (boost.appliedLabel || boost.applied || "—")],
-      ["Quote wait", (boost.quoteWait || 12000) + " ms"],
-      ["Quote gap", (boost.quoteGap || 300) + " ms"],
-      ["Learn gap", Math.round((boost.learnGap || SCAN_LEARN_GAP_MS) / 1000) + " s"],
+      ["Quote wait", (boost.quoteWait || 2500) + " ms"],
+      ["Quote gap", (boost.quoteGap || 50) + " ms"],
+      ["Learn gap", Math.round((boost.learnGap || SCAN_LEARN_GAP_MS) / 100) / 10 + " s"],
       ["Learn batch", String(boost.batch || SCAN_LEARN_BATCH)],
-      ["Scan lanes", (boost.lanesOffline || 3) + " phone / " + (boost.lanesOnline || 6) + " computer"],
+      ["Scan lanes", (boost.lanesOffline || 6) + " phone / " + (boost.lanesOnline || 12) + " computer"],
     ].forEach((pair) => {
       const dt = document.createElement("dt");
       dt.textContent = pair[0];
@@ -11083,7 +11093,7 @@ async function runDeskGreenScan() {
     }
     if (note) {
       note.textContent = ok
-        ? "Desk green finished fast. Hourly Bot-on still learns every page overnight. Booster still paces quotes."
+        ? "Desk green finished fast. Booster on Boost/Max keeps quotes and learn snappy. Hourly Bot-on still covers every page."
         : "Desk green finished with open checks. Press again after you fix them.";
     }
     if (state.offline) renderLocalSignals();
@@ -12132,7 +12142,6 @@ const SCAN_KEY = "paperTraderScan";
 const TYPE_KEY = "paperTraderType";
 const phoneBarCache = new Map();
 const SCAN_READERS = 1;
-const SCAN_GAP = 300;
 let phoneScanToken = 0;
 
 function readScanOn() {
@@ -12393,7 +12402,7 @@ async function scanPhone() {
       if (!live()) return;
       finished += 1;
       publish();
-      if (finished < total) await new Promise((resolve) => setTimeout(resolve, SCAN_GAP));
+      if (finished < total) await new Promise((resolve) => setTimeout(resolve, deskScanGapMs()));
     }
   };
   await Promise.all(Array.from({ length: Math.min(SCAN_READERS, total) }, reader));
@@ -16182,7 +16191,7 @@ async function nudgeLearn(tab, extraSymbols) {
     if (symbol && unique.indexOf(symbol) < 0) unique.push(symbol);
   });
   const now = Date.now();
-  const gap = tab === "auto" || tab === "scan" ? scanLearnGapMs() : 900;
+  const gap = tab === "auto" || tab === "scan" ? scanLearnGapMs() : 280;
   if (tab === learnTouchTab && now - learnTouchAt < gap) return;
   learnTouchAt = now;
   learnTouchTab = tab || "";
@@ -16516,12 +16525,13 @@ async function cycleDeskPageLearn(mode) {
   if (!pages.length) return "";
   if (!state.pageLearn) state.pageLearn = { cursor: 0, lastAt: 0, lastPage: "", covered: [] };
   const now = Date.now();
-  if (!all && now - (state.pageLearn.lastAt || 0) < Math.max(4000, scanLearnGapMs() / 2)) {
+  if (!all && now - (state.pageLearn.lastAt || 0) < Math.max(1000, scanLearnGapMs() / 2)) {
     return state.pageLearn.lastPage || "";
   }
-  // Light pass: two pages. Hourly / all: every desk page once.
+  // Light pass: more pages on Boost/Max. Hourly / all: every desk page once.
   const batchPages = [];
-  const steps = all ? pages.length : 2;
+  const lightSteps = Math.max(2, Math.min(6, scanLearnBatchSize()));
+  const steps = all ? pages.length : lightSteps;
   for (let step = 0; step < steps && pages.length; step += 1) {
     const page = pages[state.pageLearn.cursor % pages.length];
     state.pageLearn.cursor += 1;
@@ -16608,17 +16618,18 @@ function startScanLearnLoop() {
     } catch (error) {
       /* Keep the page-open cycle alive. */
     }
-    const wait = state.auto ? Math.max(7000, scanLearnGapMs() - 2000) : scanLearnGapMs();
+    const wait = state.auto ? Math.max(2200, scanLearnGapMs() - 400) : scanLearnGapMs();
     state.scanLearn.timer = setTimeout(tick, wait);
   };
-  state.scanLearn.timer = setTimeout(tick, 1800);
+  state.scanLearn.timer = setTimeout(tick, 500);
   if (!state.scanLearn.hourTimer) {
     const hourly = async () => {
       try {
-        // Background hourly: scan top names, re-score strategies, learn every desk page once.
-        const names = topScanLearnNames().slice(0, 10);
-        for (let index = 0; index < names.length; index += 1) {
-          await nudgeLearn("scan", [names[index]]);
+        // Background hourly: batch scan names, re-score strategies, learn every desk page once.
+        const names = topScanLearnNames().slice(0, 12);
+        const chunk = Math.max(3, scanLearnBatchSize());
+        for (let index = 0; index < names.length; index += chunk) {
+          await nudgeLearn("scan", names.slice(index, index + chunk));
         }
         await cycleStrategyLearn("all");
         await cycleProductScanLearn("all");
