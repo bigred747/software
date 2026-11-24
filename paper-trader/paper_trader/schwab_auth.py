@@ -118,14 +118,33 @@ def authorize_url(state: str | None = None) -> dict[str, str]:
     return {"authorize_url": f"{AUTH_URL}?{query}", "state": nonce, "callback": _callback_url()}
 
 
-def extract_code(raw: str) -> str:
-    """Pull the OAuth code from a pasted redirect URL or a bare code string."""
+def _clean_paste(raw: str) -> str:
+    """Normalize a pasted redirect URL / code from Edge or CMD."""
     text = (raw or "").strip()
+    # Strip wrapping quotes Edge / Notepad sometimes add.
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {"'", '"'}:
+        text = text[1:-1].strip()
+    # Collapse accidental newlines from multi-line paste.
+    text = "".join(text.split())
+    return text
+
+
+def extract_code(raw: str) -> str:
+    """Pull the OAuth code from a pasted redirect URL or a bare code string.
+
+    Schwab codes often end with @ (shown as %40 in the address bar). parse_qs
+    decodes that; a bare %40 paste is decoded here too.
+    """
+    text = _clean_paste(raw)
     if not text:
         raise ValueError("Paste the full redirect URL from the browser address bar after you sign in.")
-    if "://" in text or text.startswith("?"):
+    # Some browsers put params in the fragment.
+    if "://" in text or text.startswith("?") or text.startswith("code="):
+        if "://" not in text and not text.startswith("?"):
+            text = "?" + text
         parsed = urllib.parse.urlparse(text if "://" in text else f"https://127.0.0.1{text}")
-        params = urllib.parse.parse_qs(parsed.query)
+        query = parsed.query or parsed.fragment
+        params = urllib.parse.parse_qs(query)
         if params.get("error"):
             desc = (params.get("error_description") or params.get("error") or ["error"])[0]
             raise ValueError(f"Schwab returned an error: {desc}")
@@ -133,17 +152,33 @@ def extract_code(raw: str) -> str:
         if not code:
             raise ValueError("No code= was found in that URL. Finish sign-in, then copy the whole address bar.")
         return code
-    if "=" in text and "code=" in text:
-        params = urllib.parse.parse_qs(text.lstrip("?"))
-        code = (params.get("code") or [""])[0].strip()
-        if code:
-            return code
+    if "%" in text:
+        text = urllib.parse.unquote(text)
     return text
 
 
 def _basic_auth_header() -> str:
     pair = f"{_app_key()}:{_app_secret()}".encode("utf-8")
     return "Basic " + base64.b64encode(pair).decode("ascii")
+
+
+def _read_http_body(response) -> bytes:
+    """Read Schwab HTTP body; decode gzip when the server ignores Accept-Encoding."""
+    import gzip
+
+    raw = response.read()
+    encoding = (response.headers.get("Content-Encoding") or "").lower()
+    if "gzip" in encoding:
+        try:
+            return gzip.decompress(raw)
+        except OSError:
+            return raw
+    if len(raw) >= 2 and raw[0] == 0x1F and raw[1] == 0x8B:
+        try:
+            return gzip.decompress(raw)
+        except OSError:
+            return raw
+    return raw
 
 
 def _token_request(form: dict[str, str]) -> dict[str, Any]:
@@ -156,18 +191,30 @@ def _token_request(form: dict[str, str]) -> dict[str, Any]:
             "Authorization": _basic_auth_header(),
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json",
+            "Accept-Encoding": "identity",
         },
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+            payload = json.loads(_read_http_body(response).decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="ignore")
+        detail = _read_http_body(exc).decode("utf-8", errors="ignore")
         try:
             err = json.loads(detail)
             message = str(err.get("error_description") or err.get("error") or detail or exc.reason)
         except ValueError:
             message = detail or str(exc.reason)
+        lower = message.lower()
+        if "invalid_grant" in lower or "code" in lower:
+            message = (
+                f"{message} — the code was already used or expired. "
+                "Run Connect again, sign in, and paste the new address bar URL right away."
+            )
+        if "redirect" in lower or "mismatch" in lower:
+            message = (
+                f"{message} — SCHWAB_CALLBACK_URL in .env must match the Developer Portal "
+                "exactly (usually https://127.0.0.1 with no trailing slash)."
+            )
         raise ValueError(f"Schwab token request failed: {message}") from exc
     except urllib.error.URLError as exc:
         raise ValueError(f"Could not reach Schwab: {exc.reason}") from exc

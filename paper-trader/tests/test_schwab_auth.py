@@ -35,6 +35,14 @@ class SchwabAuthTests(unittest.TestCase):
         code = schwab_auth.extract_code("https://127.0.0.1/?code=abc%2F123&session=xyz")
         self.assertEqual(code, "abc/123")
 
+    def test_extract_code_decodes_trailing_at_and_strips_quotes(self) -> None:
+        code = schwab_auth.extract_code(
+            '  "https://127.0.0.1/?code=C0.ABC123%40&session=1"  '
+        )
+        self.assertEqual(code, "C0.ABC123@")
+        bare = schwab_auth.extract_code("C0.ABC123%40")
+        self.assertEqual(bare, "C0.ABC123@")
+
     def test_authorize_url_uses_app_key_and_callback(self) -> None:
         start = schwab_auth.authorize_url("nonce1")
         self.assertIn("client_id=demo-key", start["authorize_url"])

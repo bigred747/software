@@ -197,7 +197,8 @@ def _schwab_connect_cmd(*, redirect: str = "", open_browser: bool = True) -> int
     raw = (redirect or "").strip()
     if not raw:
         print("After sign-in, the browser lands on a broken https://127.0.0.1/?code=... page.")
-        print("That is normal. Copy that WHOLE address bar URL, paste it here, press Enter:")
+        print("That is normal. Copy that WHOLE address bar URL (includes code= and usually %40).")
+        print("Paste it here within about 30 seconds, then press Enter:")
         try:
             raw = input().strip()
         except EOFError:
@@ -206,7 +207,12 @@ def _schwab_connect_cmd(*, redirect: str = "", open_browser: bool = True) -> int
         print("No redirect URL pasted. Connection not finished.")
         print("If Edge did not open, copy the authorize URL above into Edge yourself.")
         return 2
-    finish_oauth(raw)
+    try:
+        finish_oauth(raw)
+    except ValueError as exc:
+        print(str(exc))
+        print("Tip: run Connect-Schwab.bat again for a fresh code; paste the new URL immediately.")
+        return 2
     link = connection_status()
     print(f"Schwab connection: {link['detail']}")
     print(f"tokens path: {link['token_path']}")
