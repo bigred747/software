@@ -201,8 +201,8 @@ class AlwaysOnTests(unittest.TestCase):
 
             try:
                 with patch("paper_trader.install.find_installs", return_value=[other, mine]), patch(
-                    "paper_trader.learn.stop_learner",
-                    side_effect=lambda state, killer=None: stopped.append(state) or foreign.release() or 1,
+                    "paper_trader.learn._stop_learner_quick",
+                    side_effect=lambda state, wait=0.35: stopped.append(state) or foreign.release() or 1,
                 ):
                     self.assertTrue(ensure_sole_learner(mine, mine_state, home=home, spawn=spawn, wait=1))
                 self.assertTrue(any(path.name == "learn_state.json" and "other" in str(path) for path in stopped))

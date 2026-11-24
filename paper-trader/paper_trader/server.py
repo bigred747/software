@@ -1312,15 +1312,12 @@ class Desk:
         return {"frame": "1D", "items": items}
 
     def _learning_check(self) -> dict[str, str | bool]:
-        # Desk is open — try to keep the Windows score alive before reporting.
-        root = self.state_path.parent
-        if self.expect_learner:
-            try:
-                ensure_sole_learner(root, self.learn_path, Path.home(), wait=0.8)
-            except OSError:
-                pass
-        report = book_view(self.learn_path, expect=self.expect_learner)
-        running = bool(report.get("running") or report.get("bot_on"))
+        # Fast path for Signals — never spawn/stop bots inside /api/checks (that timed out desk green).
+        # serve() already calls ensure_sole_learner once at start.
+        from paper_trader.learn import learning_report
+
+        report = learning_report(self.learn_path, expect=self.expect_learner)
+        running = bool(report.get("running"))
         if running:
             return {"name": "Learning", "ok": True, "detail": str(report["detail"])}
         # Honest green when the desk window itself is learning (expect set at serve).
@@ -1336,9 +1333,12 @@ class Desk:
         return {"name": "Learning", "ok": bool(report["ok"]), "detail": str(report["detail"])}
 
     def _process_check(self) -> dict[str, str | bool]:
-        report = book_view(self.learn_path, expect=self.expect_learner)
-        event = report.get("last_process") if isinstance(report.get("last_process"), dict) else None
-        at = float(report.get("last_process_at") or 0)
+        # Lightweight: avoid book_view's full symbols copy on every Signals refresh.
+        from paper_trader.learn import _load
+
+        saved = _load(self.learn_path)
+        event = saved.get("last_process") if isinstance(saved.get("last_process"), dict) else None
+        at = float(saved.get("last_process_at") or 0)
         fresh = event and at and (time.time() - at) < 3600
         if fresh:
             rule = str(event.get("rule") or "process")

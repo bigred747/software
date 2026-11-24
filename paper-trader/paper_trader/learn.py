@@ -1286,12 +1286,17 @@ def count_live_learners(home: Path | None = None) -> list[tuple[Path, int]]:
 
 def sole_bot_status(root: Path, state_path: Path, home: Path | None = None) -> dict[str, str | bool]:
     """Signals row: exactly one background score for this computer."""
-    live = count_live_learners(home)
     mine = learner_healthy(state_path)
+    live = count_live_learners(home)
+    # Always count this install even when find_installs misses the running folder.
     try:
-        mine_root = root.resolve()
+        mine_root = Path(root).resolve()
     except OSError:
-        mine_root = root
+        mine_root = Path(root)
+    if mine and not any(path == mine_root for path, _pid in live):
+        holder = lock_holder(state_path.with_name("learn.lock"))
+        if holder:
+            live = [(mine_root, holder)] + live
     if len(live) > 1:
         return {
             "name": "Bot",
@@ -1315,6 +1320,26 @@ def sole_bot_status(root: Path, state_path: Path, home: Path | None = None) -> d
     }
 
 
+def _stop_learner_quick(state_path: Path, wait: float = 0.35) -> int | None:
+    """Ask another install's scorer to close without blocking Signals for seconds each."""
+    lock_path = state_path.with_name("learn.lock")
+    pid = lock_holder(lock_path)
+    if not pid or pid == os.getpid():
+        return None
+    flag = state_path.with_name(STOP_FLAG)
+    try:
+        flag.write_text("close\n", encoding="utf-8")
+    except OSError:
+        return pid
+    deadline = time.monotonic() + max(0.05, float(wait))
+    while time.monotonic() < deadline:
+        if lock_holder(lock_path) != pid:
+            flag.unlink(missing_ok=True)
+            return pid
+        time.sleep(0.05)
+    return pid
+
+
 def ensure_sole_learner(root: Path, state_path: Path, home: Path | None = None, spawn=None, wait: float = 2.0) -> bool:
     """Keep exactly one background score: this install. Close learners in other copies first."""
     root = Path(root)
@@ -1327,6 +1352,7 @@ def ensure_sole_learner(root: Path, state_path: Path, home: Path | None = None, 
     try:
         from paper_trader.install import find_installs
 
+        others = 0
         for folder in find_installs(base):
             try:
                 other = folder.resolve()
@@ -1334,7 +1360,11 @@ def ensure_sole_learner(root: Path, state_path: Path, home: Path | None = None, 
                 continue
             if other == mine:
                 continue
-            stop_learner(other / "learn_state.json")
+            # Cap how many extras we wait on so serve/checks stay snappy with many setup folders.
+            _stop_learner_quick(other / "learn_state.json", wait=0.2 if others < 4 else 0.0)
+            others += 1
+            if others >= 12:
+                break
     except OSError:
         pass
     if learner_healthy(state_path):
@@ -1342,8 +1372,8 @@ def ensure_sole_learner(root: Path, state_path: Path, home: Path | None = None, 
     lock_path = state_path.with_name("learn.lock")
     if lock_holder(lock_path):
         # Stale or stuck holder — ask it to exit, then start once.
-        stop_learner(state_path)
-        deadline = time.monotonic() + max(0.5, min(float(wait), 4.0))
+        _stop_learner_quick(state_path, wait=min(1.0, float(wait)))
+        deadline = time.monotonic() + max(0.3, min(float(wait), 2.0))
         while time.monotonic() < deadline:
             if not lock_holder(lock_path):
                 break
