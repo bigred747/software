@@ -101,7 +101,7 @@ class InstallTests(unittest.TestCase):
             dest = canonical_folder(home)
             setup = home / "Documents" / "PaperTrader-setup-31986" / "paper-trader"
             trash = home / "Documents" / "$Recycle.Bin" / "paper-trader"
-            make_install(dest, "1.10.48")
+            make_install(dest, "1.10.49")
             make_install(setup, "1.10.45")
             make_install(trash, "1.10.40")
             self.assertTrue(is_install(dest))

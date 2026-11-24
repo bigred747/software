@@ -174,6 +174,10 @@ Trade tab polish only: Edge explainer folds away, Order ticket sits above Schwab
 
 Private Publish seal/cache stamp past 1.10.13. Same Edge 7/7 Desk Waves + Seat Trail desk. Paper only. Live locked.
 
+## CMD Schwab Connect (1.10.49)
+
+Double-click `Connect-Schwab.bat` or run `launch.py schwab-connect` in CMD. Opens Schwab sign-in, then paste the `https://127.0.0.1/?code=...` URL in the terminal. Seal **1.10.49**.
+
 ## Computer desk + Schwab .env install (1.10.48)
 
 Desktop **Paper Trader.bat** opens the computer desk at `http://127.0.0.1:8765/` (not the mobile HTML copy). Launch installs `Documents\Paper Trader\.env` with:

@@ -1,0 +1,1 @@
+Paper Trader 1.10.49 slim — Connect-Schwab.bat / CMD schwab-connect for OAuth without the desk button.

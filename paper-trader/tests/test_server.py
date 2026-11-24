@@ -1047,7 +1047,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.10.48", script)
+        self.assertIn(b"1.10.49", script)
         self.assertIn(b"studyLineColor", script)
         self.assertIn(b"STUDY_RAIL_COLORS", script)
         self.assertIn(b"#f4f7fb", script)

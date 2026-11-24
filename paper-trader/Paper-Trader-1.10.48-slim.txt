@@ -1,1 +1,0 @@
-Paper Trader 1.10.48 slim — Installs Schwab .env keys on launch; Desktop opener opens 127.0.0.1 computer desk; phone folder no longer auto-opens.
