@@ -17,8 +17,9 @@ from paper_trader.cli import main
 
 class SchwabEnvTests(unittest.TestCase):
     def setUp(self) -> None:
-        self._saved = {key: os.environ.get(key) for key in schwab_env.KEYS}
-        for key in schwab_env.KEYS:
+        self._watched = list(schwab_env.KEYS) + list(schwab_env.ALIAS_TO_CANONICAL)
+        self._saved = {key: os.environ.get(key) for key in self._watched}
+        for key in self._watched:
             os.environ.pop(key, None)
 
     def tearDown(self) -> None:
@@ -43,6 +44,44 @@ class SchwabEnvTests(unittest.TestCase):
         self.assertEqual(parsed["SCHWAB_CALLBACK_URL"], "https://127.0.0.1")
         self.assertEqual(parsed["SCHWAB_APP_NAME"], "personal-market-data")
         self.assertEqual(parsed["OTHER"], "ignored")
+
+    def test_portal_client_id_aliases_are_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / ".env"
+            path.write_text(
+                "SCHWAB_CLIENT_ID=portal-client-id\n"
+                "SCHWAB_CLIENT_SECRET=portal-client-secret\n"
+                "SCHWAB_CALLBACK_URL=https://127.0.0.1\n",
+                encoding="utf-8",
+            )
+            with patch.object(schwab_env, "ENV_PATH", path), patch.object(
+                schwab_env, "INSTALL_ROOT", Path(folder)
+            ):
+                self.assertTrue(schwab_env.credentials_ready())
+                self.assertEqual(schwab_env._configured_value("SCHWAB_APP_KEY"), "portal-client-id")
+                self.assertEqual(
+                    schwab_env._configured_value("SCHWAB_APP_SECRET"), "portal-client-secret"
+                )
+
+    def test_keys_file_syncs_into_placeholder_env(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / ".env").write_text(
+                "SCHWAB_APP_KEY=paste-app-key-here\nSCHWAB_APP_SECRET=paste-app-secret-here\n",
+                encoding="utf-8",
+            )
+            (root / "SCHWAB-KEYS.txt").write_text(
+                "SCHWAB_CLIENT_ID=real-client-id\nSCHWAB_CLIENT_SECRET=real-client-secret\n",
+                encoding="utf-8",
+            )
+            with patch.object(schwab_env, "ENV_PATH", root / ".env"), patch.object(
+                schwab_env, "INSTALL_ROOT", root
+            ):
+                schwab_env.ensure_env_file(root)
+                self.assertTrue(schwab_env.credentials_ready())
+            text = (root / ".env").read_text(encoding="utf-8")
+            self.assertIn("SCHWAB_APP_KEY=real-client-id", text)
+            self.assertIn("SCHWAB_APP_SECRET=real-client-secret", text)
 
     def test_missing_env_reports_missing(self) -> None:
         with tempfile.TemporaryDirectory() as folder:

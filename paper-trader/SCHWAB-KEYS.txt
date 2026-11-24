@@ -1,9 +1,15 @@
 # ============================================================
-# SCHWAB KEYS — paste App Key and App Secret below
+# SCHWAB KEYS — paste Client ID and Client Secret below
 # ============================================================
-# When Schwab approves your Developer Portal app, open this file
-# OR open Documents\Paper Trader\.env (created automatically) and
-# replace the paste-... placeholders with your real values.
+# Your Schwab Developer Portal app (Production · Ready For Use):
+#   Client ID     → SCHWAB_APP_KEY   (alias: SCHWAB_CLIENT_ID)
+#   Client Secret → SCHWAB_APP_SECRET (alias: SCHWAB_CLIENT_SECRET)
+#   Callback URL  → https://127.0.0.1  (must match the portal exactly)
+#   APIs          → Market Data Production
+#
+# Paste into this file OR into Documents\Paper Trader\.env
+# (created automatically). If .env still has paste-... placeholders,
+# Paper Trader copies real values from this file on the next launch.
 #
 # Never commit .env or this file after pasting real secrets.
 # Paper stays the default. Live Trading stays off until you confirm.
