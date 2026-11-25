@@ -50,7 +50,7 @@ exit /b 1
 echo Unblock
 echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
-echo Step 1 of 2. Install Paper Trader 1.10.41 and erase other copies.
+echo Step 1 of 2. Install Paper Trader 1.10.42 and erase other copies.
 set "PY=%~dp0runtime\python.exe"
 if not exist "%PY%" set "PY=python"
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
@@ -82,8 +82,21 @@ if errorlevel 1 (
   exit /b 1
 )
 call :DeskLink "%DEST%"
-echo Paper Trader 1.10.41 is the only desk left.
-echo Step 2 of 2: double-click Paper Trader.bat on the desktop.
+set "SEAL="
+if exist "!DEST!\VERSION" set /p SEAL=<"!DEST!\VERSION"
+if /I not "!SEAL!"=="1.10.42" (
+  echo.
+  echo INSTALL DID NOT LAND 1.10.42.
+  echo Documents\Paper Trader still shows: !SEAL!
+  echo Close every Paper Trader / Edge desk window, then run this Allow file again.
+  pause
+  exit /b 1
+)
+echo.
+echo Seal check OK — Documents\Paper Trader is 1.10.42
+echo Paper Trader 1.10.42 is the only desk left.
+echo Step 2 of 2: close any old desk window, then double-click Paper Trader.bat on the desktop.
+echo The top seal must say Paper 1.10.42 — if it still says 1.10.40, you opened the old window.
 pause
 if /I "!ACTION!"=="remove-source" echo The older copy is no longer the one that opens.
 exit /b 0

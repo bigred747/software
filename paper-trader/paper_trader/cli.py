@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     install.add_argument("--home", type=Path, default=None)
     erase = commands.add_parser(
         "erase-others",
-        help="Keep Paper Trader 1.10.41 only; erase other installs, zips, and extra Bots",
+        help="Keep Paper Trader 1.10.42 only; erase other installs, zips, and extra Bots",
     )
     erase.add_argument("--home", type=Path, default=None)
     commands.add_parser("learn", help="Score closed bars all day on this computer")
