@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.47";
+const VERSION = "1.10.48";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -10393,12 +10393,13 @@ function drawCandles(retry) {
       }
     : null;
   void waves;
-  // big4indicator layer: green / gray / red for bull / mixed / bear. Otherwise Volume Wave green/red.
-  const useBig4Paint = !!(layers.big4 && big4 && Array.isArray(big4.bias));
+  // big4indicator on the main tape: green (bull) · gray (mixed) · red (bear). Always on the desk chart.
+  const useBig4Paint = !!(big4 && Array.isArray(big4.bias));
   const big4Colors = useBig4Paint ? big4.bias.slice(dropped, dropped + bars.length) : null;
-  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, useBig4Paint ? big4Colors : candlePaint);
-  if (!useBig4Paint) {
-    // Hard Volume Wave pass only when big4 gray paint is off.
+  if (useBig4Paint) {
+    PaperFrames.paintCandles(ctx, bars, xAt, y, slot, big4Colors);
+  } else {
+    PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candlePaint);
     paintClassicTape(ctx, bars, xAt, y, slot);
   }
   paintChartProductLabel();
@@ -10659,8 +10660,8 @@ const LAYERS = [
   ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-// Bump key so phone picks up big4 gray candle paint on open.
-const LAYERS_KEY = "paperTraderLayers74";
+// Bump key so phone picks up always-on big4 gray candle paint.
+const LAYERS_KEY = "paperTraderLayers75";
 
 function readLayers() {
   const chosen = {};
@@ -10677,6 +10678,8 @@ function readLayers() {
   } catch (error) {
     /* The clean view stays. */
   }
+  // Desk chart always keeps big4indicator green / gray / red paint.
+  chosen.big4 = true;
   return chosen;
 }
 

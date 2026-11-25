@@ -1112,13 +1112,19 @@
       ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
     }
     const momFull = momentumBars(history, { crypto: !!(options && options.crypto), live: liveBar(history, !!(options && options.crypto)) });
-    paintCandles(ctx, bars, xAt, y, slot, {
-      tone: momFull.tone.slice(dropped),
-      rim: momFull.rim.slice(dropped),
-      bias: momFull.bias.slice(dropped),
-      locked: momFull.locked.slice(dropped),
-      volumeDot: momFull.volumeDot.slice(dropped),
-    });
+    const big4 = big4Indicator(history);
+    // Mini / pro charts: same big4indicator green · gray · red as the main desk tape.
+    if (big4 && Array.isArray(big4.bias)) {
+      paintCandles(ctx, bars, xAt, y, slot, big4.bias.slice(dropped, dropped + bars.length));
+    } else {
+      paintCandles(ctx, bars, xAt, y, slot, {
+        tone: momFull.tone.slice(dropped),
+        rim: momFull.rim.slice(dropped),
+        bias: momFull.bias.slice(dropped),
+        locked: momFull.locked.slice(dropped),
+        volumeDot: momFull.volumeDot.slice(dropped),
+      });
+    }
     // Product name on the tape (symbol · label when provided).
     const product = String((options && (options.label || options.symbol)) || "").trim();
     if (product && height >= 120) {

@@ -67,7 +67,7 @@ def _request(method: str, token: str, payload: dict | None = None) -> dict:
     headers = {
         "Accept": "application/json",
         "Authorization": f"Bearer {token}",
-        "User-Agent": "PaperTrader-Desk/1.10.47",
+        "User-Agent": "PaperTrader-Desk/1.10.48",
     }
     if payload is not None:
         body = json.dumps({"book": payload}, separators=(",", ":"))

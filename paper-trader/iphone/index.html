@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.47">
+  <meta name="paper-build" content="1.10.48">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2120,7 +2120,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.47</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.48</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -6253,13 +6253,19 @@ AddOrder(Sell, sellFire);</textarea>
       ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
     }
     const momFull = momentumBars(history, { crypto: !!(options && options.crypto), live: liveBar(history, !!(options && options.crypto)) });
-    paintCandles(ctx, bars, xAt, y, slot, {
-      tone: momFull.tone.slice(dropped),
-      rim: momFull.rim.slice(dropped),
-      bias: momFull.bias.slice(dropped),
-      locked: momFull.locked.slice(dropped),
-      volumeDot: momFull.volumeDot.slice(dropped),
-    });
+    const big4 = big4Indicator(history);
+    // Mini / pro charts: same big4indicator green · gray · red as the main desk tape.
+    if (big4 && Array.isArray(big4.bias)) {
+      paintCandles(ctx, bars, xAt, y, slot, big4.bias.slice(dropped, dropped + bars.length));
+    } else {
+      paintCandles(ctx, bars, xAt, y, slot, {
+        tone: momFull.tone.slice(dropped),
+        rim: momFull.rim.slice(dropped),
+        bias: momFull.bias.slice(dropped),
+        locked: momFull.locked.slice(dropped),
+        volumeDot: momFull.volumeDot.slice(dropped),
+      });
+    }
     // Product name on the tape (symbol · label when provided).
     const product = String((options && (options.label || options.symbol)) || "").trim();
     if (product && height >= 120) {
@@ -11126,7 +11132,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.47";
+const VERSION = "1.10.48";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -21340,12 +21346,13 @@ function drawCandles(retry) {
       }
     : null;
   void waves;
-  // big4indicator layer: green / gray / red for bull / mixed / bear. Otherwise Volume Wave green/red.
-  const useBig4Paint = !!(layers.big4 && big4 && Array.isArray(big4.bias));
+  // big4indicator on the main tape: green (bull) · gray (mixed) · red (bear). Always on the desk chart.
+  const useBig4Paint = !!(big4 && Array.isArray(big4.bias));
   const big4Colors = useBig4Paint ? big4.bias.slice(dropped, dropped + bars.length) : null;
-  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, useBig4Paint ? big4Colors : candlePaint);
-  if (!useBig4Paint) {
-    // Hard Volume Wave pass only when big4 gray paint is off.
+  if (useBig4Paint) {
+    PaperFrames.paintCandles(ctx, bars, xAt, y, slot, big4Colors);
+  } else {
+    PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candlePaint);
     paintClassicTape(ctx, bars, xAt, y, slot);
   }
   paintChartProductLabel();
@@ -21606,8 +21613,8 @@ const LAYERS = [
   ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-// Bump key so phone picks up big4 gray candle paint on open.
-const LAYERS_KEY = "paperTraderLayers74";
+// Bump key so phone picks up always-on big4 gray candle paint.
+const LAYERS_KEY = "paperTraderLayers75";
 
 function readLayers() {
   const chosen = {};
@@ -21624,6 +21631,8 @@ function readLayers() {
   } catch (error) {
     /* The clean view stays. */
   }
+  // Desk chart always keeps big4indicator green / gray / red paint.
+  chosen.big4 = true;
   return chosen;
 }
 
