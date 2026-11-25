@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.48">
+  <meta name="paper-build" content="1.10.49">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.48</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.49</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -1316,21 +1316,24 @@ AddOrder(Sell, sellFire);</textarea>
   <div id="schwab-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="schwab-modal-title" hidden>
     <div class="modal-card">
       <h2 id="schwab-modal-title">Finish Schwab connect</h2>
-      <p class="breaker-note">Sign in in the Schwab window. When the browser lands on <code>https://127.0.0.1/...</code>, copy the whole address bar and paste it here. Tokens stay only on this computer.</p>
+      <p class="breaker-note">Connect opens Schwab sign-in like the computer desk. On phone / web, paste your App Key once if asked. When the browser lands on <code>https://127.0.0.1/...</code>, copy the whole address bar and paste it here.</p>
+      <label for="schwab-app-key">Schwab App Key</label>
+      <input id="schwab-app-key" type="text" autocomplete="off" spellcheck="false" placeholder="Same SCHWAB_APP_KEY as the computer .env">
       <label for="schwab-redirect">Redirect URL</label>
       <textarea id="schwab-redirect" rows="4" placeholder="https://127.0.0.1/?code=..." autocomplete="off" spellcheck="false"></textarea>
       <p id="schwab-modal-note" class="modal-warn"></p>
       <div class="modal-buttons">
         <button id="schwab-modal-cancel" type="button" class="quiet">Cancel</button>
+        <button id="schwab-modal-open" type="button" class="quiet">Open Schwab</button>
         <button id="schwab-modal-save" type="button">Save connection</button>
       </div>
     </div>
   </div>
-  <script src="live.js?v=11048"></script>
-  <script src="engine.js?v=11048"></script>
-  <script src="study.js?v=11048"></script>
-  <script src="frames.js?v=11048"></script>
-  <script src="booster.js?v=11048"></script>
-  <script src="app.js?v=11048"></script>
+  <script src="live.js?v=11049"></script>
+  <script src="engine.js?v=11049"></script>
+  <script src="study.js?v=11049"></script>
+  <script src="frames.js?v=11049"></script>
+  <script src="booster.js?v=11049"></script>
+  <script src="app.js?v=11049"></script>
 </body>
 </html>
