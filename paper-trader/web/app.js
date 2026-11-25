@@ -10156,13 +10156,21 @@ function drawCandles(retry) {
   const big4 = PaperFrames.big4Indicator ? PaperFrames.big4Indicator(history) : null;
   const wavePrefs = readVolumeWavePrefs();
   const waves = PaperFrames.volumeWave ? PaperFrames.volumeWave(history, wavePrefs) : null;
-  let candleColors = null;
-  if (wavePrefs.paint && waves && waves.ready) {
-    candleColors = waves.paint.slice(dropped, dropped + bars.length);
-  } else if (layers.big4 && big4) {
-    candleColors = big4.bias.slice(dropped, dropped + bars.length);
-  }
-  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candleColors);
+  // Momentum bars (ADX · DMI): green / red / yellow. Closed bars lock — live bar only may shift until close.
+  const cryptoChart = phoneCrypto(state.paper && state.paper.symbol, state.catalog && state.catalog.find((row) => row.symbol === (state.paper && state.paper.symbol)));
+  const momFull = PaperFrames.momentumBars
+    ? PaperFrames.momentumBars(history, { crypto: cryptoChart, live: PaperFrames.liveBar(history, cryptoChart) })
+    : null;
+  const candlePaint = momFull
+    ? {
+        tone: momFull.tone.slice(dropped),
+        rim: momFull.rim.slice(dropped),
+        bias: momFull.bias.slice(dropped),
+        locked: momFull.locked.slice(dropped),
+        volumeDot: momFull.volumeDot.slice(dropped),
+      }
+    : null;
+  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candlePaint);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
@@ -10219,9 +10227,18 @@ function drawCandles(retry) {
   const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
   const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
   if (width >= 640 && layers.key) {
-    const big4Tone = candleColors && candleColors[last];
-    const candleLabel = big4Tone === "bull" ? "big4indicator green" : big4Tone === "bear" ? "big4indicator red" : big4Tone === "mixed" ? "big4indicator mixed" : lastBar.close >= lastBar.open ? "Candle green" : "Candle red";
-    const candleColor = big4Tone === "bull" ? "#3ddc97" : big4Tone === "bear" ? "#ff4d4d" : big4Tone === "mixed" ? "#9aa6b2" : lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
+    const lastBias = candlePaint && candlePaint.bias ? candlePaint.bias[last] : null;
+    const candleLabel = lastBias === "up"
+      ? "Momentum green (up)"
+      : lastBias === "down"
+        ? "Momentum red (down)"
+        : lastBias === "flat"
+          ? "Momentum yellow (flat)"
+          : lastBar.close >= lastBar.open
+            ? "Candle green (up)"
+            : "Candle red (down)";
+    const candleColor = (candlePaint && candlePaint.tone && candlePaint.tone[last])
+      || (lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d");
     const key = [
       [candleLabel, candleColor],
       ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],

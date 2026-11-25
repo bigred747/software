@@ -2338,7 +2338,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">With big4indicator on, candles paint all green in a bullish stretch and all red in a bearish stretch (mixed is gray). With that layer off, up candles are solid green and down candles are solid red. Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (white), 9 (cyan), 14 (yellow), 50 (blue), 100 (gold), and 200 (red) on this chart's own bars. Desk EMA Fire installs EMA 5 · 14 · 50 · 200 on open. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses; then Volume Wave · Desk Waves — Hull ATR (n=6) × ATRmult (0.7) gates accum/distrib volume waves (green up / red down hist, cyan average); settings live on the pane; optional candle paint follows the active wave. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator paints candle color from EMA 50/200, MACD, and RSI on closed bars; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the study stack share. Not a forecast.</p>
+        <p class="muted chart-note">Candles paint as desk momentum bars (ADX · DMI): green for uptrend conviction, red for downtrend, yellow when direction is weak. Cyan dots mark closed bars with volume about 30% above average. Colors lock on the closed bar — the live bar alone may shift until it closes (no repaint of history). Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (white), 9 (cyan), 14 (yellow), 50 (blue), 100 (gold), and 200 (red) on this chart's own bars. Desk EMA Fire installs EMA 5 · 14 · 50 · 200 on open. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses; then Volume Wave · Desk Waves — Hull ATR (n=6) × ATRmult (0.7) gates accum/distrib volume waves (green up / red down hist, cyan average); settings live on the pane; wave paint stays in the Volume Wave pane. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator still reads EMA 50/200, MACD, and RSI on closed bars for Edge / layers; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the study stack share. Not a forecast.</p>
       </details>
     </section>
 
@@ -5342,32 +5342,139 @@ AddOrder(Sell, sellFire);</textarea>
     }));
   }
 
-  function paintCandles(ctx, bars, xAt, y, slot, colors) {
+  // Desk momentum bars (ADX · DMI): green = uptrend conviction, red = downtrend, yellow = no strong direction.
+  // Own closed-bar Wilder math — locks on close so prior candles do not repaint. Not a third-party product.
+  function momentumBars(bars, options) {
+    const opts = options || {};
+    const length = Math.max(2, Math.round(Number(opts.length) || 14));
+    const adxFloor = Number.isFinite(Number(opts.adxFloor)) ? Number(opts.adxFloor) : 20;
+    const volLook = Math.max(5, Math.round(Number(opts.volumeLookback) || 50));
+    const volMult = Number.isFinite(Number(opts.volumeMult)) ? Number(opts.volumeMult) : 1.3;
+    const list = bars || [];
+    const count = list.length;
+    const live = opts.live === true || (opts.live == null && liveBar(list, !!opts.crypto, opts.now));
+    const tr = new Array(count).fill(0);
+    const plusDM = new Array(count).fill(0);
+    const minusDM = new Array(count).fill(0);
+    for (let index = 1; index < count; index += 1) {
+      const high = list[index].high;
+      const low = list[index].low;
+      const prevClose = list[index - 1].close;
+      const upMove = high - list[index - 1].high;
+      const downMove = list[index - 1].low - low;
+      tr[index] = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+      plusDM[index] = upMove > downMove && upMove > 0 ? upMove : 0;
+      minusDM[index] = downMove > upMove && downMove > 0 ? downMove : 0;
+    }
+    function smoothDM(series) {
+      const out = new Array(count).fill(null);
+      if (count <= length) return out;
+      let sum = 0;
+      for (let index = 1; index <= length; index += 1) sum += series[index];
+      out[length] = sum;
+      for (let index = length + 1; index < count; index += 1) {
+        out[index] = out[index - 1] - out[index - 1] / length + series[index];
+      }
+      return out;
+    }
+    const atr = smoothDM(tr);
+    const smPlus = smoothDM(plusDM);
+    const smMinus = smoothDM(minusDM);
+    const plusDI = new Array(count).fill(null);
+    const minusDI = new Array(count).fill(null);
+    const dx = new Array(count).fill(null);
+    for (let index = 0; index < count; index += 1) {
+      if (atr[index] == null || !(atr[index] > 0)) continue;
+      plusDI[index] = (100 * smPlus[index]) / atr[index];
+      minusDI[index] = (100 * smMinus[index]) / atr[index];
+      const den = plusDI[index] + minusDI[index];
+      dx[index] = den === 0 ? 0 : (100 * Math.abs(plusDI[index] - minusDI[index])) / den;
+    }
+    const adx = new Array(count).fill(null);
+    const adxStart = length * 2 - 1;
+    if (count > adxStart) {
+      let sum = 0;
+      for (let index = length; index <= adxStart; index += 1) sum += dx[index] == null ? 0 : dx[index];
+      adx[adxStart] = sum / length;
+      for (let index = adxStart + 1; index < count; index += 1) {
+        adx[index] = (adx[index - 1] * (length - 1) + (dx[index] == null ? 0 : dx[index])) / length;
+      }
+    }
+    const GREEN = "#3ddc97";
+    const GREEN_RIM = "#1fae78";
+    const RED = "#ff4d4d";
+    const RED_RIM = "#d63b4a";
+    const YELLOW = "#e8c547";
+    const YELLOW_RIM = "#c9a227";
+    const tone = new Array(count).fill(null);
+    const rim = new Array(count).fill(null);
+    const bias = new Array(count).fill("warm");
+    const locked = new Array(count).fill(true);
+    const volumeDot = new Array(count).fill(false);
+    const volumes = list.map((bar) => Math.max(0, Number(bar.volume) || 0));
+    const volAvg = simpleAverage(volumes, volLook);
+    for (let index = 0; index < count; index += 1) {
+      if (live && index === count - 1) locked[index] = false;
+      if (adx[index] == null || plusDI[index] == null || minusDI[index] == null) {
+        const up = list[index].close >= list[index].open;
+        tone[index] = up ? GREEN : RED;
+        rim[index] = up ? GREEN_RIM : RED_RIM;
+        bias[index] = "warm";
+        continue;
+      }
+      if (adx[index] < adxFloor) {
+        tone[index] = YELLOW;
+        rim[index] = YELLOW_RIM;
+        bias[index] = "flat";
+      } else if (plusDI[index] > minusDI[index]) {
+        tone[index] = GREEN;
+        rim[index] = GREEN_RIM;
+        bias[index] = "up";
+      } else if (minusDI[index] > plusDI[index]) {
+        tone[index] = RED;
+        rim[index] = RED_RIM;
+        bias[index] = "down";
+      } else {
+        tone[index] = YELLOW;
+        rim[index] = YELLOW_RIM;
+        bias[index] = "flat";
+      }
+      // Volume conviction dots only on locked closed bars — live bar never paints a sticky dot.
+      if (locked[index] && volAvg[index] != null && volAvg[index] > 0 && volumes[index] >= volAvg[index] * volMult) {
+        volumeDot[index] = true;
+      }
+    }
+    return {
+      tone,
+      rim,
+      bias,
+      locked,
+      volumeDot,
+      plusDI,
+      minusDI,
+      adx,
+      length,
+      adxFloor,
+      live,
+    };
+  }
+
+  function paintCandles(ctx, bars, xAt, y, slot, paint) {
+    const list = bars || [];
+    const study = paint && Array.isArray(paint.tone) ? paint : momentumBars(list, paint || {});
     const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
-    bars.forEach((bar, index) => {
+    list.forEach((bar, index) => {
       const x = xAt(index);
-      const up = bar.close >= bar.open;
       const topPrice = Math.max(bar.open, bar.close);
       const bottomPrice = Math.min(bar.open, bar.close);
       const top = y(topPrice);
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
-      const mode = colors && colors[index];
-      let tone;
-      let rim;
-      if (mode === "bull") {
-        tone = "#3ddc97";
-        rim = "#1fae78";
-      } else if (mode === "bear") {
-        tone = "#ff4d4d";
-        rim = "#d63b4a";
-      } else if (mode === "mixed") {
-        tone = "#9aa6b2";
-        rim = "#6b7785";
-      } else {
-        tone = up ? "#3ddc97" : "#ff4d4d";
-        rim = up ? "#1fae78" : "#d63b4a";
-      }
+      const up = bar.close >= bar.open;
+      const tone = study.tone[index] || (up ? "#3ddc97" : "#ff4d4d");
+      const rim = study.rim[index] || (up ? "#1fae78" : "#d63b4a");
+      const locked = !study.locked || study.locked[index] !== false;
+      ctx.globalAlpha = locked ? 1 : 0.78;
       ctx.strokeStyle = tone;
       ctx.lineWidth = Math.max(1.25, Math.min(2.5, slot * 0.16));
       ctx.beginPath();
@@ -5380,6 +5487,14 @@ AddOrder(Sell, sellFire);</textarea>
       ctx.strokeStyle = rim;
       ctx.lineWidth = 1;
       ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
+      if (study.volumeDot && study.volumeDot[index]) {
+        const radius = Math.max(1.75, Math.min(3.5, slot * 0.22));
+        ctx.beginPath();
+        ctx.fillStyle = "#7dd3fc";
+        ctx.arc(x, y(bar.low) + radius + 3, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
     });
     ctx.lineWidth = 1;
   }
@@ -6036,7 +6151,14 @@ AddOrder(Sell, sellFire);</textarea>
       ctx.stroke();
       ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
     }
-    paintCandles(ctx, bars, xAt, y, slot);
+    const momFull = momentumBars(history, { crypto: !!(options && options.crypto), live: liveBar(history, !!(options && options.crypto)) });
+    paintCandles(ctx, bars, xAt, y, slot, {
+      tone: momFull.tone.slice(dropped),
+      rim: momFull.rim.slice(dropped),
+      bias: momFull.bias.slice(dropped),
+      locked: momFull.locked.slice(dropped),
+      volumeDot: momFull.volumeDot.slice(dropped),
+    });
     stack.forEach((row) => {
       strokeSeries(ctx, row.values.slice(dropped), xAt, y, row.color, row.length >= 100 ? 1.75 : 1.25);
     });
@@ -10551,6 +10673,7 @@ AddOrder(Sell, sellFire);</textarea>
     averages,
     stackAverages,
     paintCandles,
+    momentumBars,
     momentumTone,
     squeezeTone,
     squeezeName,
@@ -20855,13 +20978,21 @@ function drawCandles(retry) {
   const big4 = PaperFrames.big4Indicator ? PaperFrames.big4Indicator(history) : null;
   const wavePrefs = readVolumeWavePrefs();
   const waves = PaperFrames.volumeWave ? PaperFrames.volumeWave(history, wavePrefs) : null;
-  let candleColors = null;
-  if (wavePrefs.paint && waves && waves.ready) {
-    candleColors = waves.paint.slice(dropped, dropped + bars.length);
-  } else if (layers.big4 && big4) {
-    candleColors = big4.bias.slice(dropped, dropped + bars.length);
-  }
-  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candleColors);
+  // Momentum bars (ADX · DMI): green / red / yellow. Closed bars lock — live bar only may shift until close.
+  const cryptoChart = phoneCrypto(state.paper && state.paper.symbol, state.catalog && state.catalog.find((row) => row.symbol === (state.paper && state.paper.symbol)));
+  const momFull = PaperFrames.momentumBars
+    ? PaperFrames.momentumBars(history, { crypto: cryptoChart, live: PaperFrames.liveBar(history, cryptoChart) })
+    : null;
+  const candlePaint = momFull
+    ? {
+        tone: momFull.tone.slice(dropped),
+        rim: momFull.rim.slice(dropped),
+        bias: momFull.bias.slice(dropped),
+        locked: momFull.locked.slice(dropped),
+        volumeDot: momFull.volumeDot.slice(dropped),
+      }
+    : null;
+  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candlePaint);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
@@ -20918,9 +21049,18 @@ function drawCandles(retry) {
   const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
   const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
   if (width >= 640 && layers.key) {
-    const big4Tone = candleColors && candleColors[last];
-    const candleLabel = big4Tone === "bull" ? "big4indicator green" : big4Tone === "bear" ? "big4indicator red" : big4Tone === "mixed" ? "big4indicator mixed" : lastBar.close >= lastBar.open ? "Candle green" : "Candle red";
-    const candleColor = big4Tone === "bull" ? "#3ddc97" : big4Tone === "bear" ? "#ff4d4d" : big4Tone === "mixed" ? "#9aa6b2" : lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
+    const lastBias = candlePaint && candlePaint.bias ? candlePaint.bias[last] : null;
+    const candleLabel = lastBias === "up"
+      ? "Momentum green (up)"
+      : lastBias === "down"
+        ? "Momentum red (down)"
+        : lastBias === "flat"
+          ? "Momentum yellow (flat)"
+          : lastBar.close >= lastBar.open
+            ? "Candle green (up)"
+            : "Candle red (down)";
+    const candleColor = (candlePaint && candlePaint.tone && candlePaint.tone[last])
+      || (lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d");
     const key = [
       [candleLabel, candleColor],
       ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],

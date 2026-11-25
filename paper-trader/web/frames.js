@@ -274,32 +274,139 @@
     }));
   }
 
-  function paintCandles(ctx, bars, xAt, y, slot, colors) {
+  // Desk momentum bars (ADX · DMI): green = uptrend conviction, red = downtrend, yellow = no strong direction.
+  // Own closed-bar Wilder math — locks on close so prior candles do not repaint. Not a third-party product.
+  function momentumBars(bars, options) {
+    const opts = options || {};
+    const length = Math.max(2, Math.round(Number(opts.length) || 14));
+    const adxFloor = Number.isFinite(Number(opts.adxFloor)) ? Number(opts.adxFloor) : 20;
+    const volLook = Math.max(5, Math.round(Number(opts.volumeLookback) || 50));
+    const volMult = Number.isFinite(Number(opts.volumeMult)) ? Number(opts.volumeMult) : 1.3;
+    const list = bars || [];
+    const count = list.length;
+    const live = opts.live === true || (opts.live == null && liveBar(list, !!opts.crypto, opts.now));
+    const tr = new Array(count).fill(0);
+    const plusDM = new Array(count).fill(0);
+    const minusDM = new Array(count).fill(0);
+    for (let index = 1; index < count; index += 1) {
+      const high = list[index].high;
+      const low = list[index].low;
+      const prevClose = list[index - 1].close;
+      const upMove = high - list[index - 1].high;
+      const downMove = list[index - 1].low - low;
+      tr[index] = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+      plusDM[index] = upMove > downMove && upMove > 0 ? upMove : 0;
+      minusDM[index] = downMove > upMove && downMove > 0 ? downMove : 0;
+    }
+    function smoothDM(series) {
+      const out = new Array(count).fill(null);
+      if (count <= length) return out;
+      let sum = 0;
+      for (let index = 1; index <= length; index += 1) sum += series[index];
+      out[length] = sum;
+      for (let index = length + 1; index < count; index += 1) {
+        out[index] = out[index - 1] - out[index - 1] / length + series[index];
+      }
+      return out;
+    }
+    const atr = smoothDM(tr);
+    const smPlus = smoothDM(plusDM);
+    const smMinus = smoothDM(minusDM);
+    const plusDI = new Array(count).fill(null);
+    const minusDI = new Array(count).fill(null);
+    const dx = new Array(count).fill(null);
+    for (let index = 0; index < count; index += 1) {
+      if (atr[index] == null || !(atr[index] > 0)) continue;
+      plusDI[index] = (100 * smPlus[index]) / atr[index];
+      minusDI[index] = (100 * smMinus[index]) / atr[index];
+      const den = plusDI[index] + minusDI[index];
+      dx[index] = den === 0 ? 0 : (100 * Math.abs(plusDI[index] - minusDI[index])) / den;
+    }
+    const adx = new Array(count).fill(null);
+    const adxStart = length * 2 - 1;
+    if (count > adxStart) {
+      let sum = 0;
+      for (let index = length; index <= adxStart; index += 1) sum += dx[index] == null ? 0 : dx[index];
+      adx[adxStart] = sum / length;
+      for (let index = adxStart + 1; index < count; index += 1) {
+        adx[index] = (adx[index - 1] * (length - 1) + (dx[index] == null ? 0 : dx[index])) / length;
+      }
+    }
+    const GREEN = "#3ddc97";
+    const GREEN_RIM = "#1fae78";
+    const RED = "#ff4d4d";
+    const RED_RIM = "#d63b4a";
+    const YELLOW = "#e8c547";
+    const YELLOW_RIM = "#c9a227";
+    const tone = new Array(count).fill(null);
+    const rim = new Array(count).fill(null);
+    const bias = new Array(count).fill("warm");
+    const locked = new Array(count).fill(true);
+    const volumeDot = new Array(count).fill(false);
+    const volumes = list.map((bar) => Math.max(0, Number(bar.volume) || 0));
+    const volAvg = simpleAverage(volumes, volLook);
+    for (let index = 0; index < count; index += 1) {
+      if (live && index === count - 1) locked[index] = false;
+      if (adx[index] == null || plusDI[index] == null || minusDI[index] == null) {
+        const up = list[index].close >= list[index].open;
+        tone[index] = up ? GREEN : RED;
+        rim[index] = up ? GREEN_RIM : RED_RIM;
+        bias[index] = "warm";
+        continue;
+      }
+      if (adx[index] < adxFloor) {
+        tone[index] = YELLOW;
+        rim[index] = YELLOW_RIM;
+        bias[index] = "flat";
+      } else if (plusDI[index] > minusDI[index]) {
+        tone[index] = GREEN;
+        rim[index] = GREEN_RIM;
+        bias[index] = "up";
+      } else if (minusDI[index] > plusDI[index]) {
+        tone[index] = RED;
+        rim[index] = RED_RIM;
+        bias[index] = "down";
+      } else {
+        tone[index] = YELLOW;
+        rim[index] = YELLOW_RIM;
+        bias[index] = "flat";
+      }
+      // Volume conviction dots only on locked closed bars — live bar never paints a sticky dot.
+      if (locked[index] && volAvg[index] != null && volAvg[index] > 0 && volumes[index] >= volAvg[index] * volMult) {
+        volumeDot[index] = true;
+      }
+    }
+    return {
+      tone,
+      rim,
+      bias,
+      locked,
+      volumeDot,
+      plusDI,
+      minusDI,
+      adx,
+      length,
+      adxFloor,
+      live,
+    };
+  }
+
+  function paintCandles(ctx, bars, xAt, y, slot, paint) {
+    const list = bars || [];
+    const study = paint && Array.isArray(paint.tone) ? paint : momentumBars(list, paint || {});
     const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
-    bars.forEach((bar, index) => {
+    list.forEach((bar, index) => {
       const x = xAt(index);
-      const up = bar.close >= bar.open;
       const topPrice = Math.max(bar.open, bar.close);
       const bottomPrice = Math.min(bar.open, bar.close);
       const top = y(topPrice);
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
-      const mode = colors && colors[index];
-      let tone;
-      let rim;
-      if (mode === "bull") {
-        tone = "#3ddc97";
-        rim = "#1fae78";
-      } else if (mode === "bear") {
-        tone = "#ff4d4d";
-        rim = "#d63b4a";
-      } else if (mode === "mixed") {
-        tone = "#9aa6b2";
-        rim = "#6b7785";
-      } else {
-        tone = up ? "#3ddc97" : "#ff4d4d";
-        rim = up ? "#1fae78" : "#d63b4a";
-      }
+      const up = bar.close >= bar.open;
+      const tone = study.tone[index] || (up ? "#3ddc97" : "#ff4d4d");
+      const rim = study.rim[index] || (up ? "#1fae78" : "#d63b4a");
+      const locked = !study.locked || study.locked[index] !== false;
+      ctx.globalAlpha = locked ? 1 : 0.78;
       ctx.strokeStyle = tone;
       ctx.lineWidth = Math.max(1.25, Math.min(2.5, slot * 0.16));
       ctx.beginPath();
@@ -312,6 +419,14 @@
       ctx.strokeStyle = rim;
       ctx.lineWidth = 1;
       ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
+      if (study.volumeDot && study.volumeDot[index]) {
+        const radius = Math.max(1.75, Math.min(3.5, slot * 0.22));
+        ctx.beginPath();
+        ctx.fillStyle = "#7dd3fc";
+        ctx.arc(x, y(bar.low) + radius + 3, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
     });
     ctx.lineWidth = 1;
   }
@@ -968,7 +1083,14 @@
       ctx.stroke();
       ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
     }
-    paintCandles(ctx, bars, xAt, y, slot);
+    const momFull = momentumBars(history, { crypto: !!(options && options.crypto), live: liveBar(history, !!(options && options.crypto)) });
+    paintCandles(ctx, bars, xAt, y, slot, {
+      tone: momFull.tone.slice(dropped),
+      rim: momFull.rim.slice(dropped),
+      bias: momFull.bias.slice(dropped),
+      locked: momFull.locked.slice(dropped),
+      volumeDot: momFull.volumeDot.slice(dropped),
+    });
     stack.forEach((row) => {
       strokeSeries(ctx, row.values.slice(dropped), xAt, y, row.color, row.length >= 100 ? 1.75 : 1.25);
     });
@@ -5483,6 +5605,7 @@
     averages,
     stackAverages,
     paintCandles,
+    momentumBars,
     momentumTone,
     squeezeTone,
     squeezeName,
