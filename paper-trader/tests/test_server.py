@@ -964,8 +964,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn("launch.py", bat)
         self.assertIn("serve", bat)
         self.assertIn("if not errorlevel 1", bat)
-        self.assertIn("opening the new copy", bat)
-        self.assertIn("close this setup window", bat)
+        self.assertIn("force-upgrade", bat)
+        self.assertIn("papertrader-setup-%random%%random%", bat)
+        self.assertIn("learn.lock", bat)
         self.assertNotIn("goto badinstall", bat)
         self.assertIn("unblock", bat)
         self.assertIn("documents\\iphone", bat)
@@ -976,9 +977,9 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("requirements", bat)
         allow = (ROOT / "1 Allow Paper Trader.bat").read_text(encoding="utf-8").lower()
         opener = (ROOT / "2 Open Paper Trader.bat").read_text(encoding="utf-8").lower()
-        self.assertIn("launch.py", allow)
+        self.assertIn("force-upgrade", allow)
         self.assertIn("install", allow)
-        self.assertIn("paper trader.bat", allow)
+        self.assertIn("papertrader-setup-%random%%random%", allow)
         for name in ("Start-Paper-Trader.bat", "1 Allow Paper Trader.bat", "2 Open Paper Trader.bat"):
             text = (ROOT / name).read_text(encoding="utf-8")
             self.assertIn("tar -xf", text)
@@ -988,7 +989,7 @@ class ServerTests(unittest.TestCase):
             lowered = text.lower()
             for blocked in ("powershell", "cscript", "wscript", "zone.identifier", "unblock-file", ".vbs", "taskkill"):
                 self.assertNotIn(blocked, lowered)
-        self.assertIn("remove-source", allow)
+        self.assertIn("force-upgrade.bat", allow)
         self.assertIn("start-paper-trader.bat", opener)
         for blocked in ("add-mpexclusion", "set-mppreference", "exclusionpath", "reg add", "netsh"):
             self.assertNotIn(blocked, allow)
