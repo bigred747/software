@@ -50,7 +50,7 @@ exit /b 1
 echo Unblock
 echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
-echo Step 1 of 2. Install Paper Trader 1.10.40 and erase other copies.
+echo Step 1 of 2. Install Paper Trader 1.10.41 and erase other copies.
 set "PY=%~dp0runtime\python.exe"
 if not exist "%PY%" set "PY=python"
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
@@ -82,7 +82,7 @@ if errorlevel 1 (
   exit /b 1
 )
 call :DeskLink "%DEST%"
-echo Paper Trader 1.10.40 is the only desk left.
+echo Paper Trader 1.10.41 is the only desk left.
 echo Step 2 of 2: double-click Paper Trader.bat on the desktop.
 pause
 if /I "!ACTION!"=="remove-source" echo The older copy is no longer the one that opens.

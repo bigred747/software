@@ -174,7 +174,7 @@ class InstallTests(unittest.TestCase):
             old = home / "Downloads" / "paper-trader"
             newer = home / "Desktop" / "Paper Trader 1.10.50"
             notes = home / "Documents" / "taxes"
-            make_install(keep, "1.10.40")
+            make_install(keep, "1.10.41")
             (keep / "2 Open Paper Trader.bat").write_text("@echo off\r\n", encoding="utf-8")
             make_install(old, "1.10.39")
             make_install(newer, "1.10.50")
@@ -182,7 +182,7 @@ class InstallTests(unittest.TestCase):
             (notes / "keep.txt").write_text("leave\n", encoding="utf-8")
             (home / "Desktop").mkdir(exist_ok=True)
             (home / "Downloads" / "Paper-Trader-1.10.50-slim.zip").write_bytes(b"zip")
-            (home / "Downloads" / "Paper-Trader-1.10.40-slim.zip").write_bytes(b"keep")
+            (home / "Downloads" / "Paper-Trader-1.10.41-slim.zip").write_bytes(b"keep")
             (home / "Documents" / "PaperTrader-setup").mkdir()
             make_install(home / "Documents" / "PaperTrader-setup" / "paper-trader", "1.10.48")
             closed: list[int] = []
@@ -194,14 +194,14 @@ class InstallTests(unittest.TestCase):
                 with patch("paper_trader.install._resume_learner"):
                     report = erase_other_installs(home, keep=keep, killer=fake_killer)
             self.assertEqual(Path(str(report["keep"])), keep.resolve())
-            self.assertEqual(report["keep_version"], "1.10.40")
+            self.assertEqual(report["keep_version"], "1.10.41")
             self.assertFalse(old.exists())
             self.assertFalse(newer.exists())
             self.assertFalse((home / "Documents" / "PaperTrader-setup").exists())
             self.assertTrue(is_install(keep))
             self.assertEqual((notes / "keep.txt").read_text(encoding="utf-8"), "leave\n")
             self.assertFalse((home / "Downloads" / "Paper-Trader-1.10.50-slim.zip").exists())
-            self.assertTrue((home / "Downloads" / "Paper-Trader-1.10.40-slim.zip").is_file())
+            self.assertTrue((home / "Downloads" / "Paper-Trader-1.10.41-slim.zip").is_file())
             self.assertEqual(find_installs(home), [keep.resolve()])
             opener = home / "Desktop" / "Paper Trader.bat"
             self.assertTrue(opener.is_file())
