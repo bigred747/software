@@ -178,6 +178,7 @@ def build_zips(version: str) -> None:
         "FORCE-UPGRADE.bat",
         "CHECK-SEAL.bat",
         "EXTRACT-THEN-UPGRADE.txt",
+        "CLOSE-THEN-EXTRACT.txt",
         "Erase-Other-Paper-Traders.bat",
         "Start-Paper-Trader.bat",
     ]

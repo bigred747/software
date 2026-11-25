@@ -18,15 +18,19 @@ if not defined ZIP if exist "%USERPROFILE%\Downloads\Paper-Trader.zip" set "ZIP=
 if not defined ZIP goto NoZip
 if /I "!ZIP!"=="NONE" goto NoZip
 echo Using zip: !ZIP!
+echo Close every Paper Trader window and black cmd desk window first.
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
-set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup"
-if exist "%STAGE%" rmdir /s /q "%STAGE%"
-if exist "%STAGE%" set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup-%RANDOM%"
-mkdir "%STAGE%"
-tar -xf "!ZIP!" -C "%STAGE%"
+rem Never reuse Documents\PaperTrader-setup — a running desk locks learn.lock there.
+set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup-%RANDOM%%RANDOM%"
+mkdir "%STAGE%" 2>nul
+if not exist "%STAGE%\." set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup-%RANDOM%%RANDOM%"
+mkdir "%STAGE%" 2>nul
+if not exist "%STAGE%\." goto BadZip
+echo Extracting into: !STAGE!
+tar -xf "!ZIP!" -C "!STAGE!"
 if errorlevel 1 goto BadZip
-if not exist "%STAGE%\paper-trader\FORCE-UPGRADE.bat" goto BadZip
-start "" "%STAGE%\paper-trader\FORCE-UPGRADE.bat"
+if not exist "!STAGE!\paper-trader\FORCE-UPGRADE.bat" goto BadZip
+start "" "!STAGE!\paper-trader\FORCE-UPGRADE.bat"
 echo Extracted. FORCE-UPGRADE will replace Documents\Paper Trader.
 pause
 exit /b 0
@@ -39,8 +43,9 @@ exit /b 1
 
 :BadZip
 echo Could not extract Paper-Trader.zip.
-echo The program files could not be written into Documents.
-echo If a security program blocked them, allow Paper Trader, then double-click this file again.
+echo Usually Documents\PaperTrader-setup is locked by a running Paper Trader.
+echo Close EVERY Paper Trader window and black cmd window, then try again.
+echo Or right-click the zip - Extract All - then open FORCE-UPGRADE.bat.
 pause
 exit /b 1
 
