@@ -100,19 +100,17 @@
     throw last;
   }
 
-  let quoteWait = 2500;
-  let quoteGap = 50;
+  let quoteWait = 12000;
+  let quoteGap = 300;
 
   function pace(ms) {
     const next = Number(ms);
-    // Floor keeps a real timeout; Max booster sits at 1500 ms.
-    if (Number.isFinite(next) && next >= 1200) quoteWait = next;
+    if (Number.isFinite(next) && next >= 2000) quoteWait = next;
   }
 
   function gap(ms) {
     const next = Number(ms);
-    // Floor keeps the public feed from being hammered in a tight loop.
-    if (Number.isFinite(next) && next >= 40) quoteGap = next;
+    if (Number.isFinite(next) && next >= 80) quoteGap = next;
   }
 
   function timed(promise) {

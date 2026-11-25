@@ -91,7 +91,7 @@ body {
 }
 .schwab-top-row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   width: 100%;
@@ -126,6 +126,13 @@ body {
   background: var(--up-mid);
   border-color: var(--up);
   color: #fff;
+}
+#schwab-test {
+  min-height: 28px;
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 650;
 }
 .schwab-top-status {
   font-size: 11px;
@@ -658,6 +665,34 @@ textarea {
 .edge.wait.aim .edge-call, .edge.wait.ready .edge-call { color: var(--warn); }
 .edge.buy { border-color: var(--up); }
 .edge.sell { border-color: var(--down); }
+.edge-warn {
+  display: none;
+  margin: 6px 0 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  border: 1px solid transparent;
+}
+.edge-warn.on { display: block; }
+.edge-warn.buy {
+  color: #0b2a1c;
+  background: rgba(61, 220, 151, 0.92);
+  border-color: #1fae78;
+}
+.edge-warn.sell {
+  color: #2a0b10;
+  background: rgba(255, 77, 77, 0.92);
+  border-color: #d63b4a;
+}
+.edge-warn.aim,
+.edge-warn.ready {
+  color: #2a2208;
+  background: rgba(232, 197, 71, 0.9);
+  border-color: #c9a227;
+}
 .edge-checks { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 6px 0; padding: 0; list-style: none; font-size: 12px; }
 .edge-checks li { display: flex; align-items: center; gap: 5px; color: var(--muted); }
 .edge-checks li::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #5c6770; }
@@ -1056,6 +1091,46 @@ button.quiet { background: transparent; }
   font-weight: 650;
   letter-spacing: 0.03em;
 }
+.study-pane-head .chart-product {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 4px;
+  color: #e7edf3;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.candle-stage {
+  position: relative;
+  width: 100%;
+}
+.chart-product-banner {
+  position: absolute;
+  top: 10px;
+  left: 56px;
+  z-index: 8;
+  pointer-events: none;
+  max-width: 48%;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(61, 220, 151, 0.55);
+  background: rgba(7, 9, 11, 0.9);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.25;
+  color: #f4f7fb;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chart-product-banner[hidden] {
+  display: none !important;
+}
 .study-pane-head .study-pop { margin-left: auto; min-height: 30px; padding: 3px 10px; font-size: 11px; }
 .study-roll {
   width: 34px;
@@ -1229,8 +1304,21 @@ footer { display: none; }
     padding: 2px 8px 0;
   }
   .schwab-top { padding: 4px 6px; }
-  #schwab-connect { min-height: 32px; font-size: 12px; padding: 4px 8px; }
-  .schwab-top-status { font-size: 11px; }
+  #schwab-connect,
+  #schwab-connect-2,
+  #schwab-test,
+  #schwab-test-2 { min-height: 36px; font-size: 13px; padding: 6px 10px; }
+  .schwab-top-status,
+  #schwab-box-status { font-size: 12px; }
+  #schwab-test,
+  #schwab-test-2 {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #243040;
+    border: 1px solid #5b9dff;
+    color: #d7e8ff;
+  }
   .quote {
     margin: 0;
     width: 100%;

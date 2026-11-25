@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import shutil
 import subprocess
@@ -13,19 +12,6 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
-
-
-def _json_clean(value):
-    """Replace NaN/Inf so allow_nan=False JSON never 400s the desk."""
-    if isinstance(value, float):
-        if math.isnan(value) or math.isinf(value):
-            return None
-        return value
-    if isinstance(value, dict):
-        return {key: _json_clean(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_clean(item) for item in value]
-    return value
 
 from paper_trader import __version__
 from paper_trader.breadth import snapshot as breadth_snapshot
@@ -66,8 +52,6 @@ from paper_trader.learn import (
     closed_bars,
     desk_day,
     ensure_learner,
-    ensure_sole_learner,
-    sole_bot_status,
     mood,
     remove_startup,
     startup_present,
@@ -104,6 +88,7 @@ from paper_trader.schwab_auth import (
     set_live_trading as schwab_set_live_trading,
     set_market_data as schwab_set_market_data,
     signal_item as schwab_signal_item,
+    test_connection as schwab_test_connection,
 )
 from paper_trader.schwab_env import status_report as schwab_status_report
 
@@ -117,7 +102,6 @@ STATIC = {
     "/live.js": "live.js",
     "/study.js": "study.js",
     "/frames.js": "frames.js",
-    "/booster.js": "booster.js",
     "/frame.js": "frame.js",
     "/frame.html": "frame.html",
     "/manifest.webmanifest": "manifest.webmanifest",
@@ -131,7 +115,6 @@ TYPES = {
     "live.js": "text/javascript; charset=utf-8",
     "study.js": "text/javascript; charset=utf-8",
     "frames.js": "text/javascript; charset=utf-8",
-    "booster.js": "text/javascript; charset=utf-8",
     "frame.js": "text/javascript; charset=utf-8",
     "frame.html": "text/html; charset=utf-8",
     "manifest.webmanifest": "application/manifest+json",
@@ -221,7 +204,11 @@ CONFIRM_PATHS = frozenset({"/api/paper/trade", "/api/paper/ticket", "/api/paper/
 CONFIRM_NOTE = "Confirm first. Every paper buy and sell needs the second warning, even from Auto."
 
 LOUD_CALLS = ("task" + "kill", "os." + "kill(", "winreg", "schtasks", "rmtree(", "Terminate" + "Process")
-LOUD_ALLOWED = {"install.py": {"rmtree("}}
+# install may rmtree other Paper Trader folders on erase-others; learn may end orphan Bot PIDs.
+LOUD_ALLOWED = {
+    "install.py": {"rmtree("},
+    "learn.py": {"task" + "kill", "os." + "kill("},
+}
 
 
 def _loud_calls() -> list[str]:
@@ -589,6 +576,7 @@ class Desk:
         with self.lock:
             rows = self._read_shelf()
             loaded = 0
+            current_snap_view: dict | None = None
             for symbol, snap in sessions.items():
                 if not isinstance(snap, dict):
                     continue
@@ -671,14 +659,62 @@ class Desk:
                     },
                     "journal": journal_to_dict(journal),
                 }
+                # Persist each market as it lands so a stuck UI never wipes a partial Load.
+                self._write_shelf(rows)
                 if str(symbol) == self.journal.symbol:
                     self.journal = journal
                     save_journal(self.state_path, self.journal)
+                    current_snap_view = view
                 loaded += 1
-            self._write_shelf(rows)
             if loaded <= 0:
                 raise ValueError("That paper book had no open trades or working orders.")
-            payload_view = self._guard(view_journal(self.journal))
+            # Never call view_journal / quotes here — that was the Journal "Working…" hang.
+            day = desk_day()
+            data = load_breaker(self.breaker_path)
+            if current_snap_view is not None:
+                payload_view = {
+                    "symbol": self.journal.symbol,
+                    "paper": True,
+                    "mode": "paper",
+                    "cash": current_snap_view.get("cash"),
+                    "shares": current_snap_view.get("shares") or 0,
+                    "entry_price": current_snap_view.get("entry_price"),
+                    "entry_date": current_snap_view.get("entry_date"),
+                    "last_close": current_snap_view.get("last_close"),
+                    "equity": current_snap_view.get("equity"),
+                    "start_cash": current_snap_view.get("start_cash"),
+                    "working": [dict(item) for item in self.journal.working],
+                    "fills": list(self.journal.fills),
+                    "trades": [],
+                    "signal": "HOLD LONG" if float(current_snap_view.get("shares") or 0) > 0 else "HOLD",
+                    "cursor": self.journal.cursor,
+                    "total_bars": self.journal.cursor,
+                    "finished": False,
+                }
+            else:
+                note = (rows.get(self.journal.symbol) or {}).get("summary") or {}
+                payload_view = {
+                    "symbol": self.journal.symbol,
+                    "paper": True,
+                    "mode": "paper",
+                    "cash": note.get("cash") if note.get("cash") is not None else self.journal.params.cash,
+                    "shares": float(note.get("shares") or 0),
+                    "entry_price": note.get("entry"),
+                    "entry_date": note.get("opened"),
+                    "last_close": note.get("last"),
+                    "equity": note.get("equity") if note.get("equity") is not None else self.journal.params.cash,
+                    "start_cash": note.get("start") or self.journal.params.cash,
+                    "working": [dict(item) for item in self.journal.working],
+                    "fills": list(self.journal.fills),
+                    "trades": [],
+                    "signal": "HOLD",
+                    "cursor": self.journal.cursor,
+                    "total_bars": self.journal.cursor,
+                    "finished": False,
+                }
+            payload_view["breaker"] = breaker_view(data, day)
+            payload_view["ticket_fills"] = list(self.ticket_fills)
+            payload_view["book"] = self.account_book(payload_view)
             payload_view["book_loaded"] = loaded
             return payload_view
 
@@ -832,7 +868,6 @@ class Desk:
             {"name": "Arrows", "ok": quote_ok, "detail": "Ready" if quote_ok else "Waiting on the quote"},
             {"name": "Study", "ok": True, "detail": "On this device"},
             self._learning_check(),
-            sole_bot_status(Path(__file__).resolve().parents[1], self.learn_path, Path.home()),
             self._process_check(),
             self._mood_check(str(view.get("symbol") or ""), quote_ok),
             {"name": "Zoom", "ok": True, "detail": "In and out"},
@@ -846,12 +881,7 @@ class Desk:
             single_copy_status(Path.home()),
         ]
         # Schwab starts red until OAuth succeeds; that alone does not fail the desk.
-        # Bot (multi-score) is a health warning — paper desk still runs.
-        desk_ok = all(
-            bool(item["ok"])
-            for item in items
-            if item.get("name") not in {"Schwab", "Bot"}
-        )
+        desk_ok = all(bool(item["ok"]) for item in items if item.get("name") != "Schwab")
         return {"ok": desk_ok, "items": items}
 
     def safe_report(self, bound: str = "127.0.0.1") -> dict:
@@ -972,7 +1002,7 @@ class Desk:
         loud = _loud_calls()
         add("Quiet installer", not loud, "Never ends other programs, never deletes other folders, never edits the registry" if not loud else "Found " + ", ".join(loud))
         copy = single_copy_status(Path.home())
-        add("One copy", bool(copy["ok"]), str(copy["detail"]) + ("" if copy["ok"] else ". Nothing is deleted for you. Remove old folders yourself"), "health")
+        add("One copy", bool(copy["ok"]), str(copy["detail"]), "health")
         try:
             quote_detail = quotes.ping()
             add("Quotes", True, quote_detail, "health")
@@ -1312,12 +1342,15 @@ class Desk:
         return {"frame": "1D", "items": items}
 
     def _learning_check(self) -> dict[str, str | bool]:
-        # Fast path for Signals — never spawn/stop bots inside /api/checks (that timed out desk green).
-        # serve() already calls ensure_sole_learner once at start.
-        from paper_trader.learn import learning_report
-
-        report = learning_report(self.learn_path, expect=self.expect_learner)
-        running = bool(report.get("running"))
+        # Desk is open — try to keep the Windows score alive before reporting.
+        root = self.state_path.parent
+        if self.expect_learner:
+            try:
+                ensure_learner(root, self.learn_path, wait=0.8)
+            except OSError:
+                pass
+        report = book_view(self.learn_path, expect=self.expect_learner)
+        running = bool(report.get("running") or report.get("bot_on"))
         if running:
             return {"name": "Learning", "ok": True, "detail": str(report["detail"])}
         # Honest green when the desk window itself is learning (expect set at serve).
@@ -1333,12 +1366,9 @@ class Desk:
         return {"name": "Learning", "ok": bool(report["ok"]), "detail": str(report["detail"])}
 
     def _process_check(self) -> dict[str, str | bool]:
-        # Lightweight: avoid book_view's full symbols copy on every Signals refresh.
-        from paper_trader.learn import _load
-
-        saved = _load(self.learn_path)
-        event = saved.get("last_process") if isinstance(saved.get("last_process"), dict) else None
-        at = float(saved.get("last_process_at") or 0)
+        report = book_view(self.learn_path, expect=self.expect_learner)
+        event = report.get("last_process") if isinstance(report.get("last_process"), dict) else None
+        at = float(report.get("last_process_at") or 0)
         fresh = event and at and (time.time() - at) < 3600
         if fresh:
             rule = str(event.get("rule") or "process")
@@ -1365,11 +1395,15 @@ class Desk:
 def _voice_line(symbol: str, side: str, kind: str, dots: int) -> str:
     name = symbol[:-4] if symbol.endswith("-USD") else symbol
     if kind == "steam" and side == "sell":
-        return f"Sell. {name}. The daily squeeze ran out of steam."
+        return f"Sell warning. {name}. The daily squeeze ran out of steam."
     if kind == "dots" and side == "buy":
         return f"Buy warning. {name}. Five squeeze dots on the daily."
     if kind == "dots" and side == "sell":
         return f"Sell warning. {name}. Five squeeze dots on the daily."
+    if side == "buy" and dots > 0:
+        return f"Buy warning. {name} has {dots} squeeze dots."
+    if side == "sell" and dots > 0:
+        return f"Sell warning. {name} has {dots} squeeze dots."
     if dots > 0:
         return f"{name} has {dots} squeeze dots."
     return ""
@@ -1511,6 +1545,25 @@ class DeskHandler(BaseHTTPRequestHandler):
             body = self._body()
             self._json(self.desk.import_book(body))
             return
+        if method == "GET" and path == "/api/paper/sync":
+            from paper_trader.sync import status as sync_status
+
+            self._json(sync_status(Path(self.desk.state_path).resolve().parent))
+            return
+        if method == "POST" and path == "/api/paper/sync/push":
+            from paper_trader.sync import push_book
+
+            root = Path(self.desk.state_path).resolve().parent
+            self._json(push_book(self.desk.export_book(), root))
+            return
+        if method == "POST" and path == "/api/paper/sync/pull":
+            from paper_trader.sync import pull_book
+
+            root = Path(self.desk.state_path).resolve().parent
+            pulled = pull_book(root)
+            view = self.desk.import_book(pulled["book"])
+            self._json({**pulled, "book_loaded": view.get("book_loaded"), "view": view})
+            return
         if method == "GET" and path == "/api/market":
             symbol = query.get("symbol") or self.desk.journal.symbol
             raw = {**self.desk.journal.params.to_dict(), **query}
@@ -1589,6 +1642,9 @@ class DeskHandler(BaseHTTPRequestHandler):
         if method == "POST" and path == "/api/schwab/connect":
             self._json(schwab_authorize_url())
             return
+        if method == "POST" and path == "/api/schwab/test":
+            self._json(schwab_test_connection())
+            return
         if method == "POST" and path == "/api/schwab/finish":
             schwab_finish_oauth(str(body.get("redirect") or body.get("code") or ""))
             self._json(schwab_connection_status())
@@ -1644,7 +1700,7 @@ class DeskHandler(BaseHTTPRequestHandler):
         return data
 
     def _json(self, payload: dict, status: int = 200) -> None:
-        body = json.dumps(_json_clean(payload), allow_nan=False).encode("utf-8")
+        body = json.dumps(payload, allow_nan=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -1750,13 +1806,12 @@ def serve(state_path: Path, port: int = 8765, open_browser: bool = True) -> None
         busy = getattr(exc, "winerror", None) == 10048 or exc.errno in {98, 10048}
         if not busy:
             raise
-        ensure_sole_learner(root, learn_path, Path.home())
+        ensure_learner(root, learn_path)
         print("Paper Trader is already open on this computer.")
         print("Close that window, then start Paper Trader again.")
         print("The score keeps running after that window closes. Use Windows extras in the Safe check to start it at sign-in.")
-        print("Only one Bot score runs on this computer.")
         return
-    ensure_sole_learner(root, learn_path, Path.home())
+    ensure_learner(root, learn_path)
     server.desk.expect_learner = True
     try:
         extra = other_copies(Path.home(), root)

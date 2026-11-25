@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.46">
+  <meta name="paper-build" content="1.10.52">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.46</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.52</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -69,6 +69,7 @@
       <div class="schwab-top-row">
         <span id="schwab-top-dot" class="schwab-top-dot bad" title="Not connected" aria-hidden="true"></span>
         <button id="schwab-connect" type="button" aria-pressed="false">Connect</button>
+        <button id="schwab-test" type="button" class="quiet">Test</button>
         <strong id="schwab-top-status" class="schwab-top-status bad">OFF</strong>
       </div>
     </div>
@@ -254,8 +255,12 @@
           <div class="study-pane-head">
             <button type="button" class="study-roll" aria-expanded="true" aria-controls="candles" title="Roll up price">▾</button>
             <span>Price</span>
+            <strong id="chart-product" class="chart-product">—</strong>
           </div>
-          <canvas id="candles" width="800" height="360" aria-label="Price chart"></canvas>
+          <div class="candle-stage">
+            <div id="chart-product-banner" class="chart-product-banner" aria-live="polite">—</div>
+            <canvas id="candles" width="800" height="360" aria-label="Price chart"></canvas>
+          </div>
         </section>
         <section class="study-pane" data-pane="tmo" data-expanded="true">
           <div class="study-pane-head">
@@ -304,7 +309,7 @@
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">With big4indicator on, candles paint all green in a bullish stretch and all red in a bearish stretch (mixed is gray). With that layer off, up candles are solid green and down candles are solid red. Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (white), 9 (cyan), 14 (yellow), 50 (blue), 100 (gold), and 200 (red) on this chart's own bars. Desk EMA Fire installs EMA 5 · 14 · 50 · 200 on open. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses; then Volume Wave · Desk Waves — Hull ATR (n=6) × ATRmult (0.7) gates accum/distrib volume waves (green up / red down hist, cyan average); settings live on the pane; optional candle paint follows the active wave. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator paints candle color from EMA 50/200, MACD, and RSI on closed bars; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the study stack share. Not a forecast.</p>
+        <p class="muted chart-note">With big4indicator on, candles paint green (bull) · gray (mixed) · red (bear). Turn that layer off for Volume Wave green/red only. Cyan dots mark closed bars with volume about 30% above average. Colors lock on the closed bar — the live bar alone may shift until it closes (no repaint of history). Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (white), 9 (cyan), 14 (yellow), 50 (blue), 100 (gold), and 200 (red) on this chart's own bars. Desk EMA Fire installs EMA 5 · 14 · 50 · 200 on open. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses; then Volume Wave · Desk Waves — Hull ATR (n=6) × ATRmult (0.7) gates accum/distrib volume waves (green up / red down hist, cyan average); settings live on the pane; wave paint stays in the Volume Wave pane. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator still reads EMA 50/200, MACD, and RSI on closed bars for Edge / layers; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the study stack share. Not a forecast.</p>
       </details>
     </section>
 
@@ -317,6 +322,7 @@
           <span id="edge-call" class="edge-call">WAIT</span>
           <span id="edge-score" class="edge-score">—</span>
         </div>
+        <p id="edge-warn" class="edge-warn" hidden role="status" aria-live="polite"></p>
         <ol id="edge-checks" class="edge-checks"></ol>
         <p id="gate-print" class="gate-print muted">Gate Print · waiting for closed bars.</p>
         <p id="edge-plan" class="edge-plan"></p>
@@ -398,12 +404,18 @@
       </section>
       <details class="desk-extras" open>
         <summary>Desk extras · breaker · Safe</summary>
-        <div class="schwab-box" id="schwab-box" aria-label="Schwab market and live">
+        <div class="schwab-box" id="schwab-box" aria-label="Schwab connection">
+          <p class="breaker-note"><strong>Schwab</strong> · Connect + Test (same as 1.10.40)</p>
+          <div class="schwab-actions" role="group" aria-label="Schwab connect and test">
+            <button id="schwab-connect-2" type="button" aria-pressed="false">Connect</button>
+            <button id="schwab-test-2" type="button" class="quiet">Test</button>
+            <strong id="schwab-box-status" class="schwab-top-status bad">OFF</strong>
+          </div>
           <div class="schwab-actions" role="group" aria-label="Schwab market and live">
             <button id="schwab-market" type="button" aria-pressed="false" disabled>Market Data</button>
             <button id="schwab-live" type="button" aria-pressed="false" disabled>Live Trading</button>
           </div>
-          <p id="schwab-note" class="breaker-note">Paper stays the default.</p>
+          <p id="schwab-note" class="breaker-note">Paper stays the default. Connect opens the Schwab window. Test checks the link.</p>
         </div>
         <div class="breaker" id="breaker">
           <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
@@ -605,7 +617,7 @@ AddOrder(Sell, sellFire);</textarea>
         <p class="muted">Voice and status alerts for closed-bar events on the open market and pinned names. Paper only. Not a forecast.</p>
         <div class="strat-triggers">
           <label class="strat-switch"><input id="trig-squeeze" type="checkbox" checked> Squeeze five dots / steam</label>
-          <label class="strat-switch"><input id="trig-edge" type="checkbox" checked> Edge BUY on pinned markets</label>
+          <label class="strat-switch"><input id="trig-edge" type="checkbox" checked> Edge BUY / SELL warnings</label>
           <label class="strat-switch"><input id="trig-strategy" type="checkbox" checked> Followed strategy BUY / SELL</label>
           <label class="strat-switch"><input id="trig-best" type="checkbox" checked> Best setup ready</label>
           <label class="strat-switch"><input id="trig-process" type="checkbox" checked> New process learned</label>
@@ -956,7 +968,15 @@ AddOrder(Sell, sellFire);</textarea>
         <div id="journal-filled" class="pins" aria-label="Filled today"></div>
         <div id="day-strip" class="day-strip" aria-label="Today on this desk"></div>
         <h2>Open positions</h2>
-        <p id="book-device" class="muted">This device keeps its own paper book. Share or load below to move open trades and limit orders between the computer and the phone.</p>
+        <p id="book-device" class="muted">This device keeps its own paper book. Use Push / Pull with a computer link token, or Share / Load a file.</p>
+        <div class="strat-orb-inputs">
+          <label class="quiet">Computer link token
+            <input id="sync-token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste PAPER_SYNC_TOKEN" maxlength="128">
+          </label>
+          <button id="book-push" type="button">Push book</button>
+          <button id="book-pull" type="button">Pull book</button>
+        </div>
+        <p id="sync-code-note" class="muted tiny">Create the token in Paper Desk Sync (signed into Cursor), put it in .env as PAPER_SYNC_TOKEN, then Push / Pull.</p>
         <div class="strat-orb-inputs">
           <button id="book-share" type="button">Share paper book</button>
           <button id="book-copy" type="button" class="quiet">Copy paper book</button>
@@ -1256,7 +1276,7 @@ AddOrder(Sell, sellFire);</textarea>
             <button id="booster-apply" type="button">Apply booster</button>
             <button id="desk-green-scan" type="button">Scan · test entire desk</button>
           </div>
-          <p id="desk-green-note" class="muted">Press Scan · test entire desk for a fast Safe + Signals GREEN. Booster defaults to Boost for a snappy desk; Max when calm. Hourly Bot-on still walks every page overnight.</p>
+          <p id="desk-green-note" class="muted">Press Scan · test entire desk for Safe check + Signals refresh + one last GREEN when everything passes.</p>
           <p id="desk-green-final" class="scorecard-bias" aria-live="polite">Desk green · waiting</p>
         </section>
         <h3 class="journal-check-head">All signals</h3>
@@ -1302,21 +1322,24 @@ AddOrder(Sell, sellFire);</textarea>
   <div id="schwab-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="schwab-modal-title" hidden>
     <div class="modal-card">
       <h2 id="schwab-modal-title">Finish Schwab connect</h2>
-      <p class="breaker-note">Sign in in the Schwab window. When the browser lands on <code>https://127.0.0.1/...</code>, copy the whole address bar and paste it here. Tokens stay only on this computer.</p>
+      <p class="breaker-note">Connect opens Schwab sign-in like the computer desk. On phone / web, paste your App Key once if asked. When the browser lands on <code>https://127.0.0.1/...</code>, copy the whole address bar and paste it here.</p>
+      <label for="schwab-app-key">Schwab App Key</label>
+      <input id="schwab-app-key" type="text" autocomplete="off" spellcheck="false" placeholder="Same SCHWAB_APP_KEY as the computer .env">
       <label for="schwab-redirect">Redirect URL</label>
       <textarea id="schwab-redirect" rows="4" placeholder="https://127.0.0.1/?code=..." autocomplete="off" spellcheck="false"></textarea>
       <p id="schwab-modal-note" class="modal-warn"></p>
       <div class="modal-buttons">
         <button id="schwab-modal-cancel" type="button" class="quiet">Cancel</button>
+        <button id="schwab-modal-open" type="button" class="quiet">Open Schwab</button>
         <button id="schwab-modal-save" type="button">Save connection</button>
       </div>
     </div>
   </div>
-  <script src="live.js"></script>
-  <script src="engine.js"></script>
-  <script src="study.js"></script>
-  <script src="frames.js"></script>
-  <script src="booster.js"></script>
-  <script src="app.js"></script>
+  <script src="live.js?v=11052"></script>
+  <script src="engine.js?v=11052"></script>
+  <script src="study.js?v=11052"></script>
+  <script src="frames.js?v=11052"></script>
+  <script src="booster.js?v=11052"></script>
+  <script src="app.js?v=11052"></script>
 </body>
 </html>

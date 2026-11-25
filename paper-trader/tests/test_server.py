@@ -875,15 +875,6 @@ class ServerTests(unittest.TestCase):
         status, script = self.open("/app.js")
         for marker in (b"/api/paper/ticket", b"/api/paper/cancel", b"PaperEngine.place"):
             self.assertIn(marker, script)
-        status, booster = self.open("/booster.js")
-        self.assertEqual(status, 200)
-        self.assertIn(b"PaperBooster", booster)
-        self.assertIn(b"PROFILES", booster)
-        self.assertIn(b'label: "Boost"', booster)
-        self.assertIn(b"quoteWait: 2500", booster)
-        self.assertIn(b"learnGap: 1200", booster)
-        self.assertIn(b'return "max"', booster)
-        self.assertIn(b'mode: "boost"', booster)
 
     def test_step_and_backtest(self) -> None:
         status, raw = self.open("/api/paper")
@@ -973,6 +964,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn("launch.py", bat)
         self.assertIn("serve", bat)
         self.assertIn("if not errorlevel 1", bat)
+        self.assertIn("force-upgrade", bat)
+        self.assertIn("papertrader-install-%random%%random%", bat)
+        self.assertIn("extract_zip.py", bat)
         self.assertIn("opening the new copy", bat)
         self.assertIn("close this setup window", bat)
         self.assertNotIn("goto badinstall", bat)
@@ -985,19 +979,29 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("requirements", bat)
         allow = (ROOT / "1 Allow Paper Trader.bat").read_text(encoding="utf-8").lower()
         opener = (ROOT / "2 Open Paper Trader.bat").read_text(encoding="utf-8").lower()
-        self.assertIn("launch.py", allow)
+        install = (ROOT / "1 INSTALL Paper Trader.bat").read_text(encoding="utf-8").lower()
+        self.assertIn("force-upgrade", allow)
         self.assertIn("install", allow)
-        self.assertIn("paper trader.bat", allow)
-        for name in ("Start-Paper-Trader.bat", "1 Allow Paper Trader.bat", "2 Open Paper Trader.bat"):
+        self.assertIn("extract_zip.py", allow)
+        self.assertIn("extract_zip.py", install)
+        self.assertIn("one-click", install)
+        for name in (
+            "Start-Paper-Trader.bat",
+            "1 Allow Paper Trader.bat",
+            "2 Open Paper Trader.bat",
+            "1 INSTALL Paper Trader.bat",
+        ):
             text = (ROOT / name).read_text(encoding="utf-8")
-            self.assertIn("tar -xf", text)
-            self.assertIn('.zip.', text)
-            self.assertIn("PaperTrader-setup", text)
+            self.assertIn("extract_zip.py", text)
+            self.assertIn("PaperTrader-install", text)
             self.assertNotIn('Temp\\"', text)
             lowered = text.lower()
             for blocked in ("powershell", "cscript", "wscript", "zone.identifier", "unblock-file", ".vbs", "taskkill"):
                 self.assertNotIn(blocked, lowered)
-        self.assertIn("remove-source", allow)
+        for name in ("Start-Paper-Trader.bat", "1 Allow Paper Trader.bat", "2 Open Paper Trader.bat"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            self.assertIn(".zip.", text)
+        self.assertIn("force-upgrade.bat", allow)
         self.assertIn("start-paper-trader.bat", opener)
         for blocked in ("add-mpexclusion", "set-mppreference", "exclusionpath", "reg add", "netsh"):
             self.assertNotIn(blocked, allow)
@@ -1044,7 +1048,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"Install study", page)
         self.assertIn(b"Open all 10 windows", page)
         self.assertIn(b"..", path_file)
-        self.assertIn(b"1.10.46", script)
+        self.assertIn(b"1.10.41", script)
         self.assertIn(b"studyLineColor", script)
         self.assertIn(b"STUDY_RAIL_COLORS", script)
         self.assertIn(b"#f4f7fb", script)
@@ -1062,16 +1066,6 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"shortLearnStatus", script)
         self.assertIn(b"statusLooksLikeOpen", script)
         self.assertIn(b'cycleDeskPageLearn("all")', script)
-        self.assertIn(b"function withTimeout", script)
-        self.assertIn(b"function runDeskGreenScan", script)
-        self.assertIn(b"Light learn touch (not the hourly all-pages walk)", script)
-        self.assertIn(b"await withTimeout(cycleDeskPageLearn(), 8000, \"Learn touch\")", script)
-        self.assertIn(b'item.name !== "Schwab"', script)
-        self.assertIn(b"Schwab optional (not connected)", script)
-        self.assertIn(b"loadSignals(options)", script)
-        self.assertIn(b"if (light) return report;", script)
-        self.assertIn(b'item.name !== "Install"', script)
-
         self.assertIn(b'cycleStrategyLearn("all")', script)
         self.assertIn("Hourly learn".encode("utf-8"), script)
         self.assertIn(b"background score", script)
@@ -1340,8 +1334,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn(b"function hiddenTape", phone)
         self.assertIn(b"function edge(bars, options)", phone)
         self.assertIn(b"SCAN_READERS = 1", script)
-        self.assertIn(b"function deskScanGapMs", script)
-        self.assertIn(b"deskScanGapMs()", script)
+        self.assertIn(b"SCAN_GAP = 300", script)
         self.assertIn(b"publishSqueeze", script)
         self.assertIn(b'value="stocks"', page)
         self.assertIn(b'value="main_etfs"', page)

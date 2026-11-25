@@ -17,8 +17,9 @@ from paper_trader.cli import main
 
 class SchwabEnvTests(unittest.TestCase):
     def setUp(self) -> None:
-        self._saved = {key: os.environ.get(key) for key in schwab_env.KEYS}
-        for key in schwab_env.KEYS:
+        self._watched = list(schwab_env.KEYS) + list(schwab_env.ALIAS_TO_CANONICAL)
+        self._saved = {key: os.environ.get(key) for key in self._watched}
+        for key in self._watched:
             os.environ.pop(key, None)
 
     def tearDown(self) -> None:
@@ -43,6 +44,81 @@ class SchwabEnvTests(unittest.TestCase):
         self.assertEqual(parsed["SCHWAB_CALLBACK_URL"], "https://127.0.0.1")
         self.assertEqual(parsed["SCHWAB_APP_NAME"], "personal-market-data")
         self.assertEqual(parsed["OTHER"], "ignored")
+
+    def test_portal_client_id_aliases_are_ready(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / ".env"
+            path.write_text(
+                "SCHWAB_CLIENT_ID=portal-client-id\n"
+                "SCHWAB_CLIENT_SECRET=portal-client-secret\n"
+                "SCHWAB_CALLBACK_URL=https://127.0.0.1\n",
+                encoding="utf-8",
+            )
+            with patch.object(schwab_env, "ENV_PATH", path), patch.object(
+                schwab_env, "INSTALL_ROOT", Path(folder)
+            ):
+                self.assertTrue(schwab_env.credentials_ready())
+                self.assertEqual(schwab_env._configured_value("SCHWAB_APP_KEY"), "portal-client-id")
+                self.assertEqual(
+                    schwab_env._configured_value("SCHWAB_APP_SECRET"), "portal-client-secret"
+                )
+
+    def test_utf16_notepad_env_is_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / ".env"
+            path.write_bytes(
+                "SCHWAB_APP_KEY=utf16-key\r\nSCHWAB_APP_SECRET=utf16-secret\r\n".encode("utf-16")
+            )
+            with patch.object(schwab_env, "ENV_PATH", path), patch.object(
+                schwab_env, "INSTALL_ROOT", Path(folder)
+            ):
+                self.assertTrue(schwab_env.credentials_ready())
+                self.assertEqual(schwab_env._configured_value("SCHWAB_APP_KEY"), "utf16-key")
+
+    def test_real_dotenv_wins_over_sticky_placeholders(self) -> None:
+        """SCHWAB-KEYS.txt placeholders must not hide a good Documents\\Paper Trader\\.env."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / ".env"
+            path.write_text(
+                "SCHWAB_APP_KEY=real-from-dotenv\n"
+                "SCHWAB_APP_SECRET=real-secret-from-dotenv\n"
+                "SCHWAB_CALLBACK_URL=https://127.0.0.1\n",
+                encoding="utf-8",
+            )
+            (Path(folder) / "SCHWAB-KEYS.txt").write_text(
+                "SCHWAB_APP_KEY=paste-app-key-here\nSCHWAB_APP_SECRET=paste-app-secret-here\n",
+                encoding="utf-8",
+            )
+            os.environ["SCHWAB_APP_KEY"] = "paste-app-key-here"
+            os.environ["SCHWAB_APP_SECRET"] = "paste-app-secret-here"
+            with patch.object(schwab_env, "ENV_PATH", path), patch.object(
+                schwab_env, "INSTALL_ROOT", Path(folder)
+            ):
+                self.assertTrue(schwab_env.credentials_ready())
+                self.assertEqual(schwab_env._configured_value("SCHWAB_APP_KEY"), "real-from-dotenv")
+                self.assertEqual(
+                    schwab_env._configured_value("SCHWAB_APP_SECRET"), "real-secret-from-dotenv"
+                )
+
+    def test_keys_file_syncs_into_placeholder_env(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / ".env").write_text(
+                "SCHWAB_APP_KEY=paste-app-key-here\nSCHWAB_APP_SECRET=paste-app-secret-here\n",
+                encoding="utf-8",
+            )
+            (root / "SCHWAB-KEYS.txt").write_text(
+                "SCHWAB_CLIENT_ID=real-client-id\nSCHWAB_CLIENT_SECRET=real-client-secret\n",
+                encoding="utf-8",
+            )
+            with patch.object(schwab_env, "ENV_PATH", root / ".env"), patch.object(
+                schwab_env, "INSTALL_ROOT", root
+            ):
+                schwab_env.ensure_env_file(root)
+                self.assertTrue(schwab_env.credentials_ready())
+            text = (root / ".env").read_text(encoding="utf-8")
+            self.assertIn("SCHWAB_APP_KEY=real-client-id", text)
+            self.assertIn("SCHWAB_APP_SECRET=real-client-secret", text)
 
     def test_missing_env_reports_missing(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -104,7 +180,22 @@ class SchwabEnvTests(unittest.TestCase):
             self.assertIn("paste-app-key-here", created.read_text(encoding="utf-8"))
             created.write_text("SCHWAB_APP_KEY=real\nSCHWAB_APP_SECRET=secret\n", encoding="utf-8")
             again = schwab_env.ensure_env_file(root)
-            self.assertEqual(again.read_text(encoding="utf-8"), "SCHWAB_APP_KEY=real\nSCHWAB_APP_SECRET=secret\n")
+            text = again.read_text(encoding="utf-8")
+            self.assertIn("SCHWAB_APP_KEY=real", text)
+            self.assertIn("SCHWAB_APP_SECRET=secret", text)
+            self.assertIn("SCHWAB_CALLBACK_URL=https://127.0.0.1", text)
+            self.assertIn("SCHWAB_APP_NAME=personal-market-data", text)
+
+    def test_install_schwab_env_adds_missing_keys(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / ".env").write_text("SCHWAB_APP_KEY=only-key\n", encoding="utf-8")
+            path = schwab_env.install_schwab_env(root)
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("SCHWAB_APP_KEY=only-key", text)
+            self.assertIn("SCHWAB_APP_SECRET=paste-app-secret-here", text)
+            self.assertIn("SCHWAB_CALLBACK_URL=https://127.0.0.1", text)
+            self.assertIn("SCHWAB_APP_NAME=personal-market-data", text)
 
     def test_placeholders_are_not_ready(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -125,6 +216,7 @@ class SchwabEnvTests(unittest.TestCase):
         # Connect lives in the top desk rail (next to Outlook), not inside <header>.
         rail = page.split('class="desk-rail"', 1)[1].split('id="market-outlook"', 1)[0]
         self.assertIn('id="schwab-connect"', rail)
+        self.assertIn('id="schwab-test"', rail)
         self.assertIn('id="schwab-top-dot"', rail)
         self.assertNotIn("Paste keys into Documents\\Paper Trader\\.env", page)
         self.assertNotIn("SCHWAB-KEYS.txt", page)

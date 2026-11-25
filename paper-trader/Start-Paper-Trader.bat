@@ -10,58 +10,49 @@ goto Normal
 echo Unblock
 echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
-echo This file was opened inside the zip. Extracting the whole Paper Trader now.
+echo This file was opened inside the zip. ONE-CLICK unpack starting.
 set "ZIP="
-for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents" "%USERPROFILE%\OneDrive\Downloads" "%USERPROFILE%\OneDrive\Desktop" "%USERPROFILE%\OneDrive\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
-if not defined ZIP if defined OneDrive for %%R in ("%OneDrive%\Downloads" "%OneDrive%\Desktop" "%OneDrive%\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
+set "PY="
+if exist "%~dp0runtime\python.exe" set "PY=%~dp0runtime\python.exe"
+if not defined PY if exist "%USERPROFILE%\Documents\Paper Trader\runtime\python.exe" set "PY=%USERPROFILE%\Documents\Paper Trader\runtime\python.exe"
+if not defined PY set "PY=python"
+if exist "%~dp0tools\pick_upgrade_zip.py" for /f "delims=" %%Z in ('"%PY%" "%~dp0tools\pick_upgrade_zip.py" 2^>nul') do set "ZIP=%%Z"
+if not defined ZIP if exist "%USERPROFILE%\Downloads\Paper-Trader.zip" set "ZIP=%USERPROFILE%\Downloads\Paper-Trader.zip"
 if not defined ZIP goto NoZip
-if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
-set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup"
-if exist "%STAGE%" rmdir /s /q "%STAGE%"
-if exist "%STAGE%" set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup-%RANDOM%"
-mkdir "%STAGE%"
-mkdir "%STAGE%\paper-trader" 2>nul
-mkdir "%STAGE%\paper-trader\paper_trader" 2>nul
-mkdir "%STAGE%\paper-trader\web" 2>nul
-mkdir "%STAGE%\paper-trader\tools" 2>nul
-mkdir "%STAGE%\paper-trader\iphone" 2>nul
-mkdir "%STAGE%\paper-trader\runtime" 2>nul
-tar -xf "!ZIP!" -C "%STAGE%"
-if errorlevel 1 goto BadZip
-if not exist "%STAGE%\paper-trader\launch.py" goto BadZip
-set "RUN=%STAGE%\paper-trader"
-set "PY=%RUN%\runtime\python.exe"
-if not exist "%PY%" set "PY=python"
-"%PY%" "%RUN%\launch.py" install > "%USERPROFILE%\Documents\paper-trader-install.txt" 2>&1
-if not errorlevel 1 if exist "%USERPROFILE%\Documents\Paper Trader\runtime\python.exe" set "RUN=%USERPROFILE%\Documents\Paper Trader"
-if errorlevel 1 (
-  echo The older folder stayed in place. Opening the new copy.
-  type "%USERPROFILE%\Documents\paper-trader-install.txt"
+if /I "!ZIP!"=="NONE" goto NoZip
+echo Using zip: !ZIP!
+echo Close every Paper Trader window and black cmd desk window first.
+set "STAGE=%TEMP%\PaperTrader-install-%RANDOM%%RANDOM%"
+mkdir "%STAGE%" 2>nul
+if not exist "%STAGE%\." goto BadZip
+echo Extracting into: !STAGE!
+if exist "%~dp0tools\extract_zip.py" (
+  "%PY%" "%~dp0tools\extract_zip.py" "!ZIP!" "!STAGE!" > "%TEMP%\paper-trader-extract.txt" 2>&1
+) else (
+  "%PY%" -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "!ZIP!" "!STAGE!" > "%TEMP%\paper-trader-extract.txt" 2>&1
 )
-rem Keep Documents\Paper Trader only — drop launcher staging folders (and old setup-* leftovers).
-if /I "%RUN%"=="%USERPROFILE%\Documents\Paper Trader" for /d %%D in ("%USERPROFILE%\Documents\PaperTrader-setup*") do rmdir /s /q "%%D" 2>nul
-echo Setup is done. Leave the window named Paper Trader open.
-echo Microsoft Edge opens when the desk answers. The header says Desk is working.
-echo The score keeps running after that window closes. Starting it at sign-in is optional. See Windows extras in the Safe check.
-echo The desk folder is:
-echo %RUN%
-call :DeskLink "%RUN%"
-call :MakePhone "%RUN%"
-start "Paper Trader" /D "%RUN%" cmd /c "2 Open Paper Trader.bat"
+set "ERR=!errorlevel!"
+type "%TEMP%\paper-trader-extract.txt"
+if not "!ERR!"=="0" goto BadZip
+if not exist "!STAGE!\paper-trader\FORCE-UPGRADE.bat" goto BadZip
+start "" "!STAGE!\paper-trader\FORCE-UPGRADE.bat"
+echo Extracted. FORCE-UPGRADE will replace Documents\Paper Trader.
+echo Opening the new copy.
 echo Press any key to close this setup window.
 pause >nul
 exit /b 0
 
 :NoZip
 echo Could not find Paper-Trader.zip in Downloads, Desktop, Documents, or OneDrive.
-echo Save the zip in Downloads, then double-click this file again.
+echo Save the zip in Downloads, then double-click 1 INSTALL Paper Trader.bat.
 pause
 exit /b 1
 
 :BadZip
 echo Could not extract Paper-Trader.zip.
-echo The program files could not be written into Documents.
-echo If a security program blocked them, allow Paper Trader, then double-click this file again.
+echo Windows Git tar cannot unpack this zip — this installer uses Python instead.
+echo Close EVERY Paper Trader window, then run 1 INSTALL Paper Trader.bat.
+echo Or right-click the zip - Extract All - then open FORCE-UPGRADE.bat.
 pause
 exit /b 1
 
@@ -69,6 +60,47 @@ exit /b 1
 echo Unblock
 echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
+set "SEAL="
+if exist "%~dp0VERSION" set /p SEAL=<"%~dp0VERSION"
+echo This folder seal: !SEAL!
+if exist "%~dp0SEAL.txt" type "%~dp0SEAL.txt"
+
+set "DEST=%USERPROFILE%\Documents\Paper Trader"
+set "HERE=%~dp0"
+if "!HERE:~-1!"=="\" set "HERE=!HERE:~0,-1!"
+set "DESTN=!DEST!"
+
+if /I not "!HERE!"=="!DESTN!" (
+  echo.
+  echo This extract is not Documents\Paper Trader.
+  echo Upgrading Documents\Paper Trader to seal !SEAL! now...
+  echo Close every desk window / Edge 127.0.0.1 tab if prompted.
+  echo.
+  set "PY=%~dp0runtime\python.exe"
+  if not exist "!PY!" set "PY=python"
+  "!PY!" "%~dp0launch.py" force-upgrade > "%USERPROFILE%\Documents\paper-trader-force-upgrade.txt" 2>&1
+  set "ERR=!errorlevel!"
+  type "%USERPROFILE%\Documents\paper-trader-force-upgrade.txt"
+  if not "!ERR!"=="0" (
+    echo FORCE UPGRADE FAILED — Documents stayed on the old seal.
+    echo Close EVERY Paper Trader window and run 1 INSTALL Paper Trader.bat.
+    pause
+    exit /b 1
+  )
+  set "CHECK="
+  if exist "!DEST!\VERSION" set /p CHECK=<"!DEST!\VERSION"
+  if /I not "!CHECK!"=="!SEAL!" (
+    echo Documents\Paper Trader\VERSION is !CHECK! — wanted !SEAL!
+    echo Close the running desk and run FORCE-UPGRADE.bat from this extract.
+    pause
+    exit /b 1
+  )
+  echo Documents\Paper Trader is now !CHECK!
+  echo Opening the new copy.
+  start "" "!DEST!\Start-Paper-Trader.bat"
+  exit /b 0
+)
+
 echo Paper Trader stays on this computer. It loads market quotes and does not place broker orders.
 echo Microsoft Edge opens the desk.
 call :DeskLink "%~dp0"
@@ -87,7 +119,7 @@ if not errorlevel 1 (
   py -3 "%~dp0launch.py" serve
   goto done
 )
-echo Python was not found. Extract Paper-Trader.zip again, then run 1 Allow Paper Trader.bat.
+echo Python was not found. Run 1 INSTALL Paper Trader.bat from the extracted folder.
 :done
 pause
 exit /b 0

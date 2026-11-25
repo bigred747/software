@@ -1,0 +1,17 @@
+{
+  "name": "paper-desk-sync",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 4311",
+    "build": "next build && node scripts/migrate.mjs",
+    "start": "next start -p ${PORT:-4311}"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "next": "^15.1.0",
+    "pg": "^8.13.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
