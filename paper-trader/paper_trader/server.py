@@ -576,6 +576,7 @@ class Desk:
         with self.lock:
             rows = self._read_shelf()
             loaded = 0
+            current_snap_view: dict | None = None
             for symbol, snap in sessions.items():
                 if not isinstance(snap, dict):
                     continue
@@ -658,14 +659,62 @@ class Desk:
                     },
                     "journal": journal_to_dict(journal),
                 }
+                # Persist each market as it lands so a stuck UI never wipes a partial Load.
+                self._write_shelf(rows)
                 if str(symbol) == self.journal.symbol:
                     self.journal = journal
                     save_journal(self.state_path, self.journal)
+                    current_snap_view = view
                 loaded += 1
-            self._write_shelf(rows)
             if loaded <= 0:
                 raise ValueError("That paper book had no open trades or working orders.")
-            payload_view = self._guard(view_journal(self.journal))
+            # Never call view_journal / quotes here — that was the Journal "Working…" hang.
+            day = desk_day()
+            data = load_breaker(self.breaker_path)
+            if current_snap_view is not None:
+                payload_view = {
+                    "symbol": self.journal.symbol,
+                    "paper": True,
+                    "mode": "paper",
+                    "cash": current_snap_view.get("cash"),
+                    "shares": current_snap_view.get("shares") or 0,
+                    "entry_price": current_snap_view.get("entry_price"),
+                    "entry_date": current_snap_view.get("entry_date"),
+                    "last_close": current_snap_view.get("last_close"),
+                    "equity": current_snap_view.get("equity"),
+                    "start_cash": current_snap_view.get("start_cash"),
+                    "working": [dict(item) for item in self.journal.working],
+                    "fills": list(self.journal.fills),
+                    "trades": [],
+                    "signal": "HOLD LONG" if float(current_snap_view.get("shares") or 0) > 0 else "HOLD",
+                    "cursor": self.journal.cursor,
+                    "total_bars": self.journal.cursor,
+                    "finished": False,
+                }
+            else:
+                note = (rows.get(self.journal.symbol) or {}).get("summary") or {}
+                payload_view = {
+                    "symbol": self.journal.symbol,
+                    "paper": True,
+                    "mode": "paper",
+                    "cash": note.get("cash") if note.get("cash") is not None else self.journal.params.cash,
+                    "shares": float(note.get("shares") or 0),
+                    "entry_price": note.get("entry"),
+                    "entry_date": note.get("opened"),
+                    "last_close": note.get("last"),
+                    "equity": note.get("equity") if note.get("equity") is not None else self.journal.params.cash,
+                    "start_cash": note.get("start") or self.journal.params.cash,
+                    "working": [dict(item) for item in self.journal.working],
+                    "fills": list(self.journal.fills),
+                    "trades": [],
+                    "signal": "HOLD",
+                    "cursor": self.journal.cursor,
+                    "total_bars": self.journal.cursor,
+                    "finished": False,
+                }
+            payload_view["breaker"] = breaker_view(data, day)
+            payload_view["ticket_fills"] = list(self.ticket_fills)
+            payload_view["book"] = self.account_book(payload_view)
             payload_view["book_loaded"] = loaded
             return payload_view
 

@@ -1109,23 +1109,27 @@ button.quiet { background: transparent; }
 }
 .chart-product-banner {
   position: absolute;
-  top: 8px;
-  left: 52px;
-  z-index: 4;
+  top: 10px;
+  left: 56px;
+  z-index: 8;
   pointer-events: none;
-  max-width: 42%;
-  padding: 2px 8px;
-  border-radius: 3px;
-  border: 1px solid rgba(154, 166, 178, 0.35);
-  background: rgba(7, 9, 11, 0.82);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  max-width: 48%;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(61, 220, 151, 0.55);
+  background: rgba(7, 9, 11, 0.9);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
   line-height: 1.25;
   color: #f4f7fb;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.chart-product-banner[hidden] {
+  display: none !important;
 }
 .study-pane-head .study-pop { margin-left: auto; min-height: 30px; padding: 3px 10px; font-size: 11px; }
 .study-roll {

@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.40";
+const VERSION = "1.10.41";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -4555,14 +4555,25 @@ async function importPaperBook(payload) {
   const sessions = payload && payload.sessions && typeof payload.sessions === "object" ? payload.sessions : null;
   if (!sessions) throw new Error("That file is not a Paper Trader book.");
   if (!state.offline) {
-    const paper = await post("/api/paper/book", payload);
+    if (note) note.textContent = "Loading paper book into Journal…";
+    setStatus("Loading paper book…");
+    let paper;
+    try {
+      paper = await postWithTimeout("/api/paper/book", payload, 45000);
+    } catch (error) {
+      if (error && error.name === "AbortError") {
+        throw new Error("Load timed out. Your file may still be partly saved — open Journal again or tap Load once more.");
+      }
+      throw error;
+    }
     state.paper = paper;
-    // Paint Journal from the response book first — do not hold the busy spinner on quotes.
+    // Paint Journal from the response book first — never wait on quotes inside busy.
     render(paper);
     const count = paper.book_loaded || Object.keys(sessions).length;
     if (note) note.textContent = "Loaded " + count + " market" + (count === 1 ? "" : "s") + " into this computer's paper book. Open positions are under Journal.";
     setStatus("Paper book loaded on this device.");
-    loadMarket(paper.symbol).then((market) => {
+    // Quote refresh is background only — must not stick the Journal spinner.
+    Promise.resolve().then(() => loadMarket(paper.symbol)).then((market) => {
       state.market = market;
       if (state.paper) render(state.paper);
     }).catch(() => {});
@@ -4852,16 +4863,31 @@ async function askFirst(side, symbol, source, extra) {
   return ok;
 }
 
-function whenIdle() {
+function whenIdle(maxMs) {
+  const limit = typeof maxMs === "number" ? maxMs : 30000;
   return new Promise((resolve) => {
     let waited = 0;
     const timer = setInterval(() => {
       waited += 100;
-      if (!state.busy || waited > 8000) {
+      if (!state.busy || waited > limit) {
         clearInterval(timer);
         resolve();
       }
     }, 100);
+  });
+}
+
+function postWithTimeout(url, body, ms) {
+  const control = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = control ? setTimeout(() => control.abort(), ms || 45000) : 0;
+  return getJSON(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+    signal: control ? control.signal : undefined,
+    cache: "no-store",
+  }).finally(() => {
+    if (timer) clearTimeout(timer);
   });
 }
 
@@ -10200,6 +10226,7 @@ function paintChartProductLabel() {
     banner.textContent = label;
     banner.title = tip;
     banner.hidden = !ticker;
+    banner.setAttribute("aria-hidden", ticker ? "false" : "true");
   }
 }
 
@@ -10210,23 +10237,55 @@ function paintChartProductName(ctx, pad, plotRight, priceBottom, width) {
   const name = chartProductName(ticker);
   const tip = name ? ticker + " · " + name : ticker;
   ctx.save();
-  // Compact ticker chip on the candle tape (top-left of plot).
-  ctx.font = "700 12px Segoe UI, sans-serif";
+  // Bright ticker chip painted on the candle tape (always visible even if CSS banner misses).
+  ctx.font = "800 14px Segoe UI, sans-serif";
   const textW = ctx.measureText(ticker).width;
-  const boxW = textW + 12;
-  const boxH = 18;
-  const x = Math.max(pad + 6, 52);
-  const y = 16;
-  ctx.fillStyle = "rgba(7, 9, 11, 0.82)";
-  ctx.fillRect(x - 4, y - 11, boxW, boxH);
-  ctx.strokeStyle = "rgba(154, 166, 178, 0.35)";
-  ctx.strokeRect(x - 4.5, y - 11.5, boxW, boxH);
-  ctx.fillStyle = "rgba(244, 247, 251, 0.98)";
-  ctx.fillText(ticker, x + 2, y + 2);
+  const boxW = textW + 16;
+  const boxH = 22;
+  const x = Math.max(pad + 8, 56);
+  const y = 20;
+  ctx.fillStyle = "rgba(7, 9, 11, 0.88)";
+  ctx.fillRect(x - 5, y - 14, boxW, boxH);
+  ctx.strokeStyle = "rgba(61, 220, 151, 0.55)";
+  ctx.lineWidth = 1.25;
+  ctx.strokeRect(x - 5.5, y - 14.5, boxW, boxH);
+  ctx.fillStyle = "#f4f7fb";
+  ctx.fillText(ticker, x + 3, y + 2);
   ctx.restore();
-  // Keep tip on DOM banner for accessibility; canvas stays ticker-only.
   const banner = $("chart-product-banner");
   if (banner) banner.title = tip;
+}
+
+function paintClassicTape(ctx, bars, xAt, y, slot) {
+  // Hard OHLC green/red pass — same colors as Volume Wave, ignores any prior tone.
+  const GREEN = "#3ddc97";
+  const RED = "#ff4d4d";
+  const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
+  (bars || []).forEach((bar, index) => {
+    if (!bar) return;
+    const up = Number(bar.close) >= Number(bar.open);
+    const tone = up ? GREEN : RED;
+    const x = xAt(index);
+    const topPrice = Math.max(bar.open, bar.close);
+    const bottomPrice = Math.min(bar.open, bar.close);
+    const top = y(topPrice);
+    const bottom = y(bottomPrice);
+    const bodyH = Math.max(1, bottom - top);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = tone;
+    ctx.lineWidth = Math.max(1.5, Math.min(2.75, slot * 0.18));
+    ctx.beginPath();
+    ctx.moveTo(x, y(bar.high));
+    ctx.lineTo(x, y(bar.low));
+    ctx.stroke();
+    const left = x - bodyW / 2;
+    ctx.fillStyle = tone;
+    ctx.fillRect(left, top, bodyW, bodyH);
+    ctx.strokeStyle = up ? "#1fae78" : "#d63b4a";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
+  });
+  ctx.lineWidth = 1;
 }
 
 function drawCandles(retry) {
@@ -10337,8 +10396,9 @@ function drawCandles(retry) {
   void big4;
   void waves;
   PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candlePaint);
+  // Second hard pass so red/green never lose to a stale paint path or cached frames.js.
+  paintClassicTape(ctx, bars, xAt, y, slot);
   paintChartProductLabel();
-  paintChartProductName(ctx, pad, plotRight, priceBottom, width);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
@@ -10450,9 +10510,11 @@ function drawCandles(retry) {
       drawArrow(ctx, x, point, up, 8);
     });
   }
-  const lastTone = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff6b7a";
+  const lastTone = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d";
   drawPriceTag(ctx, formatPrice(lastBar.close), plotRight, width, y(lastBar.close), priceBottom, lastTone, pad + last * slot + slot / 2);
   drawPriceLine(ctx, bars, pad, slot, y, plotRight, priceBottom, height, width);
+  // Ticker last so nothing covers the chip on the candle pane.
+  paintChartProductName(ctx, pad, plotRight, priceBottom, width);
   const paneOpen = (id) => {
     const pane = document.querySelector('.study-pane[data-pane="' + id + '"]');
     return !pane || pane.dataset.expanded !== "false";
@@ -10585,7 +10647,7 @@ const LAYERS = [
   ["key", "Chart notes", "key", false],
 ];
 // Bump key so phone picks up Stack on + Desk EMA Fire paint on open.
-const LAYERS_KEY = "paperTraderLayers72";
+const LAYERS_KEY = "paperTraderLayers73";
 
 function readLayers() {
   const chosen = {};
@@ -11991,17 +12053,26 @@ if (bookFile) {
   bookFile.addEventListener("change", () => {
     const file = bookFile.files && bookFile.files[0];
     if (!file) return;
+    const note = $("book-share-note");
+    if (note) note.textContent = "Reading " + (file.name || "paper book") + "…";
     const reader = new FileReader();
     reader.onload = () => {
       void (async () => {
-        await whenIdle();
-        if (state.busy) releaseBusy();
+        if (state.busy) {
+          if (note) note.textContent = "Waiting for the desk to finish, then loading the paper book…";
+          await whenIdle(30000);
+        }
+        // Dedicated import pass — do not force-kill other work mid-trade.
+        if (state.busy) {
+          if (note) note.textContent = "Desk still busy. Tap Load paper book again in a moment.";
+          bookFile.value = "";
+          return;
+        }
         await withBusy(async () => {
           try {
             const payload = JSON.parse(String(reader.result || ""));
             await importPaperBook(payload);
           } catch (error) {
-            const note = $("book-share-note");
             if (note) note.textContent = error.message || "That file could not be read.";
             setStatus(error.message || "That file could not be read.");
           } finally {
@@ -12011,7 +12082,6 @@ if (bookFile) {
       })();
     };
     reader.onerror = () => {
-      const note = $("book-share-note");
       if (note) note.textContent = "That file could not be read.";
       bookFile.value = "";
     };
