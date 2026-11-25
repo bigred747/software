@@ -1346,11 +1346,15 @@ class Desk:
 def _voice_line(symbol: str, side: str, kind: str, dots: int) -> str:
     name = symbol[:-4] if symbol.endswith("-USD") else symbol
     if kind == "steam" and side == "sell":
-        return f"Sell. {name}. The daily squeeze ran out of steam."
+        return f"Sell warning. {name}. The daily squeeze ran out of steam."
     if kind == "dots" and side == "buy":
         return f"Buy warning. {name}. Five squeeze dots on the daily."
     if kind == "dots" and side == "sell":
         return f"Sell warning. {name}. Five squeeze dots on the daily."
+    if side == "buy" and dots > 0:
+        return f"Buy warning. {name} has {dots} squeeze dots."
+    if side == "sell" and dots > 0:
+        return f"Sell warning. {name} has {dots} squeeze dots."
     if dots > 0:
         return f"{name} has {dots} squeeze dots."
     return ""

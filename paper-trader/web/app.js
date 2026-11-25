@@ -11391,30 +11391,73 @@ function stopAuto(message) {
   if (message) $("status").textContent = message;
 }
 
+function voiceWarningLine(item) {
+  const side = item && item.side === "sell" ? "sell" : item && item.side === "buy" ? "buy" : "";
+  let detail = String((item && item.detail) || "").trim();
+  if (!detail) return "";
+  // Always lead with a clear Buy warning / Sell warning for the spoken alert.
+  if (side === "buy") {
+    if (/^buy warning filled\b/i.test(detail) || /^bought\b/i.test(detail)) return detail.replace(/\s+/g, " ").trim();
+    detail = detail.replace(/^buy warning[.\s,]*/i, "").replace(/^buy[.\s,]*/i, "");
+    detail = "Buy warning. " + detail;
+  } else if (side === "sell") {
+    if (/^sell warning filled\b/i.test(detail) || /^sold\b/i.test(detail)) return detail.replace(/\s+/g, " ").trim();
+    detail = detail.replace(/^sell warning[.\s,]*/i, "").replace(/^sell[.\s,]*/i, "");
+    detail = "Sell warning. " + detail;
+  }
+  return detail.replace(/\s+/g, " ").trim();
+}
+
 function speakWarning(item) {
-  if (!state.voice || !item || !item.detail) return;
-  const kinds = { steam: 1, dots: 1, squeeze: 1, edge: 1, strategy: 1, best: 1, process: 1 };
+  if (!state.voice || !item) return;
+  const kinds = { steam: 1, dots: 1, squeeze: 1, edge: 1, strategy: 1, best: 1, process: 1, fill: 1, fire: 1 };
   if (item.side !== "buy" && item.side !== "sell" && !kinds[item.kind]) return;
-  const key = [item.symbol, item.date, item.kind, item.side].join("|");
+  const detail = voiceWarningLine(item);
+  if (!detail) return;
+  const key = [item.symbol, item.date, item.kind, item.side, detail].join("|");
   let heard = [];
   try {
     const parsed = JSON.parse(sessionStorage.getItem("paperTraderHeard") || "[]");
-    if (Array.isArray(parsed)) heard = parsed.filter((row) => typeof row === "string").slice(-40);
+    if (Array.isArray(parsed)) heard = parsed.filter((row) => typeof row === "string").slice(-60);
   } catch (error) {
     heard = [];
   }
   if (heard.indexOf(key) >= 0) return;
   heard.push(key);
   try {
-    sessionStorage.setItem("paperTraderHeard", JSON.stringify(heard.slice(-40)));
+    sessionStorage.setItem("paperTraderHeard", JSON.stringify(heard.slice(-60)));
   } catch (error) {
     /* The warning still shows on the desk. */
   }
-  $("status").textContent = item.detail;
+  $("status").textContent = detail;
   if (!window.speechSynthesis) return;
-  const message = new SpeechSynthesisUtterance(item.detail);
+  const message = new SpeechSynthesisUtterance(detail);
   message.lang = "en-US";
+  message.rate = 1.02;
   window.speechSynthesis.speak(message);
+}
+
+function speakEdgeVoice(symbol, name, timing, closed) {
+  if (!timing || !timing.ready) return;
+  if (timing.call === "BUY") {
+    speakWarning({
+      symbol,
+      date: timing.signalDate || closed,
+      kind: "edge",
+      side: "buy",
+      detail: "Buy warning. " + name + ". Edge Fire on the daily. Paper buy at the next open.",
+    });
+    return;
+  }
+  if (timing.call === "SELL") {
+    speakWarning({
+      symbol,
+      date: timing.signalDate || closed,
+      kind: "edge",
+      side: "sell",
+      detail: "Sell warning. " + name + ". Edge exit on the daily. Paper sell at the next open.",
+    });
+  }
 }
 
 function syncTriggerChecks() {
@@ -11459,15 +11502,7 @@ async function warnDesk() {
         }
         if (triggers.edge && PaperFrames.edge) {
           const timing = PaperFrames.edge(bars, { live: false, vixBars: state.vixBars || [] });
-          if (timing && timing.ready && timing.call === "BUY") {
-            speakWarning({
-              symbol,
-              date: timing.signalDate || closed,
-              kind: "edge",
-              side: "buy",
-              detail: "Buy warning. " + name + ". Edge seven checks on the daily.",
-            });
-          }
+          speakEdgeVoice(symbol, name, timing, closed);
         }
         if (triggers.strategy && PaperFrames.strategies) {
           const board = PaperFrames.strategies(bars, { live: false });
@@ -11507,15 +11542,7 @@ async function warnDesk() {
       const closed = closedDate(bars) || "";
       if (triggers.edge && PaperFrames.edge) {
         const timing = PaperFrames.edge(bars, { live: false, vixBars: state.vixBars || [] });
-        if (timing && timing.ready && timing.call === "BUY") {
-          speakWarning({
-            symbol: current,
-            date: timing.signalDate || closed,
-            kind: "edge",
-            side: "buy",
-            detail: "Buy warning. " + name + ". Edge seven checks on the daily.",
-          });
-        }
+        speakEdgeVoice(current, name, timing, closed);
       }
       if (triggers.strategy && PaperFrames.strategies) {
         const board = currentBoard(state.market.bars);
@@ -11659,6 +11686,8 @@ async function autoTick() {
           : state.journalAuto
             ? "Journal Auto buy is on. Watching Journal buy signals."
             : "Auto is on. Refreshing the market quote.");
+    // Speak Buy / Sell warnings on the open + pinned markets while Auto runs.
+    if (state.voice) warnDesk().catch(() => {});
     // Learn in the background — never hold Auto / clicks hostage.
     cycleScanLearn("auto").catch(() => {});
   } catch (error) {
@@ -11678,7 +11707,9 @@ if (voiceButton) {
     state.voice = !state.voice;
     voiceButton.setAttribute("aria-pressed", state.voice ? "true" : "false");
     if (!state.voice && window.speechSynthesis) window.speechSynthesis.cancel();
-    $("status").textContent = state.voice ? "Voice is on. Desk triggers on closed bars." : "Voice is off.";
+    $("status").textContent = state.voice
+      ? "Voice is on. Buy warning and Sell warning speak on closed bars."
+      : "Voice is off.";
     if (state.voice) warnDesk();
   });
 }
@@ -11792,9 +11823,18 @@ function announceTicketFills(paper) {
     const key = item.at + "|" + item.order_id;
     if (state.seenFills.has(key)) return;
     state.seenFills.add(key);
-    const verb = item.side === "buy" ? "Bought" : "Sold";
+    const buy = item.side === "buy";
+    const verb = buy ? "Bought" : "Sold";
+    const symbol = (paper && paper.symbol) || "";
+    const name = pinLabel(symbol) || symbol || "paper";
     $("status").textContent = "Working order " + item.order_id + " filled on paper. " + verb + " at " + formatPrice(item.price) + ". Nothing was sent to a broker.";
-    if (state.voice && window.speechSynthesis) window.speechSynthesis.cancel();
+    speakWarning({
+      symbol,
+      date: String(item.at || Date.now()),
+      kind: "fill",
+      side: buy ? "buy" : "sell",
+      detail: (buy ? "Buy warning filled. " : "Sell warning filled. ") + name + " at " + formatPrice(item.price) + ". Paper only. Nothing sent to a broker.",
+    });
   });
 }
 
