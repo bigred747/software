@@ -10027,7 +10027,9 @@ function renderEdge() {
           parts: result.parts,
         })
       : null;
-  const stamp = [call, result.score, result.stop, result.openPct, result.record.trades, result.record.total, bars.length, precision, print && print.line].join("|");
+  const stamp = [call, result.score, result.stop, result.openPct, result.record.trades, result.record.total, bars.length, precision, print && print.line, result.stage, result.call].join("|");
+  // Always refresh the Edge buy/sell warning strip (voice dedupes repeats).
+  paintEdgeWarn(result, desk);
   if (sameStamp(box, stamp)) return;
   box.className = "edge " + (tone === "buy" || tone === "hold" ? tone : tone === "sell" ? "sell" : tone === "aim" || tone === "ready" ? "wait " + tone : "wait");
   $("edge-call").textContent = call;
@@ -11439,7 +11441,10 @@ function speakWarning(item) {
 
 function speakEdgeVoice(symbol, name, timing, closed) {
   if (!timing || !timing.ready) return;
-  if (timing.call === "BUY") {
+  const call = String(timing.call || "").toUpperCase();
+  const stage = String(timing.stage || "").toLowerCase();
+  const fireBuy = call === "BUY" || (stage === "fire" && call !== "SELL" && call !== "HOLD" && call !== "WAIT");
+  if (fireBuy && call !== "SELL" && call !== "HOLD") {
     speakWarning({
       symbol,
       date: timing.signalDate || closed,
@@ -11449,7 +11454,7 @@ function speakEdgeVoice(symbol, name, timing, closed) {
     });
     return;
   }
-  if (timing.call === "SELL") {
+  if (call === "SELL") {
     speakWarning({
       symbol,
       date: timing.signalDate || closed,
@@ -11457,6 +11462,45 @@ function speakEdgeVoice(symbol, name, timing, closed) {
       side: "sell",
       detail: "Sell warning. " + name + ". Edge exit on the daily. Paper sell at the next open.",
     });
+  }
+}
+
+function paintEdgeWarn(result, desk) {
+  const warn = $("edge-warn");
+  if (!warn) return;
+  const symbol = (state.paper && state.paper.symbol) || chartHeld() || "";
+  const name = pinLabel(symbol) || symbol || "this market";
+  const call = String((desk && desk.call) || (result && result.call) || "").toUpperCase();
+  const stage = String((result && result.stage) || "").toLowerCase();
+  const label = String((desk && desk.label) || call || "WAIT").toUpperCase();
+  let text = "";
+  let kind = "";
+  if (result && result.ready && (call === "BUY" || label === "FIRE" || (stage === "fire" && call !== "SELL" && call !== "HOLD"))) {
+    text = "BUY WARNING · Edge Fire on " + name + " · paper buy at the next open";
+    kind = "buy";
+  } else if (result && result.ready && call === "SELL") {
+    text = "SELL WARNING · Edge exit on " + name + " · paper sell at the next open";
+    kind = "sell";
+  } else if (result && result.ready && (stage === "aim" || label === "AIM")) {
+    text = "Edge Aim on " + name + " · 6 of 7 · waiting on Fire";
+    kind = "aim";
+  } else if (result && result.ready && (stage === "ready" || label === "READY")) {
+    text = "Edge Ready on " + name + " · 5 of 7 · building toward Fire";
+    kind = "ready";
+  }
+  if (!text) {
+    warn.hidden = true;
+    warn.textContent = "";
+    warn.className = "edge-warn";
+    return;
+  }
+  warn.hidden = false;
+  warn.textContent = text;
+  warn.className = "edge-warn on " + kind;
+  // Voice the Edge buy/sell warning whenever the Edge panel flips.
+  if ((kind === "buy" || kind === "sell") && state.triggers && state.triggers.edge !== false) {
+    const closed = (result && result.signalDate) || closedDate(seenBars()) || "";
+    speakEdgeVoice(symbol, name, result, closed);
   }
 }
 
