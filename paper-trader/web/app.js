@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.46";
+const VERSION = "1.10.47";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -10379,7 +10379,6 @@ function drawCandles(retry) {
   const big4 = PaperFrames.big4Indicator ? PaperFrames.big4Indicator(history) : null;
   const wavePrefs = readVolumeWavePrefs();
   const waves = PaperFrames.volumeWave ? PaperFrames.volumeWave(history, wavePrefs) : null;
-  // Candles match Volume Wave: bright green up / bright red down only — never gray.
   const cryptoChart = phoneCrypto(state.paper && state.paper.symbol, state.catalog && state.catalog.find((row) => row.symbol === (state.paper && state.paper.symbol)));
   const momFull = PaperFrames.momentumBars
     ? PaperFrames.momentumBars(history, { crypto: cryptoChart, live: PaperFrames.liveBar(history, cryptoChart) })
@@ -10393,11 +10392,15 @@ function drawCandles(retry) {
         volumeDot: momFull.volumeDot.slice(dropped),
       }
     : null;
-  void big4;
   void waves;
-  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candlePaint);
-  // Second hard pass so red/green never lose to a stale paint path or cached frames.js.
-  paintClassicTape(ctx, bars, xAt, y, slot);
+  // big4indicator layer: green / gray / red for bull / mixed / bear. Otherwise Volume Wave green/red.
+  const useBig4Paint = !!(layers.big4 && big4 && Array.isArray(big4.bias));
+  const big4Colors = useBig4Paint ? big4.bias.slice(dropped, dropped + bars.length) : null;
+  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, useBig4Paint ? big4Colors : candlePaint);
+  if (!useBig4Paint) {
+    // Hard Volume Wave pass only when big4 gray paint is off.
+    paintClassicTape(ctx, bars, xAt, y, slot);
+  }
   paintChartProductLabel();
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
@@ -10455,19 +10458,29 @@ function drawCandles(retry) {
   const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
   const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
   if (width >= 640 && layers.key) {
+    const big4Tone = useBig4Paint && big4Colors ? big4Colors[last] : null;
     const lastBias = candlePaint && candlePaint.bias ? candlePaint.bias[last] : null;
-    const candleLabel = lastBias === "down"
-      ? "Candle red (down)"
-      : lastBias === "up"
-        ? "Candle green (up)"
-        : lastBar.close >= lastBar.open
-          ? "Candle green (up)"
-          : "Candle red (down)";
-    let candleColor = (candlePaint && candlePaint.tone && candlePaint.tone[last])
-      || (lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d");
-    if (/#9aa6b2|#e8c547|#c9a227|gray|yellow/i.test(String(candleColor))) {
-      candleColor = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d";
-    }
+    const candleLabel = big4Tone === "bull"
+      ? "big4indicator green"
+      : big4Tone === "bear"
+        ? "big4indicator red"
+        : big4Tone === "mixed"
+          ? "big4indicator gray (mixed)"
+          : lastBias === "down"
+            ? "Candle red (down)"
+            : lastBias === "up"
+              ? "Candle green (up)"
+              : lastBar.close >= lastBar.open
+                ? "Candle green (up)"
+                : "Candle red (down)";
+    const candleColor = big4Tone === "bull"
+      ? "#3ddc97"
+      : big4Tone === "bear"
+        ? "#ff4d4d"
+        : big4Tone === "mixed"
+          ? "#9aa6b2"
+          : (candlePaint && candlePaint.tone && candlePaint.tone[last])
+            || (lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d");
     const key = [
       [candleLabel, candleColor],
       ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
@@ -10634,7 +10647,7 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 const LAYERS = [
   ["edge", "Edge stop + Fire arrows", "edgestop", true],
   ["readyaim", "Ready · Aim · Fire", "readyaim", true],
-  ["big4", "big4indicator read (no gray candles)", "big4", false],
+  ["big4", "big4indicator candle color (green · gray · red)", "big4", true],
   ["pivots", "Support · Resistance boxes", "pivots", true],
   ["vwap", "VWAP", "vwap", true],
   ["trend", "Green trend EMA 50", "trend", false],
@@ -10646,8 +10659,8 @@ const LAYERS = [
   ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-// Bump key so phone picks up Stack on + Desk EMA Fire paint on open.
-const LAYERS_KEY = "paperTraderLayers73";
+// Bump key so phone picks up big4 gray candle paint on open.
+const LAYERS_KEY = "paperTraderLayers74";
 
 function readLayers() {
   const chosen = {};
@@ -10664,8 +10677,6 @@ function readLayers() {
   } catch (error) {
     /* The clean view stays. */
   }
-  // Candles are always green/red now — never re-enable gray big4 candle paint from old saves.
-  chosen.big4 = false;
   return chosen;
 }
 

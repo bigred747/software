@@ -394,13 +394,16 @@
 
   function paintCandles(ctx, bars, xAt, y, slot, paint) {
     const list = bars || [];
-    const study = paint && Array.isArray(paint.tone) ? paint : momentumBars(list, paint || {});
+    // Bias list from big4indicator: bull / mixed (gray) / bear. Otherwise Volume Wave green/red.
+    const biasList = Array.isArray(paint) ? paint : null;
+    const study = !biasList && paint && Array.isArray(paint.tone) ? paint : null;
     const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
-    // Exact Volume Wave palette — green up / red down only.
     const GREEN = "#3ddc97";
     const GREEN_RIM = "#1fae78";
     const RED = "#ff4d4d";
     const RED_RIM = "#d63b4a";
+    const GRAY = "#9aa6b2";
+    const GRAY_RIM = "#6b7785";
     list.forEach((bar, index) => {
       const x = xAt(index);
       const topPrice = Math.max(bar.open, bar.close);
@@ -409,11 +412,28 @@
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
       const up = bar.close >= bar.open;
-      // Ignore any stale gray/mixed overlay colors — always classic tape like Volume Wave.
-      const tone = up ? GREEN : RED;
-      const rim = up ? GREEN_RIM : RED_RIM;
-      void study;
-      const locked = !study.locked || study.locked[index] !== false;
+      let tone;
+      let rim;
+      if (biasList) {
+        const mode = biasList[index];
+        if (mode === "bull") {
+          tone = GREEN;
+          rim = GREEN_RIM;
+        } else if (mode === "bear") {
+          tone = RED;
+          rim = RED_RIM;
+        } else if (mode === "mixed") {
+          tone = GRAY;
+          rim = GRAY_RIM;
+        } else {
+          tone = up ? GREEN : RED;
+          rim = up ? GREEN_RIM : RED_RIM;
+        }
+      } else {
+        tone = up ? GREEN : RED;
+        rim = up ? GREEN_RIM : RED_RIM;
+      }
+      const locked = !study || !study.locked || study.locked[index] !== false;
       ctx.globalAlpha = locked ? 1 : 0.95;
       ctx.strokeStyle = tone;
       ctx.lineWidth = Math.max(1.35, Math.min(2.75, slot * 0.18));
@@ -427,7 +447,7 @@
       ctx.strokeStyle = rim;
       ctx.lineWidth = 1;
       ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
-      if (study.volumeDot && study.volumeDot[index]) {
+      if (study && study.volumeDot && study.volumeDot[index]) {
         const radius = Math.max(1.75, Math.min(3.5, slot * 0.22));
         ctx.beginPath();
         ctx.fillStyle = "#7dd3fc";

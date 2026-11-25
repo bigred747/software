@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.46">
+  <meta name="paper-build" content="1.10.47">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2120,7 +2120,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.46</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.47</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -2410,7 +2410,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       </div>
       <details class="chart-fold">
         <summary>Chart key</summary>
-        <p class="muted chart-note">Candles paint green (up / bullish momentum) or red (down / bearish momentum) only — never gray or yellow. Desk ADX · DMI sets conviction; weak ADX still stays green/red. Cyan dots mark closed bars with volume about 30% above average. Colors lock on the closed bar — the live bar alone may shift until it closes (no repaint of history). Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (white), 9 (cyan), 14 (yellow), 50 (blue), 100 (gold), and 200 (red) on this chart's own bars. Desk EMA Fire installs EMA 5 · 14 · 50 · 200 on open. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses; then Volume Wave · Desk Waves — Hull ATR (n=6) × ATRmult (0.7) gates accum/distrib volume waves (green up / red down hist, cyan average); settings live on the pane; wave paint stays in the Volume Wave pane. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator still reads EMA 50/200, MACD, and RSI on closed bars for Edge / layers; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the study stack share. Not a forecast.</p>
+        <p class="muted chart-note">With big4indicator on, candles paint green (bull) · gray (mixed) · red (bear). Turn that layer off for Volume Wave green/red only. Cyan dots mark closed bars with volume about 30% above average. Colors lock on the closed bar — the live bar alone may shift until it closes (no repaint of history). Ready · Aim · Fire marks Edge staging on the chart (R / A dots, then Fire BUY/SELL arrows at the next open when big4indicator agrees). The SMA stack is 5 (white), 9 (cyan), 14 (yellow), 50 (blue), 100 (gold), and 200 (red) on this chart's own bars. Desk EMA Fire installs EMA 5 · 14 · 50 · 200 on open. Status chips above the chart read trend, breakdown or breakout, squeeze alert, Edge consensus, and VWAP from closed bars. Under price: true momentum (14/5/3) with a green/red main and signal cloud and cyan/pink cross arrows; then this desk's squeeze momentum histogram (cyan/blue up, yellow/red down) with compression dots; then CCI 50 (white), 14 (yellow), and 5 (cyan) with ±100 lines and green/red arrows on closed-bar crosses; then Volume Wave · Desk Waves — Hull ATR (n=6) × ATRmult (0.7) gates accum/distrib volume waves (green up / red down hist, cyan average); settings live on the pane; wave paint stays in the Volume Wave pane. Public closed-bar math only — not a third-party or trademarked study. Arrows on candles are paper orders. Layers picks what the price pane draws. Dark pool books, iceberg orders, and institutional blotters are private; big4indicator still reads EMA 50/200, MACD, and RSI on closed bars for Edge / layers; B4-style public-tape proxies (relative volume and absorption) stay in the readings dock and do not paint arrows. Fear or greed is where the last close sits in the recent range. Zoom changes how many bars the price pane and the study stack share. Not a forecast.</p>
       </details>
     </section>
 
@@ -5535,13 +5535,16 @@ AddOrder(Sell, sellFire);</textarea>
 
   function paintCandles(ctx, bars, xAt, y, slot, paint) {
     const list = bars || [];
-    const study = paint && Array.isArray(paint.tone) ? paint : momentumBars(list, paint || {});
+    // Bias list from big4indicator: bull / mixed (gray) / bear. Otherwise Volume Wave green/red.
+    const biasList = Array.isArray(paint) ? paint : null;
+    const study = !biasList && paint && Array.isArray(paint.tone) ? paint : null;
     const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
-    // Exact Volume Wave palette — green up / red down only.
     const GREEN = "#3ddc97";
     const GREEN_RIM = "#1fae78";
     const RED = "#ff4d4d";
     const RED_RIM = "#d63b4a";
+    const GRAY = "#9aa6b2";
+    const GRAY_RIM = "#6b7785";
     list.forEach((bar, index) => {
       const x = xAt(index);
       const topPrice = Math.max(bar.open, bar.close);
@@ -5550,11 +5553,28 @@ AddOrder(Sell, sellFire);</textarea>
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
       const up = bar.close >= bar.open;
-      // Ignore any stale gray/mixed overlay colors — always classic tape like Volume Wave.
-      const tone = up ? GREEN : RED;
-      const rim = up ? GREEN_RIM : RED_RIM;
-      void study;
-      const locked = !study.locked || study.locked[index] !== false;
+      let tone;
+      let rim;
+      if (biasList) {
+        const mode = biasList[index];
+        if (mode === "bull") {
+          tone = GREEN;
+          rim = GREEN_RIM;
+        } else if (mode === "bear") {
+          tone = RED;
+          rim = RED_RIM;
+        } else if (mode === "mixed") {
+          tone = GRAY;
+          rim = GRAY_RIM;
+        } else {
+          tone = up ? GREEN : RED;
+          rim = up ? GREEN_RIM : RED_RIM;
+        }
+      } else {
+        tone = up ? GREEN : RED;
+        rim = up ? GREEN_RIM : RED_RIM;
+      }
+      const locked = !study || !study.locked || study.locked[index] !== false;
       ctx.globalAlpha = locked ? 1 : 0.95;
       ctx.strokeStyle = tone;
       ctx.lineWidth = Math.max(1.35, Math.min(2.75, slot * 0.18));
@@ -5568,7 +5588,7 @@ AddOrder(Sell, sellFire);</textarea>
       ctx.strokeStyle = rim;
       ctx.lineWidth = 1;
       ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
-      if (study.volumeDot && study.volumeDot[index]) {
+      if (study && study.volumeDot && study.volumeDot[index]) {
         const radius = Math.max(1.75, Math.min(3.5, slot * 0.22));
         ctx.beginPath();
         ctx.fillStyle = "#7dd3fc";
@@ -11106,7 +11126,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.46";
+const VERSION = "1.10.47";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -21306,7 +21326,6 @@ function drawCandles(retry) {
   const big4 = PaperFrames.big4Indicator ? PaperFrames.big4Indicator(history) : null;
   const wavePrefs = readVolumeWavePrefs();
   const waves = PaperFrames.volumeWave ? PaperFrames.volumeWave(history, wavePrefs) : null;
-  // Candles match Volume Wave: bright green up / bright red down only — never gray.
   const cryptoChart = phoneCrypto(state.paper && state.paper.symbol, state.catalog && state.catalog.find((row) => row.symbol === (state.paper && state.paper.symbol)));
   const momFull = PaperFrames.momentumBars
     ? PaperFrames.momentumBars(history, { crypto: cryptoChart, live: PaperFrames.liveBar(history, cryptoChart) })
@@ -21320,11 +21339,15 @@ function drawCandles(retry) {
         volumeDot: momFull.volumeDot.slice(dropped),
       }
     : null;
-  void big4;
   void waves;
-  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candlePaint);
-  // Second hard pass so red/green never lose to a stale paint path or cached frames.js.
-  paintClassicTape(ctx, bars, xAt, y, slot);
+  // big4indicator layer: green / gray / red for bull / mixed / bear. Otherwise Volume Wave green/red.
+  const useBig4Paint = !!(layers.big4 && big4 && Array.isArray(big4.bias));
+  const big4Colors = useBig4Paint ? big4.bias.slice(dropped, dropped + bars.length) : null;
+  PaperFrames.paintCandles(ctx, bars, xAt, y, slot, useBig4Paint ? big4Colors : candlePaint);
+  if (!useBig4Paint) {
+    // Hard Volume Wave pass only when big4 gray paint is off.
+    paintClassicTape(ctx, bars, xAt, y, slot);
+  }
   paintChartProductLabel();
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
@@ -21382,19 +21405,29 @@ function drawCandles(retry) {
   const priorMomentum = last === 0 ? allMomentum[dropped - 1] : momentum[last - 1];
   const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
   if (width >= 640 && layers.key) {
+    const big4Tone = useBig4Paint && big4Colors ? big4Colors[last] : null;
     const lastBias = candlePaint && candlePaint.bias ? candlePaint.bias[last] : null;
-    const candleLabel = lastBias === "down"
-      ? "Candle red (down)"
-      : lastBias === "up"
-        ? "Candle green (up)"
-        : lastBar.close >= lastBar.open
-          ? "Candle green (up)"
-          : "Candle red (down)";
-    let candleColor = (candlePaint && candlePaint.tone && candlePaint.tone[last])
-      || (lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d");
-    if (/#9aa6b2|#e8c547|#c9a227|gray|yellow/i.test(String(candleColor))) {
-      candleColor = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d";
-    }
+    const candleLabel = big4Tone === "bull"
+      ? "big4indicator green"
+      : big4Tone === "bear"
+        ? "big4indicator red"
+        : big4Tone === "mixed"
+          ? "big4indicator gray (mixed)"
+          : lastBias === "down"
+            ? "Candle red (down)"
+            : lastBias === "up"
+              ? "Candle green (up)"
+              : lastBar.close >= lastBar.open
+                ? "Candle green (up)"
+                : "Candle red (down)";
+    const candleColor = big4Tone === "bull"
+      ? "#3ddc97"
+      : big4Tone === "bear"
+        ? "#ff4d4d"
+        : big4Tone === "mixed"
+          ? "#9aa6b2"
+          : (candlePaint && candlePaint.tone && candlePaint.tone[last])
+            || (lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d");
     const key = [
       [candleLabel, candleColor],
       ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],
@@ -21561,7 +21594,7 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 const LAYERS = [
   ["edge", "Edge stop + Fire arrows", "edgestop", true],
   ["readyaim", "Ready · Aim · Fire", "readyaim", true],
-  ["big4", "big4indicator read (no gray candles)", "big4", false],
+  ["big4", "big4indicator candle color (green · gray · red)", "big4", true],
   ["pivots", "Support · Resistance boxes", "pivots", true],
   ["vwap", "VWAP", "vwap", true],
   ["trend", "Green trend EMA 50", "trend", false],
@@ -21573,8 +21606,8 @@ const LAYERS = [
   ["lesson", "Lesson arrows (extra)", "low", false],
   ["key", "Chart notes", "key", false],
 ];
-// Bump key so phone picks up Stack on + Desk EMA Fire paint on open.
-const LAYERS_KEY = "paperTraderLayers73";
+// Bump key so phone picks up big4 gray candle paint on open.
+const LAYERS_KEY = "paperTraderLayers74";
 
 function readLayers() {
   const chosen = {};
@@ -21591,8 +21624,6 @@ function readLayers() {
   } catch (error) {
     /* The clean view stays. */
   }
-  // Candles are always green/red now — never re-enable gray big4 candle paint from old saves.
-  chosen.big4 = false;
   return chosen;
 }
 
