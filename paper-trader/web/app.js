@@ -10395,17 +10395,18 @@ function drawCandles(retry) {
   const lastRising = lastMomentum != null && (priorMomentum == null ? lastMomentum >= 0 : lastMomentum > priorMomentum);
   if (width >= 640 && layers.key) {
     const lastBias = candlePaint && candlePaint.bias ? candlePaint.bias[last] : null;
-    const candleLabel = lastBias === "up"
-      ? "Momentum green (up)"
-      : lastBias === "down"
-        ? "Momentum red (down)"
-        : lastBias === "flat"
-          ? "Momentum yellow (flat)"
-          : lastBar.close >= lastBar.open
-            ? "Candle green (up)"
-            : "Candle red (down)";
-    const candleColor = (candlePaint && candlePaint.tone && candlePaint.tone[last])
+    const candleLabel = lastBias === "down"
+      ? "Candle red (down)"
+      : lastBias === "up"
+        ? "Candle green (up)"
+        : lastBar.close >= lastBar.open
+          ? "Candle green (up)"
+          : "Candle red (down)";
+    let candleColor = (candlePaint && candlePaint.tone && candlePaint.tone[last])
       || (lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d");
+    if (/#9aa6b2|#e8c547|#c9a227|gray|yellow/i.test(String(candleColor))) {
+      candleColor = lastBar.close >= lastBar.open ? "#3ddc97" : "#ff4d4d";
+    }
     const key = [
       [candleLabel, candleColor],
       ["Squeeze " + PaperFrames.squeezeName(squeeze[last] || 0), PaperFrames.squeezeTone(squeeze[last] || 0)],

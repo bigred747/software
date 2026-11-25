@@ -349,12 +349,15 @@
         adx[index] = (adx[index - 1] * (length - 1) + (dx[index] == null ? 0 : dx[index])) / length;
       }
     }
+    // Green / red only — never gray, yellow, or mixed paint on the tape.
     const GREEN = "#3ddc97";
     const GREEN_RIM = "#1fae78";
     const RED = "#ff4d4d";
     const RED_RIM = "#d63b4a";
-    const YELLOW = "#e8c547";
-    const YELLOW_RIM = "#c9a227";
+    const GREEN_SOFT = "#2fbf86";
+    const GREEN_SOFT_RIM = "#1d9a6a";
+    const RED_SOFT = "#f04545";
+    const RED_SOFT_RIM = "#c53636";
     const tone = new Array(count).fill(null);
     const rim = new Array(count).fill(null);
     const bias = new Array(count).fill("warm");
@@ -364,29 +367,28 @@
     const volAvg = simpleAverage(volumes, volLook);
     for (let index = 0; index < count; index += 1) {
       if (live && index === count - 1) locked[index] = false;
+      const upBar = list[index].close >= list[index].open;
       if (adx[index] == null || plusDI[index] == null || minusDI[index] == null) {
-        const up = list[index].close >= list[index].open;
-        tone[index] = up ? GREEN : RED;
-        rim[index] = up ? GREEN_RIM : RED_RIM;
-        bias[index] = "warm";
+        tone[index] = upBar ? GREEN : RED;
+        rim[index] = upBar ? GREEN_RIM : RED_RIM;
+        bias[index] = upBar ? "up" : "down";
         continue;
       }
+      const bullDi = plusDI[index] >= minusDI[index];
       if (adx[index] < adxFloor) {
-        tone[index] = YELLOW;
-        rim[index] = YELLOW_RIM;
-        bias[index] = "flat";
-      } else if (plusDI[index] > minusDI[index]) {
+        // Weak ADX: still green/red from DI (fallback open/close) — no gray / yellow bodies.
+        const up = bullDi || (plusDI[index] === minusDI[index] && upBar);
+        tone[index] = up ? GREEN_SOFT : RED_SOFT;
+        rim[index] = up ? GREEN_SOFT_RIM : RED_SOFT_RIM;
+        bias[index] = up ? "up" : "down";
+      } else if (bullDi) {
         tone[index] = GREEN;
         rim[index] = GREEN_RIM;
         bias[index] = "up";
-      } else if (minusDI[index] > plusDI[index]) {
+      } else {
         tone[index] = RED;
         rim[index] = RED_RIM;
         bias[index] = "down";
-      } else {
-        tone[index] = YELLOW;
-        rim[index] = YELLOW_RIM;
-        bias[index] = "flat";
       }
       // Volume conviction dots only on locked closed bars — live bar never paints a sticky dot.
       if (locked[index] && volAvg[index] != null && volAvg[index] > 0 && volumes[index] >= volAvg[index] * volMult) {
@@ -414,6 +416,7 @@
     const list = bars || [];
     const study = paint && Array.isArray(paint.tone) ? paint : momentumBars(list, paint || {});
     const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
+    const banned = /#9aa6b2|#8b95a1|#7a8694|#6b7280|#94a3b8|#a8b0b8|#c0c0c0|#808080|#e8c547|#c9a227|gray|grey|yellow/i;
     list.forEach((bar, index) => {
       const x = xAt(index);
       const topPrice = Math.max(bar.open, bar.close);
@@ -422,10 +425,13 @@
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
       const up = bar.close >= bar.open;
-      const tone = study.tone[index] || (up ? "#3ddc97" : "#ff4d4d");
-      const rim = study.rim[index] || (up ? "#1fae78" : "#d63b4a");
+      let tone = study.tone[index] || (up ? "#3ddc97" : "#ff4d4d");
+      let rim = study.rim[index] || (up ? "#1fae78" : "#d63b4a");
+      // Hard refuse gray / yellow / mixed leftovers from older overlays.
+      if (!tone || banned.test(String(tone))) tone = up ? "#3ddc97" : "#ff4d4d";
+      if (!rim || banned.test(String(rim))) rim = up ? "#1fae78" : "#d63b4a";
       const locked = !study.locked || study.locked[index] !== false;
-      ctx.globalAlpha = locked ? 1 : 0.78;
+      ctx.globalAlpha = locked ? 1 : 0.92;
       ctx.strokeStyle = tone;
       ctx.lineWidth = Math.max(1.25, Math.min(2.5, slot * 0.16));
       ctx.beginPath();

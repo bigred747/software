@@ -67,7 +67,7 @@ test("weekly bars join the days", () => {
   assert.equal(weeks[1].close, 9);
 });
 
-test("momentum bars paint green red yellow and never repaint closed bars", () => {
+test("momentum bars paint green or red only and never repaint closed bars", () => {
   const bars = [];
   for (let index = 0; index < 80; index += 1) {
     const close = 100 + index * 0.8 + Math.sin(index / 4) * 1.5;
@@ -82,7 +82,10 @@ test("momentum bars paint green red yellow and never repaint closed bars", () =>
   }
   const closed = momentumBars(bars, { live: false });
   assert.equal(closed.tone.length, bars.length);
-  assert.ok(closed.tone.some((tone) => tone === "#3ddc97" || tone === "#ff4d4d" || tone === "#e8c547"));
+  const allowed = new Set(["#3ddc97", "#ff4d4d", "#2fbf86", "#f04545"]);
+  closed.tone.forEach((tone, index) => {
+    assert.ok(allowed.has(tone), "candle " + index + " must be green/red not gray/yellow: " + tone);
+  });
   closed.locked.forEach((flag) => assert.equal(flag, true));
   const live = momentumBars(bars, { live: true });
   assert.equal(live.locked[live.locked.length - 1], false);
