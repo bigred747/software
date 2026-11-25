@@ -175,12 +175,15 @@ def build_zips(version: str) -> None:
         "tools/stamp_version.py",
         "tools/pick_upgrade_zip.py",
         "1 Allow Paper Trader.bat",
+        "1 INSTALL Paper Trader.bat",
         "FORCE-UPGRADE.bat",
         "CHECK-SEAL.bat",
         "EXTRACT-THEN-UPGRADE.txt",
         "CLOSE-THEN-EXTRACT.txt",
         "Erase-Other-Paper-Traders.bat",
         "Start-Paper-Trader.bat",
+        "tools/extract_zip.py",
+        "tools/pick_upgrade_zip.py",
     ]
 
     def refresh(zip_path: Path, slim: bool, base: Path | None = None) -> None:

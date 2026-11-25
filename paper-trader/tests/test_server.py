@@ -965,8 +965,10 @@ class ServerTests(unittest.TestCase):
         self.assertIn("serve", bat)
         self.assertIn("if not errorlevel 1", bat)
         self.assertIn("force-upgrade", bat)
-        self.assertIn("papertrader-setup-%random%%random%", bat)
-        self.assertIn("learn.lock", bat)
+        self.assertIn("papertrader-install-%random%%random%", bat)
+        self.assertIn("extract_zip.py", bat)
+        self.assertIn("opening the new copy", bat)
+        self.assertIn("close this setup window", bat)
         self.assertNotIn("goto badinstall", bat)
         self.assertIn("unblock", bat)
         self.assertIn("documents\\iphone", bat)
@@ -977,14 +979,22 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("requirements", bat)
         allow = (ROOT / "1 Allow Paper Trader.bat").read_text(encoding="utf-8").lower()
         opener = (ROOT / "2 Open Paper Trader.bat").read_text(encoding="utf-8").lower()
+        install = (ROOT / "1 INSTALL Paper Trader.bat").read_text(encoding="utf-8").lower()
         self.assertIn("force-upgrade", allow)
         self.assertIn("install", allow)
-        self.assertIn("papertrader-setup-%random%%random%", allow)
-        for name in ("Start-Paper-Trader.bat", "1 Allow Paper Trader.bat", "2 Open Paper Trader.bat"):
+        self.assertIn("extract_zip.py", allow)
+        self.assertIn("extract_zip.py", install)
+        self.assertIn("one-click", install)
+        for name in (
+            "Start-Paper-Trader.bat",
+            "1 Allow Paper Trader.bat",
+            "2 Open Paper Trader.bat",
+            "1 INSTALL Paper Trader.bat",
+        ):
             text = (ROOT / name).read_text(encoding="utf-8")
-            self.assertIn("tar -xf", text)
+            self.assertIn("extract_zip.py", text)
             self.assertIn('.zip.', text)
-            self.assertIn("PaperTrader-setup", text)
+            self.assertIn("PaperTrader-install", text)
             self.assertNotIn('Temp\\"', text)
             lowered = text.lower()
             for blocked in ("powershell", "cscript", "wscript", "zone.identifier", "unblock-file", ".vbs", "taskkill"):
