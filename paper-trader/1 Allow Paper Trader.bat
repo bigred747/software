@@ -11,25 +11,22 @@ echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
 echo This file was opened inside the zip. Extracting the whole Paper Trader now.
 set "ZIP="
-for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents" "%USERPROFILE%\OneDrive\Downloads" "%USERPROFILE%\OneDrive\Desktop" "%USERPROFILE%\OneDrive\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
-if not defined ZIP if defined OneDrive for %%R in ("%OneDrive%\Downloads" "%OneDrive%\Desktop" "%OneDrive%\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
+set "PYTRY=python"
+if exist "%~dp0runtime\python.exe" set "PYTRY=%~dp0runtime\python.exe"
+for /f "delims=" %%Z in ('"%PYTRY%" "%~dp0tools\pick_upgrade_zip.py" 2^>nul') do set "ZIP=%%Z"
+if not defined ZIP if exist "%USERPROFILE%\Downloads\Paper-Trader.zip" set "ZIP=%USERPROFILE%\Downloads\Paper-Trader.zip"
 if not defined ZIP goto NoZip
+echo Using zip: !ZIP!
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
 set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup"
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
 if exist "%STAGE%" set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup-%RANDOM%"
 mkdir "%STAGE%"
-mkdir "%STAGE%\paper-trader" 2>nul
-mkdir "%STAGE%\paper-trader\paper_trader" 2>nul
-mkdir "%STAGE%\paper-trader\web" 2>nul
-mkdir "%STAGE%\paper-trader\tools" 2>nul
-mkdir "%STAGE%\paper-trader\iphone" 2>nul
-mkdir "%STAGE%\paper-trader\runtime" 2>nul
 tar -xf "!ZIP!" -C "%STAGE%"
 if errorlevel 1 goto BadZip
-if not exist "%STAGE%\paper-trader\launch.py" goto BadZip
-start "" "%STAGE%\paper-trader\1 Allow Paper Trader.bat"
-echo The full copy is in Documents. Use the window that just opened.
+if not exist "%STAGE%\paper-trader\FORCE-UPGRADE.bat" goto BadZip
+start "" "%STAGE%\paper-trader\FORCE-UPGRADE.bat"
+echo Extracted. The FORCE-UPGRADE window will replace Documents\Paper Trader.
 pause
 exit /b 0
 
@@ -49,69 +46,34 @@ exit /b 1
 :Normal
 echo Unblock
 echo If Windows shows an Unblock box, check Unblock and open this file.
-echo That box lets this copy open. It stays on this computer.
-echo Step 1 of 2. Install Paper Trader 1.10.42 and erase other copies.
+echo Prefer FORCE-UPGRADE.bat when Documents\Paper Trader is stuck on an old seal.
+echo.
+if exist "%~dp0FORCE-UPGRADE.bat" (
+  echo Handing off to FORCE-UPGRADE.bat for a full replace.
+  start "" "%~dp0FORCE-UPGRADE.bat"
+  exit /b 0
+)
+echo FORCE-UPGRADE.bat missing — falling back to install.
 set "PY=%~dp0runtime\python.exe"
 if not exist "%PY%" set "PY=python"
-if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
-"%PY%" "%~dp0launch.py" install > "%USERPROFILE%\Documents\paper-trader-install.txt"
+"%PY%" "%~dp0launch.py" force-upgrade > "%USERPROFILE%\Documents\paper-trader-force-upgrade.txt" 2>&1
 if errorlevel 1 (
-  echo Could not install the newest copy.
+  echo Could not force-upgrade. See Documents\paper-trader-force-upgrade.txt
+  type "%USERPROFILE%\Documents\paper-trader-force-upgrade.txt"
   pause
   exit /b 1
 )
-set "DEST="
-set "ACTION="
-for /f "usebackq delims=" %%A in ("%USERPROFILE%\Documents\paper-trader-install.txt") do (
-  if not defined DEST (
-    set "DEST=%%A"
-  ) else if not defined ACTION (
-    set "ACTION=%%A"
-  )
-)
-if not defined DEST (
-  echo Could not find the installed folder.
-  pause
-  exit /b 1
-)
-echo Erasing other Paper Trader installs, leftover zips, and extra Bots...
-"%PY%" "%~dp0launch.py" erase-others > "%USERPROFILE%\Documents\paper-trader-erase.txt"
-if errorlevel 1 (
-  echo Could not erase the other copies. Run Erase-Other-Paper-Traders.bat.
-  pause
-  exit /b 1
-)
-call :DeskLink "%DEST%"
+set "DEST=%USERPROFILE%\Documents\Paper Trader"
+set "WANT="
+if exist "%~dp0VERSION" set /p WANT=<"%~dp0VERSION"
 set "SEAL="
 if exist "!DEST!\VERSION" set /p SEAL=<"!DEST!\VERSION"
-if /I not "!SEAL!"=="1.10.42" (
-  echo.
-  echo INSTALL DID NOT LAND 1.10.42.
-  echo Documents\Paper Trader still shows: !SEAL!
-  echo Close every Paper Trader / Edge desk window, then run this Allow file again.
+if /I not "!SEAL!"=="!WANT!" (
+  echo INSTALL DID NOT LAND !WANT!. Still shows: !SEAL!
   pause
   exit /b 1
 )
-echo.
-echo Seal check OK — Documents\Paper Trader is 1.10.42
-echo Paper Trader 1.10.42 is the only desk left.
-echo Step 2 of 2: close any old desk window, then double-click Paper Trader.bat on the desktop.
-echo The top seal must say Paper 1.10.42 — if it still says 1.10.40, you opened the old window.
+echo Seal check OK — Documents\Paper Trader is !SEAL!
+start "" "!DEST!\Start-Paper-Trader.bat"
 pause
-if /I "!ACTION!"=="remove-source" echo The older copy is no longer the one that opens.
-exit /b 0
-
-:DeskLink
-call :WriteLink "%USERPROFILE%\Desktop" "%~1"
-call :WriteLink "%USERPROFILE%\OneDrive\Desktop" "%~1"
-if defined OneDrive call :WriteLink "%OneDrive%\Desktop" "%~1"
-echo Paper Trader.bat is on the desktop. Double-click it to open the desk.
-exit /b 0
-
-:WriteLink
-if not exist "%~1" exit /b 0
-> "%~1\Paper Trader.bat" echo @echo off
->> "%~1\Paper Trader.bat" echo cd /d "%~2"
->> "%~1\Paper Trader.bat" echo title Paper Trader
->> "%~1\Paper Trader.bat" echo call "2 Open Paper Trader.bat"
 exit /b 0

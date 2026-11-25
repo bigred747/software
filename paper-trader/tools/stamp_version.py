@@ -97,6 +97,7 @@ def stamp(version: str) -> None:
         ROOT / "paper_trader" / "cli.py",
         r"Keep Paper Trader 1\.\d+\.\d+ only",
         f"Keep Paper Trader {version} only",
+        required=False,
     )
     replace_file(
         ROOT / "paper_trader" / "sync.py",
@@ -172,8 +173,11 @@ def build_zips(version: str) -> None:
         "VERSION",
         "tools/build_phone.py",
         "tools/stamp_version.py",
+        "tools/pick_upgrade_zip.py",
         "1 Allow Paper Trader.bat",
+        "FORCE-UPGRADE.bat",
         "Erase-Other-Paper-Traders.bat",
+        "Start-Paper-Trader.bat",
     ]
 
     def refresh(zip_path: Path, slim: bool, base: Path | None = None) -> None:

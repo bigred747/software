@@ -17,6 +17,7 @@ from paper_trader.install import (
     install_newest,
     is_install,
     other_copies,
+    read_install_version,
     remove_desktop_opener,
     single_copy_status,
     write_desktop_opener,
@@ -167,14 +168,16 @@ class InstallTests(unittest.TestCase):
                 install_newest(foreign, home)
             self.assertIn("artex", str(blocked.exception).lower())
 
-    def test_erase_others_keeps_1_10_40_and_deletes_the_rest(self) -> None:
+    def test_erase_others_keeps_current_seal_and_deletes_the_rest(self) -> None:
+        from paper_trader.install import KEEP_VERSION
+
         with tempfile.TemporaryDirectory() as folder:
             home = Path(folder)
             keep = canonical_folder(home)
             old = home / "Downloads" / "paper-trader"
             newer = home / "Desktop" / "Paper Trader 1.10.50"
             notes = home / "Documents" / "taxes"
-            make_install(keep, "1.10.41")
+            make_install(keep, KEEP_VERSION)
             (keep / "2 Open Paper Trader.bat").write_text("@echo off\r\n", encoding="utf-8")
             make_install(old, "1.10.39")
             make_install(newer, "1.10.50")
@@ -182,7 +185,7 @@ class InstallTests(unittest.TestCase):
             (notes / "keep.txt").write_text("leave\n", encoding="utf-8")
             (home / "Desktop").mkdir(exist_ok=True)
             (home / "Downloads" / "Paper-Trader-1.10.50-slim.zip").write_bytes(b"zip")
-            (home / "Downloads" / "Paper-Trader-1.10.41-slim.zip").write_bytes(b"keep")
+            (home / "Downloads" / f"Paper-Trader-{KEEP_VERSION}-slim.zip").write_bytes(b"keep")
             (home / "Documents" / "PaperTrader-setup").mkdir()
             make_install(home / "Documents" / "PaperTrader-setup" / "paper-trader", "1.10.48")
             closed: list[int] = []
@@ -194,18 +197,47 @@ class InstallTests(unittest.TestCase):
                 with patch("paper_trader.install._resume_learner"):
                     report = erase_other_installs(home, keep=keep, killer=fake_killer)
             self.assertEqual(Path(str(report["keep"])), keep.resolve())
-            self.assertEqual(report["keep_version"], "1.10.41")
+            self.assertEqual(report["keep_version"], KEEP_VERSION)
             self.assertFalse(old.exists())
             self.assertFalse(newer.exists())
             self.assertFalse((home / "Documents" / "PaperTrader-setup").exists())
             self.assertTrue(is_install(keep))
             self.assertEqual((notes / "keep.txt").read_text(encoding="utf-8"), "leave\n")
             self.assertFalse((home / "Downloads" / "Paper-Trader-1.10.50-slim.zip").exists())
-            self.assertTrue((home / "Downloads" / "Paper-Trader-1.10.41-slim.zip").is_file())
+            self.assertTrue((home / "Downloads" / f"Paper-Trader-{KEEP_VERSION}-slim.zip").is_file())
             self.assertEqual(find_installs(home), [keep.resolve()])
             opener = home / "Desktop" / "Paper Trader.bat"
             self.assertTrue(opener.is_file())
             self.assertIn(str(keep), opener.read_text(encoding="utf-8"))
+
+    def test_force_upgrade_replaces_old_documents_desk(self) -> None:
+        from paper_trader.install import KEEP_VERSION, force_upgrade
+
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            pack = home / "extracted" / "paper-trader"
+            make_install(pack, KEEP_VERSION)
+            (pack / "web").mkdir(parents=True, exist_ok=True)
+            (pack / "web" / "app.js").write_text(f'const VERSION = "{KEEP_VERSION}";\n', encoding="utf-8")
+            (pack / "web" / "index.html").write_text(
+                f'<meta name="paper-build" content="{KEEP_VERSION}">\n', encoding="utf-8"
+            )
+            dest = canonical_folder(home)
+            make_install(dest, "1.10.40")
+            (dest / "web").mkdir(parents=True, exist_ok=True)
+            (dest / "web" / "app.js").write_text('const VERSION = "1.10.40";\n', encoding="utf-8")
+            (dest / "web" / "index.html").write_text(
+                '<meta name="paper-build" content="1.10.40">\n', encoding="utf-8"
+            )
+            with patch("paper_trader.install._resume_learner"), patch(
+                "paper_trader.install.ask_learners_to_close", create=True
+            ), patch("paper_trader.learn.ask_learners_to_close"), patch(
+                "paper_trader.learn.end_learner_pid"
+            ), patch("paper_trader.schwab_env.ensure_env_file"):
+                out = force_upgrade(pack, home)
+            self.assertEqual(out, dest.resolve())
+            self.assertEqual(read_install_version(dest), KEEP_VERSION)
+            self.assertIn(f'const VERSION = "{KEEP_VERSION}"', (dest / "web" / "app.js").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
