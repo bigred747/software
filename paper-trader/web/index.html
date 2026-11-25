@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.49">
+  <meta name="paper-build" content="1.10.50">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.49</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.50</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -404,12 +404,18 @@
       </section>
       <details class="desk-extras" open>
         <summary>Desk extras · breaker · Safe</summary>
-        <div class="schwab-box" id="schwab-box" aria-label="Schwab market and live">
+        <div class="schwab-box" id="schwab-box" aria-label="Schwab connection">
+          <p class="breaker-note"><strong>Schwab</strong> · Connect + Test (same as 1.10.40)</p>
+          <div class="schwab-actions" role="group" aria-label="Schwab connect and test">
+            <button id="schwab-connect-2" type="button" aria-pressed="false">Connect</button>
+            <button id="schwab-test-2" type="button" class="quiet">Test</button>
+            <strong id="schwab-box-status" class="schwab-top-status bad">OFF</strong>
+          </div>
           <div class="schwab-actions" role="group" aria-label="Schwab market and live">
             <button id="schwab-market" type="button" aria-pressed="false" disabled>Market Data</button>
             <button id="schwab-live" type="button" aria-pressed="false" disabled>Live Trading</button>
           </div>
-          <p id="schwab-note" class="breaker-note">Paper stays the default.</p>
+          <p id="schwab-note" class="breaker-note">Paper stays the default. Connect opens the Schwab window. Test checks the link.</p>
         </div>
         <div class="breaker" id="breaker">
           <button id="halt" type="button" class="halt">Sell all · Stop buys</button>
@@ -1329,11 +1335,11 @@ AddOrder(Sell, sellFire);</textarea>
       </div>
     </div>
   </div>
-  <script src="live.js?v=11049"></script>
-  <script src="engine.js?v=11049"></script>
-  <script src="study.js?v=11049"></script>
-  <script src="frames.js?v=11049"></script>
-  <script src="booster.js?v=11049"></script>
-  <script src="app.js?v=11049"></script>
+  <script src="live.js?v=11050"></script>
+  <script src="engine.js?v=11050"></script>
+  <script src="study.js?v=11050"></script>
+  <script src="frames.js?v=11050"></script>
+  <script src="booster.js?v=11050"></script>
+  <script src="app.js?v=11050"></script>
 </body>
 </html>

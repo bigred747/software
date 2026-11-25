@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.49";
+const VERSION = "1.10.50";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -1914,45 +1914,64 @@ async function boot() {
 
 function paintSchwabButtons(status) {
   state.schwab = status || null;
-  const connect = $("schwab-connect");
+  const connectButtons = ["schwab-connect", "schwab-connect-2"]
+    .map((id) => $(id))
+    .filter(Boolean);
   const market = $("schwab-market");
   const live = $("schwab-live");
   const note = $("schwab-note");
   const top = $("schwab-top");
   const dot = $("schwab-top-dot");
-  const topStatus = $("schwab-top-status");
-  if (!connect || !market || !live) return;
+  const statusNodes = ["schwab-top-status", "schwab-box-status"]
+    .map((id) => $(id))
+    .filter(Boolean);
+  if (!connectButtons.length) return;
   const linked = !!(status && status.connected);
   const creds = !!(status && status.credentials);
-  connect.setAttribute("aria-pressed", linked ? "true" : "false");
-  connect.textContent = linked ? "Connected" : "Connect";
+  connectButtons.forEach((connect) => {
+    connect.setAttribute("aria-pressed", linked ? "true" : "false");
+    connect.textContent = linked ? "Connected" : "Connect";
+    connect.hidden = false;
+    connect.style.display = "";
+  });
+  ["schwab-test", "schwab-test-2"].forEach((id) => {
+    const test = $(id);
+    if (!test) return;
+    test.hidden = false;
+    test.style.display = "";
+    test.disabled = false;
+  });
   if (top) top.classList.toggle("on", linked);
   if (dot) {
     dot.className = linked ? "schwab-top-dot on" : "schwab-top-dot bad";
     dot.title = linked ? "Connected" : "Not connected";
   }
-  if (topStatus) {
+  statusNodes.forEach((topStatus) => {
     topStatus.className = linked ? "schwab-top-status on" : "schwab-top-status bad";
     topStatus.textContent = linked ? "ON" : "OFF";
+  });
+  if (market) {
+    market.disabled = !linked;
+    market.setAttribute("aria-pressed", status && status.market_data ? "true" : "false");
+    market.textContent = status && status.market_data ? "Market Data on" : "Market Data";
   }
-  market.disabled = !linked;
-  market.setAttribute("aria-pressed", status && status.market_data ? "true" : "false");
-  market.textContent = status && status.market_data ? "Market Data on" : "Market Data";
-  // Max Safe: Live Trading button stays visible but cannot arm — only confirms the lock.
-  live.disabled = false;
-  live.setAttribute("aria-pressed", "false");
-  live.textContent = "Live locked";
+  if (live) {
+    // Max Safe: Live Trading button stays visible but cannot arm — only confirms the lock.
+    live.disabled = false;
+    live.setAttribute("aria-pressed", "false");
+    live.textContent = "Live locked";
+  }
   if (!note) return;
   if (!creds) {
-    note.textContent = "Paper stays the default. Live locked.";
+    note.textContent = "Paper stays the default. Live locked. Use Connect + Test like 1.10.40.";
   } else if (!linked) {
     note.textContent = status && status.detail
       ? String(status.detail)
-      : "Paper stays the default. Live locked.";
+      : "Paper stays the default. Live locked. Press Connect for the Schwab window, then Test.";
   } else if (status.market_data) {
     note.textContent = "Market Data on · Live locked · paper only.";
   } else {
-    note.textContent = "Connected · Market Data off · Live locked · paper only.";
+    note.textContent = "Connected · Market Data off · Live locked · paper only. Press Test anytime.";
   }
 }
 
@@ -12401,7 +12420,8 @@ $("paper").addEventListener("click", () => withBusy(async () => {
   $("status").textContent = "Paper is on. Orders stay simulated on this computer.";
 }));
 
-$("schwab-connect").addEventListener("click", () => withBusy(async () => {
+async function runSchwabConnect() {
+  // Same working path as 1.10.40 when the computer desk is on.
   if (state.schwab && state.schwab.connected && !state.offline) {
     const status = await postJSON("/api/schwab/disconnect", {});
     paintSchwabButtons(status);
@@ -12409,7 +12429,7 @@ $("schwab-connect").addEventListener("click", () => withBusy(async () => {
     $("status").textContent = "Disconnected from Schwab. Signals show red until you connect again.";
     return;
   }
-  // Open the window in the same tap so iPhone Safari allows Schwab (like the .40 desk).
+  // Same-tap popup so iPhone / Edge allow the Schwab window (1.10.40 behavior).
   let popup = null;
   try {
     popup = window.open("about:blank", "schwab-oauth", "popup=yes,width=720,height=820");
@@ -12421,10 +12441,11 @@ $("schwab-connect").addEventListener("click", () => withBusy(async () => {
     openSchwabAuthorize(authorizeUrl, popup);
     openSchwabModal(
       state.offline
-        ? "Schwab sign-in opened. After login, paste the https://127.0.0.1/?code=... URL here. Saving the connection still uses your computer desk App Secret when the desk is on."
+        ? "Schwab window opened. After sign-in, paste the https://127.0.0.1/?code=... URL here. App Key is saved on this device; finishing the link still uses the computer desk App Secret when the desk is running."
         : "Browser opened to Schwab. After sign-in, paste the https://127.0.0.1 redirect URL below."
     );
-    $("status").textContent = "Schwab opened. Finish by pasting the redirect URL.";
+    $("status").textContent = "Schwab window opened. Paste the redirect URL to finish.";
+    if ($("schwab-note")) $("schwab-note").textContent = "Schwab window opened. Finish with the redirect URL, then press Test.";
   } catch (error) {
     if (popup && !popup.closed) {
       try {
@@ -12437,51 +12458,46 @@ $("schwab-connect").addEventListener("click", () => withBusy(async () => {
     $("status").textContent = error.message;
     if ($("schwab-note")) $("schwab-note").textContent = error.message;
   }
-}));
-
-if ($("schwab-modal-open")) {
-  $("schwab-modal-open").addEventListener("click", () => withBusy(async () => {
-    let popup = null;
-    try {
-      popup = window.open("about:blank", "schwab-oauth", "popup=yes,width=720,height=820");
-    } catch (error) {
-      popup = null;
-    }
-    try {
-      const authorizeUrl = await startSchwabConnect(popup);
-      openSchwabAuthorize(authorizeUrl, popup);
-      $("schwab-modal-note").textContent = "Schwab opened. Paste the https://127.0.0.1 redirect URL when sign-in finishes.";
-      $("status").textContent = "Schwab opened.";
-    } catch (error) {
-      if (popup && !popup.closed) {
-        try {
-          popup.close();
-        } catch (closeError) {
-          /* ignore */
-        }
-      }
-      $("schwab-modal-note").textContent = error.message;
-      $("status").textContent = error.message;
-    }
-  }));
 }
 
-if ($("schwab-test")) $("schwab-test").addEventListener("click", () => withBusy(async () => {
+async function runSchwabTest() {
+  // 1.10.40 Test button — checks the Schwab link on the computer desk.
   if (state.offline) {
-    $("status").textContent = "Schwab test needs the computer desk on 127.0.0.1.";
+    openSchwabModal(
+      "Test needs the computer Paper Trader desk running (Documents\\Paper Trader). Start the desk on the computer, then press Test again. Connect can still open the Schwab window from here with your App Key."
+    );
+    $("status").textContent = "Schwab Test needs the computer desk on 127.0.0.1.";
+    if ($("schwab-note")) $("schwab-note").textContent = "Test needs the computer desk. Connect can still open Schwab.";
     return;
   }
   try {
     const report = await postJSON("/api/schwab/test", {});
     await loadSchwab();
     await loadSignals();
-    $("status").textContent = report.detail || (report.ok ? "Schwab test passed." : "Schwab test failed.");
-    if ($("schwab-note")) $("schwab-note").textContent = report.detail || "";
+    const detail = report.detail || (report.ok ? "Schwab test passed." : "Schwab test failed.");
+    $("status").textContent = detail;
+    if ($("schwab-note")) $("schwab-note").textContent = detail;
+    openSchwabModal(detail);
   } catch (error) {
     $("status").textContent = error.message;
     if ($("schwab-note")) $("schwab-note").textContent = error.message;
+    openSchwabModal(error.message);
   }
-}));
+}
+
+["schwab-connect", "schwab-connect-2"].forEach((id) => {
+  const button = $(id);
+  if (button) button.addEventListener("click", () => withBusy(runSchwabConnect));
+});
+
+["schwab-test", "schwab-test-2"].forEach((id) => {
+  const button = $(id);
+  if (button) button.addEventListener("click", () => withBusy(runSchwabTest));
+});
+
+if ($("schwab-modal-open")) {
+  $("schwab-modal-open").addEventListener("click", () => withBusy(runSchwabConnect));
+}
 
 $("schwab-modal-cancel").addEventListener("click", () => {
   closeSchwabModal();

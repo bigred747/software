@@ -91,7 +91,7 @@ body {
 }
 .schwab-top-row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   width: 100%;
@@ -1304,8 +1304,21 @@ footer { display: none; }
     padding: 2px 8px 0;
   }
   .schwab-top { padding: 4px 6px; }
-  #schwab-connect { min-height: 32px; font-size: 12px; padding: 4px 8px; }
-  .schwab-top-status { font-size: 11px; }
+  #schwab-connect,
+  #schwab-connect-2,
+  #schwab-test,
+  #schwab-test-2 { min-height: 36px; font-size: 13px; padding: 6px 10px; }
+  .schwab-top-status,
+  #schwab-box-status { font-size: 12px; }
+  #schwab-test,
+  #schwab-test-2 {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #243040;
+    border: 1px solid #5b9dff;
+    color: #d7e8ff;
+  }
   .quote {
     margin: 0;
     width: 100%;
