@@ -1109,20 +1109,20 @@ button.quiet { background: transparent; }
 }
 .chart-product-banner {
   position: absolute;
-  top: 12px;
-  left: 58px;
-  right: 88px;
+  top: 8px;
+  left: 52px;
   z-index: 4;
   pointer-events: none;
-  font-size: clamp(18px, 2.4vw, 28px);
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  line-height: 1.15;
+  max-width: 42%;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid rgba(154, 166, 178, 0.35);
+  background: rgba(7, 9, 11, 0.82);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
   color: #f4f7fb;
-  text-shadow:
-    0 1px 0 #07090b,
-    0 2px 8px rgba(0, 0, 0, 0.85),
-    0 0 18px rgba(0, 0, 0, 0.55);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
