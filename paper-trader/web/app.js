@@ -10185,16 +10185,20 @@ function chartProductTitle(symbol) {
 }
 
 function paintChartProductLabel() {
-  const node = $("chart-product");
-  if (!node) return;
   const ticker = String((state.paper && state.paper.symbol) || chartHeld() || "").toUpperCase();
-  if (!ticker) {
-    node.textContent = "—";
-    return;
+  const name = ticker ? chartProductName(ticker) : "";
+  const title = !ticker ? "—" : name ? ticker + " · " + name : ticker;
+  const node = $("chart-product");
+  if (node) {
+    node.textContent = title;
+    node.title = title;
   }
-  const name = chartProductName(ticker);
-  node.textContent = name ? ticker + " · " + name : ticker;
-  node.title = node.textContent;
+  const banner = $("chart-product-banner");
+  if (banner) {
+    banner.textContent = title;
+    banner.title = title;
+    banner.hidden = !ticker;
+  }
 }
 
 function paintChartProductName(ctx, pad, plotRight, priceBottom, width) {
@@ -10322,7 +10326,7 @@ function drawCandles(retry) {
   const big4 = PaperFrames.big4Indicator ? PaperFrames.big4Indicator(history) : null;
   const wavePrefs = readVolumeWavePrefs();
   const waves = PaperFrames.volumeWave ? PaperFrames.volumeWave(history, wavePrefs) : null;
-  // Momentum bars (ADX · DMI): green / red / yellow. Closed bars lock — live bar only may shift until close.
+  // Candles match Volume Wave: bright green up / bright red down only — never gray.
   const cryptoChart = phoneCrypto(state.paper && state.paper.symbol, state.catalog && state.catalog.find((row) => row.symbol === (state.paper && state.paper.symbol)));
   const momFull = PaperFrames.momentumBars
     ? PaperFrames.momentumBars(history, { crypto: cryptoChart, live: PaperFrames.liveBar(history, cryptoChart) })
@@ -10336,7 +10340,10 @@ function drawCandles(retry) {
         volumeDot: momFull.volumeDot.slice(dropped),
       }
     : null;
+  void big4;
+  void waves;
   PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candlePaint);
+  paintChartProductLabel();
   paintChartProductName(ctx, pad, plotRight, priceBottom, width);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
@@ -10547,7 +10554,8 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
   }
   ctx.setLineDash([]);
   if (layers.trend) drawLine(ctx, desk.ema50.slice(dropped, dropped + count), y, pad, slot, "#3ddc97", 1.85);
-  if (layers.ema200) drawLine(ctx, desk.ema200.slice(dropped, dropped + count), y, pad, slot, "#c62828", 1.75);
+  // Bright red 200 EMA on the price pane (same red family as down candles / TMO).
+  if (layers.ema200) drawLine(ctx, desk.ema200.slice(dropped, dropped + count), y, pad, slot, "#ff4d4d", 2.1);
   if (layers.profile && profile.poc != null) {
     const level = y(profile.poc);
     ctx.setLineDash([8, 4]);
@@ -10570,12 +10578,12 @@ function drawPro(ctx, history, dropped, count, y, pad, slot, plotRight, priceBot
 const LAYERS = [
   ["edge", "Edge stop + Fire arrows", "edgestop", true],
   ["readyaim", "Ready · Aim · Fire", "readyaim", true],
-  ["big4", "big4indicator candle color", "big4", true],
+  ["big4", "big4indicator read (no gray candles)", "big4", false],
   ["pivots", "Support · Resistance boxes", "pivots", true],
   ["vwap", "VWAP", "vwap", true],
   ["trend", "Green trend EMA 50", "trend", false],
   ["stack", "SMA 5 · 9 · 14 · 50 · 100 · 200", "stack", true],
-  ["ema200", "200 EMA", "ema200", false],
+  ["ema200", "200 EMA (red)", "ema200", true],
   ["profile", "Volume + POC (right)", "poc", true],
   ["averages", "High · Close · Low", "close", false],
   ["fastslow", "Fast · Slow", "fast", false],
@@ -10583,7 +10591,7 @@ const LAYERS = [
   ["key", "Chart notes", "key", false],
 ];
 // Bump key so phone picks up Stack on + Desk EMA Fire paint on open.
-const LAYERS_KEY = "paperTraderLayers70";
+const LAYERS_KEY = "paperTraderLayers71";
 
 function readLayers() {
   const chosen = {};
@@ -10600,6 +10608,8 @@ function readLayers() {
   } catch (error) {
     /* The clean view stays. */
   }
+  // Candles are always green/red now — never re-enable gray big4 candle paint from old saves.
+  chosen.big4 = false;
   return chosen;
 }
 
@@ -11116,6 +11126,7 @@ function drawTmo(target) {
     ctx.fillText(String(level), 4, y(level) + 4);
   });
   ctx.setLineDash([]);
+  // Green / red cloud like Volume Wave — bullish when Main >= Signal.
   for (let index = 1; index < main.length; index += 1) {
     if (main[index] == null || signal[index] == null || main[index - 1] == null || signal[index - 1] == null) continue;
     const left = pad + (index - 1) * slot + slot / 2;
@@ -11126,28 +11137,30 @@ function drawTmo(target) {
     ctx.lineTo(right, y(signal[index]));
     ctx.lineTo(left, y(signal[index - 1]));
     ctx.closePath();
-    ctx.fillStyle = main[index] >= signal[index] ? "rgba(18, 92, 58, 0.45)" : "rgba(122, 28, 40, 0.45)";
+    ctx.fillStyle = main[index] >= signal[index] ? "rgba(61, 220, 151, 0.38)" : "rgba(255, 77, 77, 0.38)";
     ctx.fill();
   }
-  strokeOscillator(ctx, main, main, signal, y, pad, slot);
-  strokeOscillator(ctx, signal, main, signal, y, pad, slot);
+  // Main + signal lines: same bright green/red as candles and Volume Wave.
+  strokeOscillator(ctx, main, main, signal, y, pad, slot, 2.35);
+  strokeOscillator(ctx, signal, main, signal, y, pad, slot, 1.6);
   up.forEach((mark, index) => {
     if (!mark || main[index] == null) return;
-    ctx.fillStyle = "#67e8f9";
+    ctx.fillStyle = "#3ddc97";
     drawArrow(ctx, pad + index * slot + slot / 2, Math.min(height - 8, y(main[index]) + 12), true);
   });
   down.forEach((mark, index) => {
     if (!mark || main[index] == null) return;
-    ctx.fillStyle = "#ff4db8";
+    ctx.fillStyle = "#ff4d4d";
     drawArrow(ctx, pad + index * slot + slot / 2, Math.max(28, y(main[index]) - 12), false);
   });
   const last = main.length - 1;
   const mainNow = main[last];
   const signalNow = signal[last];
-  const banner = "TMO 14/5/3  |  Main " + (mainNow == null ? "—" : Number(mainNow).toFixed(2)) + "  |  Signal " + (signalNow == null ? "—" : Number(signalNow).toFixed(2)) + (mainNow != null && signalNow != null ? (mainNow >= signalNow ? "  |  Above" : "  |  Below") : "");
-  ctx.fillStyle = "#12b6c9";
+  const bull = mainNow != null && signalNow != null && mainNow >= signalNow;
+  const banner = "TMO 14/5/3  |  Main " + (mainNow == null ? "—" : Number(mainNow).toFixed(2)) + "  |  Signal " + (signalNow == null ? "—" : Number(signalNow).toFixed(2)) + (mainNow != null && signalNow != null ? (bull ? "  |  GREEN" : "  |  RED") : "");
+  ctx.fillStyle = bull ? "#0b2a1c" : "#2a0b10";
   ctx.fillRect(pad, 2, Math.min(plotRight - pad, ctx.measureText(banner).width + 16), 16);
-  ctx.fillStyle = "#041016";
+  ctx.fillStyle = bull ? "#3ddc97" : "#ff4d4d";
   ctx.fillText(banner, pad + 6, 14);
   const calls = currentEdge(history);
   if (calls && calls.ready) PaperFrames.drawEdgeCalls(ctx, calls.marks, dropped, view.bars.length, (index) => pad + index * slot + slot / 2, 20, height - 4, pad, plotRight);
@@ -11348,11 +11361,12 @@ function drawVolumeWave(target) {
   }
 }
 
-function strokeOscillator(ctx, values, lead, other, y, pad, slot) {
-  ctx.lineWidth = 2;
+function strokeOscillator(ctx, values, lead, other, y, pad, slot, weight) {
+  ctx.lineWidth = weight || 2;
   for (let index = 1; index < values.length; index += 1) {
     if (values[index] == null || values[index - 1] == null || lead[index] == null || other[index] == null) continue;
-    ctx.strokeStyle = lead[index] > other[index] ? "#3ddc97" : "#ff6b7a";
+    // Exact Volume Wave green / red — never gray or pink.
+    ctx.strokeStyle = lead[index] >= other[index] ? "#3ddc97" : "#ff4d4d";
     ctx.beginPath();
     ctx.moveTo(pad + (index - 1) * slot + slot / 2, y(values[index - 1]));
     ctx.lineTo(pad + index * slot + slot / 2, y(values[index]));

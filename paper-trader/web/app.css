@@ -1103,6 +1103,30 @@ button.quiet { background: transparent; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.candle-stage {
+  position: relative;
+  width: 100%;
+}
+.chart-product-banner {
+  position: absolute;
+  top: 12px;
+  left: 58px;
+  right: 88px;
+  z-index: 4;
+  pointer-events: none;
+  font-size: clamp(18px, 2.4vw, 28px);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  color: #f4f7fb;
+  text-shadow:
+    0 1px 0 #07090b,
+    0 2px 8px rgba(0, 0, 0, 0.85),
+    0 0 18px rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .study-pane-head .study-pop { margin-left: auto; min-height: 30px; padding: 3px 10px; font-size: 11px; }
 .study-roll {
   width: 34px;

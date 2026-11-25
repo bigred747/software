@@ -82,7 +82,7 @@ test("momentum bars paint green or red only and never repaint closed bars", () =
   }
   const closed = momentumBars(bars, { live: false });
   assert.equal(closed.tone.length, bars.length);
-  const allowed = new Set(["#3ddc97", "#ff4d4d", "#2fbf86", "#f04545"]);
+  const allowed = new Set(["#3ddc97", "#ff4d4d"]);
   closed.tone.forEach((tone, index) => {
     assert.ok(allowed.has(tone), "candle " + index + " must be green/red not gray/yellow: " + tone);
   });

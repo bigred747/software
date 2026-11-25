@@ -261,7 +261,7 @@
     { length: 14, color: "#facc15", name: "14" },
     { length: 50, color: "#1e5aa8", name: "50" },
     { length: 100, color: "#c9a000", name: "100" },
-    { length: 200, color: "#c62828", name: "200" },
+    { length: 200, color: "#ff4d4d", name: "200" },
   ];
 
   function stackAverages(bars) {
@@ -349,15 +349,11 @@
         adx[index] = (adx[index - 1] * (length - 1) + (dx[index] == null ? 0 : dx[index])) / length;
       }
     }
-    // Green / red only — never gray, yellow, or mixed paint on the tape.
+    // Same bright green/red as Volume Wave · Desk Waves — never gray, yellow, soft, or mixed.
     const GREEN = "#3ddc97";
     const GREEN_RIM = "#1fae78";
     const RED = "#ff4d4d";
     const RED_RIM = "#d63b4a";
-    const GREEN_SOFT = "#2fbf86";
-    const GREEN_SOFT_RIM = "#1d9a6a";
-    const RED_SOFT = "#f04545";
-    const RED_SOFT_RIM = "#c53636";
     const tone = new Array(count).fill(null);
     const rim = new Array(count).fill(null);
     const bias = new Array(count).fill("warm");
@@ -367,29 +363,13 @@
     const volAvg = simpleAverage(volumes, volLook);
     for (let index = 0; index < count; index += 1) {
       if (live && index === count - 1) locked[index] = false;
+      // Classic tape body color (matches Volume Wave hist): close vs open.
       const upBar = list[index].close >= list[index].open;
-      if (adx[index] == null || plusDI[index] == null || minusDI[index] == null) {
-        tone[index] = upBar ? GREEN : RED;
-        rim[index] = upBar ? GREEN_RIM : RED_RIM;
-        bias[index] = upBar ? "up" : "down";
-        continue;
-      }
-      const bullDi = plusDI[index] >= minusDI[index];
-      if (adx[index] < adxFloor) {
-        // Weak ADX: still green/red from DI (fallback open/close) — no gray / yellow bodies.
-        const up = bullDi || (plusDI[index] === minusDI[index] && upBar);
-        tone[index] = up ? GREEN_SOFT : RED_SOFT;
-        rim[index] = up ? GREEN_SOFT_RIM : RED_SOFT_RIM;
-        bias[index] = up ? "up" : "down";
-      } else if (bullDi) {
-        tone[index] = GREEN;
-        rim[index] = GREEN_RIM;
-        bias[index] = "up";
-      } else {
-        tone[index] = RED;
-        rim[index] = RED_RIM;
-        bias[index] = "down";
-      }
+      tone[index] = upBar ? GREEN : RED;
+      rim[index] = upBar ? GREEN_RIM : RED_RIM;
+      bias[index] = upBar ? "up" : "down";
+      // ADX/DMI still computed for dots / callers, but never paints gray/yellow bodies.
+      void adxFloor;
       // Volume conviction dots only on locked closed bars — live bar never paints a sticky dot.
       if (locked[index] && volAvg[index] != null && volAvg[index] > 0 && volumes[index] >= volAvg[index] * volMult) {
         volumeDot[index] = true;
@@ -416,7 +396,11 @@
     const list = bars || [];
     const study = paint && Array.isArray(paint.tone) ? paint : momentumBars(list, paint || {});
     const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
-    const banned = /#9aa6b2|#8b95a1|#7a8694|#6b7280|#94a3b8|#a8b0b8|#c0c0c0|#808080|#e8c547|#c9a227|gray|grey|yellow/i;
+    // Exact Volume Wave palette — green up / red down only.
+    const GREEN = "#3ddc97";
+    const GREEN_RIM = "#1fae78";
+    const RED = "#ff4d4d";
+    const RED_RIM = "#d63b4a";
     list.forEach((bar, index) => {
       const x = xAt(index);
       const topPrice = Math.max(bar.open, bar.close);
@@ -425,15 +409,14 @@
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
       const up = bar.close >= bar.open;
-      let tone = study.tone[index] || (up ? "#3ddc97" : "#ff4d4d");
-      let rim = study.rim[index] || (up ? "#1fae78" : "#d63b4a");
-      // Hard refuse gray / yellow / mixed leftovers from older overlays.
-      if (!tone || banned.test(String(tone))) tone = up ? "#3ddc97" : "#ff4d4d";
-      if (!rim || banned.test(String(rim))) rim = up ? "#1fae78" : "#d63b4a";
+      // Ignore any stale gray/mixed overlay colors — always classic tape like Volume Wave.
+      const tone = up ? GREEN : RED;
+      const rim = up ? GREEN_RIM : RED_RIM;
+      void study;
       const locked = !study.locked || study.locked[index] !== false;
-      ctx.globalAlpha = locked ? 1 : 0.92;
+      ctx.globalAlpha = locked ? 1 : 0.95;
       ctx.strokeStyle = tone;
-      ctx.lineWidth = Math.max(1.25, Math.min(2.5, slot * 0.16));
+      ctx.lineWidth = Math.max(1.35, Math.min(2.75, slot * 0.18));
       ctx.beginPath();
       ctx.moveTo(x, y(bar.high));
       ctx.lineTo(x, y(bar.low));
