@@ -11,25 +11,23 @@ echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
 echo This file was opened inside the zip. Extracting the whole Paper Trader now.
 set "ZIP="
-for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents" "%USERPROFILE%\OneDrive\Downloads" "%USERPROFILE%\OneDrive\Desktop" "%USERPROFILE%\OneDrive\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
-if not defined ZIP if defined OneDrive for %%R in ("%OneDrive%\Downloads" "%OneDrive%\Desktop" "%OneDrive%\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
+set "PYTRY=python"
+if exist "%~dp0runtime\python.exe" set "PYTRY=%~dp0runtime\python.exe"
+for /f "delims=" %%Z in ('"%PYTRY%" "%~dp0tools\pick_upgrade_zip.py" 2^>nul') do set "ZIP=%%Z"
+if not defined ZIP if exist "%USERPROFILE%\Downloads\Paper-Trader.zip" set "ZIP=%USERPROFILE%\Downloads\Paper-Trader.zip"
 if not defined ZIP goto NoZip
+if /I "!ZIP!"=="NONE" goto NoZip
+echo Using zip: !ZIP!
 if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
 set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup"
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
 if exist "%STAGE%" set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup-%RANDOM%"
 mkdir "%STAGE%"
-mkdir "%STAGE%\paper-trader" 2>nul
-mkdir "%STAGE%\paper-trader\paper_trader" 2>nul
-mkdir "%STAGE%\paper-trader\web" 2>nul
-mkdir "%STAGE%\paper-trader\tools" 2>nul
-mkdir "%STAGE%\paper-trader\iphone" 2>nul
-mkdir "%STAGE%\paper-trader\runtime" 2>nul
 tar -xf "!ZIP!" -C "%STAGE%"
 if errorlevel 1 goto BadZip
-if not exist "%STAGE%\paper-trader\launch.py" goto BadZip
-start "" "%STAGE%\paper-trader\Start-Paper-Trader.bat"
-echo The full copy is in Documents. Use the window that just opened.
+if not exist "%STAGE%\paper-trader\FORCE-UPGRADE.bat" goto BadZip
+start "" "%STAGE%\paper-trader\FORCE-UPGRADE.bat"
+echo Extracted. FORCE-UPGRADE will replace Documents\Paper Trader.
 pause
 exit /b 0
 

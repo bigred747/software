@@ -1,28 +1,40 @@
 """Pick the newest Paper Trader zip for Allow / Force Upgrade.
 
-Prefers plain Paper-Trader.zip, then the highest Paper-Trader-X.Y.Z(-slim).zip.
-Never silently picks an older slim over a newer full zip.
+Reads paper-trader/VERSION inside each zip so an old plain Paper-Trader.zip
+cannot beat a newer Paper-Trader (1).zip or versioned zip by filename alone.
 """
 
 from __future__ import annotations
 
 import re
 import sys
+import zipfile
 from pathlib import Path
 
 
-def version_key(name: str) -> tuple[int, ...]:
-    match = re.search(r"(\d+(?:\.\d+)+)", name)
+def version_key(text: str) -> tuple[int, ...]:
+    match = re.search(r"(\d+(?:\.\d+)+)", text or "")
     if not match:
         return (0,)
     return tuple(int(part) for part in match.group(1).split("."))
 
 
+def internal_version(path: Path) -> tuple[int, ...]:
+    try:
+        with zipfile.ZipFile(path) as packed:
+            raw = packed.read("paper-trader/VERSION").decode("utf-8", errors="ignore").strip()
+            return version_key(raw)
+    except (OSError, KeyError, zipfile.BadZipFile, UnicodeError):
+        return version_key(path.name)
+
+
 def score(path: Path) -> tuple:
     name = path.name.lower()
     exact = 1 if name == "paper-trader.zip" else 0
+    # Prefer names without " (1)" / " (2)" when seals tie.
+    clean = 1 if "(" not in name else 0
     slim = 0 if "-slim" in name else 1
-    return (exact, version_key(name), slim, path.stat().st_mtime)
+    return (internal_version(path), exact, clean, slim, path.stat().st_mtime)
 
 
 def candidates(homes: list[Path]) -> list[Path]:

@@ -189,13 +189,15 @@ def force_upgrade(source: Path, home: Path) -> Path:
             "You opened an old extract. Delete old Paper-Trader (1).zip extracts, download again, Extract All, retry."
         )
     assert_safe_install(source, dest)
-    from paper_trader.learn import ask_learners_to_close, end_learner_pid
+    from paper_trader.learn import ask_learners_to_close, end_learner_pid, stop_learner
 
-    ask_learners_to_close(home, source)
-    try:
-        end_learner_pid(dest / "learn_state.json")
-    except OSError:
-        pass
+    # Politely ask, then force-end Bot score processes so Documents can be renamed.
+    ask_learners_to_close(home, source, killer=end_learner_pid)
+    if dest.exists():
+        try:
+            stop_learner(dest / "learn_state.json", killer=end_learner_pid)
+        except OSError:
+            pass
 
     saved: dict[str, bytes] = {}
     old_seal = read_install_version(dest) if dest.exists() else ""
@@ -208,9 +210,21 @@ def force_upgrade(source: Path, home: Path) -> Path:
                 except OSError:
                     continue
         aside = dest.parent / f"Paper Trader-OLD-{old_seal or 'unknown'}-{int(time.time())}"
-        try:
-            dest.rename(aside)
-        except OSError as exc:
+        renamed = False
+        last_exc: OSError | None = None
+        for _attempt in range(6):
+            try:
+                dest.rename(aside)
+                renamed = True
+                break
+            except OSError as exc:
+                last_exc = exc
+                time.sleep(0.75)
+                try:
+                    stop_learner(dest / "learn_state.json", killer=end_learner_pid)
+                except OSError:
+                    pass
+        if not renamed:
             # Files locked by a running desk — fall back to in-place replace.
             try:
                 _replace_install(source, dest)
@@ -218,7 +232,7 @@ def force_upgrade(source: Path, home: Path) -> Path:
                 raise ValueError(
                     "Could not move or replace Documents\\Paper Trader. "
                     "Close EVERY Paper Trader window, Edge desk tab, and black cmd window, then run FORCE-UPGRADE again. "
-                    f"({exc}; {inner})"
+                    f"({last_exc}; {inner})"
                 ) from inner
         else:
             try:
@@ -392,7 +406,7 @@ def _copy_label(folder: Path) -> str:
 
 
 def single_copy_status(home: Path) -> dict[str, str | bool]:
-    """Accurate install count. Guides keep Documents\\Paper Trader 1.10.45 only."""
+    """Accurate install count. Guides keep Documents\\Paper Trader 1.10.46 only."""
     copies = sorted(find_installs(home), key=_installed_version, reverse=True)
     if not copies:
         return {"name": "Install", "ok": True, "detail": "No extra copies"}
@@ -403,7 +417,7 @@ def single_copy_status(home: Path) -> dict[str, str | bool]:
     shown = ", ".join(_copy_label(path) for path in extras[:4])
     more = f" +{len(extras) - 4} more" if len(extras) > 4 else ""
     detail = (
-        f"{len(copies)} copies · keep Documents\\Paper Trader (1.10.45) · newest {_copy_label(newest)} · also {shown}{more}. "
+        f"{len(copies)} copies · keep Documents\\Paper Trader (1.10.46) · newest {_copy_label(newest)} · also {shown}{more}. "
         "Double-click Erase-Other-Paper-Traders.bat in Documents\\Paper Trader to erase the extras."
     )
     return {"name": "Install", "ok": False, "detail": detail}
@@ -485,7 +499,7 @@ def remove_desktop_opener(home: Path) -> list[Path]:
     return removed
 
 
-KEEP_VERSION = "1.10.45"
+KEEP_VERSION = "1.10.46"
 
 
 def read_install_version(folder: Path) -> str:
@@ -518,7 +532,7 @@ def erase_other_installs(
     keep_version: str = KEEP_VERSION,
     killer=None,
 ) -> dict[str, object]:
-    """Keep only Paper Trader keep_version (default 1.10.45). Erase other installs, zips, and extra Bots."""
+    """Keep only Paper Trader keep_version (default 1.10.46). Erase other installs, zips, and extra Bots."""
     from paper_trader.learn import end_learner_pid, stop_learner
 
     end_pid = killer or end_learner_pid
