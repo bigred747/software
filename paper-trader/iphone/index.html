@@ -5344,6 +5344,8 @@ AddOrder(Sell, sellFire);</textarea>
 
   // Desk momentum bars (ADX · DMI): green = uptrend conviction, red = downtrend, yellow = no strong direction.
   // Own closed-bar Wilder math — locks on close so prior candles do not repaint. Not a third-party product.
+  let momentumBarsCache = { key: "", value: null };
+
   function momentumBars(bars, options) {
     const opts = options || {};
     const length = Math.max(2, Math.round(Number(opts.length) || 14));
@@ -5353,6 +5355,21 @@ AddOrder(Sell, sellFire);</textarea>
     const list = bars || [];
     const count = list.length;
     const live = opts.live === true || (opts.live == null && liveBar(list, !!opts.crypto, opts.now));
+    const last = count ? list[count - 1] : null;
+    const cacheKey = [
+      count,
+      last ? last.date : "",
+      last ? last.close : "",
+      last ? last.high : "",
+      last ? last.low : "",
+      last ? last.volume : "",
+      live ? 1 : 0,
+      length,
+      adxFloor,
+      volLook,
+      volMult,
+    ].join("|");
+    if (momentumBarsCache.key === cacheKey && momentumBarsCache.value) return momentumBarsCache.value;
     const tr = new Array(count).fill(0);
     const plusDM = new Array(count).fill(0);
     const minusDM = new Array(count).fill(0);
@@ -5444,7 +5461,7 @@ AddOrder(Sell, sellFire);</textarea>
         volumeDot[index] = true;
       }
     }
-    return {
+    const study = {
       tone,
       rim,
       bias,
@@ -5457,6 +5474,8 @@ AddOrder(Sell, sellFire);</textarea>
       adxFloor,
       live,
     };
+    momentumBarsCache = { key: cacheKey, value: study };
+    return study;
   }
 
   function paintCandles(ctx, bars, xAt, y, slot, paint) {
@@ -6159,6 +6178,26 @@ AddOrder(Sell, sellFire);</textarea>
       locked: momFull.locked.slice(dropped),
       volumeDot: momFull.volumeDot.slice(dropped),
     });
+    // Product name on the tape (symbol · label when provided).
+    const product = String((options && (options.label || options.symbol)) || "").trim();
+    if (product && height >= 120) {
+      ctx.save();
+      let size = Math.max(16, Math.min(28, Math.floor(width / 18)));
+      ctx.font = "700 " + size + "px Segoe UI, sans-serif";
+      const maxW = Math.max(60, width - padLeft - padRight - 24);
+      while (size > 12 && ctx.measureText(product).width > maxW) {
+        size -= 1;
+        ctx.font = "700 " + size + "px Segoe UI, sans-serif";
+      }
+      const textW = ctx.measureText(product).width;
+      const px = Math.max(padLeft + 6, (width - textW) / 2);
+      const py = Math.max(18, padTop + 4);
+      ctx.fillStyle = "rgba(7, 9, 11, 0.45)";
+      ctx.fillText(product, px + 1, py + 1);
+      ctx.fillStyle = "rgba(231, 237, 243, 0.92)";
+      ctx.fillText(product, px, py);
+      ctx.restore();
+    }
     stack.forEach((row) => {
       strokeSeries(ctx, row.values.slice(dropped), xAt, y, row.color, row.length >= 100 ? 1.75 : 1.25);
     });
@@ -10699,7 +10738,7 @@ AddOrder(Sell, sellFire);</textarea>
   <script>
 /* Paper Trader desk booster — pace, lanes, and learn gap.
    Fail closed: never unlocks Live, never invents quotes, never skips Safe.
-   Safe · Balanced · Boost · Max · Auto (slows when Auto/busy/soft; speeds when calm). */
+   Safe · Balanced · Boost · Max · Auto (slows when Auto/busy/soft; speeds when calm / RTH). */
 (function (root) {
   "use strict";
 
@@ -10710,9 +10749,9 @@ AddOrder(Sell, sellFire);</textarea>
       id: "safe",
       label: "Safe",
       why: "Slowest quotes · one learn name · few scan lanes. Best when Auto is on or the desk is stressed.",
-      quoteWait: 16000,
-      quoteGap: 520,
-      learnGap: 14000,
+      quoteWait: 14000,
+      quoteGap: 420,
+      learnGap: 12000,
       batch: 1,
       lanesOffline: 2,
       lanesOnline: 3,
@@ -10720,10 +10759,10 @@ AddOrder(Sell, sellFire);</textarea>
     balanced: {
       id: "balanced",
       label: "Balanced",
-      why: "Default desk pace. Steady quotes and hourly learn without slamming the feed.",
-      quoteWait: 12000,
-      quoteGap: 300,
-      learnGap: 10000,
+      why: "Default desk pace. Steady quotes and learn without slamming the feed.",
+      quoteWait: 9000,
+      quoteGap: 220,
+      learnGap: 8000,
       batch: 2,
       lanesOffline: 3,
       lanesOnline: 6,
@@ -10732,9 +10771,9 @@ AddOrder(Sell, sellFire);</textarea>
       id: "boost",
       label: "Boost",
       why: "Faster scans and tighter quote gap when the desk is calm. Still paper-only · Live locked.",
-      quoteWait: 7000,
-      quoteGap: 180,
-      learnGap: 6000,
+      quoteWait: 5500,
+      quoteGap: 140,
+      learnGap: 5000,
       batch: 3,
       lanesOffline: 4,
       lanesOnline: 8,
@@ -10742,10 +10781,10 @@ AddOrder(Sell, sellFire);</textarea>
     max: {
       id: "max",
       label: "Max",
-      why: "Fastest closed-bar walks. Use only when the feed is healthy. Safe check still gates Auto.",
-      quoteWait: 4500,
-      quoteGap: 110,
-      learnGap: 4000,
+      why: "Fastest closed-bar walks for open RTH when the feed is healthy. Safe check still gates Auto.",
+      quoteWait: 3500,
+      quoteGap: 90,
+      learnGap: 3500,
       batch: 4,
       lanesOffline: 5,
       lanesOnline: 10,
@@ -10781,11 +10820,15 @@ AddOrder(Sell, sellFire);</textarea>
 
   function pickAuto(input) {
     const source = input || {};
+    // Safety first: Auto trading, soft tape, hidden tab, or busy scanners → slow down.
     if (source.hidden) return "safe";
     if (source.autoOn) return "safe";
     if (source.softHold) return "safe";
     if (source.busyScanners >= 2) return "safe";
+    if (source.staleQuote) return "boost";
     if (source.busyScanners >= 1) return "balanced";
+    // Calm + warm feed in regular hours → Max (still paper-only · Live locked).
+    if (source.feedWarm && source.rthOpen) return "max";
     if (source.feedWarm) return "boost";
     return "balanced";
   }
@@ -11046,6 +11089,96 @@ function busyScannerCount() {
   return n;
 }
 
+function deskRthOpen(now) {
+  try {
+    const stamp = now || new Date();
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      weekday: "short",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false,
+    }).formatToParts(stamp);
+    const pick = (type) => (parts.find((part) => part.type === type) || {}).value || "";
+    const weekday = pick("weekday");
+    if (weekday === "Sat" || weekday === "Sun") return false;
+    const hour = Number(pick("hour"));
+    const minute = Number(pick("minute"));
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return false;
+    const mins = hour * 60 + minute;
+    // Regular session 9:30–16:00 America/New_York.
+    return mins >= 9 * 60 + 30 && mins < 16 * 60;
+  } catch (error) {
+    return false;
+  }
+}
+
+function quoteIsStale() {
+  const asOf = state.market && Number(state.market.as_of);
+  if (!(asOf > 0)) return true;
+  return Date.now() / 1000 - asOf > 90;
+}
+
+function ensurePaperBooster() {
+  if (typeof PaperBooster !== "undefined" && PaperBooster) return PaperBooster;
+  // Inline Fast·Safe booster so a missing booster.js never leaves the desk stuck on "module missing".
+  const KEY = "paper_trader_booster_v1";
+  const PROFILES = {
+    safe: { id: "safe", label: "Safe", why: "Slowest quotes when Auto or stress is on.", quoteWait: 14000, quoteGap: 420, learnGap: 12000, batch: 1, lanesOffline: 2, lanesOnline: 3 },
+    balanced: { id: "balanced", label: "Balanced", why: "Default desk pace.", quoteWait: 9000, quoteGap: 220, learnGap: 8000, batch: 2, lanesOffline: 3, lanesOnline: 6 },
+    boost: { id: "boost", label: "Boost", why: "Faster calm-desk scans. Paper only · Live locked.", quoteWait: 5500, quoteGap: 140, learnGap: 5000, batch: 3, lanesOffline: 4, lanesOnline: 8 },
+    max: { id: "max", label: "Max", why: "Fastest RTH walks when the feed is healthy. Live locked.", quoteWait: 3500, quoteGap: 90, learnGap: 3500, batch: 4, lanesOffline: 5, lanesOnline: 10 },
+  };
+  const api = {
+    KEY,
+    PROFILES,
+    load() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(KEY) || "{}");
+        const mode = raw && typeof raw.mode === "string" ? raw.mode : "auto";
+        const ok = mode === "safe" || mode === "balanced" || mode === "boost" || mode === "max" || mode === "auto";
+        return { mode: ok ? mode : "auto", applied: "", at: 0, note: "" };
+      } catch (error) {
+        return { mode: "auto", applied: "", at: 0, note: "" };
+      }
+    },
+    save(book) {
+      try {
+        localStorage.setItem(KEY, JSON.stringify({ mode: book.mode || "auto", at: book.at || 0 }));
+      } catch (error) {
+        /* keep in memory */
+      }
+    },
+    profile(id) {
+      return PROFILES[id] || PROFILES.balanced;
+    },
+    pickAuto(input) {
+      const source = input || {};
+      if (source.hidden || source.autoOn || source.softHold || source.busyScanners >= 2) return "safe";
+      if (source.staleQuote) return "boost";
+      if (source.busyScanners >= 1) return "balanced";
+      if (source.feedWarm && source.rthOpen) return "max";
+      if (source.feedWarm) return "boost";
+      return "balanced";
+    },
+    applyLive(settings) {
+      if (window.PaperLive && PaperLive.pace) PaperLive.pace(settings.quoteWait);
+      if (window.PaperLive && PaperLive.gap) PaperLive.gap(settings.quoteGap);
+    },
+    resolve(book, context) {
+      const mode = (book && book.mode) || "auto";
+      const applied = mode === "auto" ? api.pickAuto(context) : mode;
+      const settings = Object.assign({}, api.profile(applied));
+      settings.mode = mode;
+      settings.applied = applied;
+      settings.auto = mode === "auto";
+      return settings;
+    },
+  };
+  window.PaperBooster = api;
+  return api;
+}
+
 function boosterContext() {
   const soft =
     !!(state.outlook && state.outlook.result && state.outlook.result.label === "Defensive") ||
@@ -11056,46 +11189,27 @@ function boosterContext() {
     softHold: soft,
     busyScanners: busyScannerCount(),
     feedWarm: !!(state.market && state.market.price),
+    rthOpen: deskRthOpen(),
+    staleQuote: quoteIsStale(),
   };
 }
 
 function hydrateDeskBooster() {
   if (!state.booster) state.booster = { mode: "auto" };
-  if (typeof PaperBooster === "undefined") {
-    state.booster = Object.assign(
-      {
-        mode: "balanced",
-        applied: "balanced",
-        appliedLabel: "Balanced",
-        quoteWait: 12000,
-        quoteGap: 300,
-        learnGap: SCAN_LEARN_GAP_MS,
-        batch: SCAN_LEARN_BATCH,
-        lanesOffline: 3,
-        lanesOnline: 6,
-        auto: false,
-        note: "Booster module missing — Balanced defaults.",
-      },
-      state.booster
-    );
-    return state.booster;
-  }
-  const book = PaperBooster.load();
+  const booster = ensurePaperBooster();
+  const book = booster.load();
   state.booster.mode = book.mode || "auto";
   return applyDeskBooster(false);
 }
 
 function applyDeskBooster(manual) {
   if (!state.booster) state.booster = { mode: "auto" };
-  if (typeof PaperBooster === "undefined") {
-    if (window.PaperLive && PaperLive.pace) PaperLive.pace(12000);
-    return state.booster;
-  }
+  const booster = ensurePaperBooster();
   const book = { mode: state.booster.mode || "auto" };
-  const settings = PaperBooster.resolve(book, boosterContext());
-  PaperBooster.applyLive(settings);
-  PaperBooster.save({ mode: settings.mode, at: Date.now() });
-  const row = PaperBooster.profile(settings.applied);
+  const settings = booster.resolve(book, boosterContext());
+  booster.applyLive(settings);
+  booster.save({ mode: settings.mode, at: Date.now() });
+  const row = booster.profile(settings.applied);
   state.booster = Object.assign({}, settings, {
     appliedLabel: row.label,
     note: settings.auto
@@ -12889,7 +13003,7 @@ function render(paper) {
     ? paper.shares.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " @ " + formatPrice(paper.entry_price)
     : "Flat";
   $("through").textContent = paper.cursor + " / " + paper.total_bars;
-  $("chart-title").textContent = (paper.symbol || "Chart") + " · Daily session";
+  $("chart-title").textContent = chartProductTitle(paper && paper.symbol) + " · Daily session";
   paintChartRead(paper);
   renderQuote(paper);
   paintPositionChip(paper);
@@ -14248,18 +14362,25 @@ async function refreshIndexTape() {
   const root = $("index-tape");
   if (!root) return;
   const chips = Array.from(root.querySelectorAll(".index-chip[data-index-symbol]"));
-  // Sequential so the desk quote cache is not slammed; fail closed per chip (no invented prints).
-  for (let index = 0; index < chips.length; index += 1) {
-    const chip = chips[index];
-    const symbol = chip.dataset.indexSymbol;
-    if (!symbol) continue;
-    try {
-      const trade = await indexTapeTrade(symbol);
-      paintIndexChip(chip, trade);
-    } catch (error) {
-      paintIndexChip(chip, null);
+  // Small parallel pool (2) — faster tape, still fail closed per chip (no invented prints).
+  const lane = 2;
+  let cursor = 0;
+  async function worker() {
+    while (cursor < chips.length) {
+      const index = cursor;
+      cursor += 1;
+      const chip = chips[index];
+      const symbol = chip && chip.dataset.indexSymbol;
+      if (!symbol) continue;
+      try {
+        const trade = await indexTapeTrade(symbol);
+        paintIndexChip(chip, trade);
+      } catch (error) {
+        paintIndexChip(chip, null);
+      }
     }
   }
+  await Promise.all(Array.from({ length: Math.min(lane, Math.max(1, chips.length)) }, () => worker()));
 }
 
 function softStopAuto() {
@@ -14295,7 +14416,7 @@ function paintOpeningSymbol(symbol) {
   if ($("quote-symbol")) $("quote-symbol").textContent = symbol;
   const list = $("symbol");
   if (list) list.dataset.value = symbol;
-  if ($("chart-title")) $("chart-title").textContent = symbol + " · opening…";
+  if ($("chart-title")) $("chart-title").textContent = chartProductTitle(symbol) + " · opening…";
   paintChartRead(state.paper || { symbol: symbol });
 }
 
@@ -14530,7 +14651,8 @@ function renderFrames() {
   const previewBars = previewRow ? ((previewRow.bars && previewRow.bars.length) ? previewRow.bars : (state.ef.bars[previewRow.id] || [])) : [];
   const previewCanvas = $("frame-preview");
   const symbolNow = (state.paper && state.paper.symbol) || "";
-  const paintPreview = () => PaperFrames.draw(previewCanvas, previewBars, state.previewZoom, { crypto: chartCrypto(), symbol: symbolNow, label: symbolNow + " · " + (previewRow ? previewRow.label : "") });
+  const productNow = chartProductTitle(symbolNow);
+  const paintPreview = () => PaperFrames.draw(previewCanvas, previewBars, state.previewZoom, { crypto: chartCrypto(), symbol: symbolNow, label: productNow + (previewRow && previewRow.label ? " · " + previewRow.label : "") });
   paintPreview();
   PaperFrames.attachPick(previewCanvas, () => renderFrames(), {});
   paintZoom(seenBars().length);
@@ -14554,7 +14676,8 @@ function writeOfflineFrame(win, frameId) {
   const frame = PaperFrames.frameById(frameId);
   const row = (state.frames || []).find((item) => item.id === frame.id);
   const bars = row ? row.bars : [];
-  const heading = (state.paper.symbol || "Sample") + " · " + frame.label;
+  const product = chartProductTitle(state.paper && state.paper.symbol);
+  const heading = product + " · " + frame.label;
   const cryptoNow = chartCrypto();
   const tone = bars.length ? PaperFrames.mood(bars) : null;
   const moodLine = tone && tone.score != null ? " " + tone.label + " " + tone.score + "." : "";
@@ -14569,7 +14692,7 @@ function writeOfflineFrame(win, frameId) {
   const paint = () => {
     const canvas = win.document.getElementById("c");
     if (canvas) {
-      PaperFrames.draw(canvas, bars, zoomStop, { crypto: cryptoNow, symbol: state.paper.symbol || "", label: heading });
+      PaperFrames.draw(canvas, bars, zoomStop, { crypto: cryptoNow, symbol: state.paper.symbol || "", label: product });
       PaperFrames.attachPick(canvas, paint, {});
     }
     const view = PaperFrames.zoomBars(bars, zoomStop);
@@ -20887,6 +21010,53 @@ function visible(values) {
   return PaperFrames.zoomBars(sliced, state.zoom).bars;
 }
 
+function chartProductName(symbol) {
+  const ticker = String(symbol || (state.paper && state.paper.symbol) || chartHeld() || "").toUpperCase();
+  if (!ticker) return "";
+  const row = (state.catalog || []).find((item) => item.symbol === ticker);
+  const name = row && row.name ? String(row.name).trim() : "";
+  if (name && name.toUpperCase() !== ticker) return name;
+  return "";
+}
+
+function chartProductTitle(symbol) {
+  const ticker = String(symbol || (state.paper && state.paper.symbol) || chartHeld() || "").toUpperCase();
+  if (!ticker) return "Chart";
+  const name = chartProductName(ticker);
+  return name ? ticker + " · " + name : ticker;
+}
+
+function paintChartProductName(ctx, pad, plotRight, priceBottom, width) {
+  const ticker = String((state.paper && state.paper.symbol) || chartHeld() || "").toUpperCase();
+  if (!ticker) return;
+  const name = chartProductName(ticker);
+  const title = name ? ticker + "  " + name : ticker;
+  const frame = state.frameId ? PaperFrames.frameById(state.frameId) : null;
+  const sub = frame && frame.label ? frame.label : "Daily";
+  ctx.save();
+  // Top-center product mark — keeps the left key readable and names the open market on the tape.
+  const maxWidth = Math.max(80, Math.min((plotRight || width) - pad - 24, width * 0.62));
+  let size = Math.max(18, Math.min(36, Math.floor(width / 16)));
+  ctx.font = "700 " + size + "px Segoe UI, sans-serif";
+  while (size > 14 && ctx.measureText(title).width > maxWidth) {
+    size -= 1;
+    ctx.font = "700 " + size + "px Segoe UI, sans-serif";
+  }
+  const titleW = ctx.measureText(title).width;
+  const mid = pad + ((plotRight || width) - pad) / 2;
+  const x = Math.max(pad + 8, mid - titleW / 2);
+  const y = Math.max(26, Math.min(44, priceBottom * 0.1));
+  ctx.fillStyle = "rgba(7, 9, 11, 0.5)";
+  ctx.fillText(title, x + 1, y + 1);
+  ctx.fillStyle = "rgba(231, 237, 243, 0.95)";
+  ctx.fillText(title, x, y);
+  ctx.font = "600 12px Segoe UI, sans-serif";
+  const subW = ctx.measureText(sub).width;
+  ctx.fillStyle = "rgba(154, 166, 178, 0.95)";
+  ctx.fillText(sub, Math.max(pad + 8, mid - subW / 2), y + 16);
+  ctx.restore();
+}
+
 function drawCandles(retry) {
   const canvas = $("candles");
   if (!canvas || !state.market) return;
@@ -20993,6 +21163,7 @@ function drawCandles(retry) {
       }
     : null;
   PaperFrames.paintCandles(ctx, bars, xAt, y, slot, candlePaint);
+  paintChartProductName(ctx, pad, plotRight, priceBottom, width);
   drawPro(ctx, history, dropped, bars.length, y, pad, slot, plotRight, priceBottom);
   drawLine(ctx, fast, y, pad, slot, "#7eb6ff", 1);
   drawLine(ctx, slow, y, pad, slot, "#e2b15a", 1);
@@ -22247,7 +22418,11 @@ async function autoTick() {
   // Auto must never take the paper busy lock — that made product clicks flash then revert.
   if (!state.auto || state.autoBusy || state.switching) return;
   state.autoBusy = true;
-  let delay = 5000;
+  // Fast·Safe: Auto trading stays on Safe booster pace; stale quotes nudge a quicker refresh.
+  applyDeskBooster(false);
+  const boostWait = state.booster && Number(state.booster.quoteWait);
+  let delay = Number.isFinite(boostWait) ? Math.max(2500, Math.min(8000, Math.round(boostWait * 0.85))) : 5000;
+  if (quoteIsStale()) delay = Math.min(delay, 2800);
   const openSymbol = () => (state.paper && state.paper.symbol) || (state.session && state.session.symbol) || "";
   try {
     if (state.offline && state.session) {

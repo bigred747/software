@@ -276,6 +276,8 @@
 
   // Desk momentum bars (ADX · DMI): green = uptrend conviction, red = downtrend, yellow = no strong direction.
   // Own closed-bar Wilder math — locks on close so prior candles do not repaint. Not a third-party product.
+  let momentumBarsCache = { key: "", value: null };
+
   function momentumBars(bars, options) {
     const opts = options || {};
     const length = Math.max(2, Math.round(Number(opts.length) || 14));
@@ -285,6 +287,21 @@
     const list = bars || [];
     const count = list.length;
     const live = opts.live === true || (opts.live == null && liveBar(list, !!opts.crypto, opts.now));
+    const last = count ? list[count - 1] : null;
+    const cacheKey = [
+      count,
+      last ? last.date : "",
+      last ? last.close : "",
+      last ? last.high : "",
+      last ? last.low : "",
+      last ? last.volume : "",
+      live ? 1 : 0,
+      length,
+      adxFloor,
+      volLook,
+      volMult,
+    ].join("|");
+    if (momentumBarsCache.key === cacheKey && momentumBarsCache.value) return momentumBarsCache.value;
     const tr = new Array(count).fill(0);
     const plusDM = new Array(count).fill(0);
     const minusDM = new Array(count).fill(0);
@@ -376,7 +393,7 @@
         volumeDot[index] = true;
       }
     }
-    return {
+    const study = {
       tone,
       rim,
       bias,
@@ -389,6 +406,8 @@
       adxFloor,
       live,
     };
+    momentumBarsCache = { key: cacheKey, value: study };
+    return study;
   }
 
   function paintCandles(ctx, bars, xAt, y, slot, paint) {
@@ -1091,6 +1110,26 @@
       locked: momFull.locked.slice(dropped),
       volumeDot: momFull.volumeDot.slice(dropped),
     });
+    // Product name on the tape (symbol · label when provided).
+    const product = String((options && (options.label || options.symbol)) || "").trim();
+    if (product && height >= 120) {
+      ctx.save();
+      let size = Math.max(16, Math.min(28, Math.floor(width / 18)));
+      ctx.font = "700 " + size + "px Segoe UI, sans-serif";
+      const maxW = Math.max(60, width - padLeft - padRight - 24);
+      while (size > 12 && ctx.measureText(product).width > maxW) {
+        size -= 1;
+        ctx.font = "700 " + size + "px Segoe UI, sans-serif";
+      }
+      const textW = ctx.measureText(product).width;
+      const px = Math.max(padLeft + 6, (width - textW) / 2);
+      const py = Math.max(18, padTop + 4);
+      ctx.fillStyle = "rgba(7, 9, 11, 0.45)";
+      ctx.fillText(product, px + 1, py + 1);
+      ctx.fillStyle = "rgba(231, 237, 243, 0.92)";
+      ctx.fillText(product, px, py);
+      ctx.restore();
+    }
     stack.forEach((row) => {
       strokeSeries(ctx, row.values.slice(dropped), xAt, y, row.color, row.length >= 100 ? 1.75 : 1.25);
     });

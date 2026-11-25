@@ -14,7 +14,8 @@ from paper_trader.samples import market_row
 
 _CACHE: dict[tuple[str, str, str], tuple[float, dict]] = {}
 _LOCK = threading.Lock()
-_TTL = 15.0
+# Short TTL keeps the open chart fresh in RTH without hammering the feed on every click.
+_TTL = 6.0
 _URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval={interval}&range={span}&includePrePost=false"
 
 _FRAMES = {

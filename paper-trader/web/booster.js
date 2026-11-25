@@ -1,6 +1,6 @@
 /* Paper Trader desk booster — pace, lanes, and learn gap.
    Fail closed: never unlocks Live, never invents quotes, never skips Safe.
-   Safe · Balanced · Boost · Max · Auto (slows when Auto/busy/soft; speeds when calm). */
+   Safe · Balanced · Boost · Max · Auto (slows when Auto/busy/soft; speeds when calm / RTH). */
 (function (root) {
   "use strict";
 
@@ -11,9 +11,9 @@
       id: "safe",
       label: "Safe",
       why: "Slowest quotes · one learn name · few scan lanes. Best when Auto is on or the desk is stressed.",
-      quoteWait: 16000,
-      quoteGap: 520,
-      learnGap: 14000,
+      quoteWait: 14000,
+      quoteGap: 420,
+      learnGap: 12000,
       batch: 1,
       lanesOffline: 2,
       lanesOnline: 3,
@@ -21,10 +21,10 @@
     balanced: {
       id: "balanced",
       label: "Balanced",
-      why: "Default desk pace. Steady quotes and hourly learn without slamming the feed.",
-      quoteWait: 12000,
-      quoteGap: 300,
-      learnGap: 10000,
+      why: "Default desk pace. Steady quotes and learn without slamming the feed.",
+      quoteWait: 9000,
+      quoteGap: 220,
+      learnGap: 8000,
       batch: 2,
       lanesOffline: 3,
       lanesOnline: 6,
@@ -33,9 +33,9 @@
       id: "boost",
       label: "Boost",
       why: "Faster scans and tighter quote gap when the desk is calm. Still paper-only · Live locked.",
-      quoteWait: 7000,
-      quoteGap: 180,
-      learnGap: 6000,
+      quoteWait: 5500,
+      quoteGap: 140,
+      learnGap: 5000,
       batch: 3,
       lanesOffline: 4,
       lanesOnline: 8,
@@ -43,10 +43,10 @@
     max: {
       id: "max",
       label: "Max",
-      why: "Fastest closed-bar walks. Use only when the feed is healthy. Safe check still gates Auto.",
-      quoteWait: 4500,
-      quoteGap: 110,
-      learnGap: 4000,
+      why: "Fastest closed-bar walks for open RTH when the feed is healthy. Safe check still gates Auto.",
+      quoteWait: 3500,
+      quoteGap: 90,
+      learnGap: 3500,
       batch: 4,
       lanesOffline: 5,
       lanesOnline: 10,
@@ -82,11 +82,15 @@
 
   function pickAuto(input) {
     const source = input || {};
+    // Safety first: Auto trading, soft tape, hidden tab, or busy scanners → slow down.
     if (source.hidden) return "safe";
     if (source.autoOn) return "safe";
     if (source.softHold) return "safe";
     if (source.busyScanners >= 2) return "safe";
+    if (source.staleQuote) return "boost";
     if (source.busyScanners >= 1) return "balanced";
+    // Calm + warm feed in regular hours → Max (still paper-only · Live locked).
+    if (source.feedWarm && source.rthOpen) return "max";
     if (source.feedWarm) return "boost";
     return "balanced";
   }
