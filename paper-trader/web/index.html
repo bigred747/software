@@ -957,15 +957,15 @@ AddOrder(Sell, sellFire);</textarea>
         <div id="journal-filled" class="pins" aria-label="Filled today"></div>
         <div id="day-strip" class="day-strip" aria-label="Today on this desk"></div>
         <h2>Open positions</h2>
-        <p id="book-device" class="muted">This device keeps its own paper book. Use Push / Pull with the same desk sync code to keep iPhone and computer together, or Share / Load a file.</p>
+        <p id="book-device" class="muted">This device keeps its own paper book. Use Push / Pull with a computer link token, or Share / Load a file.</p>
         <div class="strat-orb-inputs">
-          <label class="quiet">Desk sync code
-            <input id="sync-code" type="text" autocomplete="off" spellcheck="false" placeholder="DESK-XXXXXX" maxlength="32">
+          <label class="quiet">Computer link token
+            <input id="sync-token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste PAPER_SYNC_TOKEN" maxlength="128">
           </label>
           <button id="book-push" type="button">Push book</button>
           <button id="book-pull" type="button">Pull book</button>
         </div>
-        <p id="sync-code-note" class="muted tiny">Same code on iPhone and computer. Push from one, Pull on the other.</p>
+        <p id="sync-code-note" class="muted tiny">Create the token in Paper Desk Sync (signed into Cursor), put it in .env as PAPER_SYNC_TOKEN, then Push / Pull.</p>
         <div class="strat-orb-inputs">
           <button id="book-share" type="button">Share paper book</button>
           <button id="book-copy" type="button" class="quiet">Copy paper book</button>

@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import json
 import os
-import secrets
 import urllib.error
-import urllib.parse
 import urllib.request
 from pathlib import Path
 
 DEFAULT_SYNC_URL = "https://paper-desk-sync.apps.grok.bot"
-ENV_CODE = "PAPER_SYNC_CODE"
+ENV_TOKEN = "PAPER_SYNC_TOKEN"
 ENV_URL = "PAPER_SYNC_URL"
 
 
@@ -23,8 +21,7 @@ def sync_url() -> str:
     return (os.environ.get(ENV_URL) or DEFAULT_SYNC_URL).rstrip("/")
 
 
-def read_code(folder: Path | None = None) -> str:
-    folder = folder or _root()
+def _env_value(folder: Path, key: str) -> str:
     env_path = folder / ".env"
     if env_path.is_file():
         try:
@@ -32,51 +29,33 @@ def read_code(folder: Path | None = None) -> str:
         except OSError:
             text = ""
         for line in text.splitlines():
-            if line.startswith(f"{ENV_CODE}="):
-                return line.split("=", 1)[1].strip().strip('"').strip("'").upper()
-    return (os.environ.get(ENV_CODE) or "").strip().upper()
+            if line.startswith(f"{key}="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return (os.environ.get(key) or "").strip()
 
 
-def ensure_code(folder: Path | None = None) -> str:
+def read_token(folder: Path | None = None) -> str:
     folder = folder or _root()
-    code = read_code(folder)
-    if len(code) >= 6:
-        return code
-    code = "DESK-" + secrets.token_hex(3).upper()
-    env_path = folder / ".env"
-    try:
-        existing = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
-    except OSError:
-        existing = ""
-    if f"{ENV_CODE}=" in existing:
-        lines = []
-        for line in existing.splitlines():
-            if line.startswith(f"{ENV_CODE}="):
-                lines.append(f"{ENV_CODE}={code}")
-            else:
-                lines.append(line)
-        text = "\n".join(lines) + ("\n" if existing.endswith("\n") else "")
-    else:
-        block = (
-            f"\n# Same code on iPhone Journal → desk sync code\n"
-            f"{ENV_CODE}={code}\n"
-            f"{ENV_URL}={DEFAULT_SYNC_URL}\n"
-        )
-        text = existing.rstrip() + block
-    try:
-        env_path.write_text(text, encoding="utf-8")
-    except OSError:
-        pass
-    os.environ[ENV_CODE] = code
-    return code
+    return _env_value(folder, ENV_TOKEN)
 
 
-def _request(method: str, code: str, payload: dict | None = None) -> dict:
-    url = f"{sync_url()}/api/book?code={urllib.parse.quote(code)}"
+def ensure_token(folder: Path | None = None) -> str:
+    folder = folder or _root()
+    token = read_token(folder)
+    if len(token) >= 48:
+        return token
+    raise ValueError(
+        "Missing PAPER_SYNC_TOKEN in .env. Open the Paper Desk Sync app signed into Cursor, "
+        "tap Create computer link, then paste PAPER_SYNC_TOKEN=... into Documents\\Paper Trader\\.env."
+    )
+
+
+def _request(method: str, token: str, payload: dict | None = None) -> dict:
+    url = f"{sync_url()}/api/book"
     data = None
     headers = {
         "Accept": "application/json",
-        "X-Desk-Code": code,
+        "Authorization": f"Bearer {token}",
         "User-Agent": "PaperTrader-Desk/1.10.40",
     }
     if payload is not None:
@@ -102,27 +81,25 @@ def _request(method: str, code: str, payload: dict | None = None) -> dict:
 
 
 def push_book(book: dict, folder: Path | None = None) -> dict:
-    code = ensure_code(folder)
-    result = _request("PUT", code, book)
+    token = ensure_token(folder)
+    result = _request("PUT", token, book)
     return {
         "ok": True,
         "action": "push",
-        "desk_code": code,
         "markets": result.get("markets") or len((book.get("sessions") or {})),
         "sync_url": sync_url(),
     }
 
 
 def pull_book(folder: Path | None = None) -> dict:
-    code = ensure_code(folder)
-    result = _request("GET", code)
+    token = ensure_token(folder)
+    result = _request("GET", token)
     book = result.get("book")
     if not isinstance(book, dict):
         raise ValueError("Sync bridge returned no paper book.")
     return {
         "ok": True,
         "action": "pull",
-        "desk_code": code,
         "markets": result.get("markets") or len((book.get("sessions") or {})),
         "updated_at": result.get("updated_at"),
         "book": book,
@@ -131,5 +108,15 @@ def pull_book(folder: Path | None = None) -> dict:
 
 
 def status(folder: Path | None = None) -> dict:
-    code = ensure_code(folder)
-    return {"ok": True, "desk_code": code, "sync_url": sync_url()}
+    folder = folder or _root()
+    token = read_token(folder)
+    return {
+        "ok": True,
+        "has_token": len(token) >= 48,
+        "sync_url": sync_url(),
+        "hint": (
+            "PAPER_SYNC_TOKEN is set."
+            if len(token) >= 48
+            else "Open Paper Desk Sync signed into Cursor → Create computer link → put PAPER_SYNC_TOKEN in .env."
+        ),
+    }

@@ -10,19 +10,19 @@ from paper_trader import sync
 
 
 class SyncTests(unittest.TestCase):
-    def test_ensure_code_writes_env(self) -> None:
+    def test_status_without_token(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            code = sync.ensure_code(root)
-            self.assertGreaterEqual(len(code), 6)
-            text = (root / ".env").read_text(encoding="utf-8")
-            self.assertIn(f"PAPER_SYNC_CODE={code}", text)
-            self.assertEqual(sync.read_code(root), code)
+            report = sync.status(root)
+            self.assertFalse(report["has_token"])
 
     def test_push_and_pull_round_trip(self) -> None:
         book = {"version": 1, "sessions": {"SPY": {"shares": 1, "cash": 1000}}, "markets": 1}
+        token = "a" * 64
 
         def fake_urlopen(req, timeout=45):
+            self.assertIn("Bearer ", req.get_header("Authorization") or req.headers.get("Authorization", ""))
+
             class Resp:
                 def __enter__(self):
                     return self
@@ -39,6 +39,7 @@ class SyncTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            (root / ".env").write_text(f"PAPER_SYNC_TOKEN={token}\n", encoding="utf-8")
             with mock.patch("urllib.request.urlopen", side_effect=fake_urlopen):
                 pushed = sync.push_book(book, root)
                 pulled = sync.pull_book(root)
