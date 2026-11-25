@@ -34,20 +34,25 @@ def build() -> Path:
     app = (web / "app.js").read_text(encoding="utf-8")
 
     def inline(page: str, name: str, body: str) -> str:
+        import re
+
         block = "<script>\n" + body + "\n</script>"
-        page = page.replace(f'<script src="/{name}"></script>', block)
-        return page.replace(f'<script src="{name}"></script>', block)
+        # Accept cache-bust query strings: app.js?v=11041
+        pattern = re.compile(rf'<script\s+src="(?:/?{re.escape(name)})(?:\?[^"]*)?"\s*></script>')
+        return pattern.sub(block, page, count=1)
 
     html = inline(html, "live.js", live)
     catalog_script = "<script>globalThis.PAPER_CATALOG = " + json.dumps(catalog) + ";</script>\n"
-    html = html.replace('<script src="/engine.js"></script>', catalog_script + "<script>\n" + engine + "\n</script>")
-    html = html.replace('<script src="engine.js"></script>', catalog_script + "<script>\n" + engine + "\n</script>")
+    import re as _re
+
+    engine_pattern = _re.compile(r'<script\s+src="(?:/?engine\.js)(?:\?[^"]*)?"\s*></script>')
+    html = engine_pattern.sub(catalog_script + "<script>\n" + engine + "\n</script>", html, count=1)
     html = inline(html, "study.js", study)
     html = inline(html, "frames.js", frames)
     html = inline(html, "booster.js", booster)
     html = inline(html, "app.js", app)
     for name in ("live.js", "engine.js", "study.js", "frames.js", "booster.js", "app.js", "app.css"):
-        if f'src="/{name}"' in html or f'src="{name}"' in html or f'href="/{name}"' in html or f'href="{name}"' in html:
+        if _re.search(rf'(?:src|href)="/?{_re.escape(name)}(?:\?[^"]*)?"', html):
             raise RuntimeError(f"{name} was not inlined")
     folder = ROOT / "iphone"
     folder.mkdir(exist_ok=True)
