@@ -993,12 +993,14 @@ class ServerTests(unittest.TestCase):
         ):
             text = (ROOT / name).read_text(encoding="utf-8")
             self.assertIn("extract_zip.py", text)
-            self.assertIn('.zip.', text)
             self.assertIn("PaperTrader-install", text)
             self.assertNotIn('Temp\\"', text)
             lowered = text.lower()
             for blocked in ("powershell", "cscript", "wscript", "zone.identifier", "unblock-file", ".vbs", "taskkill"):
                 self.assertNotIn(blocked, lowered)
+        for name in ("Start-Paper-Trader.bat", "1 Allow Paper Trader.bat", "2 Open Paper Trader.bat"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            self.assertIn(".zip.", text)
         self.assertIn("force-upgrade.bat", allow)
         self.assertIn("start-paper-trader.bat", opener)
         for blocked in ("add-mpexclusion", "set-mppreference", "exclusionpath", "reg add", "netsh"):
