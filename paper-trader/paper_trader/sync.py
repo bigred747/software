@@ -1,9 +1,13 @@
-"""Push / pull the paper book between computer and phone via the sync bridge."""
+"""Push / pull the paper book via the Fort Knox sync bridge."""
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
+import secrets
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -42,16 +46,23 @@ def read_token(folder: Path | None = None) -> str:
 def ensure_token(folder: Path | None = None) -> str:
     folder = folder or _root()
     token = read_token(folder)
-    if len(token) >= 48:
+    if len(token) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in token):
         return token
     raise ValueError(
-        "Missing PAPER_SYNC_TOKEN in .env. Open the Paper Desk Sync app signed into Cursor, "
+        "Missing PAPER_SYNC_TOKEN in .env. Open Paper Desk Sync signed into Cursor, "
         "tap Create computer link, then paste PAPER_SYNC_TOKEN=... into Documents\\Paper Trader\\.env."
     )
 
 
+def _sign(token: str, method: str, path: str, timestamp: str, body: str) -> str:
+    message = f"{method.upper()}\n{path}\n{timestamp}\n{body}".encode("utf-8")
+    return hmac.new(token.encode("utf-8"), message, hashlib.sha256).hexdigest()
+
+
 def _request(method: str, token: str, payload: dict | None = None) -> dict:
-    url = f"{sync_url()}/api/book"
+    path = "/api/book"
+    url = f"{sync_url()}{path}"
+    body = ""
     data = None
     headers = {
         "Accept": "application/json",
@@ -59,25 +70,31 @@ def _request(method: str, token: str, payload: dict | None = None) -> dict:
         "User-Agent": "PaperTrader-Desk/1.10.40",
     }
     if payload is not None:
-        data = json.dumps({"book": payload}).encode("utf-8")
+        body = json.dumps({"book": payload}, separators=(",", ":"))
+        data = body.encode("utf-8")
         headers["Content-Type"] = "application/json"
+    timestamp = str(int(time.time() * 1000))
+    nonce = secrets.token_hex(16)
+    headers["X-Desk-Timestamp"] = timestamp
+    headers["X-Desk-Nonce"] = nonce
+    headers["X-Desk-Signature"] = _sign(token, method, path, timestamp, body)
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=45) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
+            parsed = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as err:
         try:
-            body = json.loads(err.read().decode("utf-8"))
+            parsed = json.loads(err.read().decode("utf-8"))
         except Exception:
-            body = {"ok": False, "error": f"Sync HTTP {err.code}"}
-        raise ValueError(body.get("error") or f"Sync HTTP {err.code}") from None
+            parsed = {"ok": False, "error": f"Sync HTTP {err.code}"}
+        raise ValueError(parsed.get("error") or f"Sync HTTP {err.code}") from None
     except urllib.error.URLError as err:
         raise ValueError(f"Could not reach sync bridge: {err.reason}") from None
-    if not isinstance(body, dict):
+    if not isinstance(parsed, dict):
         raise ValueError("Sync bridge returned a bad reply.")
-    if body.get("ok") is False:
-        raise ValueError(body.get("error") or "Sync failed.")
-    return body
+    if parsed.get("ok") is False:
+        raise ValueError(parsed.get("error") or "Sync failed.")
+    return parsed
 
 
 def push_book(book: dict, folder: Path | None = None) -> dict:
@@ -88,6 +105,7 @@ def push_book(book: dict, folder: Path | None = None) -> dict:
         "action": "push",
         "markets": result.get("markets") or len((book.get("sessions") or {})),
         "sync_url": sync_url(),
+        "vault": result.get("vault"),
     }
 
 
@@ -104,19 +122,22 @@ def pull_book(folder: Path | None = None) -> dict:
         "updated_at": result.get("updated_at"),
         "book": book,
         "sync_url": sync_url(),
+        "vault": result.get("vault"),
     }
 
 
 def status(folder: Path | None = None) -> dict:
     folder = folder or _root()
     token = read_token(folder)
+    ready = len(token) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in token)
     return {
         "ok": True,
-        "has_token": len(token) >= 48,
+        "has_token": ready,
         "sync_url": sync_url(),
+        "hardening": "fort-knox",
         "hint": (
-            "PAPER_SYNC_TOKEN is set."
-            if len(token) >= 48
+            "PAPER_SYNC_TOKEN is set. Push / Pull uses signed vault requests."
+            if ready
             else "Open Paper Desk Sync signed into Cursor → Create computer link → put PAPER_SYNC_TOKEN in .env."
         ),
     }

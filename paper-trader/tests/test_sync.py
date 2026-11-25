@@ -15,13 +15,18 @@ class SyncTests(unittest.TestCase):
             root = Path(tmp)
             report = sync.status(root)
             self.assertFalse(report["has_token"])
+            self.assertEqual(report["hardening"], "fort-knox")
 
     def test_push_and_pull_round_trip(self) -> None:
         book = {"version": 1, "sessions": {"SPY": {"shares": 1, "cash": 1000}}, "markets": 1}
         token = "a" * 64
 
         def fake_urlopen(req, timeout=45):
-            self.assertIn("Bearer ", req.get_header("Authorization") or req.headers.get("Authorization", ""))
+            auth = req.get_header("Authorization") or ""
+            self.assertTrue(auth.startswith("Bearer "))
+            self.assertTrue(req.get_header("X-desk-timestamp") or req.get_header("X-Desk-Timestamp"))
+            self.assertTrue(req.get_header("X-desk-signature") or req.get_header("X-Desk-Signature"))
+            self.assertTrue(req.get_header("X-desk-nonce") or req.get_header("X-Desk-Nonce"))
 
             class Resp:
                 def __enter__(self):
@@ -32,8 +37,8 @@ class SyncTests(unittest.TestCase):
 
                 def read(self):
                     if req.get_method() == "PUT":
-                        return json.dumps({"ok": True, "markets": 1}).encode()
-                    return json.dumps({"ok": True, "markets": 1, "book": book}).encode()
+                        return json.dumps({"ok": True, "markets": 1, "vault": "sealed"}).encode()
+                    return json.dumps({"ok": True, "markets": 1, "book": book, "vault": "sealed"}).encode()
 
             return Resp()
 

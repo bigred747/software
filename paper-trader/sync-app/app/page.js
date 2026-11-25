@@ -45,14 +45,21 @@ export default function Page() {
   }
 
   return (
-    <main style={{ maxWidth: "32rem", margin: "0 auto", padding: "1.5rem" }}>
+    <main style={{ maxWidth: "34rem", margin: "0 auto", padding: "1.5rem" }}>
       <h1 style={{ fontSize: "1.35rem", margin: "0 0 0.5rem" }}>Paper Desk Sync</h1>
       <p style={{ lineHeight: 1.45, color: "#b7c2ce" }}>
-        Sign in with Cursor. Create a computer link, then put it in{" "}
-        <code style={{ color: "#9ad0ff" }}>Documents\Paper Trader\.env</code> as{" "}
-        <code style={{ color: "#9ad0ff" }}>PAPER_SYNC_TOKEN=...</code>. Push / Pull on the desk uses
-        that token. Paper only — nothing goes to a broker.
+        Fort Knox mode: Cursor sign-in, sealed vault storage, signed computer requests, rate
+        limits, and revocable 90-day links. Paper only — nothing goes to a broker.
       </p>
+      <ol style={{ lineHeight: 1.5, color: "#b7c2ce", paddingLeft: "1.2rem" }}>
+        <li>Sign in with Cursor</li>
+        <li>Create a computer link</li>
+        <li>
+          Put it in <code style={{ color: "#9ad0ff" }}>Documents\Paper Trader\.env</code> as{" "}
+          <code style={{ color: "#9ad0ff" }}>PAPER_SYNC_TOKEN=...</code>
+        </li>
+        <li>Journal → Push book / Pull book</li>
+      </ol>
       <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "1rem" }}>
         <button
           type="button"

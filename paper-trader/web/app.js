@@ -4217,15 +4217,44 @@ async function refreshSyncCode() {
   }
 }
 
+async function deskHmacHex(token, message) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(token),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 async function cloudSync(method, token, book) {
-  const url = syncBridgeUrl() + "/api/book";
+  const path = "/api/book";
+  const url = syncBridgeUrl() + path;
+  const body = book ? JSON.stringify({ book }) : "";
+  const timestamp = String(Date.now());
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  const signature = await deskHmacHex(
+    token,
+    method.toUpperCase() + "\n" + path + "\n" + timestamp + "\n" + body
+  );
   const options = {
     method,
-    headers: { Accept: "application/json", Authorization: "Bearer " + token },
+    headers: {
+      Accept: "application/json",
+      Authorization: "Bearer " + token,
+      "X-Desk-Timestamp": timestamp,
+      "X-Desk-Nonce": nonce,
+      "X-Desk-Signature": signature,
+    },
   };
   if (book) {
     options.headers["Content-Type"] = "application/json";
-    options.body = JSON.stringify({ book });
+    options.body = body;
   }
   const response = await fetch(url, options);
   const data = await response.json().catch(() => ({}));
