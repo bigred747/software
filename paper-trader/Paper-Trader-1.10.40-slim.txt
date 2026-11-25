@@ -1,1 +1,1 @@
-Paper Trader 1.10.40 slim — re-launch from Documents desk; fix desktop shortcut.
+Paper Trader 1.10.40 — Push/Pull sync between iPhone and computer.

@@ -1492,6 +1492,25 @@ class DeskHandler(BaseHTTPRequestHandler):
             body = self._body()
             self._json(self.desk.import_book(body))
             return
+        if method == "GET" and path == "/api/paper/sync":
+            from paper_trader.sync import status as sync_status
+
+            self._json(sync_status(Path(self.desk.state_path).resolve().parent))
+            return
+        if method == "POST" and path == "/api/paper/sync/push":
+            from paper_trader.sync import push_book
+
+            root = Path(self.desk.state_path).resolve().parent
+            self._json(push_book(self.desk.export_book(), root))
+            return
+        if method == "POST" and path == "/api/paper/sync/pull":
+            from paper_trader.sync import pull_book
+
+            root = Path(self.desk.state_path).resolve().parent
+            pulled = pull_book(root)
+            view = self.desk.import_book(pulled["book"])
+            self._json({**pulled, "book_loaded": view.get("book_loaded"), "view": view})
+            return
         if method == "GET" and path == "/api/market":
             symbol = query.get("symbol") or self.desk.journal.symbol
             raw = {**self.desk.journal.params.to_dict(), **query}

@@ -144,6 +144,13 @@ body {
   border-color: var(--up);
   color: #fff;
 }
+#schwab-test {
+  min-height: 28px;
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 650;
+}
 .schwab-top-status {
   font-size: 11px;
   font-weight: 750;
@@ -2095,6 +2102,7 @@ body.ready #mood-clock { width: 88px; height: 88px; }
       <div class="schwab-top-row">
         <span id="schwab-top-dot" class="schwab-top-dot bad" title="Not connected" aria-hidden="true"></span>
         <button id="schwab-connect" type="button" aria-pressed="false">Connect</button>
+        <button id="schwab-test" type="button" class="quiet">Test</button>
         <strong id="schwab-top-status" class="schwab-top-status bad">OFF</strong>
       </div>
     </div>
@@ -2982,7 +2990,15 @@ AddOrder(Sell, sellFire);</textarea>
         <div id="journal-filled" class="pins" aria-label="Filled today"></div>
         <div id="day-strip" class="day-strip" aria-label="Today on this desk"></div>
         <h2>Open positions</h2>
-        <p id="book-device" class="muted">This device keeps its own paper book. Share or load below to move open trades and limit orders between the computer and the phone.</p>
+        <p id="book-device" class="muted">This device keeps its own paper book. Use Push / Pull with the same desk sync code to keep iPhone and computer together, or Share / Load a file.</p>
+        <div class="strat-orb-inputs">
+          <label class="quiet">Desk sync code
+            <input id="sync-code" type="text" autocomplete="off" spellcheck="false" placeholder="DESK-XXXXXX" maxlength="32">
+          </label>
+          <button id="book-push" type="button">Push book</button>
+          <button id="book-pull" type="button">Pull book</button>
+        </div>
+        <p id="sync-code-note" class="muted tiny">Same code on iPhone and computer. Push from one, Pull on the other.</p>
         <div class="strat-orb-inputs">
           <button id="book-share" type="button">Share paper book</button>
           <button id="book-copy" type="button" class="quiet">Copy paper book</button>
@@ -14844,6 +14860,176 @@ async function savePaperBookBlob(blob, filename) {
   return "anchor";
 }
 
+const SYNC_CODE_KEY = "paper.deskSyncCode";
+const DEFAULT_SYNC_URL = "https://paper-desk-sync.apps.grok.bot";
+
+function syncBridgeUrl() {
+  return (globalThis.PAPER_SYNC_URL || DEFAULT_SYNC_URL).replace(/\/$/, "");
+}
+
+function readSyncCode() {
+  const input = $("sync-code");
+  const typed = input && input.value ? String(input.value).trim().toUpperCase() : "";
+  if (typed) return typed.replace(/[^A-Z0-9-]/g, "").slice(0, 32);
+  try {
+    return String(localStorage.getItem(SYNC_CODE_KEY) || "").trim().toUpperCase();
+  } catch (_error) {
+    return "";
+  }
+}
+
+function writeSyncCode(code) {
+  const cleaned = String(code || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 32);
+  const input = $("sync-code");
+  if (input && input.value !== cleaned) input.value = cleaned;
+  try {
+    if (cleaned) localStorage.setItem(SYNC_CODE_KEY, cleaned);
+  } catch (_error) {
+    /* ignore */
+  }
+  return cleaned;
+}
+
+async function refreshSyncCode() {
+  const note = $("sync-code-note");
+  if (state.offline) {
+    const code = readSyncCode();
+    if (code) writeSyncCode(code);
+    if (note) {
+      note.textContent = code
+        ? "Desk sync code " + code + " — same on computer. Push here, Pull on the desk (or reverse)."
+        : "Enter the computer desk sync code (from Documents\\Paper Trader\\.env PAPER_SYNC_CODE), then Push / Pull.";
+    }
+    return;
+  }
+  try {
+    const status = await getJSON("/api/paper/sync");
+    if (status && status.desk_code) writeSyncCode(status.desk_code);
+    if (note) {
+      note.textContent =
+        "Desk sync code " +
+        (status.desk_code || "") +
+        " — put the same code on the iPhone Journal, then Push / Pull.";
+    }
+  } catch (_error) {
+    if (note) note.textContent = "Same code on iPhone and computer. Push from one, Pull on the other.";
+  }
+}
+
+async function cloudSync(method, code, book) {
+  const url = syncBridgeUrl() + "/api/book?code=" + encodeURIComponent(code);
+  const options = {
+    method,
+    headers: { Accept: "application/json", "X-Desk-Code": code },
+  };
+  if (book) {
+    options.headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify({ book });
+  }
+  const response = await fetch(url, options);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) {
+    throw new Error((data && data.error) || "Sync failed.");
+  }
+  return data;
+}
+
+async function pushPaperBook() {
+  const note = $("book-share-note");
+  try {
+    let code = readSyncCode();
+    if (!state.offline) {
+      const status = await getJSON("/api/paper/sync");
+      if (status && status.desk_code) {
+        code = writeSyncCode(status.desk_code);
+      }
+    }
+    if (!code || code.length < 6) {
+      if (note) note.textContent = "Enter a desk sync code (6+ characters) first.";
+      return;
+    }
+    writeSyncCode(code);
+    if (state.offline) {
+      const book = exportPhonePayload();
+      const result = await cloudSync("PUT", code, book);
+      if (note) {
+        note.textContent =
+          "Pushed " +
+          (result.markets || 0) +
+          " market" +
+          ((result.markets || 0) === 1 ? "" : "s") +
+          " with code " +
+          code +
+          ". On the computer: Journal → Pull book.";
+      }
+      return;
+    }
+    const result = await post("/api/paper/sync/push", {});
+    if (result.desk_code) writeSyncCode(result.desk_code);
+    if (note) {
+      note.textContent =
+        "Pushed " +
+        (result.markets || 0) +
+        " market" +
+        ((result.markets || 0) === 1 ? "" : "s") +
+        " with code " +
+        (result.desk_code || code) +
+        ". On the iPhone: Journal → same code → Pull book.";
+    }
+  } catch (error) {
+    if (note) note.textContent = error.message || "Push failed.";
+  }
+}
+
+async function pullPaperBook() {
+  const note = $("book-share-note");
+  try {
+    let code = readSyncCode();
+    if (!state.offline) {
+      const status = await getJSON("/api/paper/sync");
+      if (status && status.desk_code && !code) {
+        code = writeSyncCode(status.desk_code);
+      }
+    }
+    if (!code || code.length < 6) {
+      if (note) note.textContent = "Enter a desk sync code (6+ characters) first.";
+      return;
+    }
+    writeSyncCode(code);
+    if (state.offline) {
+      const result = await cloudSync("GET", code);
+      await importPaperBook(result.book || result);
+      if (note) {
+        note.textContent =
+          "Pulled " +
+          (result.markets || 0) +
+          " market" +
+          ((result.markets || 0) === 1 ? "" : "s") +
+          " with code " +
+          code +
+          ".";
+      }
+      return;
+    }
+    const result = await post("/api/paper/sync/pull", {});
+    if (result.desk_code) writeSyncCode(result.desk_code);
+    if (result.view) render(result.view);
+    else render(await getJSON("/api/paper"));
+    if (note) {
+      note.textContent =
+        "Pulled " +
+        (result.markets || 0) +
+        " market" +
+        ((result.markets || 0) === 1 ? "" : "s") +
+        " with code " +
+        (result.desk_code || code) +
+        ".";
+    }
+  } catch (error) {
+    if (note) note.textContent = error.message || "Pull failed.";
+  }
+}
+
 async function sharePaperBook(download) {
   const note = $("book-share-note");
   try {
@@ -15097,9 +15283,10 @@ function renderBook(paper) {
   const device = $("book-device");
   if (device) {
     device.textContent = state.offline
-      ? "This device keeps its own paper book. To see trades from the computer desk, tap Share paper book there, AirDrop or save paper-book.json, then Load paper book here."
-      : "This device keeps its own paper book. Tap Share paper book, then on the phone open Journal and Load paper book. Load here to bring a phone book back to this computer.";
+      ? "This device keeps its own paper book. Set the same desk sync code as the computer, then Push / Pull. Or Share / Load a paper-book.json file."
+      : "This device keeps its own paper book. Set the same desk sync code on the iPhone, then Push / Pull. Share / Load still works as a file backup.";
   }
+  void refreshSyncCode();
   paintDayStrip(book);
   renderJournalCheck(paper);
 }
@@ -22143,6 +22330,15 @@ $("cancel-all").addEventListener("click", () => withBusy(async () => {
   $("status").textContent = "Canceled every working paper order.";
 }));
 
+const bookPush = $("book-push");
+if (bookPush) bookPush.addEventListener("click", () => withBusy(() => pushPaperBook()));
+const bookPull = $("book-pull");
+if (bookPull) bookPull.addEventListener("click", () => withBusy(() => pullPaperBook()));
+const syncCodeInput = $("sync-code");
+if (syncCodeInput) {
+  syncCodeInput.addEventListener("change", () => writeSyncCode(syncCodeInput.value));
+  syncCodeInput.addEventListener("blur", () => writeSyncCode(syncCodeInput.value));
+}
 const bookShare = $("book-share");
 if (bookShare) bookShare.addEventListener("click", () => sharePaperBook(true));
 const bookCopy = $("book-copy");
@@ -22416,6 +22612,23 @@ $("schwab-connect").addEventListener("click", () => withBusy(async () => {
   } catch (error) {
     $("status").textContent = error.message;
     $("schwab-note").textContent = error.message;
+  }
+}));
+
+if ($("schwab-test")) $("schwab-test").addEventListener("click", () => withBusy(async () => {
+  if (state.offline) {
+    $("status").textContent = "Schwab test needs the computer desk on 127.0.0.1.";
+    return;
+  }
+  try {
+    const report = await postJSON("/api/schwab/test", {});
+    await loadSchwab();
+    await loadSignals();
+    $("status").textContent = report.detail || (report.ok ? "Schwab test passed." : "Schwab test failed.");
+    if ($("schwab-note")) $("schwab-note").textContent = report.detail || "";
+  } catch (error) {
+    $("status").textContent = error.message;
+    if ($("schwab-note")) $("schwab-note").textContent = error.message;
   }
 }));
 
