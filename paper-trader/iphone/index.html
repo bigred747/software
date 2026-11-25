@@ -13142,8 +13142,17 @@ async function fireAutoTrade() {
     const next = pool[state.fireCursor % pool.length];
     state.fireCursor = (state.fireCursor + 1) % pool.length;
     if (next && next.symbol) {
-      await chooseSymbol(next.symbol);
-      return "Fire 5 Auto opened " + next.symbol + " for review.";
+      // Chart stays on the open market until you click another chart (pins do not rotate it).
+      state.fireNote =
+        "Fire 5 wants " +
+        next.symbol +
+        ". Chart locked on " +
+        open +
+        " — click " +
+        next.symbol +
+        " to open it.";
+      renderFireFive();
+      return state.fireNote;
     }
     return "";
   }
@@ -17051,9 +17060,16 @@ async function journalAutoTrade() {
     return "Journal Auto sees " + top.symbol + ". Turn Best setup Auto or Strategies Auto-follow on under Auto / Strategies.";
   }
   if (state.paper.symbol !== top.symbol) {
-    await chooseSymbol(top.symbol);
     renderAutoDesk();
-    return "Journal Auto opened " + top.symbol + " for review.";
+    return (
+      "Journal Auto sees " +
+      top.symbol +
+      ". Chart locked on " +
+      state.paper.symbol +
+      " — click " +
+      top.symbol +
+      " to open it."
+    );
   }
   if (state.paper.shares > 0) return "";
   const bars = seenBars();
