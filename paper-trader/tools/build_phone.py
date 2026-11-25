@@ -33,20 +33,19 @@ def build() -> Path:
     booster = (web / "booster.js").read_text(encoding="utf-8")
     app = (web / "app.js").read_text(encoding="utf-8")
 
-    def inline(page: str, name: str, body: str) -> str:
-        import re
+    import re as _re
 
+    def inline(page: str, name: str, body: str) -> str:
         block = "<script>\n" + body + "\n</script>"
-        # Accept cache-bust query strings: app.js?v=11041
-        pattern = re.compile(rf'<script\s+src="(?:/?{re.escape(name)})(?:\?[^"]*)?"\s*></script>')
-        return pattern.sub(block, page, count=1)
+        # Accept cache-bust query strings: app.js?v=11041. Use a callable so JS backslashes are literal.
+        pattern = _re.compile(rf'<script\s+src="(?:/?{_re.escape(name)})(?:\?[^"]*)?"\s*></script>')
+        return pattern.sub(lambda _m: block, page, count=1)
 
     html = inline(html, "live.js", live)
     catalog_script = "<script>globalThis.PAPER_CATALOG = " + json.dumps(catalog) + ";</script>\n"
-    import re as _re
-
+    engine_block = catalog_script + "<script>\n" + engine + "\n</script>"
     engine_pattern = _re.compile(r'<script\s+src="(?:/?engine\.js)(?:\?[^"]*)?"\s*></script>')
-    html = engine_pattern.sub(catalog_script + "<script>\n" + engine + "\n</script>", html, count=1)
+    html = engine_pattern.sub(lambda _m: engine_block, html, count=1)
     html = inline(html, "study.js", study)
     html = inline(html, "frames.js", frames)
     html = inline(html, "booster.js", booster)
