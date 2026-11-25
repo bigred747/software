@@ -12,6 +12,7 @@ const state = {
   decimals: 2,
   offline: false,
   catalog: [],
+  productNames: {},
   session: null,
   study: null,
   studyCode: "",
@@ -692,6 +693,7 @@ async function refreshSymbols() {
   }
   list.replaceChildren();
   rows.forEach((item) => {
+    rememberProductName(item.symbol, item.name);
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.symbol = item.symbol;
@@ -1781,10 +1783,14 @@ async function loadCatalogText() {
 }
 
 async function ensureCatalog() {
-  if (Array.isArray(state.catalog) && state.catalog.length) return state.catalog;
+  if (Array.isArray(state.catalog) && state.catalog.length) {
+    state.catalog.forEach((row) => rememberProductName(row.symbol, row.name));
+    return state.catalog;
+  }
   try {
     const text = await loadCatalogText();
     state.catalog = PaperEngine.parseCatalog(text);
+    (state.catalog || []).forEach((row) => rememberProductName(row.symbol, row.name));
   } catch (error) {
     state.catalog = state.catalog || [];
   }
@@ -2139,6 +2145,7 @@ function render(paper) {
     : "Flat";
   $("through").textContent = paper.cursor + " / " + paper.total_bars;
   $("chart-title").textContent = chartProductTitle(paper && paper.symbol) + " · Daily session";
+  paintChartProductLabel();
   paintChartRead(paper);
   renderQuote(paper);
   paintPositionChip(paper);
@@ -10147,12 +10154,26 @@ function visible(values) {
   return PaperFrames.zoomBars(sliced, state.zoom).bars;
 }
 
+function rememberProductName(symbol, name) {
+  const ticker = String(symbol || "").toUpperCase();
+  const label = String(name || "").trim();
+  if (!ticker || !label) return;
+  if (label.toUpperCase() === ticker) return;
+  if (/^current market$/i.test(label)) return;
+  if (!state.productNames) state.productNames = {};
+  state.productNames[ticker] = label;
+}
+
 function chartProductName(symbol) {
   const ticker = String(symbol || (state.paper && state.paper.symbol) || chartHeld() || "").toUpperCase();
   if (!ticker) return "";
+  if (state.productNames && state.productNames[ticker]) return state.productNames[ticker];
   const row = (state.catalog || []).find((item) => item.symbol === ticker);
   const name = row && row.name ? String(row.name).trim() : "";
-  if (name && name.toUpperCase() !== ticker) return name;
+  if (name && name.toUpperCase() !== ticker && !/^current market$/i.test(name)) {
+    rememberProductName(ticker, name);
+    return name;
+  }
   return "";
 }
 
@@ -10163,34 +10184,50 @@ function chartProductTitle(symbol) {
   return name ? ticker + " · " + name : ticker;
 }
 
+function paintChartProductLabel() {
+  const node = $("chart-product");
+  if (!node) return;
+  const ticker = String((state.paper && state.paper.symbol) || chartHeld() || "").toUpperCase();
+  if (!ticker) {
+    node.textContent = "—";
+    return;
+  }
+  const name = chartProductName(ticker);
+  node.textContent = name ? ticker + " · " + name : ticker;
+  node.title = node.textContent;
+}
+
 function paintChartProductName(ctx, pad, plotRight, priceBottom, width) {
   const ticker = String((state.paper && state.paper.symbol) || chartHeld() || "").toUpperCase();
   if (!ticker) return;
+  paintChartProductLabel();
   const name = chartProductName(ticker);
-  const title = name ? ticker + "  " + name : ticker;
+  const title = name ? ticker + "  ·  " + name : ticker;
   const frame = state.frameId ? PaperFrames.frameById(state.frameId) : null;
-  const sub = frame && frame.label ? frame.label : "Daily";
+  const sub = (frame && frame.label ? frame.label : "Daily") + " · candles";
   ctx.save();
-  // Top-center product mark — keeps the left key readable and names the open market on the tape.
-  const maxWidth = Math.max(80, Math.min((plotRight || width) - pad - 24, width * 0.62));
-  let size = Math.max(18, Math.min(36, Math.floor(width / 16)));
+  // On the candle pane itself (top-right) so it sits with the tape, clear of the left key.
+  const maxWidth = Math.max(120, Math.min((plotRight || width) - pad - 20, width * 0.58));
+  let size = Math.max(15, Math.min(26, Math.floor(width / 24)));
   ctx.font = "700 " + size + "px Segoe UI, sans-serif";
-  while (size > 14 && ctx.measureText(title).width > maxWidth) {
+  while (size > 12 && ctx.measureText(title).width > maxWidth) {
     size -= 1;
     ctx.font = "700 " + size + "px Segoe UI, sans-serif";
   }
-  const titleW = ctx.measureText(title).width;
-  const mid = pad + ((plotRight || width) - pad) / 2;
-  const x = Math.max(pad + 8, mid - titleW / 2);
-  const y = Math.max(26, Math.min(44, priceBottom * 0.1));
-  ctx.fillStyle = "rgba(7, 9, 11, 0.5)";
-  ctx.fillText(title, x + 1, y + 1);
-  ctx.fillStyle = "rgba(231, 237, 243, 0.95)";
+  const textW = Math.min(maxWidth, ctx.measureText(title).width);
+  const boxW = textW + 16;
+  const boxH = size + 22;
+  const x = Math.max(pad + 8, (plotRight || width) - boxW - 8);
+  const y = Math.max(22, Math.min(34, priceBottom * 0.08));
+  ctx.fillStyle = "rgba(7, 9, 11, 0.78)";
+  ctx.fillRect(x - 6, y - size + 2, boxW, boxH);
+  ctx.strokeStyle = "rgba(154, 166, 178, 0.4)";
+  ctx.strokeRect(x - 6.5, y - size + 1.5, boxW, boxH);
+  ctx.fillStyle = "rgba(231, 237, 243, 0.98)";
   ctx.fillText(title, x, y);
-  ctx.font = "600 12px Segoe UI, sans-serif";
-  const subW = ctx.measureText(sub).width;
-  ctx.fillStyle = "rgba(154, 166, 178, 0.95)";
-  ctx.fillText(sub, Math.max(pad + 8, mid - subW / 2), y + 16);
+  ctx.font = "600 11px Segoe UI, sans-serif";
+  ctx.fillStyle = "rgba(154, 166, 178, 0.98)";
+  ctx.fillText(sub, x, y + 14);
   ctx.restore();
 }
 

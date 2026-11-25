@@ -1091,6 +1091,18 @@ button.quiet { background: transparent; }
   font-weight: 650;
   letter-spacing: 0.03em;
 }
+.study-pane-head .chart-product {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 4px;
+  color: #e7edf3;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .study-pane-head .study-pop { margin-left: auto; min-height: 30px; padding: 3px 10px; font-size: 11px; }
 .study-roll {
   width: 34px;
