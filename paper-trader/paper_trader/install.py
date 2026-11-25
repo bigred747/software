@@ -163,7 +163,9 @@ def install_newest(source: Path, home: Path, *, force: bool = False) -> tuple[Pa
 
 
 def force_upgrade(source: Path, home: Path) -> Path:
-    """Wipe-replace Documents\\Paper Trader from an extracted pack. Used by FORCE-UPGRADE.bat."""
+    """Replace Documents\\Paper Trader by moving the old folder aside, then copying this pack in."""
+    import time
+
     source = source.resolve()
     dest = canonical_folder(home).resolve()
     if not is_install(source):
@@ -173,6 +175,19 @@ def force_upgrade(source: Path, home: Path) -> Path:
             "Run FORCE-UPGRADE.bat from the NEW extracted zip folder, not from Documents\\Paper Trader. "
             "Right-click Paper-Trader.zip → Extract All → open that folder → FORCE-UPGRADE.bat"
         )
+    # Source pack itself must already be the new seal.
+    src_ver = read_install_version(source) or ""
+    if src_ver and src_ver != __version__:
+        raise ValueError(
+            f"This extracted folder is seal {src_ver}, but the package code is {__version__}. "
+            "Extract a fresh Paper-Trader.zip and run FORCE-UPGRADE.bat from that new folder."
+        )
+    app_src = (source / "web" / "app.js").read_text(encoding="utf-8", errors="ignore")
+    if f'const VERSION = "{__version__}"' not in app_src:
+        raise ValueError(
+            f"This extracted folder's web/app.js is not {__version__}. "
+            "You opened an old extract. Delete old Paper-Trader (1).zip extracts, download again, Extract All, retry."
+        )
     assert_safe_install(source, dest)
     from paper_trader.learn import ask_learners_to_close, end_learner_pid
 
@@ -181,23 +196,124 @@ def force_upgrade(source: Path, home: Path) -> Path:
         end_learner_pid(dest / "learn_state.json")
     except OSError:
         pass
-    _replace_install(source, dest)
+
+    saved: dict[str, bytes] = {}
+    old_seal = read_install_version(dest) if dest.exists() else ""
+    if dest.exists():
+        for name in SKIP_FILES:
+            path = dest / name
+            if path.is_file():
+                try:
+                    saved[name] = path.read_bytes()
+                except OSError:
+                    continue
+        aside = dest.parent / f"Paper Trader-OLD-{old_seal or 'unknown'}-{int(time.time())}"
+        try:
+            dest.rename(aside)
+        except OSError as exc:
+            # Files locked by a running desk — fall back to in-place replace.
+            try:
+                _replace_install(source, dest)
+            except OSError as inner:
+                raise ValueError(
+                    "Could not move or replace Documents\\Paper Trader. "
+                    "Close EVERY Paper Trader window, Edge desk tab, and black cmd window, then run FORCE-UPGRADE again. "
+                    f"({exc}; {inner})"
+                ) from inner
+        else:
+            try:
+                shutil.copytree(
+                    source,
+                    dest,
+                    ignore=shutil.ignore_patterns(*SKIP_DIRS, "*.pyc", *SKIP_FILES),
+                )
+            except OSError as exc:
+                # Roll the old desk back if the fresh copy failed.
+                try:
+                    if dest.exists():
+                        shutil.rmtree(dest)
+                    aside.rename(dest)
+                except OSError:
+                    pass
+                raise ValueError(
+                    "Could not copy the new pack into Documents\\Paper Trader. "
+                    f"Close Paper Trader windows and retry. ({exc})"
+                ) from exc
+    else:
+        shutil.copytree(
+            source,
+            dest,
+            ignore=shutil.ignore_patterns(*SKIP_DIRS, "*.pyc", *SKIP_FILES),
+        )
+
     dest.mkdir(parents=True, exist_ok=True)
+    for name, payload in saved.items():
+        try:
+            (dest / name).write_bytes(payload)
+        except OSError:
+            continue
     (dest / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
+    (dest / "SEAL.txt").write_text(
+        f"Paper Trader {__version__}\nInstalled to: {dest}\nIf the desk seal still shows an older number, you opened an old window.\n",
+        encoding="utf-8",
+    )
     from paper_trader.schwab_env import ensure_env_file
 
     ensure_env_file(dest)
-    # Prove the web seal files landed, not only VERSION.
     app_js = (dest / "web" / "app.js").read_text(encoding="utf-8", errors="ignore")
     if f'const VERSION = "{__version__}"' not in app_js:
         raise ValueError(f"Upgrade wrote VERSION {__version__} but web/app.js did not update. Close Paper Trader and retry.")
     html = (dest / "web" / "index.html").read_text(encoding="utf-8", errors="ignore")
     if f'content="{__version__}"' not in html:
         raise ValueError(f"Upgrade wrote VERSION {__version__} but web/index.html did not update. Close Paper Trader and retry.")
+    init = (dest / "paper_trader" / "__init__.py").read_text(encoding="utf-8", errors="ignore")
+    if f'__version__ = "{__version__}"' not in init:
+        raise ValueError(f"Upgrade wrote VERSION {__version__} but paper_trader/__init__.py did not update. Retry FORCE-UPGRADE.")
     erase_other_installs(home, keep=dest, keep_version=__version__)
     _resume_learner(dest)
     write_desktop_opener(dest, home)
     return dest
+
+
+def desk_seal_report(home: Path | None = None) -> str:
+    """Plain-text report of what Documents\\Paper Trader actually contains."""
+    home = Path(home or Path.home())
+    dest = canonical_folder(home)
+    lines = [
+        f"Expected package seal: {__version__}",
+        f"Desk folder: {dest}",
+        f"Folder exists: {dest.is_dir()}",
+    ]
+    if not dest.is_dir():
+        lines.append("RESULT: Documents\\Paper Trader is missing. Run FORCE-UPGRADE.bat from a fresh extract.")
+        return "\n".join(lines)
+    ver = read_install_version(dest)
+    lines.append(f"VERSION file: {ver or '(missing)'}")
+    app = dest / "web" / "app.js"
+    html = dest / "web" / "index.html"
+    init = dest / "paper_trader" / "__init__.py"
+    for label, path, needle in (
+        ("web/app.js", app, 'const VERSION = "'),
+        ("web/index.html", html, 'content="'),
+        ("paper_trader/__init__.py", init, '__version__ = "'),
+    ):
+        if not path.is_file():
+            lines.append(f"{label}: MISSING")
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        found = ""
+        start = text.find(needle)
+        if start >= 0:
+            chunk = text[start + len(needle) : start + len(needle) + 16]
+            found = chunk.split('"', 1)[0]
+        lines.append(f"{label}: {found or '(no version string)'}")
+    ok = ver == __version__ and all(
+        f"{__version__}" in (dest / rel).read_text(encoding="utf-8", errors="ignore")
+        for rel in ("web/app.js", "web/index.html", "paper_trader/__init__.py")
+        if (dest / rel).is_file()
+    )
+    lines.append("RESULT: " + ("OK — desk is " + __version__ if ok else "STUCK — still not " + __version__ + ". Close all desk windows and run FORCE-UPGRADE.bat again from a NEW extract."))
+    return "\n".join(lines)
 
 
 def _resume_learner(dest: Path) -> None:
@@ -276,7 +392,7 @@ def _copy_label(folder: Path) -> str:
 
 
 def single_copy_status(home: Path) -> dict[str, str | bool]:
-    """Accurate install count. Guides keep Documents\\Paper Trader 1.10.43 only."""
+    """Accurate install count. Guides keep Documents\\Paper Trader 1.10.44 only."""
     copies = sorted(find_installs(home), key=_installed_version, reverse=True)
     if not copies:
         return {"name": "Install", "ok": True, "detail": "No extra copies"}
@@ -287,7 +403,7 @@ def single_copy_status(home: Path) -> dict[str, str | bool]:
     shown = ", ".join(_copy_label(path) for path in extras[:4])
     more = f" +{len(extras) - 4} more" if len(extras) > 4 else ""
     detail = (
-        f"{len(copies)} copies · keep Documents\\Paper Trader (1.10.43) · newest {_copy_label(newest)} · also {shown}{more}. "
+        f"{len(copies)} copies · keep Documents\\Paper Trader (1.10.44) · newest {_copy_label(newest)} · also {shown}{more}. "
         "Double-click Erase-Other-Paper-Traders.bat in Documents\\Paper Trader to erase the extras."
     )
     return {"name": "Install", "ok": False, "detail": detail}
@@ -369,7 +485,7 @@ def remove_desktop_opener(home: Path) -> list[Path]:
     return removed
 
 
-KEEP_VERSION = "1.10.43"
+KEEP_VERSION = "1.10.44"
 
 
 def read_install_version(folder: Path) -> str:
@@ -402,7 +518,7 @@ def erase_other_installs(
     keep_version: str = KEEP_VERSION,
     killer=None,
 ) -> dict[str, object]:
-    """Keep only Paper Trader keep_version (default 1.10.43). Erase other installs, zips, and extra Bots."""
+    """Keep only Paper Trader keep_version (default 1.10.44). Erase other installs, zips, and extra Bots."""
     from paper_trader.learn import end_learner_pid, stop_learner
 
     end_pid = killer or end_learner_pid

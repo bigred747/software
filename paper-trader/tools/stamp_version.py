@@ -176,6 +176,7 @@ def build_zips(version: str) -> None:
         "tools/pick_upgrade_zip.py",
         "1 Allow Paper Trader.bat",
         "FORCE-UPGRADE.bat",
+        "CHECK-SEAL.bat",
         "Erase-Other-Paper-Traders.bat",
         "Start-Paper-Trader.bat",
     ]

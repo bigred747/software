@@ -1,9 +1,9 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title Paper Trader — keep 1.10.43 only
+title Paper Trader — keep 1.10.44 only
 echo.
-echo  Keep Paper Trader 1.10.43 in Documents\Paper Trader
+echo  Keep Paper Trader 1.10.44 in Documents\Paper Trader
 echo  Erase other installs (PaperTrader-setup-*), leftover zips, extra Bots
 echo.
 if exist "%~dp0runtime\python.exe" (

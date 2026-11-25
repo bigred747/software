@@ -4,7 +4,8 @@ cd /d "%~dp0"
 title Paper Trader FORCE UPGRADE
 echo.
 echo ============================================================
-echo  FORCE UPGRADE — replaces Documents\Paper Trader completely
+echo  FORCE UPGRADE — moves old Documents\Paper Trader aside
+echo  then installs THIS pack cleanly
 echo ============================================================
 echo.
 set "PY=%~dp0runtime\python.exe"
@@ -14,55 +15,57 @@ if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
 set "SEAL="
 if exist "%~dp0VERSION" set /p SEAL=<"%~dp0VERSION"
 if not defined SEAL (
-  echo This FORCE-UPGRADE.bat must sit next to VERSION inside the extracted zip.
-  echo Right-click Paper-Trader.zip - Extract All - open that folder - run FORCE-UPGRADE.bat
+  echo FORCE-UPGRADE.bat must sit next to VERSION in the extracted zip folder.
+  echo Right-click Paper-Trader.zip - Extract All - open paper-trader - run this file.
   pause
   exit /b 1
 )
-echo This pack seal is !SEAL!
+echo This extracted pack seal is: !SEAL!
 echo.
-echo 1. Close EVERY Paper Trader window and Edge desk tab now.
-echo 2. This will replace Documents\Paper Trader with seal !SEAL!
+echo CLOSE now:
+echo  - every Paper Trader window
+echo  - every Edge tab on 127.0.0.1
+echo  - any black cmd window titled Paper Trader
 echo.
-timeout /t 4 >nul
+timeout /t 5 >nul
 
 "%PY%" "%~dp0launch.py" force-upgrade > "%USERPROFILE%\Documents\paper-trader-force-upgrade.txt" 2>&1
-if errorlevel 1 (
-  echo.
+set "ERR=!errorlevel!"
+type "%USERPROFILE%\Documents\paper-trader-force-upgrade.txt"
+echo.
+if not "!ERR!"=="0" (
   echo FORCE UPGRADE FAILED.
-  type "%USERPROFILE%\Documents\paper-trader-force-upgrade.txt"
-  echo.
-  echo If it says close windows / file in use: close Paper Trader + Edge, then run again.
+  echo Close all desk windows and run this again from the NEW extract.
   pause
   exit /b 1
 )
+
+"%PY%" "%~dp0launch.py" check-seal > "%USERPROFILE%\Documents\paper-trader-check-seal.txt" 2>&1
+type "%USERPROFILE%\Documents\paper-trader-check-seal.txt"
+echo.
 
 set "DEST=%USERPROFILE%\Documents\Paper Trader"
 set "CHECK="
 if exist "!DEST!\VERSION" set /p CHECK=<"!DEST!\VERSION"
-echo.
 if /I not "!CHECK!"=="!SEAL!" (
-  echo UPGRADE DID NOT LAND. Documents\Paper Trader still shows: !CHECK!
-  echo Expected: !SEAL!
-  type "%USERPROFILE%\Documents\paper-trader-force-upgrade.txt"
+  echo STILL NOT !SEAL! — Documents shows: !CHECK!
+  echo You must close the running desk so files can be replaced.
   pause
   exit /b 1
 )
 
-echo SUCCESS — Documents\Paper Trader is now !CHECK!
-> "%USERPROFILE%\Desktop\Paper Trader.bat" echo @echo off
->> "%USERPROFILE%\Desktop\Paper Trader.bat" echo cd /d "!DEST!"
->> "%USERPROFILE%\Desktop\Paper Trader.bat" echo title Paper Trader !CHECK!
->> "%USERPROFILE%\Desktop\Paper Trader.bat" echo call "Start-Paper-Trader.bat"
-if exist "%USERPROFILE%\OneDrive\Desktop" (
-  > "%USERPROFILE%\OneDrive\Desktop\Paper Trader.bat" echo @echo off
-  >> "%USERPROFILE%\OneDrive\Desktop\Paper Trader.bat" echo cd /d "!DEST!"
-  >> "%USERPROFILE%\OneDrive\Desktop\Paper Trader.bat" echo title Paper Trader !CHECK!
-  >> "%USERPROFILE%\OneDrive\Desktop\Paper Trader.bat" echo call "Start-Paper-Trader.bat"
+echo SUCCESS — Documents\Paper Trader is !CHECK!
+> "%USERPROFILE%\Desktop\Paper Trader.bat" (
+  echo @echo off
+  echo cd /d "!DEST!"
+  echo title Paper Trader !CHECK!
+  echo if exist "SEAL.txt" type "SEAL.txt"
+  echo call "Start-Paper-Trader.bat"
 )
+echo Desktop Paper Trader.bat rewritten to Documents\Paper Trader.
 echo.
-echo Close every old desk window.
-echo Opening the new desk now — seal must say Paper !CHECK!
+echo Opening the new desk. Seal must say Paper !CHECK!
+echo If you still see 1.10.40, you clicked an old Edge tab — close it.
 echo.
 start "" "!DEST!\Start-Paper-Trader.bat"
 pause

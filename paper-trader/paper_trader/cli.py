@@ -34,6 +34,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Wipe-replace Documents\\Paper Trader from this extracted pack (FORCE-UPGRADE.bat)",
     )
     force.add_argument("--home", type=Path, default=None)
+    commands.add_parser(
+        "check-seal",
+        help="Print what Documents\\Paper Trader VERSION / web files actually are",
+    )
     erase = commands.add_parser(
         "erase-others",
         help="Keep the current Paper Trader seal only; erase other installs, zips, and extra Bots",
@@ -83,6 +87,11 @@ def main(argv: list[str] | None = None) -> int:
             dest = force_upgrade(folder, home)
             print(dest)
             print("force-upgrade")
+            return 0
+        if args.command == "check-seal":
+            from paper_trader.install import desk_seal_report
+
+            print(desk_seal_report(Path.home()))
             return 0
         if args.command == "erase-others":
             home = args.home or Path.home()

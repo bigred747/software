@@ -230,14 +230,23 @@ class InstallTests(unittest.TestCase):
                 '<meta name="paper-build" content="1.10.40">\n', encoding="utf-8"
             )
             with patch("paper_trader.install._resume_learner"), patch(
-                "paper_trader.install.ask_learners_to_close", create=True
-            ), patch("paper_trader.learn.ask_learners_to_close"), patch(
-                "paper_trader.learn.end_learner_pid"
-            ), patch("paper_trader.schwab_env.ensure_env_file"):
+                "paper_trader.learn.ask_learners_to_close"
+            ), patch("paper_trader.learn.end_learner_pid"), patch(
+                "paper_trader.schwab_env.ensure_env_file"
+            ), patch("paper_trader.install.erase_other_installs", return_value={
+                "keep": str(dest),
+                "keep_version": KEEP_VERSION,
+                "erased": [],
+                "closed": [],
+                "zips_removed": [],
+            }):
                 out = force_upgrade(pack, home)
             self.assertEqual(out, dest.resolve())
             self.assertEqual(read_install_version(dest), KEEP_VERSION)
             self.assertIn(f'const VERSION = "{KEEP_VERSION}"', (dest / "web" / "app.js").read_text(encoding="utf-8"))
+            self.assertTrue((dest / "SEAL.txt").is_file())
+            olds = list((home / "Documents").glob("Paper Trader-OLD-*"))
+            self.assertTrue(olds, "old desk should be renamed aside")
 
 
 if __name__ == "__main__":

@@ -70,6 +70,10 @@ exit /b 1
 echo Unblock
 echo If Windows shows an Unblock box, check Unblock and open this file.
 echo That box lets this copy open. It stays on this computer.
+set "SEAL="
+if exist "%~dp0VERSION" set /p SEAL=<"%~dp0VERSION"
+echo This folder seal: !SEAL!
+if exist "%~dp0SEAL.txt" type "%~dp0SEAL.txt"
 echo Paper Trader stays on this computer. It loads market quotes and does not place broker orders.
 echo Microsoft Edge opens the desk.
 call :DeskLink "%~dp0"
