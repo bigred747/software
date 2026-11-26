@@ -1,1 +1,1 @@
-Paper Trader 1.10.51 — computer zip + iPhone single-file desk. Seal must read 1.10.51.
+Paper Trader 1.10.51 — full desk (all tabs) + open path like 1.10.40. Prefer FULL Paper-Trader.zip for first install (has runtime). Slim upgrades keep existing runtime. Seal must read 1.10.51.

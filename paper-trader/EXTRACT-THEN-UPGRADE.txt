@@ -1,15 +1,16 @@
-Paper Trader — read this if seal stays 1.10.40
+Paper Trader 1.10.51 — open like 1.10.40
 
-You MUST Extract All. Do not double-click files inside the zip.
-Windows Temp paths like AppData\Local\Temp\...Paper-Trader....zip... do not work.
+Use the FULL zip so it opens (has runtime\python.exe):
+  https://github.com/bigred747/software/raw/main/Paper-Trader.zip
 
-1. Close every Paper Trader window and Edge desk tab.
-2. Download Paper-Trader.zip to Downloads.
-3. Right-click Paper-Trader.zip → Extract All → extract to Downloads\Paper-Trader.
+Do NOT rely on the slim zip alone for a fresh install — slim has no runtime.
+
+1. Close every Paper Trader window, black cmd window, and Edge tab on 127.0.0.1
+2. Save Paper-Trader.zip in Downloads
+3. Right-click → Extract All → extract to Downloads\Paper-Trader
 4. Open Downloads\Paper-Trader\paper-trader
-5. Double-click FORCE-UPGRADE.bat
-6. Wait for: SUCCESS — Documents\Paper Trader is 1.10.45 (or newer)
-7. Open Desktop\Paper Trader.bat
-8. Top seal must say Paper 1.10.45 (or newer)
+5. Double-click Start-Paper-Trader.bat  (or FORCE-UPGRADE.bat if Documents is stuck)
+6. Wait for Edge. Seal must say Paper 1.10.51
+7. Later opens: Desktop\Paper Trader.bat
 
-If unsure, run CHECK-SEAL.bat from the same extracted folder.
+If Start says Python was not found, you used the slim zip — download the FULL zip above and retry.

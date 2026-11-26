@@ -30,23 +30,40 @@ if not exist "%STAGE%\." goto BadZip
 echo Extracting into: !STAGE!
 tar -xf "!ZIP!" -C "!STAGE!"
 if errorlevel 1 goto BadZip
-if not exist "!STAGE!\paper-trader\FORCE-UPGRADE.bat" goto BadZip
-start "" "!STAGE!\paper-trader\FORCE-UPGRADE.bat"
-echo Extracted. FORCE-UPGRADE will replace Documents\Paper Trader.
-pause
+if not exist "!STAGE!\paper-trader\launch.py" goto BadZip
+set "RUN=!STAGE!\paper-trader"
+set "PY=!RUN!\runtime\python.exe"
+if not exist "!PY!" set "PY=python"
+"!PY!" "!RUN!\launch.py" install > "%USERPROFILE%\Documents\paper-trader-install.txt" 2>&1
+if exist "%USERPROFILE%\Documents\Paper Trader\launch.py" set "RUN=%USERPROFILE%\Documents\Paper Trader"
+if errorlevel 1 (
+  echo Install note:
+  type "%USERPROFILE%\Documents\paper-trader-install.txt"
+)
+rem Always open Documents\Paper Trader — never keep running from PaperTrader-setup.
+if exist "%USERPROFILE%\Documents\Paper Trader\launch.py" set "RUN=%USERPROFILE%\Documents\Paper Trader"
+"!PY!" "!RUN!\launch.py" erase-others > "%USERPROFILE%\Documents\paper-trader-erase.txt" 2>&1
+echo Setup is done. Leave the window named Paper Trader open.
+echo Microsoft Edge opens when the desk answers.
+echo The desk folder is:
+echo !RUN!
+call :DeskLink "!RUN!"
+call :MakePhone "!RUN!"
+start "Paper Trader" /D "!RUN!" cmd /c "2 Open Paper Trader.bat"
+echo Press any key to close this setup window.
+pause >nul
 exit /b 0
 
 :NoZip
 echo Could not find Paper-Trader.zip in Downloads, Desktop, Documents, or OneDrive.
-echo Save the zip in Downloads, then double-click this file again.
+echo Save the FULL Paper-Trader.zip (not only the slim) in Downloads, then try again.
 pause
 exit /b 1
 
 :BadZip
 echo Could not extract Paper-Trader.zip.
-echo Usually Documents\PaperTrader-setup is locked by a running Paper Trader.
 echo Close EVERY Paper Trader window and black cmd window, then try again.
-echo Or right-click the zip - Extract All - then open FORCE-UPGRADE.bat.
+echo Or right-click the zip - Extract All - then open Start-Paper-Trader.bat.
 pause
 exit /b 1
 
@@ -62,36 +79,29 @@ if exist "%~dp0SEAL.txt" type "%~dp0SEAL.txt"
 set "DEST=%USERPROFILE%\Documents\Paper Trader"
 set "HERE=%~dp0"
 if "!HERE:~-1!"=="\" set "HERE=!HERE:~0,-1!"
-set "DESTN=!DEST!"
 
-rem If this is not Documents\Paper Trader, force-upgrade Documents first, then open that copy.
-if /I not "!HERE!"=="!DESTN!" (
+rem Extract All folder (not Documents): install like 1.10.40, then open Documents.
+if /I not "!HERE!"=="!DEST!" (
   echo.
   echo This extract is not Documents\Paper Trader.
-  echo Upgrading Documents\Paper Trader to seal !SEAL! now...
-  echo Close every desk window / Edge 127.0.0.1 tab if prompted.
-  echo.
+  echo Installing into Documents\Paper Trader ^(1.10.40 open path^)...
   set "PY=%~dp0runtime\python.exe"
   if not exist "!PY!" set "PY=python"
-  "!PY!" "%~dp0launch.py" force-upgrade > "%USERPROFILE%\Documents\paper-trader-force-upgrade.txt" 2>&1
+  "!PY!" "%~dp0launch.py" install > "%USERPROFILE%\Documents\paper-trader-install.txt" 2>&1
   set "ERR=!errorlevel!"
-  type "%USERPROFILE%\Documents\paper-trader-force-upgrade.txt"
+  type "%USERPROFILE%\Documents\paper-trader-install.txt"
   if not "!ERR!"=="0" (
-    echo FORCE UPGRADE FAILED — Documents stayed on the old seal.
-    echo Close EVERY Paper Trader window and run FORCE-UPGRADE.bat again.
+    echo Install failed. If Documents is stuck on an old seal, run FORCE-UPGRADE.bat from this extract.
     pause
     exit /b 1
   )
-  set "CHECK="
-  if exist "!DEST!\VERSION" set /p CHECK=<"!DEST!\VERSION"
-  if /I not "!CHECK!"=="!SEAL!" (
-    echo Documents\Paper Trader\VERSION is !CHECK! — wanted !SEAL!
-    echo Close the running desk and run FORCE-UPGRADE.bat from this extract.
+  if not exist "!DEST!\launch.py" (
+    echo Documents\Paper Trader missing after install. Run FORCE-UPGRADE.bat from this extract.
     pause
     exit /b 1
   )
-  echo Documents\Paper Trader is now !CHECK!
-  start "" "!DEST!\Start-Paper-Trader.bat"
+  echo Opening Documents\Paper Trader...
+  start "Paper Trader" /D "!DEST!" cmd /c "2 Open Paper Trader.bat"
   exit /b 0
 )
 
@@ -113,7 +123,9 @@ if not errorlevel 1 (
   py -3 "%~dp0launch.py" serve
   goto done
 )
-echo Python was not found. Extract Paper-Trader.zip again, then run FORCE-UPGRADE.bat.
+echo Python was not found in this folder.
+echo Use the FULL Paper-Trader.zip ^(has runtime^), Extract All, then run FORCE-UPGRADE.bat once.
+echo Or put system Python on PATH.
 :done
 pause
 exit /b 0
