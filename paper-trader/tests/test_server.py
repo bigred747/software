@@ -965,17 +965,17 @@ class ServerTests(unittest.TestCase):
         self.assertIn("serve", bat)
         self.assertIn("if not errorlevel 1", bat)
         self.assertIn("extract_zip.py", bat)
-        self.assertIn("opening the new copy", bat)
-        self.assertIn("close this setup window", bat)
-        self.assertIn("older installs are not deleted", bat)
+        self.assertIn("starting paper trader", bat)
+        self.assertIn("one click", bat)
         self.assertNotIn("goto badinstall", bat)
-        # Open serves THIS folder like 1.10.40 — no auto force-upgrade on Normal open.
+        # One-click Start serves THIS folder — no auto force-upgrade, no Explorer popup.
         self.assertNotIn("force-upgrade", bat)
-        self.assertIn("unblock", bat)
+        self.assertNotIn("start \"\" explorer", bat)
+        self.assertNotIn("explorer \"", bat)
         self.assertIn("documents\\iphone", bat)
         self.assertIn("papertrader.html", bat)
-        self.assertIn("explorer", bat)
         self.assertIn("paper trader.bat", bat)
+        self.assertIn("start-paper-trader.bat", bat)
         self.assertNotIn("pip", bat)
         self.assertNotIn("requirements", bat)
         allow = (ROOT / "1 Allow Paper Trader.bat").read_text(encoding="utf-8").lower()
@@ -988,6 +988,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn("one-click", install)
         self.assertIn("extract_zip.py", opener)
         self.assertIn("papertrader-setup", opener)
+        self.assertIn("start-paper-trader.bat", opener)
         for name in (
             "Start-Paper-Trader.bat",
             "1 Allow Paper Trader.bat",

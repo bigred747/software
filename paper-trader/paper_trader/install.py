@@ -361,15 +361,17 @@ def desktop_folders(home: Path) -> list[Path]:
 
 
 def write_desktop_opener(install: Path, home: Path) -> list[Path]:
-    """A visible desktop file that opens this copy. No script host and no PowerShell."""
-    opener = install / "2 Open Paper Trader.bat"
+    """A visible desktop file that one-click opens this copy via Start-Paper-Trader.bat."""
+    opener = install / "Start-Paper-Trader.bat"
+    if not opener.is_file():
+        opener = install / "2 Open Paper Trader.bat"
     if not opener.is_file():
         return []
     script = (
         "@echo off\r\n"
         f'cd /d "{install}"\r\n'
         "title Paper Trader\r\n"
-        'call "2 Open Paper Trader.bat"\r\n'
+        f'call "{opener.name}"\r\n'
     )
     written: list[Path] = []
     for folder in desktop_folders(home):
@@ -491,15 +493,17 @@ def remove_desktop_opener(home: Path) -> list[Path]:
     for folder in desktop_folders(home):
         path = folder / OPENER_NAME
         try:
-            if path.is_file() and "2 Open Paper Trader.bat" in path.read_text(encoding="utf-8", errors="ignore"):
-                path.unlink()
-                removed.append(path)
+            if path.is_file():
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                if "Start-Paper-Trader.bat" in text or "2 Open Paper Trader.bat" in text:
+                    path.unlink()
+                    removed.append(path)
         except OSError:
             continue
     return removed
 
 
-KEEP_VERSION = "1.10.54"
+KEEP_VERSION = "1.10.55"
 
 
 def read_install_version(folder: Path) -> str:
@@ -532,7 +536,7 @@ def erase_other_installs(
     keep_version: str = KEEP_VERSION,
     killer=None,
 ) -> dict[str, object]:
-    """Keep only Paper Trader keep_version (default 1.10.54). Erase other installs, zips, and extra Bots."""
+    """Keep only Paper Trader keep_version (default 1.10.55). Erase other installs, zips, and extra Bots."""
     from paper_trader.learn import end_learner_pid, stop_learner
 
     end_pid = killer or end_learner_pid
