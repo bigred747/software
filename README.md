@@ -2,6 +2,18 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## Luxe Mission Score Repair 1.0.0
+
+Repairs the four Mission Control 1.8.0 checks that hold the verified score at 93. It does not publish and does not rewrite Amazon retail URLs.
+
+Upload this zip:
+
+[dist/Luxe-Mission-Score-Repair-v1.0.0.zip](dist/Luxe-Mission-Score-Repair-v1.0.0.zip)
+
+SHA-256 `92e9ed9e7721f1b79eec9355a79e45c9ddb8dd555a74f1362151c5e55fc64fa3`
+
+Then activate it, open **Tools → Luxe Mission Score**, load the homepage once, and run the Mission Control audit.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.
