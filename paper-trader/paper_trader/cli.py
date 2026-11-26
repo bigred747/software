@@ -141,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("Port must be from 1024 to 65535")
             install_root = Path(__file__).resolve().parents[1]
             from paper_trader import __version__
-            from paper_trader.install import write_desktop_opener
+            from paper_trader.install import LAB_PORT, is_fibs_lab, write_desktop_opener
             from paper_trader.schwab_env import ensure_env_file, heal_env_from_documents
 
             home = Path.home()
@@ -149,6 +149,11 @@ def main(argv: list[str] | None = None) -> int:
             # and os.execv there — paths with a space break on Windows
             # (python opens C:\Users\...\Documents\Paper).
             # Never erase other installs on open.
+            # Fibs Lab uses its own port + desktop shortcut so the working desk stays alone.
+            lab = is_fibs_lab(install_root)
+            port = args.port
+            if lab and port == 8765:
+                port = LAB_PORT
             os.chdir(install_root)
             assert_safe_launch([install_root])
             global STATE_PATH
@@ -163,7 +168,10 @@ def main(argv: list[str] | None = None) -> int:
                 pass
             ensure_env_file(install_root)
             heal_env_from_documents(install_root)
-            serve(STATE_PATH, args.port, open_browser=not args.no_browser)
+            if lab:
+                print(f"Fibs Lab desk on http://127.0.0.1:{port}/")
+                print("Working Paper Trader desk is untouched (separate folder + shortcut).")
+            serve(STATE_PATH, port, open_browser=not args.no_browser)
             return 0
         if args.command == "learn":
             install_root = Path(__file__).resolve().parents[1]

@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.59";
+const VERSION = "1.10.70";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -10298,6 +10298,8 @@ async function fetchFrameBars(symbol, frameId) {
   }
   return (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=" + encodeURIComponent(frameId))).bars || [];
 }
+window.fetchFrameBars = fetchFrameBars;
+window.barsForLearn = barsForLearn;
 
 async function loadEdgeFrames(force) {
   const ef = state.ef;
@@ -13543,6 +13545,9 @@ function showDock(name, opts) {
   if (!name) name = "home";
   if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) name = "home";
   const skipRun = !!(opts && opts.skipRun);
+  if (name === "fibs") {
+    if (window.PaperFibs && typeof PaperFibs.runFibsPage === "function") PaperFibs.runFibsPage();
+  }
   if (name === "internals") loadInternals(false);
   if (name === "scorecard") {
     renderScorecard();

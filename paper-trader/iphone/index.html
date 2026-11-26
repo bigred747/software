@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.60">
-  <meta name="paper-publish" content="20261126T081427Z">
-  <meta name="paper-private-build" content="publish-20261126T081427Z">
+  <meta name="paper-build" content="1.10.70">
+  <meta name="paper-publish" content="20261123T072000Z">
+  <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Paper Trader">
@@ -1744,47 +1744,6 @@ tr.best td:first-child{box-shadow:inset 3px 0 0 #3ddc97}
 .safe-list li.bad::before{content:"FAIL  ";color:var(--down)}
 .safe-list li.ok{color:var(--text)}
 
-.fibs-wrap { display: grid; gap: 10px; }
-.fibs-chart-box {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: #070b10;
-  padding: 6px;
-  min-height: 320px;
-}
-.fibs-chart-box canvas {
-  width: 100%;
-  height: 340px;
-  display: block;
-  background: #070b10;
-}
-.fibs-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.fibs-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.fibs-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  display: inline-block;
-}
-.fibs-levels td.buy { color: #3ddc97; font-weight: 700; }
-.fibs-levels td.sell { color: #ff6b7a; font-weight: 700; }
-.fibs-levels td.key { color: #ffd166; font-weight: 700; }
-.fibs-banner {
-  margin: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel-ink);
-  font-size: 13px;
-}
-
-
 .internals-pill{width:100%;margin:4px 0;text-align:left;border:1px solid var(--line-strong);background:var(--button);color:var(--text);padding:6px 10px;border-radius:var(--radius);font-weight:600}
 .internals-pill.supportive{border-color:var(--up);color:#bff5db;background:var(--up-deep)}
 .internals-pill.mixed{border-color:var(--warn);color:#ffe9b0;background:var(--warn-deep)}
@@ -2169,12 +2128,42 @@ body.ready #mood-clock { width: 88px; height: 88px; }
   .position-chip { font-size: 11px; padding: 2px 8px; }
 }
 
+
+/* Fibs Lab page (Tools → Fibs) — not painted on the main Chart */
+.fibs-ext-head { margin: 10px 0 4px; font-size: 13px; color: var(--muted); }
+.fibs-toggles { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 6px 0; }
+.fibs-toggles label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 4px 8px; background: var(--panel-ink);
+}
+.fibs-toggles input { accent-color: #fbbf24; }
+.fibs-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.fibs-frame-bar { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.fibs-frame-bar button {
+  min-height: 32px; padding: 4px 10px; font-size: 12px;
+  border: 1px solid var(--line); background: var(--button); color: var(--muted); border-radius: 8px;
+}
+.fibs-frame-bar button.on { color: var(--text); border-color: var(--fast); background: var(--panel-2); }
+.fibs-banner {
+  margin: 0 0 8px; padding: 8px 10px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--panel-ink); font-size: 13px;
+}
+.fibs-chart-box {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: #070b10; padding: 6px; margin: 8px 0;
+}
+.fibs-chart-box canvas { width: 100%; height: 380px; display: block; background: #070b10; }
+.fibs-levels td.buy { color: #3ddc97; font-weight: 700; }
+.fibs-levels td.sell { color: #ff6b7a; font-weight: 700; }
+.fibs-levels td.key { color: #ffd166; font-weight: 700; }
+
 </style>
 </head>
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.60</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.70</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -2968,44 +2957,45 @@ AddOrder(Sell, sellFire);</textarea>
         </section>
       </div>
 
-
       <div class="dock-page" data-dock-page="fibs">
         <div class="dock-page-head">
-          <button type="button" class="dock-back quiet" id="fibs-home">Home</button>
-          <h2>Fibs</h2>
+          <button type="button" class="dock-back quiet">Home</button>
+          <h2>Fibs Lab</h2>
         </div>
-        <p class="muted">Thinkorswim-style Fibonacci retracement: <strong>0 · 23.6 · 38.2 · 50 · 61.8 · 78.6 · 100</strong>. Best desk buys on an upswing pullback: <strong>61.8</strong> then 50 · 38.2 (23.6 is shallow). Best sells on a downswing bounce: <strong>61.8</strong> then 50 · 38.2. Example starts on <strong>AMD</strong>. Paper only. Not a forecast.</p>
+        <p class="muted">Own Tools page (not on the main Chart). Thinkorswim retracements + extensions. Toggle each line. Pick a timeframe. Defaults to AMD. This Fibs Lab desk runs separate from your working bot.</p>
         <div class="strat-orb-inputs">
           <label for="fibs-symbol">Market</label>
           <input id="fibs-symbol" maxlength="16" value="AMD" autocomplete="off">
           <button id="fibs-run" type="button">Draw Fibs</button>
-          <button type="button" class="quiet" data-open-dock="home">Home</button>
         </div>
-        <p id="fibs-note" class="muted">Press Draw Fibs. Uses closed daily bars. Swing high/low anchors the Thinkorswim levels.</p>
+        <p class="fibs-ext-head">Timeframe</p>
+        <div id="fibs-frames" class="fibs-frame-bar" role="group" aria-label="Fib timeframes">
+          <button type="button" data-fib-frame="1m">1m</button>
+          <button type="button" data-fib-frame="5m">5m</button>
+          <button type="button" data-fib-frame="15m">15m</button>
+          <button type="button" data-fib-frame="30m">30m</button>
+          <button type="button" data-fib-frame="1h">1h</button>
+          <button type="button" data-fib-frame="4h">4h</button>
+          <button type="button" data-fib-frame="1D" class="on">1D</button>
+          <button type="button" data-fib-frame="1W">1W</button>
+          <button type="button" data-fib-frame="1M">1M</button>
+        </div>
+        <p class="fibs-ext-head">Retracements (on/off)</p>
+        <div id="fibs-ret-toggles" class="fibs-toggles"></div>
+        <p class="fibs-ext-head">Extensions · 127.2± · 161.8± · 200± · 261.8±</p>
+        <div id="fibs-ext-toggles" class="fibs-toggles"></div>
+        <p id="fibs-note" class="muted">Press Draw Fibs.</p>
         <p id="fibs-banner" class="fibs-banner" aria-live="polite">Waiting for AMD…</p>
-        <div class="fibs-wrap">
-          <div class="fibs-chart-box">
-            <canvas id="fibs-chart" width="800" height="340" aria-label="Fibonacci chart"></canvas>
+        <div class="fibs-chart-box"><canvas id="fibs-chart" width="800" height="380" aria-label="Fibonacci chart"></canvas></div>
+        <section class="scorecard-panel" aria-label="Fib levels">
+          <h3>Visible levels</h3>
+          <div class="table-wrap">
+            <table class="fibs-levels">
+              <thead><tr><th>Level</th><th>Price</th><th>Role</th><th>Desk use</th></tr></thead>
+              <tbody id="fibs-levels"></tbody>
+            </table>
           </div>
-          <div class="fibs-legend" aria-label="Fib colors">
-            <span><i class="fibs-dot" style="background:#e8eef5"></i>0%</span>
-            <span><i class="fibs-dot" style="background:#4ecdc4"></i>23.6%</span>
-            <span><i class="fibs-dot" style="background:#7cb342"></i>38.2%</span>
-            <span><i class="fibs-dot" style="background:#ef5350"></i>50%</span>
-            <span><i class="fibs-dot" style="background:#ffb300"></i>61.8%</span>
-            <span><i class="fibs-dot" style="background:#ab47bc"></i>78.6%</span>
-            <span><i class="fibs-dot" style="background:#90a4ae"></i>100%</span>
-          </div>
-          <section class="scorecard-panel" aria-label="Fib levels">
-            <h3>Levels · buys and sells</h3>
-            <div class="table-wrap">
-              <table class="fibs-levels">
-                <thead><tr><th>Level</th><th>Price</th><th>Role</th><th>Desk use</th></tr></thead>
-                <tbody id="fibs-levels"></tbody>
-              </table>
-            </div>
-          </section>
-        </div>
+        </section>
       </div>
 
       <div class="dock-page" data-dock-page="internals">
@@ -11077,6 +11067,7 @@ AddOrder(Sell, sellFire);</textarea>
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
 </script>
+  <script src="fibs.js?v=11070"></script>
   <script>
 /* Paper Trader desk booster — pace, lanes, and learn gap.
    Fail closed: never unlocks Live, never invents quotes, never skips Safe.
@@ -11386,7 +11377,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.60";
+const VERSION = "1.10.70";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -21505,6 +21496,8 @@ async function fetchFrameBars(symbol, frameId) {
   }
   return (await getJSON("/api/bars?symbol=" + encodeURIComponent(symbol) + "&frame=" + encodeURIComponent(frameId))).bars || [];
 }
+window.fetchFrameBars = fetchFrameBars;
+window.barsForLearn = barsForLearn;
 
 async function loadEdgeFrames(force) {
   const ef = state.ef;
@@ -23740,8 +23733,6 @@ if ($("sc-stop")) {
   });
 }
 if ($("scout-run")) $("scout-run").addEventListener("click", runScoutSheet);
-if ($("fibs-run")) $("fibs-run").addEventListener("click", runFibsPage);
-if ($("fibs-symbol")) $("fibs-symbol").addEventListener("keydown", (event) => { if (event.key === "Enter") runFibsPage(); });
 if ($("scout-stop")) {
   $("scout-stop").addEventListener("click", () => {
     if (state.scout) state.scout.stop = true;
@@ -24748,242 +24739,14 @@ async function runLeanBook() {
 }
 
 
-
-const TOS_FIB_LEVELS = [
-  { pct: 0, label: "0%", color: "#e8eef5", weight: 2 },
-  { pct: 23.6, label: "23.6%", color: "#4ecdc4", weight: 1.5 },
-  { pct: 38.2, label: "38.2%", color: "#7cb342", weight: 1.5 },
-  { pct: 50, label: "50%", color: "#ef5350", weight: 1.5 },
-  { pct: 61.8, label: "61.8%", color: "#ffb300", weight: 2.4 },
-  { pct: 78.6, label: "78.6%", color: "#ab47bc", weight: 1.5 },
-  { pct: 100, label: "100%", color: "#90a4ae", weight: 2 },
-];
-
-function fibSwingRead(bars) {
-  const list = (bars || []).slice();
-  if (list.length < 30) return null;
-  const window = list.slice(-90);
-  let hi = -Infinity;
-  let lo = Infinity;
-  let hiAt = 0;
-  let loAt = 0;
-  window.forEach((bar, index) => {
-    if (bar.high >= hi) {
-      hi = bar.high;
-      hiAt = index;
-    }
-    if (bar.low <= lo) {
-      lo = bar.low;
-      loAt = index;
-    }
-  });
-  if (!(hi > lo)) return null;
-  const upswing = loAt < hiAt;
-  const anchorLow = lo;
-  const anchorHigh = hi;
-  const startIndex = list.length - window.length;
-  return {
-    upswing,
-    low: anchorLow,
-    high: anchorHigh,
-    from: startIndex + Math.min(loAt, hiAt),
-    to: startIndex + Math.max(loAt, hiAt),
-    lowAt: startIndex + loAt,
-    highAt: startIndex + hiAt,
-    close: list[list.length - 1].close,
-  };
-}
-
-function fibPriceAt(swing, pct) {
-  if (!swing) return null;
-  const span = swing.high - swing.low;
-  // Thinkorswim retracement: 0% at swing high, 100% at swing low for a bullish pullback tool.
-  // For a bearish bounce tool (high then low), 0% stays at the start of the move (high) and 100% at the end (low).
-  // Unified desk math: 0% = high, 100% = low (classic TOS retracement from high→low path).
-  return swing.high - span * (pct / 100);
-}
-
-function fibRole(pct, upswing) {
-  if (pct === 0) return { role: "Swing high", use: upswing ? "Sell / take-profit zone" : "Rally start watch", klass: "sell" };
-  if (pct === 100) return { role: "Swing low", use: upswing ? "Fail / invalidate" : "Sell target zone", klass: "sell" };
-  if (pct === 23.6) return { role: "Shallow", use: upswing ? "Light buy (shallow pullback)" : "Early sell bounce", klass: upswing ? "buy" : "sell" };
-  if (pct === 38.2) return { role: "Standard", use: upswing ? "Buy zone" : "Sell zone", klass: upswing ? "buy" : "sell" };
-  if (pct === 50) return { role: "Mid", use: upswing ? "Buy zone" : "Sell zone", klass: upswing ? "buy" : "sell" };
-  if (pct === 61.8) return { role: "Golden", use: upswing ? "Best buy" : "Best sell", klass: "key" };
-  if (pct === 78.6) return { role: "Deep", use: upswing ? "Last buy / risk" : "Last sell / risk", klass: upswing ? "buy" : "sell" };
-  return { role: "Level", use: "Watch", klass: "" };
-}
-
-function paintFibChart(canvas, bars, swing) {
-  if (!canvas || !bars || !bars.length || !swing) return;
-  const ratio = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth || 640;
-  const height = canvas.clientHeight || 340;
-  canvas.width = Math.floor(width * ratio);
-  canvas.height = Math.floor(height * ratio);
-  const ctx = canvas.getContext("2d");
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-  ctx.clearRect(0, 0, width, height);
-  const view = bars.slice(-90);
-  const dropped = bars.length - view.length;
-  let low = Math.min(...view.map((b) => b.low));
-  let high = Math.max(...view.map((b) => b.high));
-  TOS_FIB_LEVELS.forEach((row) => {
-    const price = fibPriceAt(swing, row.pct);
-    if (price < low) low = price;
-    if (price > high) high = price;
-  });
-  const span = high - low || 1;
-  low -= span * 0.06;
-  high += span * 0.06;
-  const padLeft = 52;
-  const padRight = 78;
-  const padTop = 18;
-  const padBottom = 16;
-  const y = (price) => padTop + ((high - price) / (high - low)) * (height - padTop - padBottom);
-  const slot = (width - padLeft - padRight) / view.length;
-  const xAt = (index) => padLeft + index * slot + slot / 2;
-  ctx.fillStyle = "#070b10";
-  ctx.fillRect(0, 0, width, height);
-  ctx.strokeStyle = "#243040";
-  ctx.fillStyle = "#8a97a6";
-  ctx.font = "11px Segoe UI, sans-serif";
-  for (let g = 0; g < 5; g += 1) {
-    const price = low + ((high - low) * g) / 4;
-    const line = y(price);
-    ctx.beginPath();
-    ctx.moveTo(padLeft, line);
-    ctx.lineTo(width - padRight, line);
-    ctx.stroke();
-    ctx.fillText(price.toFixed(price >= 100 ? 2 : 3), 4, line + 3);
-  }
-  view.forEach((bar, index) => {
-    const x = xAt(index);
-    const up = bar.close >= bar.open;
-    ctx.strokeStyle = up ? "#3ddc97" : "#ff6b7a";
-    ctx.fillStyle = up ? "rgba(61,220,151,0.35)" : "rgba(255,107,122,0.35)";
-    ctx.beginPath();
-    ctx.moveTo(x, y(bar.high));
-    ctx.lineTo(x, y(bar.low));
-    ctx.stroke();
-    const top = y(Math.max(bar.open, bar.close));
-    const bot = y(Math.min(bar.open, bar.close));
-    ctx.fillRect(x - Math.max(1.2, slot * 0.28), top, Math.max(2.4, slot * 0.56), Math.max(1, bot - top));
-  });
-  // Trend anchor diagonal (TOS-style path)
-  const a = Math.max(0, swing.from - dropped);
-  const b = Math.max(0, swing.to - dropped);
-  ctx.strokeStyle = "rgba(232,238,245,0.35)";
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(xAt(a), y(bars[swing.from].close));
-  ctx.lineTo(xAt(b), y(bars[swing.to].close));
-  ctx.stroke();
-  ctx.setLineDash([]);
-  TOS_FIB_LEVELS.forEach((row) => {
-    const price = fibPriceAt(swing, row.pct);
-    const yy = y(price);
-    ctx.strokeStyle = row.color;
-    ctx.lineWidth = row.weight;
-    ctx.beginPath();
-    ctx.moveTo(padLeft, yy);
-    ctx.lineTo(width - padRight, yy);
-    ctx.stroke();
-    const tag = row.label + "  " + price.toFixed(price >= 100 ? 2 : 3);
-    ctx.fillStyle = "rgba(5,8,12,0.85)";
-    const tw = ctx.measureText(tag).width + 8;
-    ctx.fillRect(width - padRight + 2, yy - 8, tw, 14);
-    ctx.fillStyle = row.color;
-    ctx.fillText(tag, width - padRight + 6, yy + 3);
-  });
-  ctx.fillStyle = "#e8eef5";
-  ctx.font = "700 14px Segoe UI, sans-serif";
-  ctx.fillText("AMD-style Fib · TOS levels", padLeft, 14);
-}
-
-function renderFibLevels(swing) {
-  const body = $("fibs-levels");
-  if (!body) return;
-  if (!swing) {
-    body.innerHTML = "";
-    return;
-  }
-  body.innerHTML = TOS_FIB_LEVELS.map((row) => {
-    const price = fibPriceAt(swing, row.pct);
-    const meta = fibRole(row.pct, swing.upswing);
-    return (
-      "<tr>" +
-      "<td style=\"color:" + row.color + "\">" + row.label + "</td>" +
-      "<td>" + price.toFixed(price >= 100 ? 2 : 3) + "</td>" +
-      "<td>" + meta.role + "</td>" +
-      "<td class=\"" + meta.klass + "\">" + meta.use + "</td>" +
-      "</tr>"
-    );
-  }).join("");
-}
-
-async function runFibsPage() {
-  const input = $("fibs-symbol");
-  const note = $("fibs-note");
-  const banner = $("fibs-banner");
-  const symbol = ((input && input.value) || "AMD").trim().toUpperCase() || "AMD";
-  if (input) input.value = symbol;
-  if (note) note.textContent = "Reading closed daily bars for " + symbol + "…";
-  if (banner) banner.textContent = "Loading " + symbol + "…";
-  let bars = null;
-  try {
-    bars = await barsForLearn(symbol);
-  } catch (error) {
-    bars = null;
-  }
-  if (!bars || bars.length < 40) {
-    if (note) note.textContent = "Could not load enough bars for " + symbol + ".";
-    if (banner) banner.textContent = "Need more history for Fibs.";
-    renderFibLevels(null);
-    return;
-  }
-  const settled = typeof PaperFrames !== "undefined" && PaperFrames.closedBars
-    ? PaperFrames.closedBars(bars, phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol)))
-    : bars.slice(0, -1);
-  const use = settled && settled.length >= 40 ? settled : bars;
-  const swing = fibSwingRead(use);
-  if (!swing) {
-    if (note) note.textContent = "No clear swing for Fibs yet.";
-    if (banner) banner.textContent = "Waiting for a clean swing.";
-    renderFibLevels(null);
-    return;
-  }
-  paintFibChart($("fibs-chart"), use, swing);
-  renderFibLevels(swing);
-  const best = fibPriceAt(swing, 61.8);
-  const shallow = fibPriceAt(swing, 23.6);
-  const zero = fibPriceAt(swing, 0);
-  if (banner) {
-    banner.textContent = swing.upswing
-      ? symbol + " upswing · Best buy near 61.8 (" + best.toFixed(2) + ") · shallow 23.6 (" + shallow.toFixed(2) + ") · high/0 (" + zero.toFixed(2) + ")"
-      : symbol + " downswing · Best sell near 61.8 (" + best.toFixed(2) + ") · shallow 23.6 (" + shallow.toFixed(2) + ") · high/0 (" + zero.toFixed(2) + ")";
-  }
-  if (note) {
-    note.textContent =
-      "TOS Fibs on " +
-      symbol +
-      " · swing " +
-      (swing.upswing ? "low→high" : "high→low") +
-      " · close " +
-      swing.close.toFixed(2) +
-      ". Best buys 61.8 · 50 · 38.2. Best sells 61.8 · 50 · 38.2. Paper only.";
-  }
-}
-
-
 function showDock(name, opts) {
   if (!name) name = "home";
   if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) name = "home";
   const skipRun = !!(opts && opts.skipRun);
-  if (name === "internals") loadInternals(false);
   if (name === "fibs") {
-    runFibsPage();
+    if (window.PaperFibs && typeof PaperFibs.runFibsPage === "function") PaperFibs.runFibsPage();
   }
+  if (name === "internals") loadInternals(false);
   if (name === "scorecard") {
     renderScorecard();
     if (!(state.sc && state.sc.result) && !(state.sc && state.sc.busy)) runScorecard();

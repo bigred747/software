@@ -352,15 +352,33 @@ def heal_env_from_documents(folder: Path | None = None) -> Path:
     one_drive = os.environ.get("OneDrive")
     if one_drive:
         candidates.append(Path(one_drive) / "Documents" / "Paper Trader" / ".env")
+    # Also READ from side-by-side setup folders (working 1.10.59 desks). Never write them.
+    for base in (home / "Documents", home / "OneDrive" / "Documents"):
+        if not base.is_dir():
+            continue
+        try:
+            for child in sorted(base.glob("PaperTrader-setup-*/paper-trader/.env")):
+                candidates.append(child)
+            for child in sorted(base.glob("PaperTrader-*/paper-trader/.env")):
+                candidates.append(child)
+        except OSError:
+            pass
     donor: dict[str, str] = {}
+    donor_path: Path | None = None
     for path in candidates:
-        if not path.is_file():
+        try:
+            if not path.is_file():
+                continue
+            if path.resolve() == target.resolve():
+                continue
+        except OSError:
             continue
         values = _env_file_values(path)
         if _is_real_secret(values.get("SCHWAB_APP_KEY", "")) and _is_real_secret(
             values.get("SCHWAB_APP_SECRET", "")
         ):
             donor = values
+            donor_path = path
             break
     if not donor:
         load_dotenv(target)
@@ -374,10 +392,19 @@ def heal_env_from_documents(folder: Path | None = None) -> Path:
         elif incoming and not (merged.get(key) or "").strip():
             merged[key] = incoming
     try:
-        # Rewrite as UTF-8 so later reads never hit UTF-16 Notepad encoding.
+        # Rewrite THIS folder only as UTF-8. Never modify the donor .env.
         target.write_text(_format_env(merged), encoding="utf-8", newline="\n")
     except OSError:
         return target
+    # Optional: copy Schwab tokens into THIS folder only when missing (never touch donor).
+    try:
+        token_dest = root / "schwab_tokens.json"
+        if donor_path is not None and not token_dest.is_file():
+            token_src = donor_path.with_name("schwab_tokens.json")
+            if token_src.is_file() and token_src.resolve() != token_dest.resolve():
+                token_dest.write_bytes(token_src.read_bytes())
+    except OSError:
+        pass
     load_dotenv(target)
     return target
 

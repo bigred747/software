@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.59">
+  <meta name="paper-build" content="1.10.70">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.59</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.70</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -234,6 +234,7 @@
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Rank Board</button>
           <button type="button" data-open-dock="scout">Scout Sheet</button>
+          <button type="button" data-open-dock="fibs">Fibs</button>
           <button type="button" data-open-dock="cycle">Cycle Desk</button>
           <button type="button" data-open-dock="forecast">Forecaster</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
@@ -465,6 +466,7 @@
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
         <button type="button" class="dock-tab" data-dock="scorecard">Rank Board</button>
         <button type="button" class="dock-tab" data-dock="scout">Scout Sheet</button>
+        <button type="button" class="dock-tab" data-dock="fibs">Fibs</button>
         <button type="button" class="dock-tab" data-dock="cycle">Cycle Desk</button>
         <button type="button" class="dock-tab" data-dock="forecast">Forecaster</button>
         <button type="button" class="dock-tab" data-dock="internals">Internals</button>
@@ -489,6 +491,7 @@
           <button type="button" data-open-dock="internals">Internals</button>
           <button type="button" data-open-dock="scorecard">Rank Board</button>
           <button type="button" data-open-dock="scout">Scout Sheet</button>
+          <button type="button" data-open-dock="fibs">Fibs</button>
           <button type="button" data-open-dock="cycle">Cycle Desk</button>
           <button type="button" data-open-dock="forecast">Forecaster</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
@@ -805,6 +808,47 @@ AddOrder(Sell, sellFire);</textarea>
             <table>
               <thead><tr><th>#</th><th>Market</th><th>State</th><th>Dots</th><th>Level</th><th>Triple</th><th>Edge</th><th>Score</th><th></th></tr></thead>
               <tbody id="scout-coil"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="dock-page" data-dock-page="fibs">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Home</button>
+          <h2>Fibs Lab</h2>
+        </div>
+        <p class="muted">Own Tools page (not on the main Chart). Thinkorswim retracements + extensions. Toggle each line. Pick a timeframe. Defaults to AMD. This Fibs Lab desk runs separate from your working bot.</p>
+        <div class="strat-orb-inputs">
+          <label for="fibs-symbol">Market</label>
+          <input id="fibs-symbol" maxlength="16" value="AMD" autocomplete="off">
+          <button id="fibs-run" type="button">Draw Fibs</button>
+        </div>
+        <p class="fibs-ext-head">Timeframe</p>
+        <div id="fibs-frames" class="fibs-frame-bar" role="group" aria-label="Fib timeframes">
+          <button type="button" data-fib-frame="1m">1m</button>
+          <button type="button" data-fib-frame="5m">5m</button>
+          <button type="button" data-fib-frame="15m">15m</button>
+          <button type="button" data-fib-frame="30m">30m</button>
+          <button type="button" data-fib-frame="1h">1h</button>
+          <button type="button" data-fib-frame="4h">4h</button>
+          <button type="button" data-fib-frame="1D" class="on">1D</button>
+          <button type="button" data-fib-frame="1W">1W</button>
+          <button type="button" data-fib-frame="1M">1M</button>
+        </div>
+        <p class="fibs-ext-head">Retracements (on/off)</p>
+        <div id="fibs-ret-toggles" class="fibs-toggles"></div>
+        <p class="fibs-ext-head">Extensions · 127.2± · 161.8± · 200± · 261.8±</p>
+        <div id="fibs-ext-toggles" class="fibs-toggles"></div>
+        <p id="fibs-note" class="muted">Press Draw Fibs.</p>
+        <p id="fibs-banner" class="fibs-banner" aria-live="polite">Waiting for AMD…</p>
+        <div class="fibs-chart-box"><canvas id="fibs-chart" width="800" height="380" aria-label="Fibonacci chart"></canvas></div>
+        <section class="scorecard-panel" aria-label="Fib levels">
+          <h3>Visible levels</h3>
+          <div class="table-wrap">
+            <table class="fibs-levels">
+              <thead><tr><th>Level</th><th>Price</th><th>Role</th><th>Desk use</th></tr></thead>
+              <tbody id="fibs-levels"></tbody>
             </table>
           </div>
         </section>
@@ -1403,11 +1447,12 @@ AddOrder(Sell, sellFire);</textarea>
       </div>
     </div>
   </div>
-  <script src="live.js?v=11059"></script>
-  <script src="engine.js?v=11059"></script>
-  <script src="study.js?v=11059"></script>
-  <script src="frames.js?v=11059"></script>
-  <script src="booster.js?v=11059"></script>
-  <script src="app.js?v=11059"></script>
+  <script src="live.js?v=11070"></script>
+  <script src="engine.js?v=11070"></script>
+  <script src="study.js?v=11070"></script>
+  <script src="frames.js?v=11070"></script>
+  <script src="fibs.js?v=11070"></script>
+  <script src="booster.js?v=11070"></script>
+  <script src="app.js?v=11070"></script>
 </body>
 </html>

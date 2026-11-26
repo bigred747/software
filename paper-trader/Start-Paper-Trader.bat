@@ -1,6 +1,13 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
+rem Fibs Lab pack: never hijack the working Paper Trader.bat shortcut.
+if exist "%~dp0FIBS-LAB.txt" (
+  if exist "%~dp0Start-Fibs-Lab.bat" (
+    call "%~dp0Start-Fibs-Lab.bat"
+    exit /b %ERRORLEVEL%
+  )
+)
 title Paper Trader
 echo %~dp0 | findstr /I /C:"\Temp" | findstr /I /C:".zip." >nul
 if not errorlevel 1 goto FromZip

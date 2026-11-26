@@ -1,0 +1,15 @@
+Paper Trader Fibs Lab
+=====================
+
+This pack is a SIDE-BY-SIDE lab desk for Fibs (TOS retracements + extensions).
+
+It does NOT replace your working Paper Trader:
+- Lands in Documents\PaperTrader-Fibs-Lab\paper-trader
+- Desktop shortcut: Paper Trader Fibs Lab.bat  (never overwrites Paper Trader.bat)
+- Port 8787  (working desk stays on 8765)
+- Own paper_state.json / learn / breaker
+- May READ Schwab keys from your working desk into THIS folder only
+- Never erases other bots. Erase-Other-Paper-Traders.bat stays opt-in.
+
+When this lab works great, you can optionally erase older copies.
+Keep the working 1.10.59 desk until you are sure.

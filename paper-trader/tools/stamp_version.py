@@ -70,7 +70,7 @@ def stamp(version: str) -> None:
     )
     replace_file(
         ROOT / "web" / "index.html",
-        r'(src="(?:live|engine|study|frames|booster|app)\.js)\?v=[^"]*"',
+        r'(src="(?:live|engine|study|frames|booster|fibs|app)\.js)\?v=[^"]*"',
         rf'\1?v={tag}"',
     )
     replace_file(ROOT / "paper_trader" / "install.py", r'KEEP_VERSION = "[^"]*"', f'KEEP_VERSION = "{version}"')
@@ -158,6 +158,7 @@ def build_zips(version: str) -> None:
     update = [
         "web/frames.js",
         "web/app.js",
+        "web/fibs.js",
         "web/index.html",
         "web/app.css",
         "web/booster.js",
@@ -170,7 +171,10 @@ def build_zips(version: str) -> None:
         "paper_trader/cli.py",
         "paper_trader/sync.py",
         "paper_trader/desk_pool.py",
+        "paper_trader/schwab_env.py",
         "VERSION",
+        "FIBS-LAB.txt",
+        "Start-Fibs-Lab.bat",
         "tools/build_phone.py",
         "tools/stamp_version.py",
         "tools/pick_upgrade_zip.py",
@@ -222,6 +226,35 @@ def build_zips(version: str) -> None:
             base_slim = path
             break
     refresh(slim_zip, True, base_slim or full_zip)
+    build_fibs_lab_zip(version, full_zip)
+
+
+def build_fibs_lab_zip(version: str, full_zip: Path) -> None:
+    """Copy the full zip to a Fibs Lab download that always carries FIBS-LAB.txt."""
+    lab_zip = REPO / "Paper-Trader-Fibs-Lab.zip"
+    if not full_zip.is_file():
+        raise FileNotFoundError(full_zip)
+    tmp = lab_zip.with_suffix(".zip.tmp")
+    with zipfile.ZipFile(full_zip, "r") as zin, zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED) as zout:
+        for info in zin.infolist():
+            name = info.filename.replace("\\", "/")
+            if name.endswith("FIBS-LAB.txt") or name.endswith("Start-Fibs-Lab.bat"):
+                continue
+            zout.writestr(info, zin.read(info.filename))
+        for rel in ("FIBS-LAB.txt", "Start-Fibs-Lab.bat", "web/fibs.js"):
+            path = ROOT / rel
+            if path.is_file():
+                zout.write(path, "paper-trader/" + rel)
+        readme = (
+            f"Paper Trader Fibs Lab {version}\n"
+            "Extract All → open paper-trader\\Start-Fibs-Lab.bat\n"
+            "Lands in Documents\\PaperTrader-Fibs-Lab (separate from your working desk).\n"
+            "Desktop shortcut: Paper Trader Fibs Lab.bat\n"
+            "Port 8787. Never overwrites Paper Trader.bat or Documents\\Paper Trader.\n"
+        )
+        zout.writestr("paper-trader/FIBS-LAB-README.txt", readme)
+    tmp.replace(lab_zip)
+    print(lab_zip.name, lab_zip.stat().st_size)
 
 
 def verify(version: str) -> None:
@@ -281,6 +314,7 @@ def main(argv: list[str] | None = None) -> int:
         build_zips(version)
     verify(version)
     print("computer:", REPO / "Paper-Trader.zip")
+    print("fibs-lab:", REPO / "Paper-Trader-Fibs-Lab.zip")
     print("slim:", ROOT / f"Paper-Trader-{version}-slim.zip")
     print("iphone:", ROOT / "iphone" / "index.html")
     return 0

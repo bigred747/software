@@ -369,30 +369,42 @@ def desktop_folders(home: Path) -> list[Path]:
     return found
 
 
-def write_desktop_opener(install: Path, home: Path) -> list[Path]:
-    """A visible desktop file that one-click opens this copy via Start-Paper-Trader.bat."""
+def write_desktop_opener(install: Path, home: Path, *, name: str | None = None) -> list[Path]:
+    """Write a desktop one-click opener for THIS folder only.
+
+    Fibs Lab writes "Paper Trader Fibs Lab.bat" and never overwrites "Paper Trader.bat".
+    The main desk keeps writing "Paper Trader.bat".
+    """
     install = install.resolve()
-    opener = install / "Start-Paper-Trader.bat"
-    if not opener.is_file():
-        opener = install / "2 Open Paper Trader.bat"
-    if not opener.is_file():
+    lab = is_fibs_lab(install)
+    bat = install / ("Start-Fibs-Lab.bat" if lab else "Start-Paper-Trader.bat")
+    if not bat.is_file():
+        bat = install / "Start-Paper-Trader.bat"
+    if not bat.is_file():
+        bat = install / "2 Open Paper Trader.bat"
+    if not bat.is_file():
         return []
+    title = "Paper Trader Fibs Lab" if lab else "Paper Trader"
+    link_name = name or opener_name_for(install)
+    if lab and link_name == OPENER_NAME:
+        link_name = LAB_OPENER_NAME
+    if (not lab) and link_name == LAB_OPENER_NAME:
+        link_name = OPENER_NAME
     script = (
         "@echo off\r\n"
         f'cd /d "{install}"\r\n'
-        "title Paper Trader\r\n"
-        f'call "{opener.name}"\r\n'
+        f"title {title}\r\n"
+        f'call "{bat.name}"\r\n'
     )
     written: list[Path] = []
     for folder in desktop_folders(home):
-        path = folder / OPENER_NAME
+        path = folder / link_name
         try:
             path.write_bytes(script.encode("utf-8"))
         except OSError:
             continue
         written.append(path)
     return written
-
 
 def rescue_from_temp_zip(source: Path, home: Path | None = None) -> Path:
     """Copy a Windows Temp zip extract into Documents and write the desktop shortcut.
@@ -415,9 +427,14 @@ def rescue_from_temp_zip(source: Path, home: Path | None = None) -> Path:
         raise ValueError("Will not rescue from a foreign-bot path.")
     documents = home / "Documents"
     documents.mkdir(parents=True, exist_ok=True)
-    dest = canonical_folder(home)
-    # Prefer Documents\\Paper Trader; if locked, land in a unique setup folder.
-    targets: list[Path] = [dest]
+    # Fibs Lab always lands in its own folder — never Documents\\Paper Trader.
+    if is_fibs_lab(source):
+        dest = lab_folder(home)
+        targets: list[Path] = [dest]
+    else:
+        dest = canonical_folder(home)
+        # Prefer Documents\\Paper Trader; if locked, land in a unique setup folder.
+        targets: list[Path] = [dest]
     if is_temp_zip_extract(source) or source != dest:
         targets.append(documents / f"PaperTrader-setup-{int(time.time())}" / "paper-trader")
 
@@ -572,6 +589,27 @@ def _replace_install(source: Path, dest: Path) -> None:
 
 OPENER_NAME = "Paper Trader.bat"
 
+LAB_MARKER = "FIBS-LAB.txt"
+LAB_OPENER_NAME = "Paper Trader Fibs Lab.bat"
+LAB_FOLDER_NAME = "PaperTrader-Fibs-Lab"
+LAB_PORT = 8787
+
+
+def is_fibs_lab(folder: Path | None = None) -> bool:
+    """True when this pack is the side-by-side Fibs Lab (never the main desk)."""
+    root = Path(folder) if folder is not None else Path(__file__).resolve().parents[1]
+    return (root / LAB_MARKER).is_file()
+
+
+def lab_folder(home: Path) -> Path:
+    """Dedicated Documents folder for the Fibs Lab — never Documents\\Paper Trader."""
+    return Path(home) / "Documents" / LAB_FOLDER_NAME / "paper-trader"
+
+
+def opener_name_for(folder: Path | None = None) -> str:
+    return LAB_OPENER_NAME if is_fibs_lab(folder) else OPENER_NAME
+
+
 
 def desktop_opener_present(home: Path) -> bool:
     return any((folder / OPENER_NAME).is_file() for folder in desktop_folders(home))
@@ -593,7 +631,7 @@ def remove_desktop_opener(home: Path) -> list[Path]:
     return removed
 
 
-KEEP_VERSION = "1.10.59"
+KEEP_VERSION = "1.10.70"
 
 
 def read_install_version(folder: Path) -> str:
@@ -626,7 +664,7 @@ def erase_other_installs(
     keep_version: str = KEEP_VERSION,
     killer=None,
 ) -> dict[str, object]:
-    """Keep only Paper Trader keep_version (default 1.10.59). Erase other installs, zips, and extra Bots."""
+    """Keep only Paper Trader keep_version (default 1.10.70). Erase other installs, zips, and extra Bots."""
     from paper_trader.learn import end_learner_pid, stop_learner
 
     end_pid = killer or end_learner_pid
