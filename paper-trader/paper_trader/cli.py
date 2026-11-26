@@ -141,32 +141,14 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("Port must be from 1024 to 65535")
             install_root = Path(__file__).resolve().parents[1]
             from paper_trader import __version__
-            from paper_trader.install import (
-                canonical_folder,
-                install_newest,
-                write_desktop_opener,
-            )
+            from paper_trader.install import write_desktop_opener
             from paper_trader.schwab_env import ensure_env_file, heal_env_from_documents
 
             home = Path.home()
-            desk = canonical_folder(home)
-            staging = "papertrader-setup" in str(install_root).lower().replace(" ", "")
-            # Zip setup folders only: copy into Documents\Paper Trader, then open that desk.
-            # Any other folder (including a side-by-side 1.10.40 / 1.10.53 extract) opens itself.
-            # Never erase other installs on open — Erase-Other-Paper-Traders.bat is opt-in.
-            if staging:
-                try:
-                    desk, _action = install_newest(install_root, home)
-                except ValueError:
-                    desk = canonical_folder(home)
-                launch = desk / "launch.py"
-                if launch.is_file() and desk.resolve() != install_root.resolve():
-                    write_desktop_opener(desk, home)
-                    cmd = [sys.executable, str(launch), "serve", "--port", str(args.port)]
-                    if args.no_browser:
-                        cmd.append("--no-browser")
-                    os.chdir(desk)
-                    os.execv(sys.executable, cmd)
+            # Always serve THIS folder. Do not reinstall into Documents\Paper Trader
+            # and os.execv there — paths with a space break on Windows
+            # (python opens C:\Users\...\Documents\Paper).
+            # Never erase other installs on open.
             os.chdir(install_root)
             assert_safe_launch([install_root])
             global STATE_PATH
