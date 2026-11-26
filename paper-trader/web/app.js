@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.55";
+const VERSION = "1.10.56";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -4390,10 +4390,37 @@ async function savePaperBookBlob(blob, filename) {
 }
 
 const SYNC_TOKEN_KEY = "paper.deskSyncToken";
-const DEFAULT_SYNC_URL = "https://paper-desk-sync.apps.grok.bot";
+const SYNC_URL_KEY = "paper.deskSyncUrl";
 
 function syncBridgeUrl() {
-  return (globalThis.PAPER_SYNC_URL || DEFAULT_SYNC_URL).replace(/\/$/, "");
+  // Fail closed: never ship a default sync host. Only an explicit URL the user set.
+  const fromGlobal = globalThis.PAPER_SYNC_URL ? String(globalThis.PAPER_SYNC_URL).trim() : "";
+  const input = $("sync-url");
+  const typed = input && input.value ? String(input.value).trim() : "";
+  let stored = "";
+  try {
+    stored = String(localStorage.getItem(SYNC_URL_KEY) || "").trim();
+  } catch (_error) {
+    stored = "";
+  }
+  const raw = (typed || fromGlobal || stored).replace(/\/$/, "");
+  if (!raw) return "";
+  if (!/^https:\/\//i.test(raw)) return "";
+  return raw;
+}
+
+function writeSyncUrl(url) {
+  const cleaned = String(url || "").trim().replace(/\/$/, "");
+  const safe = /^https:\/\//i.test(cleaned) ? cleaned : "";
+  const input = $("sync-url");
+  if (input && input.value !== safe) input.value = safe;
+  try {
+    if (safe) localStorage.setItem(SYNC_URL_KEY, safe);
+    else localStorage.removeItem(SYNC_URL_KEY);
+  } catch (_error) {
+    /* ignore */
+  }
+  return safe;
 }
 
 function readSyncToken() {
@@ -4424,23 +4451,32 @@ async function refreshSyncCode() {
   if (state.offline) {
     const token = readSyncToken();
     if (token) writeSyncToken(token);
+    const url = writeSyncUrl(syncBridgeUrl() || ($("sync-url") && $("sync-url").value) || "");
     if (note) {
-      note.textContent = token
-        ? "Computer link token saved on this phone. Push / Pull uses it."
-        : "Paste PAPER_SYNC_TOKEN from Paper Desk Sync, then Push / Pull.";
+      if (token && url) {
+        note.textContent = "Bridge URL + computer link token saved on this phone. Push / Pull only when you press them.";
+      } else if (token && !url) {
+        note.textContent = "Token saved. Paste your https:// Paper Desk Sync bridge URL too — no default host.";
+      } else if (!token && url) {
+        note.textContent = "Bridge URL saved. Paste PAPER_SYNC_TOKEN from Paper Desk Sync.";
+      } else {
+        note.textContent =
+          "Sync is off. Paste your bridge https:// URL and PAPER_SYNC_TOKEN, or use Share / Load for a local file. No default sync host.";
+      }
     }
     return;
   }
   try {
     const status = await getJSON("/api/paper/sync");
     if (note) {
-      note.textContent = status && status.has_token
-        ? "PAPER_SYNC_TOKEN is in .env. Push / Pull is ready."
-        : (status && status.hint) || "Create a computer link in Paper Desk Sync, then put PAPER_SYNC_TOKEN in .env.";
+      note.textContent =
+        (status && status.hint) ||
+        "Set PAPER_SYNC_URL and PAPER_SYNC_TOKEN in .env. Share / Load stays local. No default sync host.";
     }
   } catch (_error) {
     if (note) {
-      note.textContent = "Create a computer link in Paper Desk Sync, then put PAPER_SYNC_TOKEN in .env.";
+      note.textContent =
+        "Set PAPER_SYNC_URL and PAPER_SYNC_TOKEN in .env. Share / Load stays local. No default sync host.";
     }
   }
 }
@@ -4460,7 +4496,13 @@ async function deskHmacHex(token, message) {
 
 async function cloudSync(method, token, book) {
   const path = "/api/book";
-  const url = syncBridgeUrl() + path;
+  const base = syncBridgeUrl();
+  if (!base) {
+    throw new Error(
+      "Sync bridge URL missing. Paste your https:// Paper Desk Sync URL first — this desk will not guess a host."
+    );
+  }
+  const url = base + path;
   const body = book ? JSON.stringify({ book }) : "";
   const timestamp = String(Date.now());
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
@@ -4497,6 +4539,14 @@ async function pushPaperBook() {
   try {
     if (state.offline) {
       const token = writeSyncToken(readSyncToken());
+      const url = writeSyncUrl(syncBridgeUrl() || ($("sync-url") && $("sync-url").value) || "");
+      if (!url) {
+        if (note) {
+          note.textContent =
+            "Paste your Paper Desk Sync https:// bridge URL first. No default host — Share / Load stays local.";
+        }
+        return;
+      }
       if (!token || token.length < 48) {
         if (note) note.textContent = "Paste the computer link token first (from Paper Desk Sync).";
         return;
@@ -4520,7 +4570,7 @@ async function pushPaperBook() {
         (result.markets || 0) +
         " market" +
         ((result.markets || 0) === 1 ? "" : "s") +
-        ". On the iPhone: Journal → same token → Pull book.";
+        ". On the iPhone: Journal → same URL + token → Pull book.";
     }
   } catch (error) {
     if (note) note.textContent = error.message || "Push failed.";
@@ -4532,6 +4582,14 @@ async function pullPaperBook() {
   try {
     if (state.offline) {
       const token = writeSyncToken(readSyncToken());
+      const url = writeSyncUrl(syncBridgeUrl() || ($("sync-url") && $("sync-url").value) || "");
+      if (!url) {
+        if (note) {
+          note.textContent =
+            "Paste your Paper Desk Sync https:// bridge URL first. No default host — Share / Load stays local.";
+        }
+        return;
+      }
       if (!token || token.length < 48) {
         if (note) note.textContent = "Paste the computer link token first (from Paper Desk Sync).";
         return;
@@ -4828,8 +4886,8 @@ function renderBook(paper) {
   const device = $("book-device");
   if (device) {
     device.textContent = state.offline
-      ? "This device keeps its own paper book. Paste the computer link token, then Push / Pull. Or Share / Load a paper-book.json file."
-      : "This device keeps its own paper book. Use PAPER_SYNC_TOKEN from Paper Desk Sync, then Push / Pull. Share / Load still works as a file backup.";
+      ? "This device keeps its own paper book. Sync is off until you paste your https:// bridge URL and computer link token. Or Share / Load a paper-book.json file (stays local)."
+      : "This device keeps its own paper book. Sync is off until PAPER_SYNC_URL and PAPER_SYNC_TOKEN are in .env. Share / Load stays a local file backup — no default sync host.";
   }
   void refreshSyncCode();
   paintDayStrip(book);
@@ -12231,10 +12289,33 @@ const bookPush = $("book-push");
 if (bookPush) bookPush.addEventListener("click", () => withBusy(() => pushPaperBook()));
 const bookPull = $("book-pull");
 if (bookPull) bookPull.addEventListener("click", () => withBusy(() => pullPaperBook()));
+const syncUrlInput = $("sync-url");
+if (syncUrlInput) {
+  try {
+    const savedUrl = String(localStorage.getItem(SYNC_URL_KEY) || "").trim();
+    if (savedUrl && !syncUrlInput.value) syncUrlInput.value = savedUrl;
+  } catch (_error) {
+    /* ignore */
+  }
+  syncUrlInput.addEventListener("change", () => {
+    writeSyncUrl(syncUrlInput.value);
+    void refreshSyncCode();
+  });
+  syncUrlInput.addEventListener("blur", () => {
+    writeSyncUrl(syncUrlInput.value);
+    void refreshSyncCode();
+  });
+}
 const syncTokenInput = $("sync-token");
 if (syncTokenInput) {
-  syncTokenInput.addEventListener("change", () => writeSyncToken(syncTokenInput.value));
-  syncTokenInput.addEventListener("blur", () => writeSyncToken(syncTokenInput.value));
+  syncTokenInput.addEventListener("change", () => {
+    writeSyncToken(syncTokenInput.value);
+    void refreshSyncCode();
+  });
+  syncTokenInput.addEventListener("blur", () => {
+    writeSyncToken(syncTokenInput.value);
+    void refreshSyncCode();
+  });
 }
 const bookShare = $("book-share");
 if (bookShare) bookShare.addEventListener("click", () => sharePaperBook(true));

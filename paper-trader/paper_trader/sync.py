@@ -1,4 +1,4 @@
-"""Push / pull the paper book via the Fort Knox sync bridge."""
+"""Push / pull the paper book via an explicit sync bridge — fail closed, no default host."""
 
 from __future__ import annotations
 
@@ -12,17 +12,12 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-DEFAULT_SYNC_URL = "https://paper-desk-sync.apps.grok.bot"
 ENV_TOKEN = "PAPER_SYNC_TOKEN"
 ENV_URL = "PAPER_SYNC_URL"
 
 
 def _root() -> Path:
     return Path(__file__).resolve().parents[1]
-
-
-def sync_url() -> str:
-    return (os.environ.get(ENV_URL) or DEFAULT_SYNC_URL).rstrip("/")
 
 
 def _env_value(folder: Path, key: str) -> str:
@@ -38,6 +33,12 @@ def _env_value(folder: Path, key: str) -> str:
     return (os.environ.get(key) or "").strip()
 
 
+def sync_url(folder: Path | None = None) -> str:
+    """Return configured bridge URL only. Empty when unset — never invent a host."""
+    folder = folder or _root()
+    return _env_value(folder, ENV_URL).rstrip("/")
+
+
 def read_token(folder: Path | None = None) -> str:
     folder = folder or _root()
     return _env_value(folder, ENV_TOKEN)
@@ -50,7 +51,18 @@ def ensure_token(folder: Path | None = None) -> str:
         return token
     raise ValueError(
         "Missing PAPER_SYNC_TOKEN in .env. Open Paper Desk Sync signed into Cursor, "
-        "tap Create computer link, then paste PAPER_SYNC_TOKEN=... into Documents\\Paper Trader\\.env."
+        "tap Create computer link, then paste PAPER_SYNC_TOKEN=... into Documents\\Paper Trader\\.env. "
+        "Also set PAPER_SYNC_URL to your bridge (no default host)."
+    )
+
+
+def ensure_sync_url(folder: Path | None = None) -> str:
+    url = sync_url(folder)
+    if url.startswith("https://") and len(url) > 12:
+        return url
+    raise ValueError(
+        "Missing PAPER_SYNC_URL in .env. Set PAPER_SYNC_URL=https://… to your own Paper Desk Sync "
+        "bridge. This desk will not guess a sync host or send your paper book until you set it."
     )
 
 
@@ -59,15 +71,16 @@ def _sign(token: str, method: str, path: str, timestamp: str, body: str) -> str:
     return hmac.new(token.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
 
-def _request(method: str, token: str, payload: dict | None = None) -> dict:
+def _request(method: str, token: str, payload: dict | None = None, folder: Path | None = None) -> dict:
     path = "/api/book"
-    url = f"{sync_url()}{path}"
+    base = ensure_sync_url(folder)
+    url = f"{base}{path}"
     body = ""
     data = None
     headers = {
         "Accept": "application/json",
         "Authorization": f"Bearer {token}",
-        "User-Agent": "PaperTrader-Desk/1.10.55",
+        "User-Agent": "PaperTrader-Desk/1.10.56",
     }
     if payload is not None:
         body = json.dumps({"book": payload}, separators=(",", ":"))
@@ -99,19 +112,19 @@ def _request(method: str, token: str, payload: dict | None = None) -> dict:
 
 def push_book(book: dict, folder: Path | None = None) -> dict:
     token = ensure_token(folder)
-    result = _request("PUT", token, book)
+    result = _request("PUT", token, book, folder=folder)
     return {
         "ok": True,
         "action": "push",
         "markets": result.get("markets") or len((book.get("sessions") or {})),
-        "sync_url": sync_url(),
+        "has_url": True,
         "vault": result.get("vault"),
     }
 
 
 def pull_book(folder: Path | None = None) -> dict:
     token = ensure_token(folder)
-    result = _request("GET", token)
+    result = _request("GET", token, folder=folder)
     book = result.get("book")
     if not isinstance(book, dict):
         raise ValueError("Sync bridge returned no paper book.")
@@ -121,7 +134,7 @@ def pull_book(folder: Path | None = None) -> dict:
         "markets": result.get("markets") or len((book.get("sessions") or {})),
         "updated_at": result.get("updated_at"),
         "book": book,
-        "sync_url": sync_url(),
+        "has_url": True,
         "vault": result.get("vault"),
     }
 
@@ -129,15 +142,28 @@ def pull_book(folder: Path | None = None) -> dict:
 def status(folder: Path | None = None) -> dict:
     folder = folder or _root()
     token = read_token(folder)
-    ready = len(token) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in token)
+    url = sync_url(folder)
+    ready_token = len(token) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in token)
+    ready_url = url.startswith("https://") and len(url) > 12
+    ready = ready_token and ready_url
+    if ready:
+        hint = "PAPER_SYNC_URL and PAPER_SYNC_TOKEN are set. Push / Pull uses signed vault requests only when you press them."
+    elif ready_token and not ready_url:
+        hint = "Token is set, but PAPER_SYNC_URL is missing. Add PAPER_SYNC_URL=https://… (your bridge). No default host."
+    elif ready_url and not ready_token:
+        hint = "URL is set, but PAPER_SYNC_TOKEN is missing. Create a computer link in Paper Desk Sync."
+    else:
+        hint = (
+            "Sync is off until you set both PAPER_SYNC_URL and PAPER_SYNC_TOKEN in .env. "
+            "Share / Load a paper-book.json file stays local. This desk will not guess a sync host."
+        )
     return {
         "ok": True,
-        "has_token": ready,
-        "sync_url": sync_url(),
-        "hardening": "fort-knox",
-        "hint": (
-            "PAPER_SYNC_TOKEN is set. Push / Pull uses signed vault requests."
-            if ready
-            else "Open Paper Desk Sync signed into Cursor → Create computer link → put PAPER_SYNC_TOKEN in .env."
-        ),
+        "has_token": ready_token,
+        "has_url": ready_url,
+        "ready": ready,
+        # Never ship a default; only echo the user-configured URL when present (local desk).
+        "sync_url": url if ready_url else "",
+        "hardening": "fort-knox-explicit-url",
+        "hint": hint,
     }

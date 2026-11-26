@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.55">
+  <meta name="paper-build" content="1.10.56">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.55</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.56</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -968,15 +968,18 @@ AddOrder(Sell, sellFire);</textarea>
         <div id="journal-filled" class="pins" aria-label="Filled today"></div>
         <div id="day-strip" class="day-strip" aria-label="Today on this desk"></div>
         <h2>Open positions</h2>
-        <p id="book-device" class="muted">This device keeps its own paper book. Use Push / Pull with a computer link token, or Share / Load a file.</p>
+        <p id="book-device" class="muted">This device keeps its own paper book. Sync is off by default — no hardcoded sync host. Set your bridge URL + token to Push / Pull, or Share / Load a local file.</p>
         <div class="strat-orb-inputs">
+          <label class="quiet">Sync bridge URL
+            <input id="sync-url" type="url" autocomplete="off" spellcheck="false" placeholder="https://your-paper-desk-sync…" maxlength="200">
+          </label>
           <label class="quiet">Computer link token
             <input id="sync-token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste PAPER_SYNC_TOKEN" maxlength="128">
           </label>
           <button id="book-push" type="button">Push book</button>
           <button id="book-pull" type="button">Pull book</button>
         </div>
-        <p id="sync-code-note" class="muted tiny">Create the token in Paper Desk Sync (signed into Cursor), put it in .env as PAPER_SYNC_TOKEN, then Push / Pull.</p>
+        <p id="sync-code-note" class="muted tiny">Opt-in only: set PAPER_SYNC_URL + PAPER_SYNC_TOKEN in .env (computer) or paste both here (phone). Create the token in Paper Desk Sync signed into Cursor. Share / Load never leaves this device.</p>
         <div class="strat-orb-inputs">
           <button id="book-share" type="button">Share paper book</button>
           <button id="book-copy" type="button" class="quiet">Copy paper book</button>
@@ -1335,11 +1338,11 @@ AddOrder(Sell, sellFire);</textarea>
       </div>
     </div>
   </div>
-  <script src="live.js?v=11055"></script>
-  <script src="engine.js?v=11055"></script>
-  <script src="study.js?v=11055"></script>
-  <script src="frames.js?v=11055"></script>
-  <script src="booster.js?v=11055"></script>
-  <script src="app.js?v=11055"></script>
+  <script src="live.js?v=11056"></script>
+  <script src="engine.js?v=11056"></script>
+  <script src="study.js?v=11056"></script>
+  <script src="frames.js?v=11056"></script>
+  <script src="booster.js?v=11056"></script>
+  <script src="app.js?v=11056"></script>
 </body>
 </html>
