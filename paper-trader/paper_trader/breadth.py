@@ -7,26 +7,29 @@ from paper_trader import quotes
 NYSE_KEYS = ("TICK", "ADD", "TRIN", "VOLD")
 KEYS = NYSE_KEYS + ("VIX",)
 
-# Probed 2026-11-19 against feeds this desk already uses:
-# - Yahoo Finance chart API: ^TICK, $TICK, ^ADD, ^VOLD, ^TRIN, and close cousins → 404.
-#   Plain "TRIN" resolves to Trinity Capital Inc. equity — never treat that as Arms Index.
-# - CNBC quote webservice (phone path): .TICK / $TICK / ADD / VOLD / TRIN internals → code 1 / none.
-# - VIX is real on Yahoo (^VIX) and CNBC (.VIX) — safe to paint and gate Edge when the feed answers.
+# Feeds this desk uses:
+# - Yahoo / CNBC: no real NYSE internals (Yahoo "TRIN" is an equity — never treat as Arms Index).
+# - Schwab Developer OAuth (computer Connect): $TICK · $ADD · $TRIN · $VOLD when entitled.
+# - VIX is real on Yahoo (^VIX) and CNBC (.VIX).
 #
-# TradingView script https://www.tradingview.com/script/aNrCpO4C-Market-Internals-TICK-ADD-VOLD-TRIN-VIX/
-# uses USI: / INDEX: internals. Pine cannot run here; scraping TradingView is not allowed.
-#
-# Edge VIX closed-bar gate (1.9.90): ON when the latest daily VIX close on/before the signal
-# bar date is strictly lower than the prior daily VIX close. Fail closed without a real series.
+# TradingView Market Internals Pine is not wired (no scrape). Edge VIX gate stays closed-bar only.
 
-NOTE = (
-    "NYSE TICK, ADD, TRIN, and VOLD stay No feed — no Yahoo/CNBC internals, no TradingView scrape, "
-    "and this desk will not paint fake numbers. VIX paints and gates Edge only from a real ^VIX / .VIX quote."
+NOTE_EMPTY = (
+    "NYSE TICK, ADD, TRIN, and VOLD stay No feed until Schwab Connect returns real "
+    "$TICK / $ADD / $TRIN / $VOLD quotes — Yahoo/CNBC do not carry them, and this desk "
+    "will not paint fake numbers. VIX paints and gates Edge only from a real ^VIX / .VIX quote."
+)
+
+NOTE_SCHWAB = (
+    "NYSE boxes paint from Schwab Connect quotes ($TICK · $ADD · $TRIN · $VOLD) when the "
+    "session is entitled. Missing symbols stay No feed — never invented. VIX still comes "
+    "from a real ^VIX / .VIX quote for Edge."
 )
 
 NEXT = (
-    "Prefer Interactive Brokers market indicators (TICK-NYSE, AD-NYSE, TRIN-NYSE, VOL-NYSE) "
-    "or a paid breadth feed; Schwab Developer $TICK/$ADD/$TRIN/$VOLD only after OAuth entitlement."
+    "Computer: Connect Schwab, then press Test — breadth chips read $TICK/$ADD/$TRIN/$VOLD. "
+    "If a chip stays No feed, the Developer app key needs market-indicator entitlement. "
+    "Phone Private has no Schwab token, so those four stay No feed there."
 )
 
 
@@ -102,13 +105,51 @@ def _vix_bars(payload: dict | None) -> list[dict]:
     return out
 
 
+def _apply_schwab_nyse(values: dict, changes: dict, tones: dict, sources: list[str]) -> None:
+    """Paint TICK/ADD/TRIN/VOLD only from finite Schwab quotes. Fail closed otherwise."""
+    try:
+        from paper_trader.schwab_auth import fetch_breadth_quotes
+    except Exception:
+        return
+    try:
+        rows = fetch_breadth_quotes()
+    except Exception:
+        return
+    if not rows:
+        return
+    painted: list[str] = []
+    for key in NYSE_KEYS:
+        row = rows.get(key) or {}
+        value = row.get("value")
+        change = row.get("change")
+        if value is None:
+            continue
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            continue
+        if number != number:
+            continue
+        values[key] = number
+        try:
+            changes[key] = float(change) if change is not None and change == change else None
+        except (TypeError, ValueError):
+            changes[key] = None
+        tones[key] = tone_for(key, number, changes[key])
+        painted.append(key)
+    if painted:
+        sources.append("schwab:" + "+".join(painted))
+
+
 def snapshot(refresh: bool = False) -> dict:
-    """Fail closed for NYSE internals. VIX only when Yahoo answers with a real price."""
+    """Schwab paints NYSE internals when connected+entitled. VIX from Yahoo. Never invent."""
     values = {key: None for key in KEYS}
     changes = {key: None for key in KEYS}
     tones = {key: None for key in KEYS}
     sources: list[str] = []
     vix_bars: list[dict] = []
+
+    _apply_schwab_nyse(values, changes, tones, sources)
 
     payload = _vix_payload(refresh=refresh)
     vix_bars = _vix_bars(payload)
@@ -130,14 +171,15 @@ def snapshot(refresh: bool = False) -> dict:
             tones["VIX"] = tone_for("VIX", price, change)
             sources.append("yahoo:^VIX")
 
+    nyse_any = any(values.get(key) is not None for key in NYSE_KEYS)
     return {
-        "ready": values["VIX"] is not None,
+        "ready": values["VIX"] is not None or nyse_any,
         "source": ",".join(sources) if sources else None,
         "values": values,
         "changes": changes,
         "tones": tones,
         "vixBars": vix_bars,
-        "note": NOTE,
+        "note": NOTE_SCHWAB if nyse_any else NOTE_EMPTY,
         "next": NEXT,
         "will_not_invent": True,
         "edge_vix_rule": (

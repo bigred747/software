@@ -390,6 +390,14 @@ def signal_item(path: Path | None = None) -> dict[str, Any]:
 
 QUOTE_TEST_URL = "https://api.schwabapi.com/marketdata/v1/quotes?symbols=SPY"
 
+# NYSE market internals (StreetSmart / thinkorswim index tickers). Not equities.
+BREADTH_SYMBOLS = {
+    "TICK": "$TICK",
+    "ADD": "$ADD",
+    "TRIN": "$TRIN",
+    "VOLD": "$VOLD",
+}
+
 
 def _bearer_get(url: str, access_token: str) -> tuple[int, str]:
     """GET one Schwab URL with the access token. Returns status and body text."""
@@ -411,6 +419,85 @@ def _bearer_get(url: str, access_token: str) -> tuple[int, str]:
         return int(exc.code), body
     except urllib.error.URLError as exc:
         raise ValueError(f"Could not reach Schwab: {exc.reason}") from exc
+
+
+def _finite_number(raw: Any) -> float | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        number = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if number != number:  # NaN
+        return None
+    return number
+
+
+def _quote_last_and_change(entry: Any) -> tuple[float | None, float | None]:
+    """Pull last + net change from one Schwab quote map entry. Fail closed on junk."""
+    if not isinstance(entry, dict):
+        return None, None
+    # Invalid / missing symbols come back as error-shaped entries without a quote block.
+    if entry.get("errors") or entry.get("invalidSymbols"):
+        return None, None
+    quote = entry.get("quote") if isinstance(entry.get("quote"), dict) else entry
+    if not isinstance(quote, dict):
+        return None, None
+    last = None
+    for key in ("lastPrice", "mark", "closePrice", "last", "regularMarketLastPrice"):
+        last = _finite_number(quote.get(key))
+        if last is not None:
+            break
+    change = None
+    for key in ("netChange", "netPercentChange", "markChange", "regularMarketNetChange"):
+        # Prefer dollar net change; skip percent-looking keys if last is huge (TICK/ADD/VOLD).
+        if key == "netPercentChange":
+            continue
+        change = _finite_number(quote.get(key))
+        if change is not None:
+            break
+    return last, change
+
+
+def fetch_breadth_quotes(path: Path | None = None) -> dict[str, dict[str, float | None]]:
+    """Real $TICK / $ADD / $TRIN / $VOLD quotes when Schwab is connected. Empty if not entitled."""
+    out: dict[str, dict[str, float | None]] = {}
+    status = connection_status(path)
+    if not status.get("connected"):
+        return out
+    store = ensure_session(path)
+    token = str(store.get("access_token") or "")
+    if not token:
+        return out
+    symbols = ",".join(BREADTH_SYMBOLS.values())
+    url = "https://api.schwabapi.com/marketdata/v1/quotes?" + urllib.parse.urlencode(
+        {"symbols": symbols, "fields": "quote,reference"}
+    )
+    try:
+        code, body = _bearer_get(url, token)
+    except ValueError:
+        return out
+    if not (200 <= code < 300) or not body.strip():
+        return out
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return out
+    if not isinstance(payload, dict):
+        return out
+    # Schwab keys by the requested symbol; also accept bare names without $.
+    lower_map = {str(k).upper(): v for k, v in payload.items()}
+    for key, symbol in BREADTH_SYMBOLS.items():
+        entry = lower_map.get(symbol.upper())
+        if entry is None:
+            entry = lower_map.get(symbol.lstrip("$").upper())
+        if entry is None:
+            continue
+        last, change = _quote_last_and_change(entry)
+        if last is None:
+            continue
+        out[key] = {"value": last, "change": change}
+    return out
 
 
 def test_connection(path: Path | None = None) -> dict[str, Any]:

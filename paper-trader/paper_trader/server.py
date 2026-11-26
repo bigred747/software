@@ -953,12 +953,18 @@ class Desk:
             else "Confirm paths missing — reopen this build",
         )
         breadth = breadth_snapshot()
-        nyse_blank = all(breadth.get("values", {}).get(key) is None for key in ("TICK", "ADD", "TRIN", "VOLD"))
-        invent_ok = breadth.get("will_not_invent") is True and nyse_blank
+        breadth_values = breadth.get("values") or {}
+        nyse_blank = all(breadth_values.get(key) is None for key in ("TICK", "ADD", "TRIN", "VOLD"))
+        source = str(breadth.get("source") or "")
+        schwab_real = "schwab:" in source and any(
+            breadth_values.get(key) is not None for key in ("TICK", "ADD", "TRIN", "VOLD")
+        )
+        # Pass when blank (fail-closed) OR when Schwab returned real $TICK/$ADD/$TRIN/$VOLD — never invent.
+        invent_ok = breadth.get("will_not_invent") is True and (nyse_blank or schwab_real)
         add(
             "No invented breadth",
             invent_ok,
-            "TICK/ADD/TRIN/VOLD stay No feed (will not invent). VIX only from a real quote. No TradingView scrape"
+            "TICK/ADD/TRIN/VOLD from Schwab $TICK/$ADD/$TRIN/$VOLD when connected (will not invent). VIX from a real quote. No TradingView scrape"
             if invent_ok
             else "Breadth fail-closed check failed",
         )
