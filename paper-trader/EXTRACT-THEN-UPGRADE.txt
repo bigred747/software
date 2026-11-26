@@ -1,16 +1,22 @@
-Paper Trader 1.10.51 — open like 1.10.40
+Paper Trader 1.10.51 — computer open + Connect
 
-Use the FULL zip so it opens (has runtime\python.exe):
+Phone is Private: https://paper-trader.apps.grok.bot
+Computer needs the FULL zip (has runtime\python.exe):
   https://github.com/bigred747/software/raw/main/Paper-Trader.zip
 
-Do NOT rely on the slim zip alone for a fresh install — slim has no runtime.
-
-1. Close every Paper Trader window, black cmd window, and Edge tab on 127.0.0.1
-2. Save Paper-Trader.zip in Downloads
-3. Right-click → Extract All → extract to Downloads\Paper-Trader
+OPEN
+1. Close every Paper Trader window, black cmd, Edge tab on 127.0.0.1
+2. Save FULL Paper-Trader.zip in Downloads
+3. Right-click → Extract All → Downloads\Paper-Trader
 4. Open Downloads\Paper-Trader\paper-trader
-5. Double-click Start-Paper-Trader.bat  (or FORCE-UPGRADE.bat if Documents is stuck)
-6. Wait for Edge. Seal must say Paper 1.10.51
-7. Later opens: Desktop\Paper Trader.bat
+5. Double-click FORCE-UPGRADE.bat once (puts seal 1.10.51 into Documents\Paper Trader)
+6. Double-click OPEN-COMPUTER.bat  (or Desktop\Paper Trader.bat)
+7. Leave the black window open — Edge shows the desk
 
-If Start says Python was not found, you used the slim zip — download the FULL zip above and retry.
+CONNECT (Schwab keys)
+1. Desk must already be open (black window running)
+2. Double-click Connect-Schwab.bat in Documents\Paper Trader
+   OR notepad .env and set SCHWAB_APP_KEY / SCHWAB_APP_SECRET / SCHWAB_CALLBACK_URL=https://127.0.0.1
+3. On the desk, press Connect, then Test
+
+If Python was not found — you used slim. Use the FULL zip above.

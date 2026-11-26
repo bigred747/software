@@ -40,7 +40,6 @@ if errorlevel 1 (
   echo Install note:
   type "%USERPROFILE%\Documents\paper-trader-install.txt"
 )
-rem Always open Documents\Paper Trader — never keep running from PaperTrader-setup.
 if exist "%USERPROFILE%\Documents\Paper Trader\launch.py" set "RUN=%USERPROFILE%\Documents\Paper Trader"
 "!PY!" "!RUN!\launch.py" erase-others > "%USERPROFILE%\Documents\paper-trader-erase.txt" 2>&1
 echo Setup is done. Leave the window named Paper Trader open.
@@ -48,67 +47,60 @@ echo Microsoft Edge opens when the desk answers.
 echo The desk folder is:
 echo !RUN!
 call :DeskLink "!RUN!"
-call :MakePhone "!RUN!"
 start "Paper Trader" /D "!RUN!" cmd /c "2 Open Paper Trader.bat"
 echo Press any key to close this setup window.
 pause >nul
 exit /b 0
 
 :NoZip
-echo Could not find Paper-Trader.zip in Downloads, Desktop, Documents, or OneDrive.
-echo Save the FULL Paper-Trader.zip (not only the slim) in Downloads, then try again.
+echo Could not find Paper-Trader.zip in Downloads.
+echo Save the FULL Paper-Trader.zip in Downloads, then try again.
 pause
 exit /b 1
 
 :BadZip
-echo Could not extract Paper-Trader.zip.
-echo Close EVERY Paper Trader window and black cmd window, then try again.
-echo Or right-click the zip - Extract All - then open Start-Paper-Trader.bat.
+echo Could not extract. Close EVERY Paper Trader window, then try again.
+echo Or right-click the zip - Extract All - then open FORCE-UPGRADE.bat.
 pause
 exit /b 1
 
 :Normal
 echo Unblock
 echo If Windows shows an Unblock box, check Unblock and open this file.
-echo That box lets this copy open. It stays on this computer.
 set "SEAL="
 if exist "%~dp0VERSION" set /p SEAL=<"%~dp0VERSION"
 echo This folder seal: !SEAL!
 if exist "%~dp0SEAL.txt" type "%~dp0SEAL.txt"
 
+rem Complete desk in THIS folder (Documents or Extract All with runtime) — open like 1.10.40.
+rem Do NOT compare path strings to Documents (OneDrive breaks that and blocks open).
+if exist "%~dp0launch.py" if exist "%~dp0VERSION" if exist "%~dp0web\app.js" goto ServeHere
+
+rem Incomplete extract: install into Documents, then open Documents.
 set "DEST=%USERPROFILE%\Documents\Paper Trader"
-set "HERE=%~dp0"
-if "!HERE:~-1!"=="\" set "HERE=!HERE:~0,-1!"
-
-rem Extract All folder (not Documents): install like 1.10.40, then open Documents.
-if /I not "!HERE!"=="!DEST!" (
-  echo.
-  echo This extract is not Documents\Paper Trader.
-  echo Installing into Documents\Paper Trader ^(1.10.40 open path^)...
-  set "PY=%~dp0runtime\python.exe"
-  if not exist "!PY!" set "PY=python"
-  "!PY!" "%~dp0launch.py" install > "%USERPROFILE%\Documents\paper-trader-install.txt" 2>&1
-  set "ERR=!errorlevel!"
-  type "%USERPROFILE%\Documents\paper-trader-install.txt"
-  if not "!ERR!"=="0" (
-    echo Install failed. If Documents is stuck on an old seal, run FORCE-UPGRADE.bat from this extract.
-    pause
-    exit /b 1
-  )
-  if not exist "!DEST!\launch.py" (
-    echo Documents\Paper Trader missing after install. Run FORCE-UPGRADE.bat from this extract.
-    pause
-    exit /b 1
-  )
-  echo Opening Documents\Paper Trader...
-  start "Paper Trader" /D "!DEST!" cmd /c "2 Open Paper Trader.bat"
-  exit /b 0
+echo Installing into Documents\Paper Trader...
+set "PY=%~dp0runtime\python.exe"
+if not exist "!PY!" set "PY=python"
+"!PY!" "%~dp0launch.py" install > "%USERPROFILE%\Documents\paper-trader-install.txt" 2>&1
+set "ERR=!errorlevel!"
+type "%USERPROFILE%\Documents\paper-trader-install.txt"
+if not "!ERR!"=="0" (
+  echo Install failed. Close every desk window and run FORCE-UPGRADE.bat from a FULL zip Extract All.
+  pause
+  exit /b 1
 )
+if not exist "!DEST!\launch.py" (
+  echo Documents\Paper Trader missing. Run FORCE-UPGRADE.bat from the FULL zip extract.
+  pause
+  exit /b 1
+)
+start "Paper Trader" /D "!DEST!" cmd /c "2 Open Paper Trader.bat"
+exit /b 0
 
-echo Paper Trader stays on this computer. It loads market quotes and does not place broker orders.
-echo Microsoft Edge opens the desk.
+:ServeHere
+echo Paper Trader stays on this computer. Paper orders only. Live locked.
+echo Microsoft Edge opens the desk. Leave this black window open.
 call :DeskLink "%~dp0"
-call :MakePhone "%~dp0"
 if exist "%~dp0runtime\python.exe" (
   "%~dp0runtime\python.exe" "%~dp0launch.py" serve
   goto done
@@ -123,9 +115,11 @@ if not errorlevel 1 (
   py -3 "%~dp0launch.py" serve
   goto done
 )
-echo Python was not found in this folder.
-echo Use the FULL Paper-Trader.zip ^(has runtime^), Extract All, then run FORCE-UPGRADE.bat once.
-echo Or put system Python on PATH.
+echo.
+echo Python was not found — this copy has no runtime\python.exe.
+echo Fix: download the FULL zip, Extract All, run FORCE-UPGRADE.bat once.
+echo FULL zip: https://github.com/bigred747/software/raw/main/Paper-Trader.zip
+echo Then Connect: double-click Connect-Schwab.bat in Documents\Paper Trader
 :done
 pause
 exit /b 0
@@ -134,7 +128,7 @@ exit /b 0
 call :WriteLink "%USERPROFILE%\Desktop" "%~1"
 call :WriteLink "%USERPROFILE%\OneDrive\Desktop" "%~1"
 if defined OneDrive call :WriteLink "%OneDrive%\Desktop" "%~1"
-echo Paper Trader.bat is on the desktop. Double-click it to open the desk.
+echo Desktop Paper Trader.bat rewritten to open this desk.
 exit /b 0
 
 :WriteLink
@@ -143,21 +137,4 @@ if not exist "%~1" exit /b 0
 >> "%~1\Paper Trader.bat" echo cd /d "%~2"
 >> "%~1\Paper Trader.bat" echo title Paper Trader
 >> "%~1\Paper Trader.bat" echo call "2 Open Paper Trader.bat"
-exit /b 0
-
-:MakePhone
-set "PHONE=%USERPROFILE%\Documents\iPhone"
-if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
-if not exist "%PHONE%" mkdir "%PHONE%"
-set "SRC=%~1"
-if "!SRC:~-1!"=="\" set "SRC=!SRC:~0,-1!"
-if exist "%SRC%\iphone\PaperTrader.html" copy /y "%SRC%\iphone\PaperTrader.html" "%PHONE%\PaperTrader.html" >nul
-if exist "%SRC%\iphone\README.txt" copy /y "%SRC%\iphone\README.txt" "%PHONE%\README.txt" >nul
-if exist "%PHONE%\PaperTrader.html" (
-  echo The iPhone folder is open.
-  echo %PHONE%
-  start "" explorer "%PHONE%"
-) else (
-  echo The iPhone file was not in this copy.
-)
 exit /b 0
