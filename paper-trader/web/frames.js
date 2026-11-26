@@ -3114,6 +3114,120 @@
   const SECTOR_FUNDS = ["XLK", "XLI", "XLF", "XLE", "XLV", "XLY", "XLP", "XLU", "XLB", "XLRE"];
   const INTERNAL_SYMBOLS = ["^VIX", "^VXN", "^VIX9D", "^TNX", "DX-Y.NYB", "RSP", "SPY", "QQQ", "IWM", "HYG", "IEF"].concat(SECTOR_FUNDS);
 
+  // Live NYSE tape from Schwab $TICK/$ADD/$TRIN/$VOLD (Chart boxes). Optional — omit when No feed.
+  function nyseTapeParts(breadth) {
+    const values = (breadth && breadth.values) || {};
+    const parts = [];
+    const push = (id, name, weight, raw, says, text) => {
+      if (raw == null || raw === "") return;
+      const number = Number(raw);
+      if (!Number.isFinite(number)) return;
+      parts.push({
+        id,
+        name,
+        weight,
+        says,
+        points: says === "good" ? weight : says === "neutral" ? weight / 2 : 0,
+        text,
+        nyse: true,
+      });
+    };
+    const tick = values.TICK;
+    if (tick != null && Number.isFinite(Number(tick))) {
+      const n = Number(tick);
+      push(
+        "tick",
+        "NYSE TICK ($TICK)",
+        8,
+        n,
+        n >= 400 ? "good" : n <= -400 ? "bad" : "neutral",
+        "TICK " + (n > 0 ? "+" : "") + Math.round(n).toLocaleString("en-US") + " (upticks − downticks)."
+      );
+    }
+    const addN = values.ADD;
+    if (addN != null && Number.isFinite(Number(addN))) {
+      const n = Number(addN);
+      push(
+        "add",
+        "NYSE ADD ($ADD)",
+        8,
+        n,
+        n >= 200 ? "good" : n <= -200 ? "bad" : "neutral",
+        "ADD " + (n > 0 ? "+" : "") + Math.round(n).toLocaleString("en-US") + " (advancers − decliners)."
+      );
+    }
+    const trin = values.TRIN;
+    if (trin != null && Number.isFinite(Number(trin))) {
+      const n = Number(trin);
+      push(
+        "trin",
+        "NYSE TRIN ($TRIN)",
+        8,
+        n,
+        n < 0.9 ? "good" : n > 1.2 ? "bad" : "neutral",
+        "TRIN " + n.toFixed(3) + " (Arms Index — below 1 is risk-on)."
+      );
+    }
+    const vold = values.VOLD;
+    if (vold != null && Number.isFinite(Number(vold))) {
+      const n = Number(vold);
+      const abs = Math.abs(n);
+      const shown =
+        abs >= 1e9 ? (n / 1e9).toFixed(2).replace(/\.?0+$/, "") + "B" : abs >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : Math.round(n).toLocaleString("en-US");
+      push(
+        "vold",
+        "NYSE VOLD ($VOLD)",
+        6,
+        n,
+        n > 0 ? "good" : n < 0 ? "bad" : "neutral",
+        "VOLD " + (n > 0 ? "+" : "") + shown + " (up volume − down volume)."
+      );
+    }
+    return parts;
+  }
+
+  function nyseTapeSummary(breadth) {
+    const parts = nyseTapeParts(breadth);
+    if (!parts.length) {
+      return { ready: false, lean: "unread", good: 0, bad: 0, parts: [], why: "NYSE TICK/ADD/TRIN/VOLD No feed — soft only." };
+    }
+    const good = parts.filter((part) => part.says === "good").length;
+    const bad = parts.filter((part) => part.says === "bad").length;
+    const lean = good > bad ? "supportive" : bad > good ? "hostile" : "mixed";
+    const why =
+      "NYSE tape " +
+      lean +
+      " (" +
+      good +
+      " good · " +
+      bad +
+      " bad of " +
+      parts.length +
+      " live prints)";
+    return { ready: true, lean, good, bad, parts, why };
+  }
+
+  function foldNyseTape(internalsResult, breadth) {
+    if (!internalsResult || typeof internalsResult !== "object") return internalsResult;
+    const kept = (internalsResult.parts || []).filter((part) => !part.nyse);
+    const extra = nyseTapeParts(breadth);
+    const parts = kept.concat(extra);
+    const total = parts.reduce((sum, item) => sum + item.weight, 0);
+    const earned = parts.reduce((sum, item) => sum + item.points, 0);
+    const score = total > 0 ? Math.round((earned / total) * 100) : 0;
+    const label = total < 60 ? "Unknown" : score >= 65 ? "Supportive" : score >= 40 ? "Mixed" : "Defensive";
+    const tape = nyseTapeSummary(breadth);
+    return Object.assign({}, internalsResult, {
+      parts,
+      score,
+      label,
+      ready: total >= 60,
+      coverage: total,
+      missing: (internalsResult.missing || []).slice(),
+      nyse: tape,
+    });
+  }
+
   function internals(data) {
     const source = data || {};
     const closedOf = (symbol) => {
@@ -5572,6 +5686,9 @@
     plainPrice,
     internals,
     deskInternals,
+    nyseTapeParts,
+    nyseTapeSummary,
+    foldNyseTape,
     INTERNAL_SYMBOLS,
     squeezeRead,
     squeezeScore,

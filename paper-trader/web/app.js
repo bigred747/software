@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.54";
+const VERSION = "1.10.55";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -5139,8 +5139,27 @@ function bestSetupStatus() {
   addGate(
     "Internals supportive",
     intOk,
-    internals && internals.ready ? "Internals " + internals.label + " " + internals.score : "Internals not ready"
+    internals && internals.ready
+      ? "Internals " +
+        internals.label +
+        " " +
+        internals.score +
+        (internals.nyse && internals.nyse.ready ? " · " + internals.nyse.why : "")
+      : "Internals not ready"
   );
+
+  // Soft confirm only — does not block Best setup ready. Edge 7/7 + Internals Defensive still rule.
+  const tape =
+    typeof PaperFrames !== "undefined" && PaperFrames.nyseTapeSummary
+      ? PaperFrames.nyseTapeSummary(state.breadth)
+      : null;
+  gates.push({
+    label: "NYSE tape",
+    ok: !!(tape && tape.ready && tape.lean === "supportive"),
+    detail: tape && tape.ready
+      ? tape.why + " · soft confirm for Best setup / Fire / day bias (not a hard Edge gate)"
+      : "TICK/ADD/TRIN/VOLD No feed — soft only when Schwab Connect paints them",
+  });
 
   const desk =
     bars.length && typeof PaperFrames !== "undefined" && PaperFrames.deskInternals
@@ -8757,10 +8776,15 @@ function renderScorecard() {
       const when = state.sc.at
         ? new Date(state.sc.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
         : "";
+      const tape =
+        typeof PaperFrames !== "undefined" && PaperFrames.nyseTapeSummary
+          ? PaperFrames.nyseTapeSummary(state.breadth)
+          : null;
       note.textContent =
         "Scorecard ready" +
         (result.asOf ? " as of " + result.asOf : "") +
         (when ? " · read " + when + " Denver" : "") +
+        (tape && tape.ready ? " · " + tape.why : "") +
         ". Closed bars only. Not a forecast.";
     }
   }
@@ -9863,7 +9887,31 @@ function loadIntGate() {
   }
 }
 
-state.int = { gate: loadIntGate(), result: null, desk: null, at: 0, busy: false, error: "" };
+state.int = { gate: loadIntGate(), result: null, base: null, desk: null, at: 0, busy: false, error: "" };
+
+function syncInternalsWithBreadth() {
+  const box = state.int;
+  if (!box) return null;
+  const raw = box.base || box.result;
+  if (!raw) return null;
+  const clean = Object.assign({}, raw, {
+    parts: (raw.parts || []).filter((part) => !part.nyse),
+  });
+  box.base = clean;
+  if (typeof PaperFrames !== "undefined" && PaperFrames.foldNyseTape) {
+    box.result = PaperFrames.foldNyseTape(clean, state.breadth);
+  } else {
+    box.result = clean;
+  }
+  // Day bias on Scorecard uses Internals — refresh when live NYSE tape arrives.
+  if (state.sc && state.sc.result && typeof PaperFrames !== "undefined" && PaperFrames.dayBias) {
+    const tide = state.sc.result.tide;
+    let day = PaperFrames.dayBias(box.result, state.sc.result.indexes || []);
+    if (tide && tide.on) day = { bias: "Stay flat · Tide Alert", why: tide.why };
+    state.sc.result.day = day;
+  }
+  return box.result;
+}
 
 async function internalBars(symbol) {
   if (state.offline && INT_GAUGES.includes(symbol)) return PaperLive.gauge(symbol);
@@ -9909,7 +9957,9 @@ async function loadInternals(force) {
   };
   try {
     await Promise.all(Array.from({ length: Math.min(4, symbols.length) }, () => worker()));
-    box.result = PaperFrames.internals(data);
+    box.base = PaperFrames.internals(data);
+    box.result = box.base;
+    syncInternalsWithBreadth();
     box.at = Date.now();
     box.error = "";
   } catch (error) {
@@ -10185,7 +10235,16 @@ function renderEdge() {
       ? "Gate Print · " + print.line + (desk.why && desk.call === "WAIT" ? " · Desk Call " + call : desk.call === "FIRE" ? " · Desk Call FIRE" : "")
       : "Gate Print · waiting for closed bars.";
   }
-  $("edge-plan").textContent = edgePlan(result);
+  const tape =
+    typeof PaperFrames !== "undefined" && PaperFrames.nyseTapeSummary
+      ? PaperFrames.nyseTapeSummary(state.breadth)
+      : null;
+  const plan = edgePlan(result);
+  $("edge-plan").textContent =
+    plan +
+    (tape && tape.ready
+      ? " · " + tape.why + " (soft — Edge stays 7/7; sells never blocked by tape)."
+      : "");
   const record = $("edge-record");
   record.replaceChildren();
   const rec = result.record;
@@ -11036,6 +11095,10 @@ function applyBreadthPayload(payload) {
     .filter((bar) => bar.date && bar.close > 0);
   state.edgeKey = "";
   state.edge = null;
+  syncInternalsWithBreadth();
+  if (state.int && (state.int.result || state.int.desk)) renderInternals();
+  renderBestSetup();
+  if (state.sc && state.sc.result) renderScorecard();
 }
 
 function paintChartBoxes() {

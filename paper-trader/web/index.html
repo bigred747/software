@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.54">
+  <meta name="paper-build" content="1.10.55">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.54</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.55</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -539,7 +539,7 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Strategies</h2>
         </div>
-        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Factor, Result, Hold, Worst, Health. Strat Health watches recent closed-bar Factor vs the full book — Incubate until enough trades, Soft · Hold Auto when recent edge drifts, Desk when healthy. Learning re-scores on top Daily scan names and paper fills. Closed bars only. Not a forecast. Live locked.</p>
+        <p id="strat-lead" class="muted">Every strategy, including Squeeze · TMO · big4indicator · stack · MTF (desk squeeze, true momentum, big4indicator, SMA stack, plus completed weekly and monthly agreement) and the CCI zoom / snap-back rows, sits in the same ranking table: Strategy, Now, Trades, Wins, Factor, Result, Hold, Worst, Health. Strat Health watches recent closed-bar Factor vs the full book — Incubate until enough trades, Soft · Hold Auto when recent edge drifts, Desk when healthy. Learning re-scores on top Daily scan names and paper fills. Market Internals (and live NYSE TICK/ADD/TRIN/VOLD when Schwab paints them) gate Best setup / Fire Auto buys when Defensive — strategies themselves stay closed-bar. Edge Fire stays 7/7 (VIX falling); tape is soft context only. Closed bars only. Not a forecast. Live locked.</p>
         <div class="table-wrap strat-board-wrap">
           <table class="strat-board-table">
             <thead>
@@ -696,7 +696,7 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Big 3 Market Scorecard</h2>
         </div>
-        <p class="muted">Four closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), (3) Tide Alert when Sector Drain meets Weekly Tide or Index Soft, and (4) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
+        <p class="muted">Four closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), (3) Tide Alert when Sector Drain meets Weekly Tide or Index Soft, and (4) whether today favors swing trades, day trades, or staying flat — day bias uses Market Internals (and live NYSE TICK/ADD/TRIN/VOLD when Schwab paints them). Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
         <div class="strat-orb-inputs">
           <button id="sc-run" type="button">Run scorecard</button>
           <button id="sc-stop" type="button" class="quiet">Stop</button>
@@ -747,7 +747,7 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Market internals</h2>
         </div>
-        <p id="int-lead" class="muted">Reads the fear gauges, index trend, how many sectors take part, small against large, offense against defense, credit, rates, and the dollar from real daily bars, then rolls them into one market label: Supportive, Mixed, or Defensive. For the open market it also folds in desk studies — Squeeze, TMO, big4indicator, SMA stack, and weekly/monthly MTF — using the same closed-bar math as Strategies / Best setup / Edge. Looks backward only. Not a forecast.</p>
+        <p id="int-lead" class="muted">Reads the fear gauges, index trend, how many sectors take part, small against large, offense against defense, credit, rates, and the dollar from real daily bars, then rolls them into one market label: Supportive, Mixed, or Defensive. When Schwab Connect paints live <strong>TICK · ADD · TRIN · VOLD</strong>, those NYSE prints fold into the same score (omit when No feed — never invent). For the open market it also folds in desk studies — Squeeze, TMO, big4indicator, SMA stack, and weekly/monthly MTF — using the same closed-bar math as Strategies / Best setup / Edge. Looks backward only. Not a forecast.</p>
         <div class="strat-orb-inputs">
           <button id="int-refresh" type="button">Refresh internals</button>
           <label class="strat-switch"><input id="int-gate" type="checkbox" checked> Respect internals: Auto skips buys in stocks, ETFs, and futures while internals are Defensive</label>
@@ -945,7 +945,7 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Today's check</h2>
         </div>
-        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on). Fire pins carry Gate Print + Fire Precision. Lane Align and Range Seat tag each name for desk review. Strat Health (Strategies) holds Auto buys when a strategy is Incubating or Soft. Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
+        <p id="journal-check-note" class="muted">Open Journal each day. Buy names come from Fire 5 / today's best (held back while Tide Alert is on, and while Market Internals are Defensive when the Respect internals switch is on — live NYSE TICK/ADD/TRIN/VOLD fold into that score when Schwab paints them). Fire pins carry Gate Print + Fire Precision. Lane Align and Range Seat tag each name for desk review. Strat Health (Strategies) holds Auto buys when a strategy is Incubating or Soft. Sell names are open paper longs with an Edge exit. Go Long 5 on Markets is review-only pressure under Tide (not Fire 5) — this desk does not short. Tap a product to review the chart. Auto still asks Yes before any paper fill. Paper only. Not a forecast.</p>
         <h3 class="journal-check-head">Week Board</h3>
         <p id="week-board-note" class="muted">This Denver week’s Fire names plus Lane Align · Range Seat · Tide. Review only — not a second Fire 5 list. Paper only. Not a forecast.</p>
         <div id="week-board" class="pins" aria-label="Week Board"></div>
@@ -1335,11 +1335,11 @@ AddOrder(Sell, sellFire);</textarea>
       </div>
     </div>
   </div>
-  <script src="live.js?v=11054"></script>
-  <script src="engine.js?v=11054"></script>
-  <script src="study.js?v=11054"></script>
-  <script src="frames.js?v=11054"></script>
-  <script src="booster.js?v=11054"></script>
-  <script src="app.js?v=11054"></script>
+  <script src="live.js?v=11055"></script>
+  <script src="engine.js?v=11055"></script>
+  <script src="study.js?v=11055"></script>
+  <script src="frames.js?v=11055"></script>
+  <script src="booster.js?v=11055"></script>
+  <script src="app.js?v=11055"></script>
 </body>
 </html>
