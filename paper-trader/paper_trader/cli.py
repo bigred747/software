@@ -43,6 +43,14 @@ def main(argv: list[str] | None = None) -> int:
         help="OPTIONAL: erase other installs/zips. Open/Start never does this.",
     )
     erase.add_argument("--home", type=Path, default=None)
+    commands.add_parser(
+        "rescue",
+        help="Copy out of a Windows Temp zip folder into Documents and write Desktop\\Paper Trader.bat",
+    )
+    commands.add_parser(
+        "desktop-link",
+        help="Write Desktop\\Paper Trader.bat pointing at this folder",
+    )
     commands.add_parser("learn", help="Score closed bars all day on this computer")
     commands.add_parser(
         "schwab-status",
@@ -102,6 +110,31 @@ def main(argv: list[str] | None = None) -> int:
             print(f"erased:{len(report['erased'])}")
             print(f"bots_closed:{len(report['closed'])}")
             print(f"zips_removed:{len(report['zips_removed'])}")
+            return 0
+        if args.command == "rescue":
+            from paper_trader.install import rescue_from_temp_zip, write_desktop_opener
+
+            folder = Path(__file__).resolve().parents[1]
+            dest = rescue_from_temp_zip(folder, Path.home())
+            links = write_desktop_opener(dest, Path.home())
+            print(dest)
+            print("rescue")
+            for path in links:
+                print(f"desktop:{path}")
+            if not links:
+                print("desktop:MISSING")
+            return 0
+        if args.command == "desktop-link":
+            from paper_trader.install import write_desktop_opener
+
+            folder = Path(__file__).resolve().parents[1]
+            links = write_desktop_opener(folder, Path.home())
+            print(folder)
+            for path in links:
+                print(f"desktop:{path}")
+            if not links:
+                print("desktop:MISSING")
+                return 1
             return 0
         if args.command == "serve":
             if not 1024 <= args.port <= 65535:

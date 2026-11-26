@@ -343,16 +343,25 @@ def _resume_learner(dest: Path) -> None:
 
 
 def desktop_folders(home: Path) -> list[Path]:
+    """Desktop folders to receive Paper Trader.bat. Creates the user Desktop if missing."""
     names = [home / "Desktop", home / "OneDrive" / "Desktop"]
     one_drive = os.environ.get("OneDrive")
     if one_drive:
         names.append(Path(one_drive) / "Desktop")
+    # Create the normal Desktop so the shortcut always has a place to land.
+    try:
+        (home / "Desktop").mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
     found: list[Path] = []
     seen: set[Path] = set()
     for folder in names:
-        if not folder.is_dir():
+        try:
+            if not folder.is_dir():
+                continue
+            resolved = folder.resolve()
+        except OSError:
             continue
-        resolved = folder.resolve()
         if resolved in seen:
             continue
         seen.add(resolved)
@@ -362,6 +371,7 @@ def desktop_folders(home: Path) -> list[Path]:
 
 def write_desktop_opener(install: Path, home: Path) -> list[Path]:
     """A visible desktop file that one-click opens this copy via Start-Paper-Trader.bat."""
+    install = install.resolve()
     opener = install / "Start-Paper-Trader.bat"
     if not opener.is_file():
         opener = install / "2 Open Paper Trader.bat"
@@ -377,11 +387,91 @@ def write_desktop_opener(install: Path, home: Path) -> list[Path]:
     for folder in desktop_folders(home):
         path = folder / OPENER_NAME
         try:
-            path.write_text(script, encoding="utf-8")
+            path.write_bytes(script.encode("utf-8"))
         except OSError:
             continue
         written.append(path)
     return written
+
+
+def rescue_from_temp_zip(source: Path, home: Path | None = None) -> Path:
+    """Copy a Windows Temp zip extract into Documents and write the desktop shortcut.
+
+    This is the only install path allowed to read from a Temp\\.zip. folder.
+    Older Paper Trader folders are left alone. Destination is Documents\\Paper Trader
+    when possible; otherwise a unique Documents\\PaperTrader-setup-* copy.
+    """
+    import time
+
+    from paper_trader.guard import is_temp_zip_extract
+
+    home = Path(home or Path.home())
+    source = source.resolve()
+    if not (source / LAUNCHER).is_file() or not (source / PACKAGE).is_file():
+        raise ValueError(
+            "This zip Temp folder is incomplete (Start-Paper-Trader.bat / package missing)."
+        )
+    if path_looks_foreign(source):
+        raise ValueError("Will not rescue from a foreign-bot path.")
+    documents = home / "Documents"
+    documents.mkdir(parents=True, exist_ok=True)
+    dest = canonical_folder(home)
+    # Prefer Documents\\Paper Trader; if locked, land in a unique setup folder.
+    targets: list[Path] = [dest]
+    if is_temp_zip_extract(source) or source != dest:
+        targets.append(documents / f"PaperTrader-setup-{int(time.time())}" / "paper-trader")
+
+    last_error: Exception | None = None
+    landed: Path | None = None
+    for target in targets:
+        try:
+            if path_looks_foreign(target):
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists() and target.resolve() != source:
+                saved: dict[str, bytes] = {}
+                for name in SKIP_FILES:
+                    path = target / name
+                    if path.is_file():
+                        try:
+                            saved[name] = path.read_bytes()
+                        except OSError:
+                            pass
+                _replace_install(source, target)
+                for name, payload in saved.items():
+                    try:
+                        (target / name).write_bytes(payload)
+                    except OSError:
+                        pass
+            elif not target.exists():
+                shutil.copytree(
+                    source,
+                    target,
+                    ignore=shutil.ignore_patterns(*SKIP_DIRS, "*.pyc", *SKIP_FILES),
+                )
+            (target / "VERSION").write_text(__version__ + "\n", encoding="utf-8")
+            from paper_trader.schwab_env import ensure_env_file
+
+            ensure_env_file(target)
+            landed = target
+            break
+        except (OSError, ValueError) as exc:
+            last_error = exc
+            continue
+    if landed is None:
+        raise ValueError(
+            "Could not copy out of the zip Temp folder. "
+            f"Close Paper Trader windows and retry. ({last_error})"
+        )
+    written = write_desktop_opener(landed, home)
+    if not written:
+        # Last chance: force-create user Desktop and write again.
+        try:
+            (home / "Desktop").mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+        written = write_desktop_opener(landed, home)
+    return landed
 
 
 def other_copies(home: Path, running: Path) -> list[Path]:
@@ -503,7 +593,7 @@ def remove_desktop_opener(home: Path) -> list[Path]:
     return removed
 
 
-KEEP_VERSION = "1.10.55"
+KEEP_VERSION = "1.10.56"
 
 
 def read_install_version(folder: Path) -> str:
@@ -536,7 +626,7 @@ def erase_other_installs(
     keep_version: str = KEEP_VERSION,
     killer=None,
 ) -> dict[str, object]:
-    """Keep only Paper Trader keep_version (default 1.10.55). Erase other installs, zips, and extra Bots."""
+    """Keep only Paper Trader keep_version (default 1.10.56). Erase other installs, zips, and extra Bots."""
     from paper_trader.learn import end_learner_pid, stop_learner
 
     end_pid = killer or end_learner_pid

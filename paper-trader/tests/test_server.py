@@ -964,11 +964,13 @@ class ServerTests(unittest.TestCase):
         self.assertIn("launch.py", bat)
         self.assertIn("serve", bat)
         self.assertIn("if not errorlevel 1", bat)
-        self.assertIn("extract_zip.py", bat)
+        self.assertIn("rescue", bat)
+        self.assertIn("desktop-link", bat)
         self.assertIn("starting paper trader", bat)
         self.assertIn("one click", bat)
+        self.assertIn("desktop shortcut", bat)
         self.assertNotIn("goto badinstall", bat)
-        # One-click Start serves THIS folder — no auto force-upgrade, no Explorer popup.
+        # One-click Start serves THIS folder - no auto force-upgrade, no Explorer popup.
         self.assertNotIn("force-upgrade", bat)
         self.assertNotIn("start \"\" explorer", bat)
         self.assertNotIn("explorer \"", bat)
@@ -986,15 +988,8 @@ class ServerTests(unittest.TestCase):
         self.assertIn("extract_zip.py", allow)
         self.assertIn("extract_zip.py", install)
         self.assertIn("one-click", install)
-        self.assertIn("extract_zip.py", opener)
-        self.assertIn("papertrader-setup", opener)
         self.assertIn("start-paper-trader.bat", opener)
-        for name in (
-            "Start-Paper-Trader.bat",
-            "1 Allow Paper Trader.bat",
-            "2 Open Paper Trader.bat",
-            "1 INSTALL Paper Trader.bat",
-        ):
+        for name in ("1 Allow Paper Trader.bat", "1 INSTALL Paper Trader.bat"):
             text = (ROOT / name).read_text(encoding="utf-8")
             self.assertIn("extract_zip.py", text)
             self.assertNotIn('Temp\\"', text)
@@ -1004,6 +999,9 @@ class ServerTests(unittest.TestCase):
         for name in ("Start-Paper-Trader.bat", "1 Allow Paper Trader.bat", "2 Open Paper Trader.bat"):
             text = (ROOT / name).read_text(encoding="utf-8")
             self.assertIn(".zip.", text)
+            lowered = text.lower()
+            for blocked in ("powershell", "cscript", "wscript", "zone.identifier", "unblock-file", ".vbs", "taskkill"):
+                self.assertNotIn(blocked, lowered)
         self.assertIn("force-upgrade.bat", allow)
         self.assertIn("start-paper-trader.bat", opener)
         self.assertIn("papertrader-install", install)

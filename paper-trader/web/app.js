@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.55";
+const VERSION = "1.10.56";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";

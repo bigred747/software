@@ -19,6 +19,7 @@ from paper_trader.install import (
     other_copies,
     read_install_version,
     remove_desktop_opener,
+    rescue_from_temp_zip,
     single_copy_status,
     write_desktop_opener,
 )
@@ -146,6 +147,20 @@ class InstallTests(unittest.TestCase):
             self.assertIn(str(dest).lower(), text)
             self.assertNotIn("powershell", text)
             self.assertNotIn("wscript", text)
+
+    def test_rescue_from_temp_zip_copies_out_and_writes_desktop(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            temp_zip = home / "AppData" / "Local" / "Temp" / "Temp1_Paper-Trader.zip" / "paper-trader"
+            make_install(temp_zip, "1.10.55")
+            (temp_zip / "web").mkdir(parents=True, exist_ok=True)
+            (temp_zip / "web" / "app.js").write_text('const VERSION = "1.10.55";\n', encoding="utf-8")
+            landed = rescue_from_temp_zip(temp_zip, home)
+            self.assertTrue((landed / "Start-Paper-Trader.bat").is_file())
+            self.assertNotIn(".zip.", str(landed).lower().replace("/", "\\"))
+            desktop = home / "Desktop" / "Paper Trader.bat"
+            self.assertTrue(desktop.is_file())
+            self.assertIn("start-paper-trader.bat", desktop.read_text(encoding="utf-8").lower())
 
     def test_a_locked_folder_reports_a_clean_failure(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
