@@ -406,7 +406,7 @@ def _copy_label(folder: Path) -> str:
 
 
 def single_copy_status(home: Path) -> dict[str, str | bool]:
-    """Accurate install count. Guides keep Documents\\Paper Trader 1.10.52 only."""
+    """Accurate install count. Guides keep Documents\\Paper Trader 1.10.53 only."""
     copies = sorted(find_installs(home), key=_installed_version, reverse=True)
     if not copies:
         return {"name": "Install", "ok": True, "detail": "No extra copies"}
@@ -417,7 +417,7 @@ def single_copy_status(home: Path) -> dict[str, str | bool]:
     shown = ", ".join(_copy_label(path) for path in extras[:4])
     more = f" +{len(extras) - 4} more" if len(extras) > 4 else ""
     detail = (
-        f"{len(copies)} copies · keep Documents\\Paper Trader (1.10.52) · newest {_copy_label(newest)} · also {shown}{more}. "
+        f"{len(copies)} copies · keep Documents\\Paper Trader (1.10.53) · newest {_copy_label(newest)} · also {shown}{more}. "
         "Double-click Erase-Other-Paper-Traders.bat in Documents\\Paper Trader to erase the extras."
     )
     return {"name": "Install", "ok": False, "detail": detail}
@@ -499,7 +499,7 @@ def remove_desktop_opener(home: Path) -> list[Path]:
     return removed
 
 
-KEEP_VERSION = "1.10.52"
+KEEP_VERSION = "1.10.53"
 
 
 def read_install_version(folder: Path) -> str:
@@ -532,7 +532,7 @@ def erase_other_installs(
     keep_version: str = KEEP_VERSION,
     killer=None,
 ) -> dict[str, object]:
-    """Keep only Paper Trader keep_version (default 1.10.52). Erase other installs, zips, and extra Bots."""
+    """Keep only Paper Trader keep_version (default 1.10.53). Erase other installs, zips, and extra Bots."""
     from paper_trader.learn import end_learner_pid, stop_learner
 
     end_pid = killer or end_learner_pid

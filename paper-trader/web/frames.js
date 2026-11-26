@@ -3667,10 +3667,12 @@
     return "Edge " + known.call + " · " + (known.score == null ? "—" : known.score + " of " + EDGE_SCORE) + stop + " · " + known.record.trades + " past trades, " + (known.record.trades ? Math.round(known.record.winRate * 100) + "% won" : "none yet");
   }
 
-  // Big 3 Market Scorecard: index/sector strength, strict A+ squeezes, day bias.
-  // Desk closed-bar math only — not a third-party or trademarked scorecard product.
+  // Rank Board (desk market scorecard): index/sector strength, strict A+ coils, day bias.
+  // Desk closed-bar math only — own name, not a third-party or trademarked product.
   const SCORECARD_INDEXES = ["SPY", "QQQ", "IWM", "DIA", "ES", "NQ"];
   const SCORECARD_SECTORS = ["XLK", "SMH", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU", "XLB"];
+  // Scout Sheet average pins — desk rails 21 / 200 EMA on the names that steer the board.
+  const SCOUT_PIN_SYMBOLS = ["SPY", "QQQ", "SMH", "NVDA", "IWM", "DIA"];
 
   function strengthRead(bars) {
     const list = closedBars(bars || [], false);
@@ -4343,6 +4345,81 @@
       tide,
       day,
       asOf: (indexes[0] && indexes[0].asOf) || (sectors[0] && sectors[0].asOf) || "",
+    };
+  }
+
+  // Average Pins — close vs desk 21 EMA and 200 EMA on closed bars. Own math only.
+  function averagePinRead(bars) {
+    const list = closedBars(bars || [], false);
+    if (list.length < 30) return null;
+    const closes = list.map((bar) => bar.close);
+    const close = closes[closes.length - 1];
+    const e21 = ema(closes, 21);
+    const e200 = ema(closes, 200);
+    const last21 = e21[e21.length - 1];
+    const last200 = list.length >= 200 ? e200[e200.length - 1] : null;
+    if (!(last21 > 0)) return null;
+    return {
+      ready: true,
+      close,
+      ema21: last21,
+      ema200: last200 != null && last200 > 0 ? last200 : null,
+      above21: close > last21,
+      above200: last200 != null && last200 > 0 ? close > last200 : null,
+      asOf: list[list.length - 1].date,
+    };
+  }
+
+  // Scout Sheet — one desk board: Stance · Flow Split · Coil A+ · Average Pins · Night Rule.
+  // Composes Rank Board math with pin levels. Own names only. Paper guidance. Not a forecast.
+  function scoutSheetRead(input) {
+    const source = input || {};
+    const card = marketScorecard(source);
+    const barsMap = source.bars || {};
+    const pinSymbols = source.pinSymbols || SCOUT_PIN_SYMBOLS;
+    const pins = (pinSymbols || [])
+      .map((symbol) => {
+        const pin = averagePinRead(barsMap[symbol]);
+        if (!pin) return null;
+        return Object.assign({ symbol }, pin);
+      })
+      .filter(Boolean);
+    const sectors = card.sectors || [];
+    const leaders = sectors
+      .filter((row) => row && (row.ret5 > 0 || row.stacked))
+      .slice()
+      .sort((left, right) => right.score - left.score || left.symbol.localeCompare(right.symbol))
+      .slice(0, 5);
+    const laggards = sectors
+      .filter((row) => row && row.ret5 < 0)
+      .slice()
+      .sort((left, right) => left.ret5 - right.ret5 || left.symbol.localeCompare(right.symbol))
+      .slice(0, 5);
+    const biasText = (card.day && card.day.bias) || "";
+    const tideOn = !!(card.tide && card.tide.on);
+    const flatNight =
+      tideOn || /flat|tide/i.test(biasText) || /defensive/i.test(biasText);
+    const nightRule = {
+      flat: flatNight,
+      label: flatNight ? "Stay flat overnight" : "Overnight holds OK if Edge / Auto agree",
+      why: tideOn
+        ? "Tide Alert is on — day trade only and flatten before the close when you can."
+        : flatNight
+          ? "Desk stance is flat or defensive — skip overnight risk until Stance opens up."
+          : "Stance allows multi-bar holds when Edge, Lane, and Auto still agree. Paper only.",
+    };
+    return {
+      ready: !!(card.ready || pins.length),
+      stance: card.day || { bias: "Waiting", why: "Run Scout Sheet for Stance." },
+      tide: card.tide || { ready: false, on: false, why: "" },
+      leaders,
+      laggards,
+      coilAPlus: card.aPlus || [],
+      indexes: card.indexes || [],
+      sectors,
+      pins,
+      nightRule,
+      asOf: card.asOf || (pins[0] && pins[0].asOf) || "",
     };
   }
 
@@ -5607,6 +5684,9 @@
     SEAT_TRAIL_MID,
     SEAT_TRAIL_LOW,
     marketScorecard,
+    averagePinRead,
+    scoutSheetRead,
+    SCOUT_PIN_SYMBOLS,
     horizonOutlook,
     marketOutlook,
     cycleMapRead,

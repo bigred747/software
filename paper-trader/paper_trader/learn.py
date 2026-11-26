@@ -61,7 +61,8 @@ _DESK_PAGES: list[tuple[str, str]] = [
     ("strategies", "Strategies · classic board"),
     ("productscan", "Product Scan · top 20 per type · best strategy"),
     ("squeeze", "Squeeze scan · catalog walk"),
-    ("scorecard", "Big 3 Market Scorecard · indexes, A+ squeezes, day bias"),
+    ("scorecard", "Rank Board · indexes, Coil A+, day bias"),
+    ("scout", "Scout Sheet · Stance, Flow Split, Coil A+, Average Pins, Night Rule"),
     ("cycle", "Cycle Desk · stages, Defensive Shield, Risk Rebound"),
     ("forecast", "Forecaster · price levels confidence Swing Guard"),
     ("home", "Tools home · full-screen desk index"),
@@ -154,7 +155,13 @@ def page_snapshot(
     elif page == "scorecard":
         base.update(
             {
-                "note": "Big 3 Market Scorecard: index/sector strength, A+ squeezes, and swing/day/flat day bias from closed bars.",
+                "note": "Rank Board: index/sector strength, Coil A+, and swing/day/flat day bias from closed bars. Own desk name only.",
+            }
+        )
+    elif page == "scout":
+        base.update(
+            {
+                "note": "Scout Sheet: Desk Stance, Flow Split, Coil A+, Average Pins, Night Rule from closed bars. Own desk names only.",
             }
         )
     elif page == "cycle":

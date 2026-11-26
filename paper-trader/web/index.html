@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.52">
+  <meta name="paper-build" content="1.10.53">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.52</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.53</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -104,12 +104,12 @@
       <h2>Markets</h2>
       <div id="pins" class="pins" aria-label="Pinned markets"></div>
       <button id="pin-toggle" type="button" class="quiet">Pin this market</button>
-      <div id="scorecard-card" class="scorecard-card scorecard-card-compact" aria-label="Big 3 Market Scorecard">
+      <div id="scorecard-card" class="scorecard-card scorecard-card-compact" aria-label="Rank Board">
         <div class="scorecard-card-head">
-          <h3>Big 3 Scorecard</h3>
+          <h3>Rank Board</h3>
           <button id="scorecard-open" type="button" class="quiet">Open</button>
         </div>
-        <p id="scorecard-bias" class="scorecard-bias">Open Tools for rankings, A+ squeezes, Tide Alert, and day bias.</p>
+        <p id="scorecard-bias" class="scorecard-bias">Open Tools for rankings, Coil A+, Tide Alert, and day bias.</p>
         <p id="scorecard-blurb" class="muted" hidden>Ranks the strongest indexes and sectors on the Tools page. Paper only. Not a forecast.</p>
       </div>
       <div class="scan-block">
@@ -232,7 +232,8 @@
           <button type="button" data-open-dock="strategies">Strategies</button>
           <button type="button" data-open-dock="productscan">Product Scan</button>
           <button type="button" data-open-dock="internals">Internals</button>
-          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
+          <button type="button" data-open-dock="scorecard">Rank Board</button>
+          <button type="button" data-open-dock="scout">Scout Sheet</button>
           <button type="button" data-open-dock="cycle">Cycle Desk</button>
           <button type="button" data-open-dock="forecast">Forecaster</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
@@ -462,7 +463,8 @@
         <button type="button" class="dock-tab" data-dock="strategies">Strategies</button>
         <button type="button" class="dock-tab" data-dock="productscan">Product Scan</button>
         <button type="button" class="dock-tab" data-dock="squeeze">Squeeze scan</button>
-        <button type="button" class="dock-tab" data-dock="scorecard">Big 3 Scorecard</button>
+        <button type="button" class="dock-tab" data-dock="scorecard">Rank Board</button>
+        <button type="button" class="dock-tab" data-dock="scout">Scout Sheet</button>
         <button type="button" class="dock-tab" data-dock="cycle">Cycle Desk</button>
         <button type="button" class="dock-tab" data-dock="forecast">Forecaster</button>
         <button type="button" class="dock-tab" data-dock="internals">Internals</button>
@@ -485,7 +487,8 @@
           <button type="button" data-open-dock="strategies">Strategies</button>
           <button type="button" data-open-dock="productscan">Product Scan</button>
           <button type="button" data-open-dock="internals">Internals</button>
-          <button type="button" data-open-dock="scorecard">Big 3 Scorecard</button>
+          <button type="button" data-open-dock="scorecard">Rank Board</button>
+          <button type="button" data-open-dock="scout">Scout Sheet</button>
           <button type="button" data-open-dock="cycle">Cycle Desk</button>
           <button type="button" data-open-dock="forecast">Forecaster</button>
           <button type="button" data-open-dock="frames">Timeframes</button>
@@ -694,9 +697,9 @@ AddOrder(Sell, sellFire);</textarea>
       <div class="dock-page" data-dock-page="scorecard">
         <div class="dock-page-head">
           <button type="button" class="dock-back quiet">Back</button>
-          <h2>Big 3 Market Scorecard</h2>
+          <h2>Rank Board</h2>
         </div>
-        <p class="muted">Four closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short A+ squeeze list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only, not a third-party product), (3) Tide Alert when Sector Drain meets Weekly Tide or Index Soft, and (4) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast.</p>
+        <p class="muted">Four closed-bar reads on this computer desk: (1) strongest indexes and sector funds, (2) a short Coil A+ list that meets this desk’s strict rules (high score, rising bullish momentum, stacked averages, mid/high compression or five+ dots — own math only), (3) Tide Alert when Sector Drain meets Weekly Tide or Index Soft, and (4) whether today favors swing trades, day trades, or staying flat. Shrinks the watchlist, cuts forcing trades, and shows when to size down. Paper only. Not a forecast. Own desk name — not a third-party product.</p>
         <div class="strat-orb-inputs">
           <button id="sc-run" type="button">Run scorecard</button>
           <button id="sc-stop" type="button" class="quiet">Stop</button>
@@ -730,13 +733,78 @@ AddOrder(Sell, sellFire);</textarea>
             </div>
           </section>
         </div>
-        <section class="scorecard-panel" aria-label="A plus squeezes">
-          <h3>A+ squeezes</h3>
-          <p id="sc-aplus-note" class="muted">Strict desk filter on the starter squeeze list. Empty is a normal answer.</p>
+        <section class="scorecard-panel" aria-label="Coil A plus">
+          <h3>Coil A+</h3>
+          <p id="sc-aplus-note" class="muted">Strict desk filter on the starter coil list. Empty is a normal answer.</p>
           <div class="table-wrap">
             <table>
               <thead><tr><th>#</th><th>Market</th><th>State</th><th>Dots</th><th>Level</th><th>Triple</th><th>Edge</th><th>Score</th><th></th></tr></thead>
               <tbody id="sc-aplus"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div class="dock-page" data-dock-page="scout">
+        <div class="dock-page-head">
+          <button type="button" class="dock-back quiet">Back</button>
+          <h2>Scout Sheet</h2>
+        </div>
+        <p class="muted">One desk board for the strongest setups: Desk Stance, Flow Split (leaders vs laggards), Coil A+, Average Pins (21 · 200 EMA), and Night Rule. Built from this desk’s closed-bar Rank Board math — own names only. Paper guidance. Not a forecast.</p>
+        <div class="strat-orb-inputs">
+          <button id="scout-run" type="button">Run Scout Sheet</button>
+          <button id="scout-stop" type="button" class="quiet">Stop</button>
+        </div>
+        <p id="scout-note" class="muted">Press Run Scout Sheet. Reads real daily bars for indexes, sectors, pin names, and the starter coil list.</p>
+        <div id="scout-stance" class="scorecard-day" aria-live="polite">
+          <p id="scout-stance-bias" class="scorecard-bias">Desk Stance · waiting</p>
+          <p id="scout-stance-why" class="muted"></p>
+        </div>
+        <div id="scout-night" class="scorecard-day" aria-live="polite">
+          <p id="scout-night-bias" class="scorecard-bias">Night Rule · waiting</p>
+          <p id="scout-night-why" class="muted"></p>
+        </div>
+        <div id="scout-tide" class="scorecard-day" aria-live="polite">
+          <p id="scout-tide-bias" class="scorecard-bias">Tide Alert · waiting</p>
+          <p id="scout-tide-why" class="muted"></p>
+        </div>
+        <div class="scorecard-grid">
+          <section class="scorecard-panel" aria-label="Flow leaders">
+            <h3>Flow Split · Leaders</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Sector</th><th>Score</th><th>5d</th><th>Stack</th><th></th></tr></thead>
+                <tbody id="scout-leaders"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="scorecard-panel" aria-label="Flow laggards">
+            <h3>Flow Split · Laggards</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>#</th><th>Sector</th><th>Score</th><th>5d</th><th>Stack</th><th></th></tr></thead>
+                <tbody id="scout-laggards"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <section class="scorecard-panel" aria-label="Average pins">
+          <h3>Average Pins</h3>
+          <p id="scout-pins-note" class="muted">Close vs desk 21 EMA and 200 EMA on SPY · QQQ · SMH · NVDA · IWM · DIA.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Market</th><th>Close</th><th>21 EMA</th><th>vs 21</th><th>200 EMA</th><th>vs 200</th><th></th></tr></thead>
+              <tbody id="scout-pins"></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="scorecard-panel" aria-label="Coil A plus scout">
+          <h3>Coil A+</h3>
+          <p id="scout-coil-note" class="muted">Strict desk filter. Empty is a normal answer.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Market</th><th>State</th><th>Dots</th><th>Level</th><th>Triple</th><th>Edge</th><th>Score</th><th></th></tr></thead>
+              <tbody id="scout-coil"></tbody>
             </table>
           </div>
         </section>
@@ -1335,11 +1403,11 @@ AddOrder(Sell, sellFire);</textarea>
       </div>
     </div>
   </div>
-  <script src="live.js?v=11052"></script>
-  <script src="engine.js?v=11052"></script>
-  <script src="study.js?v=11052"></script>
-  <script src="frames.js?v=11052"></script>
-  <script src="booster.js?v=11052"></script>
-  <script src="app.js?v=11052"></script>
+  <script src="live.js?v=11053"></script>
+  <script src="engine.js?v=11053"></script>
+  <script src="study.js?v=11053"></script>
+  <script src="frames.js?v=11053"></script>
+  <script src="booster.js?v=11053"></script>
+  <script src="app.js?v=11053"></script>
 </body>
 </html>

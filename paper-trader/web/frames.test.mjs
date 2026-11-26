@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, seatTrailRead, seatTrailMult, rangeSeat, leanBookRead, leanBookCashGuard, SCORECARD_INDEXES, SCORECARD_SECTORS, gatePrint, edgeDeskCall, firePrecision, fireFreshFlip, confirmLock, resolveDeskCard, DESK_CARDS, EDGE_SCORE, momentumBars } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, averagePinRead, scoutSheetRead, SCOUT_PIN_SYMBOLS, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, seatTrailRead, seatTrailMult, rangeSeat, leanBookRead, leanBookCashGuard, SCORECARD_INDEXES, SCORECARD_SECTORS, gatePrint, edgeDeskCall, firePrecision, fireFreshFlip, confirmLock, resolveDeskCard, DESK_CARDS, EDGE_SCORE, momentumBars } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -591,7 +591,7 @@ test("the price box lists open, high, low, close, change and the Edge checks for
   assert.equal(describeBar(bars, 0, { crypto: true }).rows.some((row) => row[0] === "Change"), false);
 });
 
-test("Big 3 Market Scorecard ranks strength and day bias", () => {
+test("Rank Board ranks strength and day bias", () => {
   assert.ok(SCORECARD_INDEXES.includes("SPY"));
   assert.ok(SCORECARD_SECTORS.includes("XLK"));
   const up = [];
@@ -629,6 +629,47 @@ test("Big 3 Market Scorecard ranks strength and day bias", () => {
   assert.equal(card.day.bias, "Swing trades");
   assert.equal(isAPlusSqueeze({ ready: true, direction: "bear", rising: true, stack: "positive", level: 3, dots: 6, clean: true }, { score: 90 }), false);
   assert.equal(isAPlusSqueeze({ ready: true, direction: "bull", rising: true, stack: "positive", level: 3, dots: 6, clean: true }, { score: 90 }), true);
+});
+
+test("Scout Sheet builds stance, flow split, pins, and night rule", () => {
+  assert.ok(SCOUT_PIN_SYMBOLS.includes("SPY"));
+  assert.ok(SCOUT_PIN_SYMBOLS.includes("NVDA"));
+  const up = [];
+  for (let index = 0; index < 220; index += 1) {
+    const close = 100 + index * 0.4;
+    up.push(day("2024-05-" + String((index % 28) + 1).padStart(2, "0"), close - 1, close + 1, close - 2, close));
+  }
+  const down = [];
+  for (let index = 0; index < 220; index += 1) {
+    const close = 200 - index * 0.35;
+    down.push(day("2024-05-" + String((index % 28) + 1).padStart(2, "0"), close + 1, close + 2, close - 1, close));
+  }
+  const pin = averagePinRead(up);
+  assert.equal(pin.ready, true);
+  assert.equal(pin.above21, true);
+  assert.equal(pin.above200, true);
+  const sheet = scoutSheetRead({
+    bars: { SPY: up, QQQ: up, SMH: up, NVDA: up, IWM: up, DIA: up, XLK: up, XLU: down },
+    internals: { ready: true, label: "Supportive", score: 70 },
+    squeezes: [],
+    indexSymbols: ["SPY", "QQQ"],
+    sectorSymbols: ["XLK", "XLU"],
+  });
+  assert.equal(sheet.ready, true);
+  assert.equal(sheet.stance.bias, "Swing trades");
+  assert.equal(sheet.nightRule.flat, false);
+  assert.ok(sheet.leaders.some((row) => row.symbol === "XLK"));
+  assert.ok(sheet.laggards.some((row) => row.symbol === "XLU"));
+  assert.ok(sheet.pins.length >= 4);
+  const soft = scoutSheetRead({
+    bars: { SPY: down, QQQ: down, XLK: down, XLU: down },
+    internals: { ready: true, label: "Defensive", score: 20 },
+    squeezes: [],
+    indexSymbols: ["SPY", "QQQ"],
+    sectorSymbols: ["XLK", "XLU"],
+  });
+  assert.equal(soft.nightRule.flat, true);
+  assert.match(soft.nightRule.label, /flat overnight/i);
 });
 
 test("Tide Alert drains soft sectors and Go Long 5 ranks pressure names", () => {

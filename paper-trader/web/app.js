@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.52";
+const VERSION = "1.10.53";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -6168,6 +6168,7 @@ function deskLearnPages() {
     "productscan",
     "squeeze",
     "scorecard",
+    "scout",
     "cycle",
     "forecast",
     "home",
@@ -8512,6 +8513,7 @@ async function refreshDeskPoolFeeds() {
 
 
 state.sc = { busy: false, stop: false, result: null, at: 0, error: "", progress: "" };
+state.scout = { busy: false, stop: false, result: null, at: 0, error: "", progress: "" };
 state.tide = { result: null, fades: [], note: "", busy: false, at: 0 };
 state.outlook = { busy: false, result: null, at: 0, error: "", note: "" };
 
@@ -8600,11 +8602,11 @@ function renderScorecardCard() {
   if (!result || !result.day) {
     bias.className = "scorecard-bias";
     bias.textContent = state.sc && state.sc.busy
-      ? (state.sc.progress || "Reading scorecard…")
-      : "Press Run scorecard for rankings, A+ squeezes, Tide Alert, and day bias.";
+      ? (state.sc.progress || "Reading Rank Board…")
+      : "Press Run scorecard for rankings, Coil A+, Tide Alert, and day bias.";
     if (blurb) {
       blurb.textContent =
-        "Ranks the strongest indexes and sectors, lists A+ squeezes that meet this desk’s strict closed-bar rules, flags Tide Alert when sectors drain with no rotation, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.";
+        "Ranks the strongest indexes and sectors, lists Coil A+ names that meet this desk’s strict closed-bar rules, flags Tide Alert when sectors drain with no rotation, and says whether the day favors swing trades, day trades, or staying flat. Paper only. Not a forecast.";
     }
     return;
   }
@@ -8625,8 +8627,8 @@ function renderScorecardCard() {
       topSector +
       ", " +
       aPlus +
-      " A+ squeeze" +
-      (aPlus === 1 ? "" : "s") +
+      " Coil A+" +
+      (aPlus === 1 ? " name" : " names") +
       ". Closed bars only.";
   }
 }
@@ -8710,7 +8712,7 @@ function renderScorecard() {
     const rows = (result && result.aPlus) || [];
     if (!rows.length) {
       const tr = document.createElement("tr");
-      addCells(tr, ["", "No A+ squeezes right now. A quiet list is a normal answer.", "", "", "", "", "", "", ""]);
+      addCells(tr, ["", "No Coil A+ names right now. A quiet list is a normal answer.", "", "", "", "", "", "", ""]);
       aBody.appendChild(tr);
     } else {
       rows.forEach((row, index) => {
@@ -8743,22 +8745,22 @@ function renderScorecard() {
     const fireN = ((result && result.aPlus) || []).filter((row) => row.edgeFire).length;
     aNote.textContent = result
       ? (result.aPlus || []).length +
-        " A+ squeeze" +
-        ((result.aPlus || []).length === 1 ? "" : "s") +
+        " Coil A+" +
+        ((result.aPlus || []).length === 1 ? "" : " names") +
         " after the strict desk filter (score 80+, rising bullish momentum, stacked averages, mid/high compression or five+ dots)" +
         (fireN ? "; " + fireN + " also Edge Fire on the same TMO · Squeeze · CCI gates" : "") +
         "."
-      : "Strict desk filter on the starter squeeze list. Empty is a normal answer.";
+      : "Strict desk filter on the starter coil list. Empty is a normal answer.";
   }
   if (note) {
-    if (state.sc && state.sc.busy) note.textContent = state.sc.progress || "Reading scorecard…";
+    if (state.sc && state.sc.busy) note.textContent = state.sc.progress || "Reading Rank Board…";
     else if (state.sc && state.sc.error) note.textContent = state.sc.error;
     else if (result) {
       const when = state.sc.at
         ? new Date(state.sc.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
         : "";
       note.textContent =
-        "Scorecard ready" +
+        "Rank Board ready" +
         (result.asOf ? " as of " + result.asOf : "") +
         (when ? " · read " + when + " Denver" : "") +
         ". Closed bars only. Not a forecast.";
@@ -8883,6 +8885,287 @@ async function runScorecard() {
     const tideBars = box._tideBars || {};
     box._tideBars = null;
     applyTideFromScorecard(box.result, tideBars).catch(() => {});
+  }
+}
+
+function scoutPublish(box, indexes, sectors, bars, squeezes, progress) {
+  box.progress = progress || "";
+  box.result = PaperFrames.scoutSheetRead({
+    bars,
+    internals: state.int.result,
+    squeezes: squeezes || [],
+    indexSymbols: indexes,
+    sectorSymbols: sectors,
+    pinSymbols: PaperFrames.SCOUT_PIN_SYMBOLS,
+  });
+  box.at = Date.now();
+  // Keep Rank Board in sync when Scout Sheet finishes a full read.
+  if (state.sc && squeezes && squeezes.length) {
+    state.sc.result = PaperFrames.marketScorecard({
+      bars,
+      internals: state.int.result,
+      squeezes,
+      indexSymbols: indexes,
+      sectorSymbols: sectors,
+    });
+    state.sc.at = box.at;
+    renderScorecard();
+  }
+  renderScoutSheet();
+}
+
+function renderScoutSheet() {
+  const result = state.scout && state.scout.result;
+  const note = $("scout-note");
+  const stanceBias = $("scout-stance-bias");
+  const stanceWhy = $("scout-stance-why");
+  const nightBias = $("scout-night-bias");
+  const nightWhy = $("scout-night-why");
+  const tideBias = $("scout-tide-bias");
+  const tideWhy = $("scout-tide-why");
+  if (stanceBias) {
+    if (result && result.stance) {
+      stanceBias.className = "scorecard-bias " + scorecardBiasClass(result.stance.bias);
+      stanceBias.textContent = "Desk Stance · " + result.stance.bias;
+      if (stanceWhy) stanceWhy.textContent = result.stance.why || "";
+    } else {
+      stanceBias.className = "scorecard-bias";
+      stanceBias.textContent = state.scout && state.scout.busy ? "Desk Stance · reading…" : "Desk Stance · waiting";
+      if (stanceWhy) stanceWhy.textContent = "";
+    }
+  }
+  if (nightBias) {
+    const night = result && result.nightRule;
+    if (night) {
+      nightBias.className = "scorecard-bias " + (night.flat ? "flat" : "swing");
+      nightBias.textContent = "Night Rule · " + night.label;
+      if (nightWhy) nightWhy.textContent = night.why || "";
+    } else {
+      nightBias.className = "scorecard-bias";
+      nightBias.textContent = state.scout && state.scout.busy ? "Night Rule · reading…" : "Night Rule · waiting";
+      if (nightWhy) nightWhy.textContent = "";
+    }
+  }
+  if (tideBias) {
+    const tide = result && result.tide;
+    if (tide && tide.ready) {
+      tideBias.className = "scorecard-bias " + (tide.on ? "tide flat" : "");
+      tideBias.textContent =
+        "Tide Alert · " +
+        (tide.on ? "ON" : "off") +
+        " · Drain " +
+        (tide.drain ? "yes" : "no") +
+        " · Weekly " +
+        (tide.week && tide.week.on ? "on" : tide.week && tide.week.ready ? "off" : "—") +
+        " · Index Soft " +
+        (tide.indexSoft ? "yes" : "no");
+      if (tideWhy) tideWhy.textContent = tide.why || "";
+    } else {
+      tideBias.className = "scorecard-bias";
+      tideBias.textContent = state.scout && state.scout.busy ? "Tide Alert · reading…" : "Tide Alert · waiting";
+      if (tideWhy) {
+        tideWhy.textContent =
+          "Sector Drain plus Weekly Tide or Index Soft on closed bars. Fail closed when unread. Own desk process.";
+      }
+    }
+  }
+  fillScorecardRankBody("scout-leaders", (result && result.leaders) || []);
+  fillScorecardRankBody("scout-laggards", (result && result.laggards) || []);
+  const pinBody = $("scout-pins");
+  if (pinBody) {
+    pinBody.replaceChildren();
+    const pins = (result && result.pins) || [];
+    if (!pins.length) {
+      const tr = document.createElement("tr");
+      addCells(tr, ["", "No pin reads yet.", "", "", "", "", ""]);
+      pinBody.appendChild(tr);
+    } else {
+      pins.forEach((row) => {
+        const tr = document.createElement("tr");
+        const open = document.createElement("button");
+        open.type = "button";
+        open.className = "quiet";
+        open.textContent = "Open";
+        open.addEventListener("click", (event) => {
+          event.stopPropagation();
+          chooseSymbol(row.symbol);
+        });
+        const vs21 = row.above21 == null ? "—" : row.above21 ? "Above" : "Below";
+        const vs200 = row.above200 == null ? "—" : row.above200 ? "Above" : "Below";
+        addCells(tr, [
+          row.symbol,
+          PaperFrames.plainPrice(row.close),
+          row.ema21 != null ? PaperFrames.plainPrice(row.ema21) : "—",
+          { text: vs21, cls: row.above21 ? "up" : row.above21 === false ? "down" : "" },
+          row.ema200 != null ? PaperFrames.plainPrice(row.ema200) : "—",
+          { text: vs200, cls: row.above200 ? "up" : row.above200 === false ? "down" : "" },
+          open,
+        ]);
+        pinBody.appendChild(tr);
+      });
+    }
+  }
+  const coilBody = $("scout-coil");
+  if (coilBody) {
+    coilBody.replaceChildren();
+    const rows = (result && result.coilAPlus) || [];
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      addCells(tr, ["", "No Coil A+ names right now. A quiet list is a normal answer.", "", "", "", "", "", "", ""]);
+      coilBody.appendChild(tr);
+    } else {
+      rows.forEach((row, index) => {
+        const tr = document.createElement("tr");
+        const open = document.createElement("button");
+        open.type = "button";
+        open.textContent = "Open";
+        open.addEventListener("click", (event) => {
+          event.stopPropagation();
+          chooseSymbol(row.symbol);
+        });
+        addCells(tr, [
+          String(index + 1),
+          row.symbol,
+          row.state || "—",
+          String(row.dots != null ? row.dots : "—"),
+          PaperFrames.squeezeName(row.level || 0),
+          row.triple ? "Yes" : "—",
+          { text: row.edgeFire ? "FIRE" : "—", cls: row.edgeFire ? "up" : "" },
+          String(row.score != null ? row.score : "—"),
+          open,
+        ]);
+        if (row.edgeFire) tr.classList.add("go");
+        coilBody.appendChild(tr);
+      });
+    }
+  }
+  const coilNote = $("scout-coil-note");
+  if (coilNote) {
+    const fireN = ((result && result.coilAPlus) || []).filter((row) => row.edgeFire).length;
+    coilNote.textContent = result
+      ? ((result.coilAPlus || []).length || 0) +
+        " Coil A+" +
+        ((result.coilAPlus || []).length === 1 ? " name" : " names") +
+        (fireN ? "; " + fireN + " Edge Fire" : "") +
+        "."
+      : "Strict desk filter. Empty is a normal answer.";
+  }
+  if (note) {
+    if (state.scout && state.scout.busy) note.textContent = state.scout.progress || "Reading Scout Sheet…";
+    else if (state.scout && state.scout.error) note.textContent = state.scout.error;
+    else if (result) {
+      const when = state.scout.at
+        ? new Date(state.scout.at).toLocaleTimeString("en-US", { timeZone: "America/Denver" })
+        : "";
+      note.textContent =
+        "Scout Sheet ready" +
+        (result.asOf ? " as of " + result.asOf : "") +
+        (when ? " · read " + when + " Denver" : "") +
+        ". Closed bars only. Own desk names. Not a forecast.";
+    }
+  }
+}
+
+async function runScoutSheet() {
+  const box = state.scout;
+  if (box.busy) return;
+  box.busy = true;
+  box.stop = false;
+  box.error = "";
+  box.progress = "Reading indexes, sectors, and average pins…";
+  renderScoutSheet();
+  loadInternals(false).catch(() => {});
+  if (state.offline && window.PaperLive && PaperLive.pace) PaperLive.pace(5000);
+  try {
+    const indexes = PaperFrames.SCORECARD_INDEXES.slice();
+    const sectors = PaperFrames.SCORECARD_SECTORS.slice();
+    const pins = (PaperFrames.SCOUT_PIN_SYMBOLS || []).slice();
+    const squeezeList = SQ_LISTS.sectors.slice();
+    const primary = [];
+    const rest = [];
+    const seen = new Set();
+    indexes.concat(sectors).concat(pins).forEach((symbol) => {
+      if (!seen.has(symbol)) {
+        seen.add(symbol);
+        primary.push(symbol);
+      }
+    });
+    squeezeList.forEach((symbol) => {
+      if (!seen.has(symbol)) {
+        seen.add(symbol);
+        rest.push(symbol);
+      }
+    });
+    const need = primary.concat(rest);
+    const bars = {};
+    let next = 0;
+    let done = 0;
+    const workers = Math.min(deskScanLanes(3, 6), Math.max(1, need.length));
+    const worker = async () => {
+      while (!box.stop && next < need.length) {
+        const symbol = need[next];
+        next += 1;
+        try {
+          bars[symbol] = await sqDaily(symbol);
+        } catch (error) {
+          /* Missing quote stays out of the ranking. */
+        }
+        done += 1;
+        box.progress = "Reading daily bars: " + done + " of " + need.length + "…";
+        if (done === primary.length || done % 4 === 0 || done === need.length) {
+          scoutPublish(box, indexes, sectors, bars, [], box.progress);
+        } else {
+          if ($("scout-note")) $("scout-note").textContent = box.progress;
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: workers }, () => worker()));
+    if (box.stop) {
+      box.progress = "Scout Sheet stopped.";
+      return;
+    }
+    const squeezes = [];
+    squeezeList.forEach((symbol) => {
+      const list = bars[symbol];
+      if (!list || !list.length) return;
+      const crypto = phoneCrypto(symbol, state.catalog.find((item) => item.symbol === symbol));
+      const live = PaperFrames.liveBar(list, crypto);
+      const read = PaperFrames.squeezeRead(list, { live });
+      if (!read || !read.ready || read.state === "OFF") return;
+      const sector = SQ_SECTOR[symbol];
+      const indexSym = sqIndexOf(symbol);
+      const sectorOn = !!(sector && bars[sector] && (() => {
+        const parent = PaperFrames.squeezeRead(bars[sector]);
+        return parent && parent.ready && parent.state === "ON";
+      })());
+      const indexOn = !!(indexSym && bars[indexSym] && (() => {
+        const parent = PaperFrames.squeezeRead(bars[indexSym]);
+        return parent && parent.ready && parent.state === "ON";
+      })());
+      const timing = PaperFrames.edge ? PaperFrames.edge(list, { live, vixBars: state.vixBars || [] }) : null;
+      const edgeFire = !!(timing && timing.ready && timing.call === "BUY" && timing.stage === "fire");
+      const scored = PaperFrames.squeezeScore(read, { sector: sectorOn, index: indexOn, edgeFire });
+      squeezes.push({
+        symbol,
+        read: Object.assign({}, read, { edgeFire }),
+        scored,
+        edgeFire,
+        sector: sector || "",
+        index: indexSym || "",
+      });
+    });
+    scoutPublish(box, indexes, sectors, bars, squeezes, "");
+    box.progress = "";
+    box._tideBars = bars;
+  } catch (error) {
+    box.error = error.message || String(error);
+  } finally {
+    box.busy = false;
+    applyDeskBooster(false);
+    renderScoutSheet();
+    const tideBars = box._tideBars || {};
+    box._tideBars = null;
+    if (box.result) applyTideFromScorecard(box.result, tideBars).catch(() => {});
   }
 }
 
@@ -12247,6 +12530,12 @@ if ($("sc-run")) $("sc-run").addEventListener("click", runScorecard);
 if ($("sc-stop")) {
   $("sc-stop").addEventListener("click", () => {
     if (state.sc) state.sc.stop = true;
+  });
+}
+if ($("scout-run")) $("scout-run").addEventListener("click", runScoutSheet);
+if ($("scout-stop")) {
+  $("scout-stop").addEventListener("click", () => {
+    if (state.scout) state.scout.stop = true;
   });
 }
 if ($("cycle-scan")) $("cycle-scan").addEventListener("click", () => runCycleDesk());
