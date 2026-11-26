@@ -1,11 +1,19 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title Paper Trader — keep 1.10.53 only
+title Paper Trader — optional erase extras
 echo.
-echo  Keep Paper Trader 1.10.53 in Documents\Paper Trader
-echo  Erase other installs (PaperTrader-setup-*), leftover zips, extra Bots
+echo  OPTIONAL: erase other Paper Trader installs
+echo  Keeps Documents\Paper Trader (this seal) and can remove extras.
+echo  Your working copies are NOT erased when you only open Start / Open.
+echo  Run this ONLY if you want the extras gone.
 echo.
+set /p CONFIRM=Type YES to erase other installs: 
+if /I not "%CONFIRM%"=="YES" (
+  echo Cancelled. Nothing was erased.
+  pause
+  exit /b 0
+)
 if exist "%~dp0runtime\python.exe" (
   "%~dp0runtime\python.exe" "%~dp0launch.py" erase-others
   goto After
@@ -31,7 +39,7 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo Done. Only Documents\Paper Trader should remain.
-echo Open Paper Trader.bat on the desktop, then Connect-Schwab.bat for Schwab.
+echo Done. Documents\Paper Trader should remain.
+echo Open Paper Trader.bat on the desktop, then Connect + Test for Schwab.
 pause
 exit /b 0

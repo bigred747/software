@@ -27,11 +27,11 @@ def main(argv: list[str] | None = None) -> int:
     server = commands.add_parser("serve", help="Open the desk in a browser on this computer")
     server.add_argument("--port", type=int, default=8765)
     server.add_argument("--no-browser", action="store_true")
-    install = commands.add_parser("install", help="Keep only the newest copy in Documents")
+    install = commands.add_parser("install", help="Install or update Documents\\Paper Trader from this folder")
     install.add_argument("--home", type=Path, default=None)
     force = commands.add_parser(
         "force-upgrade",
-        help="Wipe-replace Documents\\Paper Trader from this extracted pack (FORCE-UPGRADE.bat)",
+        help="Replace Documents\\Paper Trader from this extracted pack (FORCE-UPGRADE.bat). Does not erase other folders.",
     )
     force.add_argument("--home", type=Path, default=None)
     commands.add_parser(
@@ -40,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     erase = commands.add_parser(
         "erase-others",
-        help="Keep the current Paper Trader seal only; erase other installs, zips, and extra Bots",
+        help="OPTIONAL: erase other installs/zips. Open/Start never does this.",
     )
     erase.add_argument("--home", type=Path, default=None)
     commands.add_parser("learn", help="Score closed bars all day on this computer")
@@ -110,7 +110,6 @@ def main(argv: list[str] | None = None) -> int:
             from paper_trader import __version__
             from paper_trader.install import (
                 canonical_folder,
-                erase_other_installs,
                 install_newest,
                 write_desktop_opener,
             )
@@ -119,9 +118,10 @@ def main(argv: list[str] | None = None) -> int:
             home = Path.home()
             desk = canonical_folder(home)
             staging = "papertrader-setup" in str(install_root).lower().replace(" ", "")
-            # Always install into Documents\Paper Trader, then re-launch from there so
-            # package files (catalog.txt) resolve under the desk — not a deleted setup fold.
-            if staging or install_root.resolve() != desk.resolve():
+            # Zip setup folders only: copy into Documents\Paper Trader, then open that desk.
+            # Any other folder (including a side-by-side 1.10.40 / 1.10.53 extract) opens itself.
+            # Never erase other installs on open — Erase-Other-Paper-Traders.bat is opt-in.
+            if staging:
                 try:
                     desk, _action = install_newest(install_root, home)
                 except ValueError:
@@ -134,7 +134,6 @@ def main(argv: list[str] | None = None) -> int:
                         cmd.append("--no-browser")
                     os.chdir(desk)
                     os.execv(sys.executable, cmd)
-            install_root = desk if (desk / "launch.py").is_file() else install_root
             os.chdir(install_root)
             assert_safe_launch([install_root])
             global STATE_PATH
@@ -147,12 +146,6 @@ def main(argv: list[str] | None = None) -> int:
                 write_desktop_opener(install_root, home)
             except OSError:
                 pass
-            # Erase setup leftovers only when we are already running from Documents\Paper Trader.
-            if "papertrader-setup" not in str(install_root).lower().replace(" ", ""):
-                try:
-                    erase_other_installs(home, keep=install_root)
-                except OSError:
-                    pass
             ensure_env_file(install_root)
             heal_env_from_documents(install_root)
             serve(STATE_PATH, args.port, open_browser=not args.no_browser)

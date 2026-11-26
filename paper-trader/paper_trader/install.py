@@ -283,7 +283,7 @@ def force_upgrade(source: Path, home: Path) -> Path:
     init = (dest / "paper_trader" / "__init__.py").read_text(encoding="utf-8", errors="ignore")
     if f'__version__ = "{__version__}"' not in init:
         raise ValueError(f"Upgrade wrote VERSION {__version__} but paper_trader/__init__.py did not update. Retry FORCE-UPGRADE.")
-    erase_other_installs(home, keep=dest, keep_version=__version__)
+    # Do not erase older Paper Trader folders. Erase-Other-Paper-Traders.bat is opt-in only.
     _resume_learner(dest)
     write_desktop_opener(dest, home)
     return dest
@@ -406,7 +406,7 @@ def _copy_label(folder: Path) -> str:
 
 
 def single_copy_status(home: Path) -> dict[str, str | bool]:
-    """Accurate install count. Guides keep Documents\\Paper Trader 1.10.53 only."""
+    """Install count. Multiple copies are allowed; erase is opt-in only."""
     copies = sorted(find_installs(home), key=_installed_version, reverse=True)
     if not copies:
         return {"name": "Install", "ok": True, "detail": "No extra copies"}
@@ -417,10 +417,10 @@ def single_copy_status(home: Path) -> dict[str, str | bool]:
     shown = ", ".join(_copy_label(path) for path in extras[:4])
     more = f" +{len(extras) - 4} more" if len(extras) > 4 else ""
     detail = (
-        f"{len(copies)} copies · keep Documents\\Paper Trader (1.10.53) · newest {_copy_label(newest)} · also {shown}{more}. "
-        "Double-click Erase-Other-Paper-Traders.bat in Documents\\Paper Trader to erase the extras."
+        f"{len(copies)} copies · this seal {__version__} · newest {_copy_label(newest)} · also {shown}{more}. "
+        "Older copies stay. Erase-Other-Paper-Traders.bat is optional."
     )
-    return {"name": "Install", "ok": False, "detail": detail}
+    return {"name": "Install", "ok": True, "detail": detail}
 
 
 def _installed_version(folder: Path) -> tuple[int, ...]:
@@ -499,7 +499,7 @@ def remove_desktop_opener(home: Path) -> list[Path]:
     return removed
 
 
-KEEP_VERSION = "1.10.53"
+KEEP_VERSION = "1.10.54"
 
 
 def read_install_version(folder: Path) -> str:
@@ -532,7 +532,7 @@ def erase_other_installs(
     keep_version: str = KEEP_VERSION,
     killer=None,
 ) -> dict[str, object]:
-    """Keep only Paper Trader keep_version (default 1.10.53). Erase other installs, zips, and extra Bots."""
+    """Keep only Paper Trader keep_version (default 1.10.54). Erase other installs, zips, and extra Bots."""
     from paper_trader.learn import end_learner_pid, stop_learner
 
     end_pid = killer or end_learner_pid
