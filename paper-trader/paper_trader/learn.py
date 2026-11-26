@@ -19,11 +19,11 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from paper_trader.indicators import squeeze, squeeze_alert
 from paper_trader.model import Bar
 from paper_trader.strategy_board import strategy_snapshot
+from paper_trader.zones import zone
 from paper_trader import quotes
 
 SECTORS = ("SMH", "VGT", "ARKW", "QQQ", "SPMO", "COPX", "ARKQ", "MGK", "CIBR", "UGA", "AIRR", "GRID")
@@ -40,11 +40,11 @@ PICK_NOTE = "Scan finished. Green signal on each name. Three to five, and no mor
 EMPTY_NOTE = "No market cleared the bar today."
 WALK_NOTE = "Ten names, then three to five. Green signals come on when the scan finishes."
 SCAN_PAUSE = 0.12
-INTERVAL = 8.0
+INTERVAL = 18.0
 STALE_SECONDS = 90.0
 PASS_BATCH = 2
-_DENVER = ZoneInfo("America/Denver")
-_NEW_YORK = ZoneInfo("America/New_York")
+_DENVER = zone("America/Denver")
+_NEW_YORK = zone("America/New_York")
 DEFAULT_RULE = "True momentum 5/3 with the candle"
 _SYMBOL = re.compile(r"^[A-Za-z0-9.^=-]{1,16}$")
 _WATCH_LOCK = threading.Lock()
@@ -61,7 +61,8 @@ _DESK_PAGES: list[tuple[str, str]] = [
     ("strategies", "Strategies · classic board"),
     ("productscan", "Product Scan · top 20 per type · best strategy"),
     ("squeeze", "Squeeze scan · catalog walk"),
-    ("scorecard", "Big 3 Market Scorecard · indexes, A+ squeezes, day bias"),
+    ("scorecard", "Rank Board · indexes, Coil A+, day bias"),
+    ("scout", "Scout Sheet · Stance, Flow Split, Coil A+, Average Pins, Night Rule"),
     ("cycle", "Cycle Desk · stages, Defensive Shield, Risk Rebound"),
     ("forecast", "Forecaster · price levels confidence Swing Guard"),
     ("home", "Tools home · full-screen desk index"),
@@ -154,7 +155,13 @@ def page_snapshot(
     elif page == "scorecard":
         base.update(
             {
-                "note": "Big 3 Market Scorecard: index/sector strength, A+ squeezes, and swing/day/flat day bias from closed bars.",
+                "note": "Rank Board: index/sector strength, Coil A+, and swing/day/flat day bias from closed bars. Own desk name only.",
+            }
+        )
+    elif page == "scout":
+        base.update(
+            {
+                "note": "Scout Sheet: Desk Stance, Flow Split, Coil A+, Average Pins, Night Rule from closed bars. Own desk names only.",
             }
         )
     elif page == "cycle":
@@ -1157,6 +1164,30 @@ def book_view(state_path: Path, *, expect: bool) -> dict:
 STOP_FLAG = "learn_stop.flag"
 
 
+def end_learner_pid(pid: int) -> None:
+    """Force-end one Bot score process on Windows after a polite close failed."""
+    if pid <= 0 or pid == os.getpid():
+        return
+    if os.name == "nt":
+        flags = int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                check=False,
+                creationflags=flags,
+            )
+            return
+        except OSError:
+            pass
+    try:
+        os.kill(pid, 9)
+    except OSError:
+        return
+
+
 def stop_learner(state_path: Path, killer=None) -> int | None:
     """Ask the scorer recorded in this folder to close itself. It never ends another program.
 
@@ -1254,135 +1285,6 @@ def ensure_learner(root: Path, state_path: Path, spawn=None, wait: float = 2.0) 
             return True
         time.sleep(0.05)
     return learner_healthy(state_path)
-
-
-def count_live_learners(home: Path | None = None) -> list[tuple[Path, int]]:
-    """Install folders that currently hold a learn.lock, with the holder pid."""
-    from paper_trader.install import find_installs
-
-    base = Path.home() if home is None else Path(home)
-    found: list[tuple[Path, int]] = []
-    seen: set[Path] = set()
-    try:
-        folders = list(find_installs(base))
-    except OSError:
-        folders = []
-    for folder in folders:
-        try:
-            resolved = folder.resolve()
-        except OSError:
-            continue
-        if resolved in seen:
-            continue
-        seen.add(resolved)
-        state = resolved / "learn_state.json"
-        if not learner_healthy(state):
-            continue
-        holder = lock_holder(state.with_name("learn.lock"))
-        if holder:
-            found.append((resolved, holder))
-    return found
-
-
-def sole_bot_status(root: Path, state_path: Path, home: Path | None = None) -> dict[str, str | bool]:
-    """Signals row: exactly one background score for this computer."""
-    mine = learner_healthy(state_path)
-    live = count_live_learners(home)
-    # Always count this install even when find_installs misses the running folder.
-    try:
-        mine_root = Path(root).resolve()
-    except OSError:
-        mine_root = Path(root)
-    if mine and not any(path == mine_root for path, _pid in live):
-        holder = lock_holder(state_path.with_name("learn.lock"))
-        if holder:
-            live = [(mine_root, holder)] + live
-    if len(live) > 1:
-        return {
-            "name": "Bot",
-            "ok": False,
-            "detail": f"{len(live)} score processes · keep one · reopen Paper Trader so extras close",
-        }
-    if mine:
-        return {"name": "Bot", "ok": True, "detail": "One background score · Bot on · this install"}
-    if live:
-        other = live[0][0]
-        label = other.name
-        return {
-            "name": "Bot",
-            "ok": True,
-            "detail": f"One background score · running in {label}",
-        }
-    return {
-        "name": "Bot",
-        "ok": True,
-        "detail": "No background score yet · open the Computer desk or tick Start the score",
-    }
-
-
-def _stop_learner_quick(state_path: Path, wait: float = 0.35) -> int | None:
-    """Ask another install's scorer to close without blocking Signals for seconds each."""
-    lock_path = state_path.with_name("learn.lock")
-    pid = lock_holder(lock_path)
-    if not pid or pid == os.getpid():
-        return None
-    flag = state_path.with_name(STOP_FLAG)
-    try:
-        flag.write_text("close\n", encoding="utf-8")
-    except OSError:
-        return pid
-    deadline = time.monotonic() + max(0.05, float(wait))
-    while time.monotonic() < deadline:
-        if lock_holder(lock_path) != pid:
-            flag.unlink(missing_ok=True)
-            return pid
-        time.sleep(0.05)
-    return pid
-
-
-def ensure_sole_learner(root: Path, state_path: Path, home: Path | None = None, spawn=None, wait: float = 2.0) -> bool:
-    """Keep exactly one background score: this install. Close learners in other copies first."""
-    root = Path(root)
-    state_path = Path(state_path)
-    base = Path.home() if home is None else Path(home)
-    try:
-        mine = root.resolve()
-    except OSError:
-        mine = root
-    try:
-        from paper_trader.install import find_installs
-
-        others = 0
-        for folder in find_installs(base):
-            try:
-                other = folder.resolve()
-            except OSError:
-                continue
-            if other == mine:
-                continue
-            # Cap how many extras we wait on so serve/checks stay snappy with many setup folders.
-            _stop_learner_quick(other / "learn_state.json", wait=0.2 if others < 4 else 0.0)
-            others += 1
-            if others >= 12:
-                break
-    except OSError:
-        pass
-    if learner_healthy(state_path):
-        return True
-    lock_path = state_path.with_name("learn.lock")
-    if lock_holder(lock_path):
-        # Stale or stuck holder — ask it to exit, then start once.
-        _stop_learner_quick(state_path, wait=min(1.0, float(wait)))
-        deadline = time.monotonic() + max(0.3, min(float(wait), 2.0))
-        while time.monotonic() < deadline:
-            if not lock_holder(lock_path):
-                break
-            time.sleep(0.05)
-        if learner_healthy(state_path):
-            return True
-        if lock_holder(lock_path):
-            return False
-    return ensure_learner(root, state_path, spawn=spawn, wait=wait)
 
 
 def _console(message: str) -> None:

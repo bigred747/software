@@ -12,11 +12,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from paper_trader.install import (
     canonical_folder,
+    erase_other_installs,
     find_installs,
     install_newest,
     is_install,
     other_copies,
+    read_install_version,
     remove_desktop_opener,
+    rescue_from_temp_zip,
     single_copy_status,
     write_desktop_opener,
 )
@@ -89,28 +92,11 @@ class InstallTests(unittest.TestCase):
             make_install(dest, "1.9.18")
             notes.mkdir()
             (notes / "keep.txt").write_text("leave\n", encoding="utf-8")
-            # Staging extracts are not kept installs — Install signal ignores them.
-            self.assertEqual(other_copies(home, dest), [])
-            self.assertFalse(is_install(setup))
+            self.assertEqual(other_copies(home, dest), [setup.resolve()])
+            self.assertEqual(other_copies(home, setup), [dest.resolve()])
+            self.assertTrue(is_install(setup))
             self.assertTrue(is_install(dest))
             self.assertEqual((notes / "keep.txt").read_text(encoding="utf-8"), "leave\n")
-
-    def test_staging_and_recycle_paths_do_not_count_as_installs(self) -> None:
-        with tempfile.TemporaryDirectory() as folder:
-            home = Path(folder)
-            dest = canonical_folder(home)
-            setup = home / "Documents" / "PaperTrader-setup-31986" / "paper-trader"
-            trash = home / "Documents" / "$Recycle.Bin" / "paper-trader"
-            make_install(dest, "1.10.46")
-            make_install(setup, "1.10.45")
-            make_install(trash, "1.10.40")
-            self.assertTrue(is_install(dest))
-            self.assertFalse(is_install(setup))
-            self.assertFalse(is_install(trash))
-            self.assertEqual(find_installs(home), [dest.resolve()])
-            status = single_copy_status(home)
-            self.assertTrue(status["ok"])
-            self.assertIn("Newest copy only", str(status["detail"]))
 
     def test_incomplete_extracts_without_version_do_not_inflate_copy_count(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -127,7 +113,7 @@ class InstallTests(unittest.TestCase):
             self.assertFalse(is_install(junk))
             status = single_copy_status(home)
             self.assertTrue(status["ok"])
-            self.assertIn("Newest copy only", str(status["detail"]))
+            self.assertIn("One copy", str(status["detail"]))
             self.assertEqual(find_installs(home), [dest.resolve()])
 
     def test_installing_never_ends_programs_or_deletes_other_folders(self) -> None:
@@ -150,16 +136,31 @@ class InstallTests(unittest.TestCase):
             home = Path(folder)
             dest = canonical_folder(home)
             make_install(dest, "1.9.18")
+            (dest / "Start-Paper-Trader.bat").write_text("@echo off\r\n", encoding="utf-8")
             (dest / "2 Open Paper Trader.bat").write_text("@echo off\r\n", encoding="utf-8")
             (home / "Desktop").mkdir()
             (home / "OneDrive" / "Desktop").mkdir(parents=True)
             written = write_desktop_opener(dest, home)
             self.assertEqual(len(written), 2)
             text = (home / "Desktop" / "Paper Trader.bat").read_text(encoding="utf-8").lower()
-            self.assertIn("2 open paper trader.bat", text)
+            self.assertIn("start-paper-trader.bat", text)
             self.assertIn(str(dest).lower(), text)
             self.assertNotIn("powershell", text)
             self.assertNotIn("wscript", text)
+
+    def test_rescue_from_temp_zip_copies_out_and_writes_desktop(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            temp_zip = home / "AppData" / "Local" / "Temp" / "Temp1_Paper-Trader.zip" / "paper-trader"
+            make_install(temp_zip, "1.10.55")
+            (temp_zip / "web").mkdir(parents=True, exist_ok=True)
+            (temp_zip / "web" / "app.js").write_text('const VERSION = "1.10.55";\n', encoding="utf-8")
+            landed = rescue_from_temp_zip(temp_zip, home)
+            self.assertTrue((landed / "Start-Paper-Trader.bat").is_file())
+            self.assertNotIn(".zip.", str(landed).lower().replace("/", "\\"))
+            desktop = home / "Desktop" / "Paper Trader.bat"
+            self.assertTrue(desktop.is_file())
+            self.assertIn("start-paper-trader.bat", desktop.read_text(encoding="utf-8").lower())
 
     def test_a_locked_folder_reports_a_clean_failure(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -182,6 +183,86 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError) as blocked:
                 install_newest(foreign, home)
             self.assertIn("artex", str(blocked.exception).lower())
+
+    def test_erase_others_keeps_current_seal_and_deletes_the_rest(self) -> None:
+        from paper_trader.install import KEEP_VERSION
+
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            keep = canonical_folder(home)
+            old = home / "Downloads" / "paper-trader"
+            newer = home / "Desktop" / "Paper Trader 1.10.50"
+            notes = home / "Documents" / "taxes"
+            make_install(keep, KEEP_VERSION)
+            (keep / "2 Open Paper Trader.bat").write_text("@echo off\r\n", encoding="utf-8")
+            make_install(old, "1.10.39")
+            make_install(newer, "1.10.50")
+            notes.mkdir(parents=True)
+            (notes / "keep.txt").write_text("leave\n", encoding="utf-8")
+            (home / "Desktop").mkdir(exist_ok=True)
+            (home / "Downloads" / "Paper-Trader-1.10.50-slim.zip").write_bytes(b"zip")
+            (home / "Downloads" / f"Paper-Trader-{KEEP_VERSION}-slim.zip").write_bytes(b"keep")
+            (home / "Documents" / "PaperTrader-setup").mkdir()
+            make_install(home / "Documents" / "PaperTrader-setup" / "paper-trader", "1.10.48")
+            closed: list[int] = []
+
+            def fake_killer(pid: int) -> None:
+                closed.append(pid)
+
+            with patch("paper_trader.learn.stop_learner", side_effect=lambda state, killer=None: 4242):
+                with patch("paper_trader.install._resume_learner"):
+                    report = erase_other_installs(home, keep=keep, killer=fake_killer)
+            self.assertEqual(Path(str(report["keep"])), keep.resolve())
+            self.assertEqual(report["keep_version"], KEEP_VERSION)
+            self.assertFalse(old.exists())
+            self.assertFalse(newer.exists())
+            self.assertFalse((home / "Documents" / "PaperTrader-setup").exists())
+            self.assertTrue(is_install(keep))
+            self.assertEqual((notes / "keep.txt").read_text(encoding="utf-8"), "leave\n")
+            self.assertFalse((home / "Downloads" / "Paper-Trader-1.10.50-slim.zip").exists())
+            self.assertTrue((home / "Downloads" / f"Paper-Trader-{KEEP_VERSION}-slim.zip").is_file())
+            self.assertEqual(find_installs(home), [keep.resolve()])
+            opener = home / "Desktop" / "Paper Trader.bat"
+            self.assertTrue(opener.is_file())
+            self.assertIn(str(keep), opener.read_text(encoding="utf-8"))
+
+    def test_force_upgrade_replaces_old_documents_desk(self) -> None:
+        from paper_trader.install import KEEP_VERSION, force_upgrade
+
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            pack = home / "extracted" / "paper-trader"
+            make_install(pack, KEEP_VERSION)
+            (pack / "web").mkdir(parents=True, exist_ok=True)
+            (pack / "web" / "app.js").write_text(f'const VERSION = "{KEEP_VERSION}";\n', encoding="utf-8")
+            (pack / "web" / "index.html").write_text(
+                f'<meta name="paper-build" content="{KEEP_VERSION}">\n', encoding="utf-8"
+            )
+            dest = canonical_folder(home)
+            make_install(dest, "1.10.40")
+            (dest / "web").mkdir(parents=True, exist_ok=True)
+            (dest / "web" / "app.js").write_text('const VERSION = "1.10.40";\n', encoding="utf-8")
+            (dest / "web" / "index.html").write_text(
+                '<meta name="paper-build" content="1.10.40">\n', encoding="utf-8"
+            )
+            with patch("paper_trader.install._resume_learner"), patch(
+                "paper_trader.learn.ask_learners_to_close"
+            ), patch("paper_trader.learn.end_learner_pid"), patch(
+                "paper_trader.schwab_env.ensure_env_file"
+            ), patch("paper_trader.install.erase_other_installs", return_value={
+                "keep": str(dest),
+                "keep_version": KEEP_VERSION,
+                "erased": [],
+                "closed": [],
+                "zips_removed": [],
+            }):
+                out = force_upgrade(pack, home)
+            self.assertEqual(out, dest.resolve())
+            self.assertEqual(read_install_version(dest), KEEP_VERSION)
+            self.assertIn(f'const VERSION = "{KEEP_VERSION}"', (dest / "web" / "app.js").read_text(encoding="utf-8"))
+            self.assertTrue((dest / "SEAL.txt").is_file())
+            olds = list((home / "Documents").glob("Paper Trader-OLD-*"))
+            self.assertTrue(olds, "old desk should be renamed aside")
 
 
 if __name__ == "__main__":

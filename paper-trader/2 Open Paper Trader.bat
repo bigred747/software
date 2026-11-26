@@ -1,50 +1,15 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
+title Paper Trader
 echo %~dp0 | findstr /I /C:"\Temp" | findstr /I /C:".zip." >nul
 if not errorlevel 1 goto FromZip
 goto Normal
 
 :FromZip
-echo Unblock
-echo If Windows shows an Unblock box, check Unblock and open this file.
-echo That box lets this copy open. It stays on this computer.
-echo This file was opened inside the zip. Extracting the whole Paper Trader now.
-set "ZIP="
-for %%R in ("%USERPROFILE%\Downloads" "%USERPROFILE%\Desktop" "%USERPROFILE%\Documents" "%USERPROFILE%\OneDrive\Downloads" "%USERPROFILE%\OneDrive\Desktop" "%USERPROFILE%\OneDrive\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
-if not defined ZIP if defined OneDrive for %%R in ("%OneDrive%\Downloads" "%OneDrive%\Desktop" "%OneDrive%\Documents") do if exist "%%~R" for /f "delims=" %%F in ('dir /b /a-d /o-d "%%~R\Paper-Trader*.zip" 2^>nul') do if not defined ZIP set "ZIP=%%~R\%%F"
-if not defined ZIP goto NoZip
-if not exist "%USERPROFILE%\Documents" mkdir "%USERPROFILE%\Documents"
-set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup"
-if exist "%STAGE%" rmdir /s /q "%STAGE%"
-if exist "%STAGE%" set "STAGE=%USERPROFILE%\Documents\PaperTrader-setup-%RANDOM%"
-mkdir "%STAGE%"
-mkdir "%STAGE%\paper-trader" 2>nul
-mkdir "%STAGE%\paper-trader\paper_trader" 2>nul
-mkdir "%STAGE%\paper-trader\web" 2>nul
-mkdir "%STAGE%\paper-trader\tools" 2>nul
-mkdir "%STAGE%\paper-trader\iphone" 2>nul
-mkdir "%STAGE%\paper-trader\runtime" 2>nul
-tar -xf "!ZIP!" -C "%STAGE%"
-if errorlevel 1 goto BadZip
-if not exist "%STAGE%\paper-trader\launch.py" goto BadZip
-start "" "%STAGE%\paper-trader\Start-Paper-Trader.bat"
-echo The full copy is in Documents. Use the window that just opened.
-pause
-exit /b 0
-
-:NoZip
-echo Could not find Paper-Trader.zip in Downloads, Desktop, Documents, or OneDrive.
-echo Save the zip in Downloads, then double-click this file again.
-pause
-exit /b 1
-
-:BadZip
-echo Could not extract Paper-Trader.zip.
-echo The program files could not be written into Documents.
-echo If a security program blocked them, allow Paper Trader, then double-click this file again.
-pause
-exit /b 1
+rem Hand off to Start so rescue + desktop shortcut + open happen once.
+call "%~dp0Start-Paper-Trader.bat"
+exit /b %errorlevel%
 
 :Normal
 call "%~dp0Start-Paper-Trader.bat"

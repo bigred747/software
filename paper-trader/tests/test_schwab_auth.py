@@ -31,9 +31,24 @@ class SchwabAuthTests(unittest.TestCase):
         self._env_patch.stop()
         self.folder.cleanup()
 
+    def test_test_connection_reports_keys_ready_before_oauth(self) -> None:
+        report = schwab_auth.test_connection(self.token_path)
+        self.assertTrue(report["credentials"])
+        self.assertFalse(report["connected"])
+        self.assertTrue(report["ok"])
+        self.assertIn("Keys ready", report["detail"])
+
     def test_extract_code_from_redirect_url(self) -> None:
         code = schwab_auth.extract_code("https://127.0.0.1/?code=abc%2F123&session=xyz")
         self.assertEqual(code, "abc/123")
+
+    def test_extract_code_decodes_trailing_at_and_strips_quotes(self) -> None:
+        code = schwab_auth.extract_code(
+            '  "https://127.0.0.1/?code=C0.ABC123%40&session=1"  '
+        )
+        self.assertEqual(code, "C0.ABC123@")
+        bare = schwab_auth.extract_code("C0.ABC123%40")
+        self.assertEqual(bare, "C0.ABC123@")
 
     def test_authorize_url_uses_app_key_and_callback(self) -> None:
         start = schwab_auth.authorize_url("nonce1")
@@ -187,6 +202,13 @@ class SchwabApiRouteTests(unittest.TestCase):
         payload = json.loads(raw)
         self.assertFalse(payload["connected"])
         self.assertTrue(payload["credentials"])
+        status, raw = self.open("/api/schwab/test", "POST", {})
+        self.assertEqual(status, 200)
+        tested = json.loads(raw)
+        self.assertTrue(tested["credentials"])
+        self.assertFalse(tested["connected"])
+        self.assertTrue(tested["ok"])
+        self.assertIn("Keys ready", tested["detail"])
         status, raw = self.open("/api/schwab/connect", "POST", {})
         self.assertEqual(status, 200)
         start = json.loads(raw)

@@ -1,0 +1,15 @@
+Paper Trader — read this if seal stays 1.10.40
+
+You MUST Extract All. Do not double-click files inside the zip.
+Windows Temp paths like AppData\Local\Temp\...Paper-Trader....zip... do not work.
+
+1. Close every Paper Trader window and Edge desk tab.
+2. Download Paper-Trader.zip to Downloads.
+3. Right-click Paper-Trader.zip → Extract All → extract to Downloads\Paper-Trader.
+4. Open Downloads\Paper-Trader\paper-trader
+5. Double-click FORCE-UPGRADE.bat
+6. Wait for: SUCCESS — Documents\Paper Trader is 1.10.45 (or newer)
+7. Open Desktop\Paper Trader.bat
+8. Top seal must say Paper 1.10.45 (or newer)
+
+If unsure, run CHECK-SEAL.bat from the same extracted folder.
