@@ -1,0 +1,30 @@
+Clicking this zip does not open the call sheet.
+
+On a computer
+1. Open this zip.
+2. Double-click the file named Open Ashton Torres.
+That opens the program. Ashton-Torres.html is the same program if the first file does not start.
+
+The computer file works with no signal. Film, photos, and We called this stay on that computer.
+
+On a phone
+Tap this link in Safari or Chrome. The call sheet opens.
+https://htmlpreview.github.io/?https://github.com/bigred747/software/blob/cursor/cougar-defence-call-sheet-1a2c/cherokee-trail-defence/Ashton-Torres.html
+
+The phone link needs a signal. Film you type there stays in that browser.
+
+Then use the Share button and choose Add to Home Screen. The icon is Ashton Torres.
+
+Android
+The file named Ashton-Torres.apk is for an Android phone only. Tap it, allow the install, then Open. Film and photos stay on that phone. The app does not ask for an account.
+
+iPhone profile
+The file named Install Ashton Torres.mobileconfig does not open the program when you tap it. It only adds an icon after you AirDrop it from a computer to an iPhone and tap Install in Settings. The phone says the profile is not signed. That warning is expected. It does not ask for an Apple ID. If the icon opens a blank page, use the link above, or use Ashton-Torres.html on the computer for Friday.
+
+The Files app on the iPhone shows Ashton-Torres.html and does not run it.
+
+Remove the iPhone icon
+Touch and hold the icon and remove it. Or open Settings, then General, then VPN & Device Management, tap Ashton Torres Defense, and remove the profile.
+
+Remove the Android app
+Touch and hold the Ashton Torres icon and uninstall it.
