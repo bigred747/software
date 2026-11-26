@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Strategies · Edge five checks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,450;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <h1 class="brand">Strategies<span>Ten classic public closed-bar rules · ranked on this market's history</span></h1>
+      <div class="market-switch">
+        <label for="marketSelect">Market</label>
+        <select id="marketSelect" aria-label="Select market"></select>
+      </div>
+    </header>
+
+    <p class="disclaimer">
+      Each strategy is scored on this market's own history. The ranking looks backward. Past bars only.
+      Not a forecast, and none of these is a third-party or trademarked system.
+      <span class="sample-pill">Sample data</span>
+    </p>
+
+    <section class="panel" aria-label="Strategy ranking">
+      <div class="table-wrap">
+        <table class="strategies">
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th>Now</th>
+              <th>Trades</th>
+              <th>Wins</th>
+              <th>Result</th>
+              <th>Hold</th>
+              <th>Worst trade</th>
+            </tr>
+          </thead>
+          <tbody id="strategyBody"></tbody>
+        </table>
+      </div>
+      <div class="footer-note" id="footerNote"></div>
+    </section>
+
+    <div class="action-bar">
+      <div class="picked" id="pickedText"></div>
+      <div class="trade-btns">
+        <button type="button" class="buy" id="buyBtn">Buy</button>
+        <button type="button" class="sell" id="sellBtn">Sell</button>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <section class="panel" aria-label="Past trades">
+        <h2>Past trades</h2>
+        <div class="sub" id="tradesSub">Click a strategy row to test it.</div>
+        <div class="table-wrap">
+          <table class="strategies trades-table">
+            <thead>
+              <tr>
+                <th>Side</th>
+                <th>Entry</th>
+                <th>Exit</th>
+                <th>Price</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody id="tradesBody"></tbody>
+          </table>
+        </div>
+        <div class="copy-row">
+          <button type="button" id="copyThinkscript">Copy Edge ThinkScript for Strategies tab</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Markets">
+        <h2>Markets</h2>
+        <div class="sub">Click a market to open it. Each list row shows that market's best closed-bar rule so far.</div>
+        <ul class="markets-list" id="marketsList"></ul>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="confirmModal" role="dialog" aria-modal="true">
+    <div class="modal">
+      <h3>Second warning</h3>
+      <p id="modalText">Paper trade confirmation.</p>
+      <div class="row">
+        <button type="button" id="modalCancel">Cancel</button>
+        <button type="button" id="modalConfirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
