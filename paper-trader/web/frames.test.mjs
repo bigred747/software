@@ -7,7 +7,7 @@ const context = {};
 context.globalThis = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL("./frames.js", import.meta.url), "utf8"), context);
-const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, seatTrailRead, seatTrailMult, rangeSeat, leanBookRead, leanBookCashGuard, SCORECARD_INDEXES, SCORECARD_SECTORS, gatePrint, edgeDeskCall, firePrecision, fireFreshFlip, confirmLock, resolveDeskCard, DESK_CARDS, EDGE_SCORE } = context.PaperFrames;
+const { FRAMES, barsFor, analyze, brief, intradayDay, averages, stackAverages, compression, candlePlace, squeezeName, trendPivots, trueMomentum, cci, cciPane, volumeWave, hull, wma, deskClearRead, big4Indicator, zoomBars, zoomStep, mood, lesson, edge, pro, liveBar, closedBars, barIndexAt, hiddenTape, volatility, volumeProfile, rollingVwap, bollinger, macd, strategies, openingRange, squeezeRead, squeezeScore, internals, deskInternals, INTERNAL_SYMBOLS, describeBar, edgeLine, strengthRead, isAPlusSqueeze, dayBias, tideRead, fadeRead, bestFades, marketScorecard, marketOutlook, cycleMapRead, marketTankRead, defensiveShieldScan, riskReboundScan, marketForecastRead, forecastBoard, seatTrailRead, seatTrailMult, rangeSeat, leanBookRead, leanBookCashGuard, SCORECARD_INDEXES, SCORECARD_SECTORS, gatePrint, edgeDeskCall, firePrecision, fireFreshFlip, confirmLock, resolveDeskCard, DESK_CARDS, EDGE_SCORE, momentumBars } = context.PaperFrames;
 
 function day(date, open, high, low, close) {
   return { date, open, high, low, close, volume: 1000 };
@@ -65,6 +65,46 @@ test("weekly bars join the days", () => {
   assert.equal(weeks[0].close, 10);
   assert.equal(weeks[1].open, 10);
   assert.equal(weeks[1].close, 9);
+});
+
+test("momentum bars paint green or red only and never repaint closed bars", () => {
+  const bars = [];
+  for (let index = 0; index < 80; index += 1) {
+    const close = 100 + index * 0.8 + Math.sin(index / 4) * 1.5;
+    bars.push({
+      date: "2024-07-" + String((index % 27) + 1).padStart(2, "0"),
+      open: close - 0.4,
+      high: close + 1.2,
+      low: close - 1.1,
+      close,
+      volume: 1000 + index * 20,
+    });
+  }
+  const closed = momentumBars(bars, { live: false });
+  assert.equal(closed.tone.length, bars.length);
+  const allowed = new Set(["#3ddc97", "#ff4d4d"]);
+  closed.tone.forEach((tone, index) => {
+    assert.ok(allowed.has(tone), "candle " + index + " must be green/red not gray/yellow: " + tone);
+  });
+  closed.locked.forEach((flag) => assert.equal(flag, true));
+  const live = momentumBars(bars, { live: true });
+  assert.equal(live.locked[live.locked.length - 1], false);
+  for (let index = 0; index < closed.tone.length - 1; index += 1) {
+    assert.equal(live.tone[index], closed.tone[index], "closed candle " + index + " must not repaint");
+    assert.equal(live.locked[index], true);
+  }
+  const grown = bars.concat([{
+    date: "2024-08-01",
+    open: bars[bars.length - 1].close,
+    high: bars[bars.length - 1].close + 1,
+    low: bars[bars.length - 1].close - 1,
+    close: bars[bars.length - 1].close + 0.5,
+    volume: 5000,
+  }]);
+  const next = momentumBars(grown, { live: false });
+  for (let index = 0; index < closed.tone.length; index += 1) {
+    assert.equal(next.tone[index], closed.tone[index], "history candle " + index + " must stay locked after a new bar");
+  }
 });
 
 test("averages and squeeze stay with green or red candles", () => {

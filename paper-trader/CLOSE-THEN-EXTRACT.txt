@@ -1,0 +1,8 @@
+If extract says learn.lock / PaperTrader-setup is in use:
+
+1. Close EVERY Paper Trader window
+2. Close every black cmd window titled Paper Trader
+3. Close Edge tabs on 127.0.0.1
+4. Then either:
+   - Right-click Paper-Trader.zip → Extract All → open paper-trader → FORCE-UPGRADE.bat
+   - Or double-click Start / Allow again (new packs use a fresh setup folder and skip the locked one)

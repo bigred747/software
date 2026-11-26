@@ -118,14 +118,33 @@ def authorize_url(state: str | None = None) -> dict[str, str]:
     return {"authorize_url": f"{AUTH_URL}?{query}", "state": nonce, "callback": _callback_url()}
 
 
-def extract_code(raw: str) -> str:
-    """Pull the OAuth code from a pasted redirect URL or a bare code string."""
+def _clean_paste(raw: str) -> str:
+    """Normalize a pasted redirect URL / code from Edge or CMD."""
     text = (raw or "").strip()
+    # Strip wrapping quotes Edge / Notepad sometimes add.
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {"'", '"'}:
+        text = text[1:-1].strip()
+    # Collapse accidental newlines from multi-line paste.
+    text = "".join(text.split())
+    return text
+
+
+def extract_code(raw: str) -> str:
+    """Pull the OAuth code from a pasted redirect URL or a bare code string.
+
+    Schwab codes often end with @ (shown as %40 in the address bar). parse_qs
+    decodes that; a bare %40 paste is decoded here too.
+    """
+    text = _clean_paste(raw)
     if not text:
         raise ValueError("Paste the full redirect URL from the browser address bar after you sign in.")
-    if "://" in text or text.startswith("?"):
+    # Some browsers put params in the fragment.
+    if "://" in text or text.startswith("?") or text.startswith("code="):
+        if "://" not in text and not text.startswith("?"):
+            text = "?" + text
         parsed = urllib.parse.urlparse(text if "://" in text else f"https://127.0.0.1{text}")
-        params = urllib.parse.parse_qs(parsed.query)
+        query = parsed.query or parsed.fragment
+        params = urllib.parse.parse_qs(query)
         if params.get("error"):
             desc = (params.get("error_description") or params.get("error") or ["error"])[0]
             raise ValueError(f"Schwab returned an error: {desc}")
@@ -133,17 +152,33 @@ def extract_code(raw: str) -> str:
         if not code:
             raise ValueError("No code= was found in that URL. Finish sign-in, then copy the whole address bar.")
         return code
-    if "=" in text and "code=" in text:
-        params = urllib.parse.parse_qs(text.lstrip("?"))
-        code = (params.get("code") or [""])[0].strip()
-        if code:
-            return code
+    if "%" in text:
+        text = urllib.parse.unquote(text)
     return text
 
 
 def _basic_auth_header() -> str:
     pair = f"{_app_key()}:{_app_secret()}".encode("utf-8")
     return "Basic " + base64.b64encode(pair).decode("ascii")
+
+
+def _read_http_body(response) -> bytes:
+    """Read Schwab HTTP body; decode gzip when the server ignores Accept-Encoding."""
+    import gzip
+
+    raw = response.read()
+    encoding = (response.headers.get("Content-Encoding") or "").lower()
+    if "gzip" in encoding:
+        try:
+            return gzip.decompress(raw)
+        except OSError:
+            return raw
+    if len(raw) >= 2 and raw[0] == 0x1F and raw[1] == 0x8B:
+        try:
+            return gzip.decompress(raw)
+        except OSError:
+            return raw
+    return raw
 
 
 def _token_request(form: dict[str, str]) -> dict[str, Any]:
@@ -156,18 +191,30 @@ def _token_request(form: dict[str, str]) -> dict[str, Any]:
             "Authorization": _basic_auth_header(),
             "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json",
+            "Accept-Encoding": "identity",
         },
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+            payload = json.loads(_read_http_body(response).decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="ignore")
+        detail = _read_http_body(exc).decode("utf-8", errors="ignore")
         try:
             err = json.loads(detail)
             message = str(err.get("error_description") or err.get("error") or detail or exc.reason)
         except ValueError:
             message = detail or str(exc.reason)
+        lower = message.lower()
+        if "invalid_grant" in lower or "code" in lower:
+            message = (
+                f"{message} — the code was already used or expired. "
+                "Run Connect again, sign in, and paste the new address bar URL right away."
+            )
+        if "redirect" in lower or "mismatch" in lower:
+            message = (
+                f"{message} — SCHWAB_CALLBACK_URL in .env must match the Developer Portal "
+                "exactly (usually https://127.0.0.1 with no trailing slash)."
+            )
         raise ValueError(f"Schwab token request failed: {message}") from exc
     except urllib.error.URLError as exc:
         raise ValueError(f"Could not reach Schwab: {exc.reason}") from exc
@@ -339,3 +386,88 @@ def signal_item(path: Path | None = None) -> dict[str, Any]:
         "detail": str(status["detail"]),
         "tone": "strict",
     }
+
+
+QUOTE_TEST_URL = "https://api.schwabapi.com/marketdata/v1/quotes?symbols=SPY"
+
+
+def _bearer_get(url: str, access_token: str) -> tuple[int, str]:
+    """GET one Schwab URL with the access token. Returns status and body text."""
+    request = urllib.request.Request(
+        url,
+        method="GET",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+            "Accept-Encoding": "identity",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            body = _read_http_body(response).decode("utf-8", errors="ignore")
+            return int(response.status), body
+    except urllib.error.HTTPError as exc:
+        body = _read_http_body(exc).decode("utf-8", errors="ignore")
+        return int(exc.code), body
+    except urllib.error.URLError as exc:
+        raise ValueError(f"Could not reach Schwab: {exc.reason}") from exc
+
+
+def test_connection(path: Path | None = None) -> dict[str, Any]:
+    """Desk Test button: keys file, token session, optional live quote ping. No orders."""
+    status = connection_status(path)
+    key_len = len(_app_key())
+    secret_len = len(_app_secret())
+    result: dict[str, Any] = {
+        "ok": False,
+        "name": "Schwab test",
+        "credentials": bool(status["credentials"]),
+        "connected": bool(status["connected"]),
+        "env_path": str(status["env_path"]),
+        "callback": str(status["callback"]),
+        "key_length": key_len,
+        "secret_length": secret_len,
+        "quote_ok": False,
+        "detail": "",
+        "live_locked": True,
+        "paper_default": True,
+    }
+    if not status["credentials"]:
+        result["detail"] = (
+            f"Keys missing in {status['env_path']}. "
+            "Set SCHWAB_APP_KEY and SCHWAB_APP_SECRET (not paste-...), then press Test again."
+        )
+        return result
+    if not status["connected"]:
+        result["ok"] = True
+        result["detail"] = (
+            f"Keys ready (key {key_len} · secret {secret_len}) · callback {status['callback']} · "
+            "not connected yet. Press Connect, sign in, paste the redirect URL, then Test again."
+        )
+        return result
+    store = ensure_session(path)
+    token = str(store.get("access_token") or "")
+    if not token:
+        result["detail"] = "Session expired. Press Connect and sign in again."
+        return result
+    try:
+        code, body = _bearer_get(QUOTE_TEST_URL, token)
+    except ValueError as exc:
+        result["detail"] = str(exc)
+        return result
+    if 200 <= code < 300:
+        result["ok"] = True
+        result["connected"] = True
+        result["quote_ok"] = True
+        result["detail"] = (
+            f"Connected · token works · SPY quote ping HTTP {code} · "
+            f"callback {status['callback']} · Live locked · paper only."
+        )
+        return result
+    snippet = body.strip().replace("\n", " ")[:160]
+    result["detail"] = (
+        f"Connected locally but Schwab quote ping failed HTTP {code}"
+        + (f" · {snippet}" if snippet else "")
+        + ". Try Connect again if the session expired."
+    )
+    return result

@@ -261,7 +261,7 @@
     { length: 14, color: "#facc15", name: "14" },
     { length: 50, color: "#1e5aa8", name: "50" },
     { length: 100, color: "#c9a000", name: "100" },
-    { length: 200, color: "#c62828", name: "200" },
+    { length: 200, color: "#ff4d4d", name: "200" },
   ];
 
   function stackAverages(bars) {
@@ -274,34 +274,169 @@
     }));
   }
 
-  function paintCandles(ctx, bars, xAt, y, slot, colors) {
+  // Desk momentum bars (ADX · DMI): green = uptrend conviction, red = downtrend, yellow = no strong direction.
+  // Own closed-bar Wilder math — locks on close so prior candles do not repaint. Not a third-party product.
+  let momentumBarsCache = { key: "", value: null };
+
+  function momentumBars(bars, options) {
+    const opts = options || {};
+    const length = Math.max(2, Math.round(Number(opts.length) || 14));
+    const adxFloor = Number.isFinite(Number(opts.adxFloor)) ? Number(opts.adxFloor) : 20;
+    const volLook = Math.max(5, Math.round(Number(opts.volumeLookback) || 50));
+    const volMult = Number.isFinite(Number(opts.volumeMult)) ? Number(opts.volumeMult) : 1.3;
+    const list = bars || [];
+    const count = list.length;
+    const live = opts.live === true || (opts.live == null && liveBar(list, !!opts.crypto, opts.now));
+    const last = count ? list[count - 1] : null;
+    const cacheKey = [
+      count,
+      last ? last.date : "",
+      last ? last.close : "",
+      last ? last.high : "",
+      last ? last.low : "",
+      last ? last.volume : "",
+      live ? 1 : 0,
+      length,
+      adxFloor,
+      volLook,
+      volMult,
+    ].join("|");
+    if (momentumBarsCache.key === cacheKey && momentumBarsCache.value) return momentumBarsCache.value;
+    const tr = new Array(count).fill(0);
+    const plusDM = new Array(count).fill(0);
+    const minusDM = new Array(count).fill(0);
+    for (let index = 1; index < count; index += 1) {
+      const high = list[index].high;
+      const low = list[index].low;
+      const prevClose = list[index - 1].close;
+      const upMove = high - list[index - 1].high;
+      const downMove = list[index - 1].low - low;
+      tr[index] = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+      plusDM[index] = upMove > downMove && upMove > 0 ? upMove : 0;
+      minusDM[index] = downMove > upMove && downMove > 0 ? downMove : 0;
+    }
+    function smoothDM(series) {
+      const out = new Array(count).fill(null);
+      if (count <= length) return out;
+      let sum = 0;
+      for (let index = 1; index <= length; index += 1) sum += series[index];
+      out[length] = sum;
+      for (let index = length + 1; index < count; index += 1) {
+        out[index] = out[index - 1] - out[index - 1] / length + series[index];
+      }
+      return out;
+    }
+    const atr = smoothDM(tr);
+    const smPlus = smoothDM(plusDM);
+    const smMinus = smoothDM(minusDM);
+    const plusDI = new Array(count).fill(null);
+    const minusDI = new Array(count).fill(null);
+    const dx = new Array(count).fill(null);
+    for (let index = 0; index < count; index += 1) {
+      if (atr[index] == null || !(atr[index] > 0)) continue;
+      plusDI[index] = (100 * smPlus[index]) / atr[index];
+      minusDI[index] = (100 * smMinus[index]) / atr[index];
+      const den = plusDI[index] + minusDI[index];
+      dx[index] = den === 0 ? 0 : (100 * Math.abs(plusDI[index] - minusDI[index])) / den;
+    }
+    const adx = new Array(count).fill(null);
+    const adxStart = length * 2 - 1;
+    if (count > adxStart) {
+      let sum = 0;
+      for (let index = length; index <= adxStart; index += 1) sum += dx[index] == null ? 0 : dx[index];
+      adx[adxStart] = sum / length;
+      for (let index = adxStart + 1; index < count; index += 1) {
+        adx[index] = (adx[index - 1] * (length - 1) + (dx[index] == null ? 0 : dx[index])) / length;
+      }
+    }
+    // Same bright green/red as Volume Wave · Desk Waves — never gray, yellow, soft, or mixed.
+    const GREEN = "#3ddc97";
+    const GREEN_RIM = "#1fae78";
+    const RED = "#ff4d4d";
+    const RED_RIM = "#d63b4a";
+    const tone = new Array(count).fill(null);
+    const rim = new Array(count).fill(null);
+    const bias = new Array(count).fill("warm");
+    const locked = new Array(count).fill(true);
+    const volumeDot = new Array(count).fill(false);
+    const volumes = list.map((bar) => Math.max(0, Number(bar.volume) || 0));
+    const volAvg = simpleAverage(volumes, volLook);
+    for (let index = 0; index < count; index += 1) {
+      if (live && index === count - 1) locked[index] = false;
+      // Classic tape body color (matches Volume Wave hist): close vs open.
+      const upBar = list[index].close >= list[index].open;
+      tone[index] = upBar ? GREEN : RED;
+      rim[index] = upBar ? GREEN_RIM : RED_RIM;
+      bias[index] = upBar ? "up" : "down";
+      // ADX/DMI still computed for dots / callers, but never paints gray/yellow bodies.
+      void adxFloor;
+      // Volume conviction dots only on locked closed bars — live bar never paints a sticky dot.
+      if (locked[index] && volAvg[index] != null && volAvg[index] > 0 && volumes[index] >= volAvg[index] * volMult) {
+        volumeDot[index] = true;
+      }
+    }
+    const study = {
+      tone,
+      rim,
+      bias,
+      locked,
+      volumeDot,
+      plusDI,
+      minusDI,
+      adx,
+      length,
+      adxFloor,
+      live,
+    };
+    momentumBarsCache = { key: cacheKey, value: study };
+    return study;
+  }
+
+  function paintCandles(ctx, bars, xAt, y, slot, paint) {
+    const list = bars || [];
+    // Bias list from big4indicator: bull / mixed (gray) / bear. Otherwise Volume Wave green/red.
+    const biasList = Array.isArray(paint) ? paint : null;
+    const study = !biasList && paint && Array.isArray(paint.tone) ? paint : null;
     const bodyW = Math.max(2, Math.min(slot * 0.72, Math.max(2, slot - 1)));
-    bars.forEach((bar, index) => {
+    const GREEN = "#3ddc97";
+    const GREEN_RIM = "#1fae78";
+    const RED = "#ff4d4d";
+    const RED_RIM = "#d63b4a";
+    const GRAY = "#9aa6b2";
+    const GRAY_RIM = "#6b7785";
+    list.forEach((bar, index) => {
       const x = xAt(index);
-      const up = bar.close >= bar.open;
       const topPrice = Math.max(bar.open, bar.close);
       const bottomPrice = Math.min(bar.open, bar.close);
       const top = y(topPrice);
       const bottom = y(bottomPrice);
       const bodyH = Math.max(1, bottom - top);
-      const mode = colors && colors[index];
+      const up = bar.close >= bar.open;
       let tone;
       let rim;
-      if (mode === "bull") {
-        tone = "#3ddc97";
-        rim = "#1fae78";
-      } else if (mode === "bear") {
-        tone = "#ff4d4d";
-        rim = "#d63b4a";
-      } else if (mode === "mixed") {
-        tone = "#9aa6b2";
-        rim = "#6b7785";
+      if (biasList) {
+        const mode = biasList[index];
+        if (mode === "bull") {
+          tone = GREEN;
+          rim = GREEN_RIM;
+        } else if (mode === "bear") {
+          tone = RED;
+          rim = RED_RIM;
+        } else if (mode === "mixed") {
+          tone = GRAY;
+          rim = GRAY_RIM;
+        } else {
+          tone = up ? GREEN : RED;
+          rim = up ? GREEN_RIM : RED_RIM;
+        }
       } else {
-        tone = up ? "#3ddc97" : "#ff4d4d";
-        rim = up ? "#1fae78" : "#d63b4a";
+        tone = up ? GREEN : RED;
+        rim = up ? GREEN_RIM : RED_RIM;
       }
+      const locked = !study || !study.locked || study.locked[index] !== false;
+      ctx.globalAlpha = locked ? 1 : 0.95;
       ctx.strokeStyle = tone;
-      ctx.lineWidth = Math.max(1.25, Math.min(2.5, slot * 0.16));
+      ctx.lineWidth = Math.max(1.35, Math.min(2.75, slot * 0.18));
       ctx.beginPath();
       ctx.moveTo(x, y(bar.high));
       ctx.lineTo(x, y(bar.low));
@@ -312,6 +447,14 @@
       ctx.strokeStyle = rim;
       ctx.lineWidth = 1;
       ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, bodyW - 1), Math.max(1, bodyH - 1));
+      if (study && study.volumeDot && study.volumeDot[index]) {
+        const radius = Math.max(1.75, Math.min(3.5, slot * 0.22));
+        ctx.beginPath();
+        ctx.fillStyle = "#7dd3fc";
+        ctx.arc(x, y(bar.low) + radius + 3, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
     });
     ctx.lineWidth = 1;
   }
@@ -968,7 +1111,40 @@
       ctx.stroke();
       ctx.fillText(price.toFixed(price >= 100 ? 2 : 4), 4, line + 4);
     }
-    paintCandles(ctx, bars, xAt, y, slot);
+    const momFull = momentumBars(history, { crypto: !!(options && options.crypto), live: liveBar(history, !!(options && options.crypto)) });
+    const big4 = big4Indicator(history);
+    // Mini / pro charts: same big4indicator green · gray · red as the main desk tape.
+    if (big4 && Array.isArray(big4.bias)) {
+      paintCandles(ctx, bars, xAt, y, slot, big4.bias.slice(dropped, dropped + bars.length));
+    } else {
+      paintCandles(ctx, bars, xAt, y, slot, {
+        tone: momFull.tone.slice(dropped),
+        rim: momFull.rim.slice(dropped),
+        bias: momFull.bias.slice(dropped),
+        locked: momFull.locked.slice(dropped),
+        volumeDot: momFull.volumeDot.slice(dropped),
+      });
+    }
+    // Product name on the tape (symbol · label when provided).
+    const product = String((options && (options.label || options.symbol)) || "").trim();
+    if (product && height >= 120) {
+      ctx.save();
+      let size = Math.max(16, Math.min(28, Math.floor(width / 18)));
+      ctx.font = "700 " + size + "px Segoe UI, sans-serif";
+      const maxW = Math.max(60, width - padLeft - padRight - 24);
+      while (size > 12 && ctx.measureText(product).width > maxW) {
+        size -= 1;
+        ctx.font = "700 " + size + "px Segoe UI, sans-serif";
+      }
+      const textW = ctx.measureText(product).width;
+      const px = Math.max(padLeft + 6, (width - textW) / 2);
+      const py = Math.max(18, padTop + 4);
+      ctx.fillStyle = "rgba(7, 9, 11, 0.45)";
+      ctx.fillText(product, px + 1, py + 1);
+      ctx.fillStyle = "rgba(231, 237, 243, 0.92)";
+      ctx.fillText(product, px, py);
+      ctx.restore();
+    }
     stack.forEach((row) => {
       strokeSeries(ctx, row.values.slice(dropped), xAt, y, row.color, row.length >= 100 ? 1.75 : 1.25);
     });
@@ -2168,10 +2344,7 @@
     const count = (trades || []).length;
     let profitFactor = null;
     if (grossLoss > 0) profitFactor = grossWin / grossLoss;
-    else if (grossWin > 0) profitFactor = 99;
-    // Cap keeps learn JSON finite (Infinity breaks /api/learn with allow_nan=False).
-    if (profitFactor != null && !Number.isFinite(profitFactor)) profitFactor = 99;
-    if (profitFactor != null && profitFactor > 99) profitFactor = 99;
+    else if (grossWin > 0) profitFactor = Infinity;
     return {
       trades: count,
       wins,
@@ -5486,6 +5659,7 @@
     averages,
     stackAverages,
     paintCandles,
+    momentumBars,
     momentumTone,
     squeezeTone,
     squeezeName,

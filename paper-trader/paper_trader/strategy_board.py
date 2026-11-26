@@ -72,15 +72,9 @@ def _trade_book_stats(trades: list[dict]) -> dict:
     if gross_loss > 0:
         profit_factor: float | None = gross_win / gross_loss
     elif gross_win > 0:
-        # Finite cap — Infinity breaks JSON (allow_nan=False) on /api/learn.
-        profit_factor = 99.0
+        profit_factor = float("inf")
     else:
         profit_factor = None
-    if profit_factor is not None:
-        if profit_factor != profit_factor or profit_factor in (float("inf"), float("-inf")):
-            profit_factor = 99.0
-        elif profit_factor > 99.0:
-            profit_factor = 99.0
     return {
         "trades": count,
         "wins": wins,
