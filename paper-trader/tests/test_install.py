@@ -248,9 +248,43 @@ class InstallTests(unittest.TestCase):
             olds = list((home / "Documents").glob("Paper Trader-OLD-*"))
             self.assertTrue(olds, "old desk should be renamed aside")
 
+    def test_force_upgrade_keeps_runtime_when_slim_pack_has_none(self) -> None:
+        """Slim packs omit runtime — upgrading must not wipe the working python.exe."""
+        from paper_trader.install import KEEP_VERSION, force_upgrade
 
-if __name__ == "__main__":
-    unittest.main()
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            pack = home / "extracted" / "paper-trader"
+            make_install(pack, KEEP_VERSION)
+            (pack / "web").mkdir(parents=True, exist_ok=True)
+            (pack / "web" / "app.js").write_text(f'const VERSION = "{KEEP_VERSION}";\n', encoding="utf-8")
+            (pack / "web" / "index.html").write_text(
+                f'<meta name="paper-build" content="{KEEP_VERSION}">\n', encoding="utf-8"
+            )
+            dest = canonical_folder(home)
+            make_install(dest, "1.10.40")
+            (dest / "web").mkdir(parents=True, exist_ok=True)
+            (dest / "web" / "app.js").write_text('const VERSION = "1.10.40";\n', encoding="utf-8")
+            (dest / "web" / "index.html").write_text(
+                '<meta name="paper-build" content="1.10.40">\n', encoding="utf-8"
+            )
+            (dest / "runtime").mkdir(parents=True, exist_ok=True)
+            (dest / "runtime" / "python.exe").write_bytes(b"fake-python")
+            with patch("paper_trader.install._resume_learner"), patch(
+                "paper_trader.learn.ask_learners_to_close"
+            ), patch("paper_trader.learn.end_learner_pid"), patch(
+                "paper_trader.schwab_env.ensure_env_file"
+            ), patch("paper_trader.install.erase_other_installs", return_value={
+                "keep": str(dest),
+                "keep_version": KEEP_VERSION,
+                "erased": [],
+                "closed": [],
+                "zips_removed": [],
+            }):
+                force_upgrade(pack, home)
+            self.assertTrue((dest / "runtime" / "python.exe").is_file())
+            self.assertEqual((dest / "runtime" / "python.exe").read_bytes(), b"fake-python")
+            self.assertEqual(read_install_version(dest), KEEP_VERSION)
 
     def test_desktop_opener_can_be_removed_and_only_ours(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -265,3 +299,7 @@ if __name__ == "__main__":
             (home / "Desktop" / "Paper Trader.bat").write_text("someone else's file\n", encoding="utf-8")
             self.assertEqual(remove_desktop_opener(home), [])
             self.assertTrue((home / "Desktop" / "Paper Trader.bat").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

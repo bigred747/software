@@ -162,6 +162,30 @@ def install_newest(source: Path, home: Path, *, force: bool = False) -> tuple[Pa
     return dest, "remove-source"
 
 
+def _has_runtime(folder: Path) -> bool:
+    return (folder / "runtime" / "python.exe").is_file()
+
+
+def _restore_runtime(dest: Path, *fallbacks: Path | None) -> None:
+    """Slim packs omit runtime. Keep the working python.exe from the old desk when upgrading."""
+    if _has_runtime(dest):
+        return
+    for folder in fallbacks:
+        if not folder:
+            continue
+        try:
+            if not _has_runtime(folder):
+                continue
+            src = folder / "runtime"
+            target = dest / "runtime"
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(src, target)
+            return
+        except OSError:
+            continue
+
+
 def force_upgrade(source: Path, home: Path) -> Path:
     """Replace Documents\\Paper Trader by moving the old folder aside, then copying this pack in."""
     import time
@@ -201,6 +225,7 @@ def force_upgrade(source: Path, home: Path) -> Path:
 
     saved: dict[str, bytes] = {}
     old_seal = read_install_version(dest) if dest.exists() else ""
+    aside: Path | None = None
     if dest.exists():
         for name in SKIP_FILES:
             path = dest / name
@@ -226,14 +251,27 @@ def force_upgrade(source: Path, home: Path) -> Path:
                     pass
         if not renamed:
             # Files locked by a running desk — fall back to in-place replace.
+            runtime_tmp: Path | None = None
             try:
+                if _has_runtime(dest):
+                    runtime_tmp = dest.parent / f"PaperTrader-runtime-keep-{int(time.time())}"
+                    if runtime_tmp.exists():
+                        shutil.rmtree(runtime_tmp)
+                    shutil.copytree(dest / "runtime", runtime_tmp)
                 _replace_install(source, dest)
+                _restore_runtime(dest, runtime_tmp, source)
             except OSError as inner:
                 raise ValueError(
                     "Could not move or replace Documents\\Paper Trader. "
                     "Close EVERY Paper Trader window, Edge desk tab, and black cmd window, then run FORCE-UPGRADE again. "
                     f"({last_exc}; {inner})"
                 ) from inner
+            finally:
+                if runtime_tmp and runtime_tmp.exists():
+                    try:
+                        shutil.rmtree(runtime_tmp)
+                    except OSError:
+                        pass
         else:
             try:
                 shutil.copytree(
@@ -253,12 +291,14 @@ def force_upgrade(source: Path, home: Path) -> Path:
                     "Could not copy the new pack into Documents\\Paper Trader. "
                     f"Close Paper Trader windows and retry. ({exc})"
                 ) from exc
+            _restore_runtime(dest, aside, source)
     else:
         shutil.copytree(
             source,
             dest,
             ignore=shutil.ignore_patterns(*SKIP_DIRS, "*.pyc", *SKIP_FILES),
         )
+        _restore_runtime(dest, source)
 
     dest.mkdir(parents=True, exist_ok=True)
     for name, payload in saved.items():

@@ -95,13 +95,13 @@ echo SUCCESS — Documents\Paper Trader is !CHECK!
   echo cd /d "!DEST!"
   echo title Paper Trader !CHECK!
   echo if exist "SEAL.txt" type "SEAL.txt"
-  echo call "Start-Paper-Trader.bat"
+  echo call "2 Open Paper Trader.bat"
 )
 echo Desktop Paper Trader.bat rewritten.
 echo.
 echo Opening the new desk. Seal must say Paper !CHECK!
-echo If you still see 1.10.40, close that old Edge tab.
+echo If you still see an old seal, close that old Edge tab.
 echo.
-start "" "!DEST!\Start-Paper-Trader.bat"
+start "Paper Trader" /D "!DEST!" cmd /c "2 Open Paper Trader.bat"
 pause
 exit /b 0

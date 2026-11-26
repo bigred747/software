@@ -1,5 +1,7 @@
 ## Version notes
 
+- **1.10.51** Full desk (all tabs: Markets · Chart · Trade · Study · Tools) + Connect/Test. Computer open path restored like **1.10.40** (Start/Allow/Open → Documents then Edge). Slim FORCE-UPGRADE keeps `runtime\python.exe` so the desk opens. Prefer FULL `Paper-Trader.zip` for first install. Paper only. Live locked.
+
 - **1.10.36** Journal + front Auto desk: Fire 5 Auto · Best setup Auto · Journal Auto buy · Buy top signal live under Auto (no scatter). Reuses Fire/Best paths; Paper Yes · Soft · Hold Auto · Live locked. After Share paper book 1.10.35.
 
 - **1.10.35** Journal Share paper book download hardened for Edge/Windows (Save As picker when available, anchor attached to the page, delayed revoke; Copy fallback if blocked). Extends Journal. Own names only. Live locked. After Strat Health 1.10.34.

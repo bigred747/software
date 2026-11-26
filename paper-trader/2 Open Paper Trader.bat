@@ -29,25 +29,25 @@ if not exist "%STAGE%\." goto BadZip
 echo Extracting into: !STAGE!
 tar -xf "!ZIP!" -C "!STAGE!"
 if errorlevel 1 goto BadZip
-if not exist "!STAGE!\paper-trader\FORCE-UPGRADE.bat" goto BadZip
-start "" "!STAGE!\paper-trader\FORCE-UPGRADE.bat"
-echo Extracted. FORCE-UPGRADE will replace Documents\Paper Trader.
+if not exist "!STAGE!\paper-trader\Start-Paper-Trader.bat" goto BadZip
+start "" "!STAGE!\paper-trader\Start-Paper-Trader.bat"
+echo The full copy is in Documents. Use the window that just opened.
 pause
 exit /b 0
 
 :NoZip
 echo Could not find Paper-Trader.zip in Downloads, Desktop, Documents, or OneDrive.
-echo Save the zip in Downloads, then double-click this file again.
+echo Save the FULL Paper-Trader.zip in Downloads, then double-click this file again.
 pause
 exit /b 1
 
 :BadZip
 echo Could not extract Paper-Trader.zip.
-echo Usually Documents\PaperTrader-setup is locked by a running Paper Trader.
 echo Close EVERY Paper Trader window and black cmd window, then try again.
-echo Or right-click the zip - Extract All - then open FORCE-UPGRADE.bat.
+echo Or right-click the zip - Extract All - then open Start-Paper-Trader.bat.
 pause
 exit /b 1
 
 :Normal
+rem Open only — no upgrade. 1.10.40 path.
 call "%~dp0Start-Paper-Trader.bat"
