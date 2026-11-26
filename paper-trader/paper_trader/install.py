@@ -593,7 +593,7 @@ def remove_desktop_opener(home: Path) -> list[Path]:
     return removed
 
 
-KEEP_VERSION = "1.10.57"
+KEEP_VERSION = "1.10.58"
 
 
 def read_install_version(folder: Path) -> str:
@@ -626,7 +626,7 @@ def erase_other_installs(
     keep_version: str = KEEP_VERSION,
     killer=None,
 ) -> dict[str, object]:
-    """Keep only Paper Trader keep_version (default 1.10.57). Erase other installs, zips, and extra Bots."""
+    """Keep only Paper Trader keep_version (default 1.10.58). Erase other installs, zips, and extra Bots."""
     from paper_trader.learn import end_learner_pid, stop_learner
 
     end_pid = killer or end_learner_pid
