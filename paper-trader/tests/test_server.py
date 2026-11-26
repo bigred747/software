@@ -969,6 +969,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn("starting paper trader", bat)
         self.assertIn("one click", bat)
         self.assertIn("desktop shortcut", bat)
+        self.assertIn("paper-trader*.zip", bat)
+        self.assertIn("extractall", bat)
+        self.assertIn("incomplete", bat)
         self.assertNotIn("goto badinstall", bat)
         # One-click Start serves THIS folder - no auto force-upgrade, no Explorer popup.
         self.assertNotIn("force-upgrade", bat)
