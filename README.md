@@ -2,6 +2,24 @@
 
 WordPress plugins for [luxetrendsetters.com](https://luxetrendsetters.com/).
 
+## One plugin: Luxe Score Repair 1.3.0
+
+Score Repair and the Associates Hub are the same plugin. Upload this one file. Do not unzip it on your computer.
+
+**Download:**
+
+[luxe-score-repair.zip](https://github.com/bigred747/software/raw/refs/heads/cursor/associates-hub-1084/luxe-score-repair.zip)
+
+SHA-256 `eddbbae7012ea070bcae4799e57c449deb8e282305d1a3742879d09f3b3fe8c3`
+
+Plugins → Add Plugin → Upload Plugin → Install Now → Replace current with uploaded → Activate.
+
+If a plugin named **Luxe Associates Hub** is in the list, delete it. That screen is now inside Score Repair. Open **Associates Hub** in the left menu.
+
+In a post: `[luxe_amazon asin="B0ABCDEF12"]`
+
+The link is a direct tagged Amazon address, with the required disclosure and `rel="sponsored"`. This plugin does not log into Amazon and does not store your password.
+
 ## Luxe Affiliate Product Scout 5.6.8
 
 24/7 catalog learning. One product per 5-minute cycle, hourly read-only snapshot, honest 95–100 scores. Windows 11 / WordPress PclZip package. Size **145KB**.
