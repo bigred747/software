@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.53">
+  <meta name="paper-build" content="1.10.54">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.53</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.54</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -762,7 +762,7 @@ AddOrder(Sell, sellFire);</textarea>
           </table>
         </div>
         <p id="int-miss" class="muted"></p>
-        <p class="muted">Chart boxes: <strong>TICK / ADD / TRIN / VOLD stay No feed</strong> — this desk will not paint fake numbers. Yahoo and CNBC do not carry those NYSE internals (Yahoo “TRIN” is an equity ticker, not Arms Index). TradingView’s Market Internals Pine script is not wired (no scrape; Pine cannot run here). <strong>VIX</strong> paints only from a real ^VIX / .VIX quote, green when it falls vs yesterday and red when it rises. Next path for NYSE boxes: Interactive Brokers market indicators or a paid/broker breadth entitlement. Sells are never blocked by internals. Crypto is not gated. Live stays locked. Paper only.</p>
+        <p class="muted">Chart boxes: <strong>TICK / ADD / TRIN / VOLD</strong> paint from Schwab Connect quotes (<code>$TICK</code> · <code>$ADD</code> · <code>$TRIN</code> · <code>$VOLD</code>) when the session is entitled — otherwise No feed (never invented; Yahoo/CNBC do not carry them; Yahoo “TRIN” is an equity). <strong>VIX</strong> still paints from a real ^VIX / .VIX quote, green when it falls vs yesterday and red when it rises. Phone Private has no Schwab token, so those four stay No feed there. Sells are never blocked by internals. Crypto is not gated. Live stays locked. Paper only.</p>
       </div>
 
       <div class="dock-page" data-dock-page="frames">
@@ -1335,11 +1335,11 @@ AddOrder(Sell, sellFire);</textarea>
       </div>
     </div>
   </div>
-  <script src="live.js?v=11053"></script>
-  <script src="engine.js?v=11053"></script>
-  <script src="study.js?v=11053"></script>
-  <script src="frames.js?v=11053"></script>
-  <script src="booster.js?v=11053"></script>
-  <script src="app.js?v=11053"></script>
+  <script src="live.js?v=11054"></script>
+  <script src="engine.js?v=11054"></script>
+  <script src="study.js?v=11054"></script>
+  <script src="frames.js?v=11054"></script>
+  <script src="booster.js?v=11054"></script>
+  <script src="app.js?v=11054"></script>
 </body>
 </html>

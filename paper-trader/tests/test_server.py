@@ -74,7 +74,10 @@ class ServerTests(unittest.TestCase):
                 {"date": "2026-11-18", "open": 21.5, "high": 22.5, "low": 21, "close": 22.1, "volume": 0},
             ],
         }
-        with patch("paper_trader.breadth.quotes.fetch_frame", return_value=fake):
+        with (
+            patch("paper_trader.breadth.quotes.fetch_frame", return_value=fake),
+            patch("paper_trader.schwab_auth.fetch_breadth_quotes", return_value={}),
+        ):
             status, raw = self.open("/api/breadth")
         self.assertEqual(status, 200)
         payload = json.loads(raw)

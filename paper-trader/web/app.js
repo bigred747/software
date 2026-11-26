@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.53";
+const VERSION = "1.10.54";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -6903,7 +6903,7 @@ async function phoneSafe() {
   add(
     "No invented breadth",
     true,
-    "TICK/ADD/TRIN/VOLD stay No feed (will not invent). VIX only from a real quote. No TradingView scrape"
+    "TICK/ADD/TRIN/VOLD from Schwab $TICK/$ADD/$TRIN/$VOLD when connected (will not invent). VIX from a real quote. No TradingView scrape"
   );
   add(
     "Desk Pool fail-closed",
@@ -10951,6 +10951,7 @@ function paintChipRow(node, chips) {
   chips.forEach((chip) => {
     const box = document.createElement("div");
     box.className = "desk-clear-chip" + (chip.kind ? " " + chip.kind : "");
+    if (chip.title) box.title = String(chip.title);
     const key = document.createElement("span");
     key.className = "k";
     key.textContent = chip.k;
@@ -10982,8 +10983,18 @@ function breadthTone(key, number, change) {
 function formatBreadthNumber(key, number) {
   if (key === "VIX") return number.toFixed(2);
   if (key === "TRIN") return number.toFixed(3);
-  if (Math.abs(number) >= 1000) return Math.round(number).toLocaleString("en-US");
-  return String(number);
+  if (key === "VOLD") {
+    const abs = Math.abs(number);
+    if (abs >= 1e9) return (number / 1e9).toFixed(2).replace(/\.?0+$/, "") + "B";
+    if (abs >= 1e6) return (number / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+    if (abs >= 1000) return Math.round(number).toLocaleString("en-US");
+    return String(Math.round(number));
+  }
+  // TICK / ADD — signed whole counts
+  const rounded = Math.round(number);
+  const core = Math.abs(rounded) >= 1000 ? rounded.toLocaleString("en-US") : String(rounded);
+  if (rounded > 0) return "+" + core;
+  return core;
 }
 
 function breadthChip(key) {
@@ -10994,11 +11005,14 @@ function breadthChip(key) {
   const number = Number(raw);
   // Fail closed: only finite real readings paint. Never invent NYSE internals or scrape TradingView.
   if (raw == null || raw === "" || !Number.isFinite(number)) {
-    return { k: key, v: "No feed", kind: "breadth" };
+    return { k: key, v: "No feed", kind: "breadth empty", title: key + " waiting on Schwab Connect ($" + key + ")" };
   }
   const change = Number(changes[key]);
   const tone = tones[key] || breadthTone(key, number, change);
-  return { k: key, v: formatBreadthNumber(key, number), kind: "breadth " + tone };
+  const titleBits = [key, formatBreadthNumber(key, number)];
+  if (Number.isFinite(change) && key !== "TRIN") titleBits.push("Δ " + formatBreadthNumber(key, change));
+  titleBits.push(key === "VIX" ? "^VIX" : "Schwab $" + key);
+  return { k: key, v: formatBreadthNumber(key, number), kind: "breadth " + tone, title: titleBits.join(" · ") };
 }
 
 function emptyBreadth(note) {
@@ -11036,7 +11050,7 @@ function paintChartBoxes() {
 
 async function phoneVixBreadth() {
   const empty = emptyBreadth(
-    "TICK/ADD/TRIN/VOLD stay No feed on phone (no invent). VIX paints and gates Edge only from a real .VIX quote."
+    "TICK/ADD/TRIN/VOLD stay No feed on phone (no Schwab token; will not invent). VIX paints and gates Edge only from a real .VIX quote."
   );
   if (typeof PaperLive === "undefined" || !PaperLive.gauge) return empty;
   try {
