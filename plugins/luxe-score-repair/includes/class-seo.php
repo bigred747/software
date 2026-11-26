@@ -181,7 +181,7 @@ class Luxe_Score_Repair_SEO {
 	 * @return array
 	 */
 	public function wp_robots( $robots ) {
-		if ( ! is_array( $robots ) || ! Luxe_Score_Repair_Plugin::instance()->enabled( 'noindex_utility' ) ) {
+		if ( ! is_array( $robots ) ) {
 			return $robots;
 		}
 		if ( $this->should_noindex() ) {
@@ -198,7 +198,7 @@ class Luxe_Score_Repair_SEO {
 	 * @return array
 	 */
 	public function rank_math_robots( $robots ) {
-		if ( ! is_array( $robots ) || ! Luxe_Score_Repair_Plugin::instance()->enabled( 'noindex_utility' ) ) {
+		if ( ! is_array( $robots ) ) {
 			return $robots;
 		}
 		if ( $this->should_noindex() ) {
@@ -285,6 +285,22 @@ class Luxe_Score_Repair_SEO {
 	 * @return bool
 	 */
 	public function should_noindex() {
+		$plugin = Luxe_Score_Repair_Plugin::instance();
+		if ( $plugin->enabled( 'noindex_utility' ) && $this->is_utility_url() ) {
+			return true;
+		}
+		if ( $plugin->enabled( 'search_focus' ) && Luxe_Score_Repair_Search_Focus::instance()->is_thin_request() ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Cart, account, authors, search, and other utility URLs.
+	 *
+	 * @return bool
+	 */
+	public function is_utility_url() {
 		if ( function_exists( 'is_cart' ) && is_cart() ) {
 			return true;
 		}
@@ -428,6 +444,7 @@ class Luxe_Score_Repair_SEO {
 			'full analysis, buying guide, pros/cons, and essential insights',
 			'across relevant fine jewelry',
 			'across relevant product options',
+			'buyer notes from LuxeTrendsetters',
 		);
 		foreach ( $needles as $needle ) {
 			if ( false !== stripos( $desc, $needle ) ) {
