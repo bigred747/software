@@ -1360,14 +1360,15 @@ footer { display: none; }
     -webkit-overflow-scrolling: touch;
     padding: 8px 12px calc(58px + var(--safe-bottom));
   }
-  .watch, .chart-panel, .ticket, .dock { display: none; margin: 0; }
+  .watch, .chart-panel, .ticket, .dock, .fibs-panel { display: none; margin: 0; }
   .ticket, .dock, .watch { overflow: visible; }
   .frames-layout { display: block; }
   .frame-list, .brief { max-height: none; }
   .dock-page.on[data-dock-page="frames"] { display: block; overflow: visible; }
   body[data-tab="markets"] .watch,
   body[data-tab="chart"] .chart-panel,
-  body[data-tab="trade"] .ticket { display: block; }
+  body[data-tab="trade"] .ticket,
+  body[data-tab="fibs"] .fibs-panel { display: block; }
   body[data-tab="study"] .dock,
   body[data-tools] .dock { display: flex; }
   body[data-tab="study"] .watch,
@@ -2142,3 +2143,21 @@ body.ready #mood-clock { width: 88px; height: 88px; }
 .fibs-levels td.key { color: #ffd166; font-weight: 700; }
 .fibs-mini { min-height: 26px !important; padding: 2px 8px !important; font-size: 11px !important; margin-left: 6px; }
 .fibs-ext-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+
+
+/* Fibs = page 3 (own panel, not Chart) */
+.fibs-panel { display: none; grid-column: 1 / -1; grid-row: 1; overflow: auto; min-height: 0; padding: 8px; }
+body[data-tab="fibs"] .workspace {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+body[data-tab="fibs"] .fibs-panel { display: block; }
+body[data-tab="fibs"] .watch,
+body[data-tab="fibs"] .chart-panel,
+body[data-tab="fibs"] .ticket,
+body[data-tab="fibs"] .dock { display: none !important; }
+body[data-tab="fibs"] .desk-rail,
+body[data-tab="fibs"] .market-outlook { display: none !important; }
+@media (max-width: 980px) {
+  body[data-tab="fibs"] .fibs-panel { padding-bottom: 72px; }
+}

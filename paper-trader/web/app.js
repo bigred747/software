@@ -179,7 +179,7 @@ async function getJSON(url, options) {
   return read();
 }
 
-const VERSION = "1.10.71";
+const VERSION = "1.10.73";
 const DOCK_KEY = "paperTraderDock";
 const DESK_CARD_KEY = "paperTraderDeskCard";
 const LEARN_KEY = "paper_trader_learn_v1";
@@ -13546,7 +13546,8 @@ function showDock(name, opts) {
   if (!document.querySelector('.dock-tab[data-dock="' + name + '"]')) name = "home";
   const skipRun = !!(opts && opts.skipRun);
   if (name === "fibs") {
-    if (window.PaperFibs && typeof PaperFibs.runFibsPage === "function") PaperFibs.runFibsPage();
+    showPhoneTab("fibs");
+    return;
   }
   if (name === "internals") loadInternals(false);
   if (name === "scorecard") {
@@ -13739,6 +13740,18 @@ $("frames-all").addEventListener("click", () => openAllFrames());
 $("brief-window").addEventListener("click", () => openBrief());
 
 function showPhoneTab(name) {
+  if (name === "fibs") {
+    document.body.dataset.tab = "fibs";
+    document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
+      button.classList.toggle("on", button.dataset.tab === "fibs");
+    });
+    try { document.body.removeAttribute("data-tools"); } catch (e) {}
+    paintOpenToolsButton();
+    const fibBtn = document.getElementById("open-fibs");
+    if (fibBtn) fibBtn.setAttribute("aria-pressed", "true");
+    if (window.PaperFibs && typeof PaperFibs.runFibsPage === "function") PaperFibs.runFibsPage();
+    return;
+  }
   if (name === "study") {
     if (!document.body.dataset.tools) {
       toolsReturnTab = document.body.dataset.tab || "chart";
@@ -13751,6 +13764,8 @@ function showPhoneTab(name) {
   }
   delete document.body.dataset.tools;
   paintOpenToolsButton();
+  const fibBtnLeave = document.getElementById("open-fibs");
+  if (fibBtnLeave) fibBtnLeave.setAttribute("aria-pressed", "false");
   document.body.dataset.tab = name;
   document.querySelectorAll(".tabbar [data-tab]").forEach((item) => item.classList.toggle("on", item.dataset.tab === name));
   if (name === "chart") paintChartToolBoxes(state.market && state.market.history);
@@ -13761,6 +13776,15 @@ function showPhoneTab(name) {
 document.querySelectorAll(".tabbar [data-tab]").forEach((button) => {
   button.addEventListener("click", () => showPhoneTab(button.dataset.tab));
 });
+
+const openFibsBtn = $("open-fibs");
+if (openFibsBtn) openFibsBtn.addEventListener("click", () => showPhoneTab("fibs"));
+if ($("fibs-open-page")) $("fibs-open-page").addEventListener("click", () => showPhoneTab("fibs"));
+if ($("fibs-home-tab")) $("fibs-home-tab").addEventListener("click", () => {
+  showPhoneTab("markets");
+  if ($("status")) $("status").textContent = "Back home.";
+});
+
 
 const chartBack = $("chart-back");
 if (chartBack) {

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.71">
+  <meta name="paper-build" content="1.10.73">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,12 +19,13 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.71</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.73</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
       </div>
     </div>
+    <button id="open-fibs" type="button" class="top-tools-btn quiet" aria-pressed="false">Fibs</button>
     <button id="open-tools" type="button" class="top-tools-btn" aria-pressed="false">Tools</button>
     <nav id="index-tape" class="index-tape" aria-label="Index futures YM RUT NQ ES">
       <button type="button" class="index-chip" data-index-symbol="YM" aria-label="YM">
@@ -315,6 +316,59 @@
       </details>
     </section>
 
+
+    <section id="view-fibs" class="panel fibs-panel" aria-label="Fibonacci page">
+      <div class="dock-page-head" style="margin-bottom:8px;">
+        <button type="button" class="quiet chart-back" id="fibs-home-tab">Back</button>
+        <h2 style="margin:0;">Fibs</h2>
+      </div>
+      <p class="muted">Page 3 · Back returns home. Own Tools page (not on the main Chart). Thinkorswim retracements + extensions. Auto uses pivot swings; Manual lets you click two candles. ★ marks confluence near the last close. This Fibs Lab desk stays separate from your working bot.</p>
+        <div class="strat-orb-inputs">
+          <label for="fibs-symbol">Market</label>
+          <input id="fibs-symbol" maxlength="16" value="AMD" autocomplete="off">
+          <button id="fibs-run" type="button">Draw Fibs</button>
+          <button id="fibs-use-market" type="button" class="quiet">Use open market</button>
+        </div>
+        <div class="fibs-frame-bar" role="group" aria-label="Fib swing mode">
+          <button type="button" id="fibs-mode-auto" class="on">Auto pivot</button>
+          <button type="button" id="fibs-mode-manual">Manual click</button>
+        </div>
+        <p class="fibs-ext-head">Timeframe</p>
+        <div id="fibs-frames" class="fibs-frame-bar" role="group" aria-label="Fib timeframes">
+          <button type="button" data-fib-frame="1m">1m</button>
+          <button type="button" data-fib-frame="5m">5m</button>
+          <button type="button" data-fib-frame="15m">15m</button>
+          <button type="button" data-fib-frame="30m">30m</button>
+          <button type="button" data-fib-frame="1h">1h</button>
+          <button type="button" data-fib-frame="4h">4h</button>
+          <button type="button" data-fib-frame="1D" class="on">1D</button>
+          <button type="button" data-fib-frame="1W">1W</button>
+          <button type="button" data-fib-frame="1M">1M</button>
+        </div>
+        <p class="fibs-ext-head">Retracements (on/off)
+          <button type="button" id="fibs-ret-all" class="quiet fibs-mini">All</button>
+          <button type="button" id="fibs-ret-none" class="quiet fibs-mini">None</button>
+        </p>
+        <div id="fibs-ret-toggles" class="fibs-toggles"></div>
+        <p class="fibs-ext-head">Extensions · 127.2± · 161.8± · 200± · 261.8±
+          <button type="button" id="fibs-ext-all" class="quiet fibs-mini">All</button>
+          <button type="button" id="fibs-ext-none" class="quiet fibs-mini">None</button>
+        </p>
+        <div id="fibs-ext-toggles" class="fibs-toggles"></div>
+        <p id="fibs-note" class="muted">Press Draw Fibs.</p>
+        <p id="fibs-banner" class="fibs-banner" aria-live="polite">Waiting for AMD…</p>
+        <div class="fibs-chart-box"><canvas id="fibs-chart" width="800" height="400" aria-label="Fibonacci chart"></canvas></div>
+        <section class="scorecard-panel" aria-label="Fib levels">
+          <h3>Visible levels</h3>
+          <div class="table-wrap">
+            <table class="fibs-levels">
+              <thead><tr><th>Level</th><th>Price</th><th>Role</th><th>Desk use</th></tr></thead>
+              <tbody id="fibs-levels"></tbody>
+            </table>
+          </div>
+        </section>
+    </section>
+
     <section id="view-trade" class="panel ticket" aria-label="Session">
       <p id="signal" class="signal">HOLD</p>
       <p id="signal-note" class="muted"></p>
@@ -484,7 +538,7 @@
           <button type="button" class="dock-back quiet">Back to desk</button>
           <h2>Tools</h2>
         </div>
-        <p class="muted">Open a page full-screen. Use Back on that page to return here, then Back to desk for Markets · Chart · Trade.</p>
+        <p class="muted">Open a page full-screen. Use Back on that page to return here, then Back to desk for Markets · Chart · Fibs · Trade.</p>
         <div id="tools-index" class="study-pages tools-index" aria-label="Tools index">
           <button type="button" data-open-dock="strategies">Strategies</button>
           <button type="button" data-open-dock="productscan">Product Scan</button>
@@ -813,59 +867,16 @@ AddOrder(Sell, sellFire);</textarea>
         </section>
       </div>
 
-      <div class="dock-page" data-dock-page="fibs">
+            <div class="dock-page" data-dock-page="fibs">
         <div class="dock-page-head">
           <button type="button" class="dock-back quiet">Home</button>
-          <h2>Fibs Lab</h2>
+          <h2>Fibs</h2>
         </div>
-        <p class="muted">Own Tools page (not on the main Chart). Thinkorswim retracements + extensions. Auto uses pivot swings; Manual lets you click two candles. ★ marks confluence near the last close. This Fibs Lab desk stays separate from your working bot.</p>
-        <div class="strat-orb-inputs">
-          <label for="fibs-symbol">Market</label>
-          <input id="fibs-symbol" maxlength="16" value="AMD" autocomplete="off">
-          <button id="fibs-run" type="button">Draw Fibs</button>
-          <button id="fibs-use-market" type="button" class="quiet">Use open market</button>
-        </div>
-        <div class="fibs-frame-bar" role="group" aria-label="Fib swing mode">
-          <button type="button" id="fibs-mode-auto" class="on">Auto pivot</button>
-          <button type="button" id="fibs-mode-manual">Manual click</button>
-        </div>
-        <p class="fibs-ext-head">Timeframe</p>
-        <div id="fibs-frames" class="fibs-frame-bar" role="group" aria-label="Fib timeframes">
-          <button type="button" data-fib-frame="1m">1m</button>
-          <button type="button" data-fib-frame="5m">5m</button>
-          <button type="button" data-fib-frame="15m">15m</button>
-          <button type="button" data-fib-frame="30m">30m</button>
-          <button type="button" data-fib-frame="1h">1h</button>
-          <button type="button" data-fib-frame="4h">4h</button>
-          <button type="button" data-fib-frame="1D" class="on">1D</button>
-          <button type="button" data-fib-frame="1W">1W</button>
-          <button type="button" data-fib-frame="1M">1M</button>
-        </div>
-        <p class="fibs-ext-head">Retracements (on/off)
-          <button type="button" id="fibs-ret-all" class="quiet fibs-mini">All</button>
-          <button type="button" id="fibs-ret-none" class="quiet fibs-mini">None</button>
-        </p>
-        <div id="fibs-ret-toggles" class="fibs-toggles"></div>
-        <p class="fibs-ext-head">Extensions · 127.2± · 161.8± · 200± · 261.8±
-          <button type="button" id="fibs-ext-all" class="quiet fibs-mini">All</button>
-          <button type="button" id="fibs-ext-none" class="quiet fibs-mini">None</button>
-        </p>
-        <div id="fibs-ext-toggles" class="fibs-toggles"></div>
-        <p id="fibs-note" class="muted">Press Draw Fibs.</p>
-        <p id="fibs-banner" class="fibs-banner" aria-live="polite">Waiting for AMD…</p>
-        <div class="fibs-chart-box"><canvas id="fibs-chart" width="800" height="400" aria-label="Fibonacci chart"></canvas></div>
-        <section class="scorecard-panel" aria-label="Fib levels">
-          <h3>Visible levels</h3>
-          <div class="table-wrap">
-            <table class="fibs-levels">
-              <thead><tr><th>Level</th><th>Price</th><th>Role</th><th>Desk use</th></tr></thead>
-              <tbody id="fibs-levels"></tbody>
-            </table>
-          </div>
-        </section>
+        <p class="muted">Fibs is its own page now — page 3 in the bar (Markets · Chart · <strong>Fibs</strong>). Chart Layers still has Fibs TOS on/off.</p>
+        <button id="fibs-open-page" type="button">Open Fibs page</button>
       </div>
 
-      <div class="dock-page" data-dock-page="internals">
+      <div class="dock-page" data-dock-page="internals"><div class="dock-page" data-dock-page="internals">
         <div class="dock-page-head">
           <button type="button" class="dock-back quiet">Back</button>
           <h2>Market internals</h2>
@@ -1411,6 +1422,7 @@ AddOrder(Sell, sellFire);</textarea>
   <nav class="tabbar" aria-label="Sections">
     <button type="button" data-tab="markets">Markets</button>
     <button type="button" data-tab="chart" class="on">Chart</button>
+    <button type="button" data-tab="fibs">Fibs</button>
     <button type="button" data-tab="trade">Trade</button>
     <button type="button" data-tab="study">Tools</button>
   </nav>
@@ -1458,12 +1470,12 @@ AddOrder(Sell, sellFire);</textarea>
       </div>
     </div>
   </div>
-  <script src="live.js?v=11071"></script>
-  <script src="engine.js?v=11071"></script>
-  <script src="study.js?v=11071"></script>
-  <script src="frames.js?v=11071"></script>
-  <script src="fibs.js?v=11071"></script>
-  <script src="booster.js?v=11071"></script>
-  <script src="app.js?v=11071"></script>
+  <script src="live.js?v=11073"></script>
+  <script src="engine.js?v=11073"></script>
+  <script src="study.js?v=11073"></script>
+  <script src="frames.js?v=11073"></script>
+  <script src="fibs.js?v=11073"></script>
+  <script src="booster.js?v=11073"></script>
+  <script src="app.js?v=11073"></script>
 </body>
 </html>
