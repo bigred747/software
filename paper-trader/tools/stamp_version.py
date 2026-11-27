@@ -159,6 +159,7 @@ def build_zips(version: str) -> None:
         "web/frames.js",
         "web/app.js",
         "web/fibs.js",
+        "web/fibs.test.mjs",
         "web/index.html",
         "web/app.css",
         "web/booster.js",
@@ -238,7 +239,11 @@ def build_fibs_lab_zip(version: str, full_zip: Path) -> None:
     with zipfile.ZipFile(full_zip, "r") as zin, zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED) as zout:
         for info in zin.infolist():
             name = info.filename.replace("\\", "/")
-            if name.endswith("FIBS-LAB.txt") or name.endswith("Start-Fibs-Lab.bat"):
+            if (
+                name.endswith("FIBS-LAB.txt")
+                or name.endswith("Start-Fibs-Lab.bat")
+                or name.endswith("web/fibs.js")
+            ):
                 continue
             zout.writestr(info, zin.read(info.filename))
         for rel in ("FIBS-LAB.txt", "Start-Fibs-Lab.bat", "web/fibs.js"):

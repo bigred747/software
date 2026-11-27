@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090b">
-  <meta name="paper-build" content="1.10.70">
+  <meta name="paper-build" content="1.10.71">
   <meta name="paper-publish" content="20261123T072000Z">
   <meta name="paper-private-build" content="publish-20261123T213700Z">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +19,7 @@
 <body data-tab="chart">
   <header class="top">
     <div class="brand">
-      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.70</span></p>
+      <p class="seal">Paper <span id="build-tag" class="build-tag">1.10.71</span></p>
       <div>
         <p class="eyebrow">Local paper desk</p>
         <h1>Paper Trader</h1>
@@ -818,11 +818,16 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" class="dock-back quiet">Home</button>
           <h2>Fibs Lab</h2>
         </div>
-        <p class="muted">Own Tools page (not on the main Chart). Thinkorswim retracements + extensions. Toggle each line. Pick a timeframe. Defaults to AMD. This Fibs Lab desk runs separate from your working bot.</p>
+        <p class="muted">Own Tools page (not on the main Chart). Thinkorswim retracements + extensions. Auto uses pivot swings; Manual lets you click two candles. ★ marks confluence near the last close. This Fibs Lab desk stays separate from your working bot.</p>
         <div class="strat-orb-inputs">
           <label for="fibs-symbol">Market</label>
           <input id="fibs-symbol" maxlength="16" value="AMD" autocomplete="off">
           <button id="fibs-run" type="button">Draw Fibs</button>
+          <button id="fibs-use-market" type="button" class="quiet">Use open market</button>
+        </div>
+        <div class="fibs-frame-bar" role="group" aria-label="Fib swing mode">
+          <button type="button" id="fibs-mode-auto" class="on">Auto pivot</button>
+          <button type="button" id="fibs-mode-manual">Manual click</button>
         </div>
         <p class="fibs-ext-head">Timeframe</p>
         <div id="fibs-frames" class="fibs-frame-bar" role="group" aria-label="Fib timeframes">
@@ -836,13 +841,19 @@ AddOrder(Sell, sellFire);</textarea>
           <button type="button" data-fib-frame="1W">1W</button>
           <button type="button" data-fib-frame="1M">1M</button>
         </div>
-        <p class="fibs-ext-head">Retracements (on/off)</p>
+        <p class="fibs-ext-head">Retracements (on/off)
+          <button type="button" id="fibs-ret-all" class="quiet fibs-mini">All</button>
+          <button type="button" id="fibs-ret-none" class="quiet fibs-mini">None</button>
+        </p>
         <div id="fibs-ret-toggles" class="fibs-toggles"></div>
-        <p class="fibs-ext-head">Extensions · 127.2± · 161.8± · 200± · 261.8±</p>
+        <p class="fibs-ext-head">Extensions · 127.2± · 161.8± · 200± · 261.8±
+          <button type="button" id="fibs-ext-all" class="quiet fibs-mini">All</button>
+          <button type="button" id="fibs-ext-none" class="quiet fibs-mini">None</button>
+        </p>
         <div id="fibs-ext-toggles" class="fibs-toggles"></div>
         <p id="fibs-note" class="muted">Press Draw Fibs.</p>
         <p id="fibs-banner" class="fibs-banner" aria-live="polite">Waiting for AMD…</p>
-        <div class="fibs-chart-box"><canvas id="fibs-chart" width="800" height="380" aria-label="Fibonacci chart"></canvas></div>
+        <div class="fibs-chart-box"><canvas id="fibs-chart" width="800" height="400" aria-label="Fibonacci chart"></canvas></div>
         <section class="scorecard-panel" aria-label="Fib levels">
           <h3>Visible levels</h3>
           <div class="table-wrap">
@@ -1447,12 +1458,12 @@ AddOrder(Sell, sellFire);</textarea>
       </div>
     </div>
   </div>
-  <script src="live.js?v=11070"></script>
-  <script src="engine.js?v=11070"></script>
-  <script src="study.js?v=11070"></script>
-  <script src="frames.js?v=11070"></script>
-  <script src="fibs.js?v=11070"></script>
-  <script src="booster.js?v=11070"></script>
-  <script src="app.js?v=11070"></script>
+  <script src="live.js?v=11071"></script>
+  <script src="engine.js?v=11071"></script>
+  <script src="study.js?v=11071"></script>
+  <script src="frames.js?v=11071"></script>
+  <script src="fibs.js?v=11071"></script>
+  <script src="booster.js?v=11071"></script>
+  <script src="app.js?v=11071"></script>
 </body>
 </html>
